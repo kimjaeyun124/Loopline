@@ -29,8 +29,8 @@ OpenAI 연결은 Codex app-server의 ChatGPT OAuth 흐름을 사용합니다. ap
 - OpenAI와 Claude 계정·모델 선택
 - 응답 스트리밍, 대화 생성·전환·삭제
 - 브라우저 내 대화 기록 저장
-- Codex app-server 기반 ChatGPT 로그인, 대화 thread 이어하기, 모델·사용량 상태 조회
+- Codex app-server 기반 ChatGPT 로그인, 대화 thread 이어하기, 모델·남은 사용 한도 비율 조회
 - Codex 대화별 읽기 전용 임시 작업 폴더와 사용자 MCP 서버 차단
 - Claude Code CLI 로그인 상태 표시와 계정 오류 안내
 
-계정 연결은 제공자마다 한 개씩 지원합니다. Codex 로그인은 같은 컴퓨터의 Codex CLI와 인증 상태를 공유합니다. 사용량은 해당 구독 계정의 공식 한도를 따르며, 계정 간 자동 전환·파일 업로드·웹 검색 도구는 포함하지 않았습니다. Mosaic에서 Codex 대화를 삭제하면 해당 app-server thread 기록도 삭제됩니다.
+계정 연결은 제공자마다 한 개씩 지원합니다. Codex 로그인은 같은 컴퓨터의 Codex CLI와 인증 상태를 공유하고, app-server가 제공하는 rate limit 창의 남은 비율과 재설정 시각을 표시합니다. Claude Code CLI는 로그인 상태를 확인하며, 플랜 사용량은 Claude Code 내부에서 `/usage`를 실행해 확인해야 합니다. 사용량은 각 구독 계정의 공식 한도를 따르며, 계정 간 자동 전환·파일 업로드·웹 검색 도구는 포함하지 않았습니다. Mosaic에서 Codex 대화를 삭제하면 해당 app-server thread 기록도 삭제됩니다.

@@ -139,6 +139,7 @@ kbd { margin-left: auto; color: #a0a19c; font-family: inherit; font-size: 10px; 
 .connection-details { min-width: 0; }
 .connection-details strong { font-size: 11px; font-weight: 600; }
 .connection-details small { color: #8f918b; font-size: 10px; }
+.connection-details .usage-status { color: #565b52; line-height: 1.5; overflow-wrap: anywhere; }
 .connection-status { padding: 4px 7px; border-radius: 20px; background: #f2f3f0; color: #8b8d87; font-size: 9px; }
 .connection-status.ready { background: #eaf2eb; color: #5d8067; }
 .connection-actions { display: flex; flex: 0 0 auto; flex-direction: column; align-items: flex-end; gap: 5px; }

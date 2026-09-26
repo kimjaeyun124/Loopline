@@ -210,6 +210,28 @@ function updateConnectionControls() {
     installElement.textContent = details.installCommand || '';
     installElement.hidden = details.installed !== false || !details.installCommand;
 
+    const usageElement = document.querySelector(`#${provider === 'openai' ? 'openaiUsage' : 'anthropicUsage'}`);
+    if (provider === 'openai') {
+      const usage = details.usageSummary;
+      if (!details.connected) {
+        usageElement.textContent = 'Codex 사용 한도는 ChatGPT 계정 로그인 후 표시됩니다.';
+      } else if (!usage?.available || !Array.isArray(usage.windows) || usage.windows.length === 0) {
+        usageElement.textContent = 'Codex 사용 한도 정보를 현재 확인할 수 없습니다.';
+      } else {
+        const windows = usage.windows.map((window) => {
+          const duration = formatUsageWindow(window.windowDurationMins, window.period);
+          const resets = formatUsageReset(window.resetsAt);
+          return `${window.limitName || 'Codex'} ${duration}: 남은 ${window.remainingPercent}%${resets ? ` · 재설정 ${resets}` : ''}`;
+        });
+        const restriction = usage.ordinaryUsageAllowed === false ? '일반 사용이 제한됨 · ' : '';
+        usageElement.textContent = `${restriction}${windows.join(' / ')}`;
+      }
+    } else {
+      usageElement.textContent = details.usageSummary?.message || (details.connected
+        ? 'Claude Code에서 /usage를 실행해 플랜 사용량을 확인하세요.'
+        : 'Claude Code CLI 로그인 후 /usage에서 플랜 사용량을 확인하세요.');
+    }
+
     if (details.connected) continue;
     if (job?.output) messages.push(`${PROVIDERS[provider].label} 로그인 안내:\n${job.output.trim()}`);
     else if (job?.state === 'running' || job?.state === 'starting') messages.push(`${PROVIDERS[provider].label} 공식 로그인 창에서 인증을 완료해 주세요.`);
@@ -228,6 +250,32 @@ function updateConnectionControls() {
     feedback.append(link);
   }
   feedback.hidden = messages.length === 0 && !authUrl;
+}
+
+function formatUsageWindow(durationMins, period) {
+  if (Number.isFinite(durationMins) && durationMins >= 10_080 && durationMins % 10_080 === 0) {
+    const weeks = durationMins / 10_080;
+    return weeks === 1 ? '7일 창' : `${weeks}주 창`;
+  }
+  if (Number.isFinite(durationMins) && durationMins >= 1_440 && durationMins % 1_440 === 0) {
+    const days = durationMins / 1_440;
+    return `${days}일 창`;
+  }
+  if (Number.isFinite(durationMins) && durationMins >= 60 && durationMins % 60 === 0) {
+    const hours = durationMins / 60;
+    return `${hours}시간 창`;
+  }
+  if (Number.isFinite(durationMins) && durationMins > 0) return `${durationMins}분 창`;
+  return period === 'secondary' ? '긴 기간 창' : '짧은 기간 창';
+}
+
+function formatUsageReset(resetsAt) {
+  if (!Number.isFinite(resetsAt) || resetsAt <= 0) return '';
+  const date = new Date(resetsAt * 1000);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat('ko-KR', {
+    month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit',
+  }).format(date);
 }
 
 async function refreshStatus() {

@@ -114,6 +114,14 @@ async function providerStatus(provider) {
     connected,
     label: accountLabel,
     installCommand: config.installCommand,
+    usageSummary: {
+      source: 'claude-code-cli',
+      available: false,
+      command: '/usage',
+      message: connected
+        ? 'Claude Code CLI의 /usage에서 플랜 사용 한도를 확인할 수 있습니다.'
+        : 'Claude Code CLI에 로그인한 뒤 /usage에서 플랜 사용 한도를 확인하세요.',
+    },
   };
 }
 
@@ -176,8 +184,23 @@ async function readOpenAiProviderStatus() {
     }
   }
 
+  const buckets = Object.entries(limits?.rateLimitsByLimitId || {});
+  if (buckets.length === 0 && limits?.rateLimits) buckets.push(['codex', limits.rateLimits]);
+  const windows = buckets.flatMap(([limitId, bucket]) => ['primary', 'secondary']
+    .filter((period) => Number.isFinite(bucket?.[period]?.usedPercent))
+    .map((period) => {
+      const window = bucket[period];
+      return {
+        limitId,
+        limitName: bucket.limitName || null,
+        period,
+        usedPercent: window.usedPercent,
+        remainingPercent: Math.max(0, Math.min(100, Math.round(100 - window.usedPercent))),
+        windowDurationMins: Number.isFinite(window.windowDurationMins) ? window.windowDurationMins : null,
+        resetsAt: Number.isFinite(window.resetsAt) ? window.resetsAt : null,
+      };
+    }));
   const primaryLimit = limits?.rateLimitsByLimitId?.codex?.primary || limits?.rateLimits?.primary;
-  const secondaryLimit = limits?.rateLimitsByLimitId?.codex?.secondary || limits?.rateLimits?.secondary;
   const parts = [];
   if (connected) parts.push(account.planType || 'ChatGPT 연결됨');
   if (typeof primaryLimit?.usedPercent === 'number') parts.push(`Codex 사용 ${Math.round(primaryLimit.usedPercent)}%`);
@@ -188,17 +211,11 @@ async function readOpenAiProviderStatus() {
     label: connected ? (parts.join(' · ') || 'ChatGPT 계정 연결됨') : 'ChatGPT 계정 로그인 필요',
     installCommand: providers.openai.installCommand,
     planType: account?.planType || null,
-    rateLimits: connected ? {
-      primary: primaryLimit ? {
-        usedPercent: primaryLimit.usedPercent,
-        windowDurationMins: primaryLimit.windowDurationMins,
-        resetsAt: primaryLimit.resetsAt,
-      } : null,
-      secondary: secondaryLimit ? {
-        usedPercent: secondaryLimit.usedPercent,
-        windowDurationMins: secondaryLimit.windowDurationMins,
-        resetsAt: secondaryLimit.resetsAt,
-      } : null,
+    usageSummary: connected ? {
+      source: 'codex-app-server',
+      available: windows.length > 0,
+      ordinaryUsageAllowed: typeof limits?.ordinaryUsageAllowed === 'boolean' ? limits.ordinaryUsageAllowed : null,
+      windows,
     } : null,
     models,
   };

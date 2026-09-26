@@ -94,16 +94,16 @@
         <p class="modal-description">OpenAI는 Codex app-server의 ChatGPT OAuth 로그인을 사용하고, Claude는 공식 CLI 로그인을 사용합니다. Mosaic 안에서 비밀번호나 인증 토큰을 입력·저장하지 않습니다.</p>
         <div class="connection-row">
           <div class="connection-logo openai-logo">◉</div>
-          <div class="connection-details"><strong>OpenAI · Codex</strong><small id="openaiHelp">ChatGPT 계정으로 Codex app-server에 로그인</small><code class="install-command" id="openaiInstall" hidden></code></div>
+          <div class="connection-details"><strong>OpenAI · Codex</strong><small id="openaiHelp">ChatGPT 계정으로 Codex app-server에 로그인</small><small class="usage-status" id="openaiUsage">Codex 사용 한도 확인 중…</small><code class="install-command" id="openaiInstall" hidden></code></div>
           <div class="connection-actions"><span class="connection-status" id="openaiStatus">확인 중</span><button class="connect-button" id="connectOpenAI" type="button">로그인</button></div>
         </div>
         <div class="connection-row">
           <div class="connection-logo claude-logo">✳</div>
-          <div class="connection-details"><strong>Claude · Claude Code</strong><small id="anthropicHelp">Claude 구독 계정으로 Claude Code에 로그인</small><code class="install-command" id="anthropicInstall" hidden></code></div>
+          <div class="connection-details"><strong>Claude · Claude Code</strong><small id="anthropicHelp">Claude 구독 계정으로 Claude Code에 로그인</small><small class="usage-status" id="anthropicUsage">CLI 로그인 상태 확인 중…</small><code class="install-command" id="anthropicInstall" hidden></code></div>
           <div class="connection-actions"><span class="connection-status" id="anthropicStatus">확인 중</span><button class="connect-button" id="connectClaude" type="button">로그인</button></div>
         </div>
         <div class="login-feedback" id="loginFeedback" hidden></div>
-        <div class="notice-box"><strong>계정 사용량</strong><p>Codex 한도 상태는 app-server에서 확인합니다. 각 계정의 공식 사용량 한도와 정책을 따르며, 한도 초과 시 다른 계정으로 자동 전환하지 않습니다. 연결된 계정 변경은 Codex CLI에서 로그아웃한 뒤 다시 로그인하세요.</p></div>
+        <div class="notice-box"><strong>사용 한도 확인</strong><p>Codex는 app-server가 제공하는 사용 한도 창의 남은 비율과 재설정 시각을 표시합니다. Claude Code CLI는 로그인 상태만 자동 확인할 수 있습니다. Claude 플랜 사용량은 Claude Code에서 <code>/usage</code>를 실행해 확인하세요.</p></div>
         <div class="modal-actions"><button class="secondary-button" id="refreshStatus">연결 상태 새로고침</button><button class="primary-button" id="doneSettings">완료</button></div>
       </section>
     </div>

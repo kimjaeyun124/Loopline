@@ -21,9 +21,14 @@ const PROVIDERS = {
 
 const STORAGE_KEY = 'mosaic-ai.conversations.v1';
 const PREFERENCE_KEY = 'mosaic-ai.preferences.v1';
+const PROJECT_STORAGE_KEY = 'mosaic-ai.projects.v1';
 const state = {
   conversations: loadConversations(),
+  projects: loadProjects(),
   activeId: null,
+  activeProjectId: null,
+  editingProjectId: null,
+  movingConversationId: null,
   provider: 'openai',
   model: 'gpt-5.6',
   providers: {
@@ -42,6 +47,15 @@ state.activeId = [...state.conversations].sort((a, b) => b.updatedAt - a.updated
 const elements = {
   sidebar: document.querySelector('#sidebar'),
   conversationList: document.querySelector('#conversationList'),
+  projectList: document.querySelector('#projectList'),
+  projectModal: document.querySelector('#projectModal'),
+  projectMoveModal: document.querySelector('#projectMoveModal'),
+  projectNameInput: document.querySelector('#projectNameInput'),
+  projectInstructionsInput: document.querySelector('#projectInstructionsInput'),
+  projectMoveSelect: document.querySelector('#projectMoveSelect'),
+  conversationProjectBar: document.querySelector('#conversationProjectBar'),
+  conversationProjectLabel: document.querySelector('#conversationProjectLabel'),
+  conversationProjectAction: document.querySelector('#conversationProjectAction'),
   chatScroll: document.querySelector('#chatScroll'),
   welcome: document.querySelector('#welcome'),
   messages: document.querySelector('#messages'),
@@ -74,12 +88,38 @@ function loadConversations() {
         model: String(item.model || 'gpt-5.6'),
         codexThreadId: typeof item.codexThreadId === 'string' ? item.codexThreadId : null,
         codexAccountId: typeof item.codexAccountId === 'string' ? item.codexAccountId : 'default',
+        projectId: typeof item.projectId === 'string' ? item.projectId : null,
         updatedAt: Number(item.updatedAt) || Date.now(),
         messages: item.messages.filter((message) => ['user', 'assistant'].includes(message?.role) && typeof message.content === 'string')
           .map((message) => ({ role: message.role, content: message.content.slice(0, 40_000) })),
       }));
   } catch {
     return [];
+  }
+}
+
+function loadProjects() {
+  try {
+    const value = JSON.parse(localStorage.getItem(PROJECT_STORAGE_KEY) || '[]');
+    if (!Array.isArray(value)) return [];
+    return value.filter((item) => item && typeof item.id === 'string')
+      .map((item) => ({
+        id: item.id,
+        name: String(item.name || '새 프로젝트').trim().slice(0, 60) || '새 프로젝트',
+        instructions: typeof item.instructions === 'string' ? item.instructions.slice(0, 8000) : '',
+        createdAt: Number(item.createdAt) || Date.now(),
+        updatedAt: Number(item.updatedAt) || Date.now(),
+      }));
+  } catch {
+    return [];
+  }
+}
+
+function saveProjects() {
+  try {
+    localStorage.setItem(PROJECT_STORAGE_KEY, JSON.stringify(state.projects));
+  } catch {
+    showToast('브라우저 저장 공간이 부족해 프로젝트를 저장하지 못했습니다.');
   }
 }
 
@@ -96,6 +136,7 @@ function loadPreferences() {
     const preferences = JSON.parse(localStorage.getItem(PREFERENCE_KEY) || '{}');
     if (Object.hasOwn(PROVIDERS, preferences.provider)) state.provider = preferences.provider;
     if (typeof preferences.codexAccountId === 'string') state.activeCodexAccountId = preferences.codexAccountId;
+    if (typeof preferences.activeProjectId === 'string') state.activeProjectId = preferences.activeProjectId;
     if (PROVIDERS[state.provider].models.some((model) => model.id === preferences.model)) state.model = preferences.model;
   } catch {
     // 기본 모델 설정을 유지합니다.
@@ -107,6 +148,7 @@ function savePreferences() {
     provider: state.provider,
     model: state.model,
     codexAccountId: state.activeCodexAccountId,
+    activeProjectId: state.activeProjectId,
   }));
 }
 
@@ -121,6 +163,7 @@ function createConversation() {
     provider: state.provider,
     model: state.model,
     codexAccountId: state.provider === 'openai' ? state.activeCodexAccountId : 'default',
+    projectId: state.activeProjectId,
     updatedAt: Date.now(),
     messages: [],
   };
@@ -139,13 +182,38 @@ function escapeHtml(value) {
 }
 
 function renderConversationList() {
-  const sorted = [...state.conversations].sort((a, b) => b.updatedAt - a.updatedAt);
+  const sorted = [...state.conversations]
+    .filter((conversation) => !state.activeProjectId || conversation.projectId === state.activeProjectId)
+    .sort((a, b) => b.updatedAt - a.updatedAt);
   elements.conversationList.innerHTML = sorted.map((conversation) => `
     <div class="conversation-row${conversation.id === state.activeId ? ' active' : ''}" data-id="${escapeHtml(conversation.id)}" role="button" tabindex="0" aria-label="${escapeHtml(conversation.title)} 열기">
       <span class="conversation-provider-mark">${PROVIDERS[conversation.provider]?.mark || '◉'}</span>
       <span class="conversation-title">${escapeHtml(conversation.title)}</span>
       <button class="delete-conversation" type="button" data-delete="${escapeHtml(conversation.id)}" aria-label="대화 삭제">×</button>
     </div>`).join('');
+}
+
+function project(projectId) {
+  return state.projects.find((item) => item.id === projectId) || null;
+}
+
+function renderProjectList() {
+  const rows = [`
+    <div class="project-row${state.activeProjectId === null ? ' active' : ''}">
+      <button class="project-select-button" type="button" data-select-project="all"><span class="project-icon">⌂</span><span>모든 대화</span></button>
+    </div>`, ...state.projects.map((item) => `
+    <div class="project-row${item.id === state.activeProjectId ? ' active' : ''}">
+      <button class="project-select-button" type="button" data-select-project="${escapeHtml(item.id)}"><span class="project-icon">▧</span><span class="project-name">${escapeHtml(item.name)}</span><span class="project-count">${state.conversations.filter((conversation) => conversation.projectId === item.id).length}</span></button>
+      <button class="project-edit-button" type="button" data-edit-project="${escapeHtml(item.id)}" aria-label="${escapeHtml(item.name)} 프로젝트 편집" title="프로젝트 편집">•••</button>
+    </div>`)];
+  elements.projectList.innerHTML = rows.join('');
+  const conversation = activeConversation();
+  const projectBar = elements.conversationProjectBar;
+  projectBar.hidden = !conversation;
+  elements.conversationProjectLabel.textContent = conversation?.projectId
+    ? `프로젝트: ${project(conversation.projectId)?.name || '알 수 없는 프로젝트'}`
+    : '프로젝트 미지정';
+  elements.conversationProjectAction.textContent = conversation?.projectId ? '이동 / 해제' : '프로젝트 지정';
 }
 
 function renderSearchResults() {
@@ -226,10 +294,12 @@ function renderCodexAccounts() {
         <small class="usage-status">${escapeHtml(codexUsageText(account))}</small>
         ${!account.installed && account.installCommand ? `<code class="install-command">${escapeHtml(account.installCommand)}</code>` : ''}
       </div>
-      <div class="connection-actions"><span class="connection-status${account.connected ? ' ready' : ''}">${account.connected ? '연결됨' : waiting ? '인증 중' : '로그인 필요'}</span>
+      <div class="connection-actions"><span class="connection-status${account.connected ? ' ready' : ''}">${account.connected ? '연결됨' : waiting ? '인증 중' : account.disconnected ? 'Mosaic 연결 해제됨' : '로그인 필요'}</span>
         ${account.connected
-          ? `<button class="account-use-button" type="button" data-use-codex-account="${escapeHtml(account.id)}"${selected ? ' disabled' : ''}>${selected ? '선택됨' : '사용'}</button>`
-          : `<button class="connect-button" type="button" data-connect-codex-account="${escapeHtml(account.id)}"${!account.installed || waiting ? ' disabled' : ''}>${loginLabel}</button>`}
+          ? `<div class="account-button-group"><button class="account-use-button" type="button" data-use-codex-account="${escapeHtml(account.id)}"${selected ? ' disabled' : ''}>${selected ? '선택됨' : '사용'}</button><button class="account-unlink-button" type="button" data-disconnect-codex-account="${escapeHtml(account.id)}">연결 해제</button></div>`
+          : waiting
+            ? `<button class="account-cancel-button" type="button" data-cancel-codex-login="${escapeHtml(account.id)}">로그인 취소</button>`
+            : `<div class="account-button-group"><button class="connect-button" type="button" data-connect-codex-account="${escapeHtml(account.id)}"${!account.installed ? ' disabled' : ''}>${account.disconnected ? '다시 연결' : loginLabel}</button>${!account.disconnected ? `<button class="account-unlink-button" type="button" data-disconnect-codex-account="${escapeHtml(account.id)}">연결 해제</button>` : ''}</div>`}
       </div>
     </article>`;
   }).join('');
@@ -268,14 +338,24 @@ function renderModelSelect() {
 }
 
 function render() {
+  if (state.activeProjectId && !project(state.activeProjectId)) state.activeProjectId = null;
+  if (state.activeId && state.activeProjectId && activeConversation()?.projectId !== state.activeProjectId) {
+    state.activeId = [...state.conversations]
+      .filter((conversation) => conversation.projectId === state.activeProjectId)
+      .sort((a, b) => b.updatedAt - a.updatedAt)[0]?.id || null;
+  }
   renderConversationList();
+  renderProjectList();
   renderMessages();
   renderCodexAccounts();
   renderCodexAccountSelect();
   renderModelSelect();
   document.querySelector('#connectionSummary').textContent = connectionSummary();
   const conversation = activeConversation();
-  document.querySelector('#modeLabel').textContent = conversation?.messages.length ? conversation.title : '새 대화';
+  const activeProject = project(conversation?.projectId || state.activeProjectId);
+  document.querySelector('#modeLabel').textContent = conversation?.messages.length
+    ? conversation.title
+    : activeProject ? `${activeProject.name} · 새 대화` : '새 대화';
   if (!elements.searchModal.hidden) renderSearchResults();
 }
 
@@ -375,7 +455,9 @@ async function refreshStatus() {
     state.providers = status.providers || state.providers;
     state.loginJobs = status.loginJobs || {};
     state.codexAccounts = Array.isArray(status.codexAccounts) ? status.codexAccounts : [];
-    if (!state.codexAccounts.some((account) => account.id === state.activeCodexAccountId)) state.activeCodexAccountId = 'default';
+    if (!state.codexAccounts.some((account) => account.id === state.activeCodexAccountId && account.connected)) {
+      state.activeCodexAccountId = state.codexAccounts.find((account) => account.id !== state.activeCodexAccountId && account.connected)?.id || 'default';
+    }
     const defaultModels = state.codexAccounts.find((account) => account.id === 'default')?.models;
     if (Array.isArray(defaultModels) && defaultModels.length) {
       PROVIDERS.openai.models = defaultModels.map((model) => ({ id: model.id, label: model.label }));
@@ -474,6 +556,144 @@ async function connectCodexAccount(accountId = null) {
     renderCodexAccounts();
   }
   await refreshStatus();
+}
+
+async function updateCodexAccountLink(accountId, action) {
+  const account = state.codexAccounts.find((item) => item.id === accountId);
+  if (!account) return;
+  if (action === 'disconnect') {
+    const impact = account.isDefault
+      ? '기본 계정이 Mosaic 안에서만 사용되지 않게 됩니다. 공유 중인 ~/.codex 인증, Codex CLI 로그인과 원본 기록은 변경하지 않습니다.'
+      : '이 앱에서만 사용되지 않게 됩니다. 계정별 프로필 폴더, 인증 상태와 원본 기록은 보존합니다.';
+    if (!window.confirm(`${account.name}을 Mosaic에서 연결 해제할까요?\n\n${impact}\n\n이 작업은 로그아웃하거나 데이터를 삭제하지 않습니다.`)) return;
+  }
+  const label = action === 'cancel' ? '로그인 취소' : '연결 해제';
+  try {
+    const response = await fetch(`/api/codex/accounts/${encodeURIComponent(accountId)}/${action}`, { method: 'POST' });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || `${label}에 실패했습니다.`);
+    if (action === 'disconnect' && accountId === state.activeCodexAccountId) {
+      state.activeCodexAccountId = state.codexAccounts.find((item) => item.id !== accountId && item.connected)?.id || 'default';
+      savePreferences();
+    }
+    if (action === 'cancel') delete state.loginUrls[`openai:${accountId}`];
+    showToast(action === 'cancel' ? 'Codex OAuth 로그인 요청을 취소했습니다.' : 'Mosaic에서만 Codex 연결을 해제했습니다. 인증 및 원본 기록은 그대로 보존됩니다.');
+    await refreshStatus();
+  } catch (error) {
+    showToast(error.message || `${label}에 실패했습니다.`);
+  }
+}
+
+function activeProjectInstructions() {
+  const conversation = activeConversation();
+  const projectId = conversation?.projectId || state.activeProjectId;
+  return project(projectId)?.instructions || '';
+}
+
+function openProjectEditor(projectId = null) {
+  const item = project(projectId);
+  state.editingProjectId = item?.id || null;
+  document.querySelector('#projectModalTitle').textContent = item ? '프로젝트 편집' : '프로젝트 만들기';
+  elements.projectNameInput.value = item?.name || '';
+  elements.projectInstructionsInput.value = item?.instructions || '';
+  document.querySelector('#deleteProjectButton').hidden = !item;
+  elements.projectModal.hidden = false;
+  elements.projectNameInput.focus();
+}
+
+function closeProjectEditor() {
+  elements.projectModal.hidden = true;
+  state.editingProjectId = null;
+}
+
+function saveProjectEditor() {
+  const name = elements.projectNameInput.value.trim();
+  if (!name) {
+    elements.projectNameInput.focus();
+    showToast('프로젝트 이름을 입력해 주세요.');
+    return;
+  }
+  const instructions = elements.projectInstructionsInput.value.trim().slice(0, 8000);
+  const now = Date.now();
+  if (state.editingProjectId) {
+    const item = project(state.editingProjectId);
+    if (!item) return closeProjectEditor();
+    item.name = name.slice(0, 60);
+    item.instructions = instructions;
+    item.updatedAt = now;
+  } else {
+    const item = { id: crypto.randomUUID(), name: name.slice(0, 60), instructions, createdAt: now, updatedAt: now };
+    state.projects.unshift(item);
+    state.activeProjectId = item.id;
+    state.activeId = null;
+  }
+  saveProjects();
+  savePreferences();
+  closeProjectEditor();
+  render();
+}
+
+function deleteActiveProject() {
+  const item = project(state.editingProjectId);
+  if (!item || !window.confirm(`“${item.name}” 프로젝트를 삭제할까요?\n프로젝트에 속한 대화는 삭제되지 않고 ‘모든 대화’로 이동합니다.`)) return;
+  for (const conversation of state.conversations) {
+    if (conversation.projectId === item.id) conversation.projectId = null;
+  }
+  state.projects = state.projects.filter((candidate) => candidate.id !== item.id);
+  if (state.activeProjectId === item.id) state.activeProjectId = null;
+  saveProjects();
+  saveConversations();
+  savePreferences();
+  closeProjectEditor();
+  render();
+}
+
+function selectProject(projectId) {
+  state.activeProjectId = projectId && project(projectId) ? projectId : null;
+  const nextConversation = [...state.conversations]
+    .filter((conversation) => !state.activeProjectId || conversation.projectId === state.activeProjectId)
+    .sort((a, b) => b.updatedAt - a.updatedAt)[0];
+  if (nextConversation) {
+    selectConversation(nextConversation);
+    // Opening the most recent conversation normally selects its project. The
+    // all-conversations view is an explicit filter and must remain unfiltered.
+    if (!projectId) {
+      state.activeProjectId = null;
+      savePreferences();
+      render();
+    }
+  } else {
+    state.activeId = null;
+    savePreferences();
+    render();
+  }
+}
+
+function openProjectMove(conversationId = state.activeId) {
+  const conversation = state.conversations.find((item) => item.id === conversationId);
+  if (!conversation) return;
+  state.movingConversationId = conversation.id;
+  elements.projectMoveSelect.innerHTML = '<option value="">프로젝트 미지정</option>' + state.projects
+    .map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.name)}</option>`).join('');
+  elements.projectMoveSelect.value = project(conversation.projectId) ? conversation.projectId : '';
+  elements.projectMoveModal.hidden = false;
+}
+
+function closeProjectMove() {
+  elements.projectMoveModal.hidden = true;
+  state.movingConversationId = null;
+}
+
+function moveConversationToProject() {
+  const conversation = state.conversations.find((item) => item.id === state.movingConversationId);
+  if (!conversation) return closeProjectMove();
+  conversation.projectId = project(elements.projectMoveSelect.value) ? elements.projectMoveSelect.value : null;
+  state.activeId = conversation.id;
+  state.activeProjectId = conversation.projectId;
+  saveConversations();
+  savePreferences();
+  closeProjectMove();
+  render();
 }
 
 function safeChatGptAuthUrl(value) {
@@ -648,6 +868,7 @@ async function sendMessage(value) {
   elements.sendButton.setAttribute('aria-label', '응답 중지');
 
   const messages = conversation.messages.filter((item) => !item.pending).map(({ role, content }) => ({ role, content }));
+  const projectInstructions = activeProjectInstructions();
   try {
     const response = await fetch('/api/chat', {
       method: 'POST',
@@ -656,6 +877,7 @@ async function sendMessage(value) {
         provider: state.provider,
         model: state.model,
         ...(state.provider === 'openai' ? { codexAccountId: conversation.codexAccountId || 'default' } : {}),
+        ...(projectInstructions ? { projectInstructions } : {}),
         messages,
         ...(state.provider === 'openai' && conversation.codexThreadId ? { codexThreadId: conversation.codexThreadId } : {}),
       }),
@@ -714,6 +936,7 @@ function selectConversation(conversation) {
     return false;
   }
   state.activeId = conversation.id;
+  state.activeProjectId = project(conversation.projectId) ? conversation.projectId : null;
   state.provider = conversation.provider;
   if (state.provider === 'openai') {
     state.activeCodexAccountId = state.codexAccounts.some((account) => account.id === conversation.codexAccountId)
@@ -741,6 +964,24 @@ function closeMobileSidebar() {
 }
 
 document.querySelector('#newChatButton').addEventListener('click', createConversation);
+document.querySelector('#addProjectButton').addEventListener('click', () => openProjectEditor());
+document.querySelector('#saveProjectButton').addEventListener('click', saveProjectEditor);
+document.querySelector('#cancelProjectModal').addEventListener('click', closeProjectEditor);
+document.querySelector('#closeProjectModal').addEventListener('click', closeProjectEditor);
+document.querySelector('#deleteProjectButton').addEventListener('click', deleteActiveProject);
+elements.projectList.addEventListener('click', (event) => {
+  const editButton = event.target.closest('[data-edit-project]');
+  if (editButton) {
+    openProjectEditor(editButton.dataset.editProject);
+    return;
+  }
+  const selectButton = event.target.closest('[data-select-project]');
+  if (selectButton) selectProject(selectButton.dataset.selectProject === 'all' ? null : selectButton.dataset.selectProject);
+});
+elements.conversationProjectAction.addEventListener('click', () => openProjectMove());
+document.querySelector('#saveProjectMove').addEventListener('click', moveConversationToProject);
+document.querySelector('#cancelProjectMove').addEventListener('click', closeProjectMove);
+document.querySelector('#closeProjectMoveModal').addEventListener('click', closeProjectMove);
 document.querySelector('#searchChatButton').addEventListener('click', showSearch);
 document.querySelector('#sidebarToggle').addEventListener('click', () => elements.sidebar.classList.toggle('collapsed'));
 document.querySelector('#mobileMenu').addEventListener('click', () => elements.sidebar.classList.toggle('mobile-open'));
@@ -759,12 +1000,20 @@ elements.codexAccountsList.addEventListener('click', (event) => {
   }
   const useButton = event.target.closest('[data-use-codex-account]');
   if (useButton) setCodexAccount(useButton.dataset.useCodexAccount);
+  const cancelButton = event.target.closest('[data-cancel-codex-login]');
+  if (cancelButton) updateCodexAccountLink(cancelButton.dataset.cancelCodexLogin, 'cancel');
+  const disconnectButton = event.target.closest('[data-disconnect-codex-account]');
+  if (disconnectButton) updateCodexAccountLink(disconnectButton.dataset.disconnectCodexAccount, 'disconnect');
 });
 elements.settingsModal.addEventListener('click', (event) => { if (event.target === elements.settingsModal) hideSettings(); });
+elements.projectModal.addEventListener('click', (event) => { if (event.target === elements.projectModal) closeProjectEditor(); });
+elements.projectMoveModal.addEventListener('click', (event) => { if (event.target === elements.projectMoveModal) closeProjectMove(); });
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
     if (!elements.searchModal.hidden) hideSearch();
     hideSettings();
+    closeProjectEditor();
+    closeProjectMove();
     elements.providerMenu.hidden = true;
     closeMobileSidebar();
   }

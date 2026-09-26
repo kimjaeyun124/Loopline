@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 const APP_NAME = 'Mosaic Desk';
 const EXTERNAL_AUTH_HOSTS = new Set(['auth.openai.com', 'chatgpt.com']);
-const BACKEND_PORT = '41743';
+const BACKEND_PORT = process.env.MOSAIC_DESKTOP_PORT || '41743';
 const desktopDir = dirname(fileURLToPath(import.meta.url));
 let backendProcess = null;
 let backendUrl = null;

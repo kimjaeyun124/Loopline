@@ -27,7 +27,11 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.3"/><path d="m15.5 15.5 4.2 4.2"/></svg>
           <span>대화 검색</span><kbd>⌘ K</kbd>
         </button>
-        <div class="sidebar-label">최근</div>
+        <section class="projects-panel" aria-label="프로젝트">
+          <div class="projects-heading"><span>Projects</span><button class="project-add-button" id="addProjectButton" type="button" aria-label="프로젝트 만들기" title="프로젝트 만들기">＋</button></div>
+          <nav class="project-list" id="projectList" aria-label="프로젝트 목록"></nav>
+        </section>
+        <div class="sidebar-label">대화</div>
         <nav class="conversation-list" id="conversationList" aria-label="대화 목록"></nav>
         <div class="sidebar-bottom">
           <button class="account-card" id="settingsButton">
@@ -64,6 +68,11 @@
           </div>
           <div class="messages" id="messages" aria-live="polite"></div>
         </section>
+
+        <div class="conversation-project-bar" id="conversationProjectBar" hidden>
+          <span id="conversationProjectLabel"></span>
+          <button class="text-button" id="conversationProjectAction" type="button">프로젝트 지정</button>
+        </div>
 
         <footer class="composer-wrap">
           <form class="composer" id="composerForm">
@@ -107,10 +116,28 @@
       </section>
     </div>
 
+    <div class="modal-backdrop" id="projectModal" hidden>
+      <section class="project-modal" role="dialog" aria-modal="true" aria-labelledby="projectModalTitle">
+        <div class="modal-header"><div><p class="eyebrow">Projects</p><h2 id="projectModalTitle">프로젝트 만들기</h2></div><button class="icon-button close-modal" id="closeProjectModal" type="button" aria-label="닫기">×</button></div>
+        <label class="project-field"><span>프로젝트 이름</span><input id="projectNameInput" type="text" maxlength="60" placeholder="예: 웹사이트 리뉴얼" /></label>
+        <label class="project-field"><span>프로젝트 지침 <small>프로젝트 대화의 AI 응답에 포함됩니다.</small></span><textarea id="projectInstructionsInput" rows="6" maxlength="8000" placeholder="예: 답변은 한국어로 작성하고, 변경 전 영향 범위를 먼저 설명해 주세요."></textarea></label>
+        <div class="project-modal-actions"><button class="danger-button" id="deleteProjectButton" type="button" hidden>프로젝트 삭제</button><span></span><button class="secondary-button" id="cancelProjectModal" type="button">취소</button><button class="primary-button" id="saveProjectButton" type="button">저장</button></div>
+      </section>
+    </div>
+
+    <div class="modal-backdrop" id="projectMoveModal" hidden>
+      <section class="project-modal project-move-modal" role="dialog" aria-modal="true" aria-labelledby="projectMoveTitle">
+        <div class="modal-header"><div><p class="eyebrow">Projects</p><h2 id="projectMoveTitle">대화 분류</h2></div><button class="icon-button close-modal" id="closeProjectMoveModal" type="button" aria-label="닫기">×</button></div>
+        <label class="project-field"><span>프로젝트 선택</span><select id="projectMoveSelect"></select></label>
+        <div class="project-modal-actions"><span></span><button class="secondary-button" id="cancelProjectMove" type="button">취소</button><button class="primary-button" id="saveProjectMove" type="button">저장</button></div>
+      </section>
+    </div>
+
     <div class="modal-backdrop" id="settingsModal" hidden>
       <section class="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
         <div class="modal-header"><div><p class="eyebrow">연결 설정</p><h2 id="settingsTitle">계정 및 연결</h2></div><button class="icon-button close-modal" id="closeSettings" aria-label="닫기">×</button></div>
         <p class="modal-description">Codex app-server가 ChatGPT OAuth 로그인과 계정별 토큰 저장·갱신을 관리합니다. Claude는 공식 Claude Code CLI 로그인을 사용합니다. Mosaic에 비밀번호나 API 키를 입력하지 않습니다.</p>
+        <p class="modal-description security-description">연결 해제는 Mosaic 앱 안에서만 해당 계정을 숨깁니다. Codex CLI 인증, CODEX_HOME, OAuth 토큰과 Codex 기록은 로그아웃하거나 삭제하지 않습니다.</p>
         <div class="codex-account-section">
           <div class="codex-account-heading"><div><strong>Codex 계정</strong><small>계정별 로그인과 사용 한도를 관리합니다.</small></div><button class="add-account-button" id="addCodexAccount" type="button">＋ 계정 추가</button></div>
           <div class="codex-account-list" id="codexAccountsList"></div>

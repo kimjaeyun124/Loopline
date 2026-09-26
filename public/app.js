@@ -50,6 +50,10 @@ const elements = {
   providerSelectButton: document.querySelector('#providerSelectButton'),
   providerMenu: document.querySelector('#providerMenu'),
   settingsModal: document.querySelector('#settingsModal'),
+  searchModal: document.querySelector('#searchModal'),
+  searchInput: document.querySelector('#searchInput'),
+  searchResults: document.querySelector('#searchResults'),
+  searchEmpty: document.querySelector('#searchEmpty'),
   toast: document.querySelector('#toast'),
 };
 
@@ -132,6 +136,23 @@ function renderConversationList() {
     </div>`).join('');
 }
 
+function renderSearchResults() {
+  const query = elements.searchInput.value.trim().toLocaleLowerCase('ko-KR');
+  const matches = [...state.conversations]
+    .sort((a, b) => b.updatedAt - a.updatedAt)
+    .filter((conversation) => !query || `${conversation.title} ${conversation.messages.map((message) => message.content).join(' ')}`
+      .toLocaleLowerCase('ko-KR').includes(query))
+    .slice(0, 12);
+
+  elements.searchResults.innerHTML = matches.map((conversation) => `
+    <button class="search-result${conversation.id === state.activeId ? ' active' : ''}" type="button" role="option" aria-selected="${conversation.id === state.activeId}" data-search-id="${escapeHtml(conversation.id)}">
+      <span class="search-result-icon">${PROVIDERS[conversation.provider]?.mark || '◉'}</span>
+      <span class="search-result-copy"><strong>${escapeHtml(conversation.title)}</strong><small>${escapeHtml(conversation.messages.find((message) => message.role === 'user')?.content || '아직 메시지가 없습니다.')}</small></span>
+    </button>`).join('');
+  elements.searchEmpty.hidden = matches.length > 0;
+  elements.searchResults.hidden = matches.length === 0;
+}
+
 function renderMessages() {
   const conversation = activeConversation();
   const messages = conversation?.messages || [];
@@ -177,6 +198,9 @@ function render() {
   renderMessages();
   renderModelSelect();
   document.querySelector('#connectionSummary').textContent = connectionSummary();
+  const conversation = activeConversation();
+  document.querySelector('#modeLabel').textContent = conversation?.messages.length ? conversation.title : '새 대화';
+  if (!elements.searchModal.hidden) renderSearchResults();
 }
 
 function connectionSummary() {
@@ -512,6 +536,34 @@ function showSettings() {
   document.querySelector('#closeSettings').focus();
 }
 
+function showSearch() {
+  elements.searchModal.hidden = false;
+  elements.searchInput.value = '';
+  renderSearchResults();
+  requestAnimationFrame(() => elements.searchInput.focus());
+}
+
+function hideSearch() {
+  elements.searchModal.hidden = true;
+  elements.searchInput.value = '';
+}
+
+function selectConversation(conversation) {
+  if (state.busy) {
+    showToast('응답이 끝난 뒤 대화를 전환해 주세요.');
+    return false;
+  }
+  state.activeId = conversation.id;
+  state.provider = conversation.provider;
+  state.model = PROVIDERS[state.provider].models.some((model) => model.id === conversation.model)
+    ? conversation.model
+    : PROVIDERS[state.provider].models[0].id;
+  savePreferences();
+  render();
+  closeMobileSidebar();
+  return true;
+}
+
 function hideSettings() {
   elements.settingsModal.hidden = true;
   clearInterval(statusPollTimer);
@@ -523,6 +575,7 @@ function closeMobileSidebar() {
 }
 
 document.querySelector('#newChatButton').addEventListener('click', createConversation);
+document.querySelector('#searchChatButton').addEventListener('click', showSearch);
 document.querySelector('#sidebarToggle').addEventListener('click', () => elements.sidebar.classList.toggle('collapsed'));
 document.querySelector('#mobileMenu').addEventListener('click', () => elements.sidebar.classList.toggle('mobile-open'));
 document.querySelector('#settingsButton').addEventListener('click', showSettings);
@@ -535,14 +588,31 @@ document.querySelector('#connectClaude').addEventListener('click', () => connect
 elements.settingsModal.addEventListener('click', (event) => { if (event.target === elements.settingsModal) hideSettings(); });
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
+    if (!elements.searchModal.hidden) hideSearch();
     hideSettings();
     elements.providerMenu.hidden = true;
     closeMobileSidebar();
   }
   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
     event.preventDefault();
+    showSearch();
+  }
+  if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'n') {
+    event.preventDefault();
+    hideSearch();
     createConversation();
   }
+});
+
+elements.searchInput.addEventListener('input', renderSearchResults);
+elements.searchModal.addEventListener('click', (event) => {
+  if (event.target === elements.searchModal) hideSearch();
+});
+elements.searchResults.addEventListener('click', (event) => {
+  const result = event.target.closest('[data-search-id]');
+  if (!result) return;
+  const conversation = state.conversations.find((item) => item.id === result.dataset.searchId);
+  if (conversation && selectConversation(conversation)) hideSearch();
 });
 
 elements.conversationList.addEventListener('click', (event) => {
@@ -574,18 +644,7 @@ elements.conversationList.addEventListener('click', (event) => {
   if (!row) return;
   const conversation = state.conversations.find((item) => item.id === row.dataset.id);
   if (!conversation) return;
-  if (state.busy) {
-    showToast('응답이 끝난 뒤 대화를 전환해 주세요.');
-    return;
-  }
-  state.activeId = conversation.id;
-  state.provider = conversation.provider;
-  state.model = PROVIDERS[state.provider].models.some((model) => model.id === conversation.model)
-    ? conversation.model
-    : PROVIDERS[state.provider].models[0].id;
-  savePreferences();
-  render();
-  closeMobileSidebar();
+  selectConversation(conversation);
 });
 elements.conversationList.addEventListener('keydown', (event) => {
   if ((event.key === 'Enter' || event.key === ' ') && event.target.matches('.conversation-row')) event.target.click();

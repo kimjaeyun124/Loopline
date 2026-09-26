@@ -21,9 +21,13 @@
           </button>
         </div>
         <button class="new-chat-button" id="newChatButton">
-          <span class="plus-icon">＋</span><span>새 대화</span><kbd>⌘ K</kbd>
+          <span class="plus-icon">＋</span><span>새 대화</span><kbd>⌘ N</kbd>
         </button>
-        <div class="sidebar-label">최근 대화</div>
+        <button class="search-chat-button" id="searchChatButton" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.3"/><path d="m15.5 15.5 4.2 4.2"/></svg>
+          <span>대화 검색</span><kbd>⌘ K</kbd>
+        </button>
+        <div class="sidebar-label">최근</div>
         <nav class="conversation-list" id="conversationList" aria-label="대화 목록"></nav>
         <div class="sidebar-bottom">
           <button class="account-card" id="settingsButton">
@@ -37,7 +41,7 @@
       <main class="main-panel">
         <header class="topbar">
           <button class="mobile-menu icon-button" id="mobileMenu" aria-label="대화 목록 열기">☰</button>
-          <div class="mode-label"><span class="mode-dot"></span> Chat</div>
+          <div class="mode-label"><span class="mode-dot"></span><span id="modeLabel">새 대화</span></div>
           <div class="topbar-actions">
             <button class="icon-button" id="settingsButtonTop" title="연결 설정" aria-label="연결 설정">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.25a3.75 3.75 0 1 0 0 7.5 3.75 3.75 0 0 0 0-7.5Z"/><path d="m19.4 15 .05.04a1.7 1.7 0 1 1-2.4 2.4l-.04-.05a1.7 1.7 0 0 0-2.9 1.2v.15a1.7 1.7 0 1 1-3.4 0v-.08a1.7 1.7 0 0 0-2.9-1.2l-.05.05a1.7 1.7 0 1 1-2.4-2.4l.05-.04a1.7 1.7 0 0 0-1.2-2.9h-.15a1.7 1.7 0 1 1 0-3.4h.08a1.7 1.7 0 0 0 1.2-2.9l-.05-.05a1.7 1.7 0 1 1 2.4-2.4l.04.05a1.7 1.7 0 0 0 2.9-1.2v-.15a1.7 1.7 0 1 1 3.4 0v.08a1.7 1.7 0 0 0 2.9 1.2l.05-.05a1.7 1.7 0 1 1 2.4 2.4l-.05.04a1.7 1.7 0 0 0 1.2 2.9h.15a1.7 1.7 0 1 1 0 3.4h-.08a1.7 1.7 0 0 0-1.2 2.9Z"/></svg>
@@ -86,6 +90,20 @@
           <p class="disclaimer">AI 응답은 부정확할 수 있습니다. 중요한 내용은 확인해 주세요.</p>
         </footer>
       </main>
+    </div>
+
+    <div class="search-backdrop" id="searchModal" hidden>
+      <section class="search-dialog" role="dialog" aria-modal="true" aria-labelledby="searchTitle">
+        <label class="search-field" for="searchInput">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.3"/><path d="m15.5 15.5 4.2 4.2"/></svg>
+          <input id="searchInput" type="search" autocomplete="off" placeholder="대화 검색" />
+          <kbd>ESC</kbd>
+        </label>
+        <div class="search-results-heading" id="searchTitle">최근 대화</div>
+        <div class="search-results" id="searchResults" role="listbox" aria-label="검색 결과"></div>
+        <div class="search-empty" id="searchEmpty" hidden>검색 결과가 없습니다.</div>
+        <div class="search-hint">대화 제목과 메시지 내용에서 검색합니다.</div>
+      </section>
     </div>
 
     <div class="modal-backdrop" id="settingsModal" hidden>

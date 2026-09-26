@@ -42,6 +42,8 @@ OpenAI 연결은 Codex app-server의 ChatGPT OAuth 흐름을 사용합니다. ap
 - 응답 스트리밍, 대화 생성·전환·삭제
 - Mosaic Desk 앱 창의 대화 기록 저장
 - Projects 생성·이름 변경·삭제, 대화 배정·이동·해제 및 프로젝트 지침 적용
+- ChatGPT·Claude 내보내기 ZIP/JSON에서 프로젝트, 텍스트 지침·자료와 대화 기록 가져오기
+- Codex Fast 모드: 낮은 추론 단계를 사용하고 모델이 제공하는 경우 Fast 서비스 티어 요청
 - 여러 Codex 계정의 ChatGPT OAuth 로그인, 계정별 모델·남은 사용 한도 조회 및 계정 선택
 - OAuth 로그인 취소와 Mosaic 앱 내부 연결 해제
 - Codex app-server 기반 대화 thread 이어하기와 한도 초과 시 다른 계정으로 재시도
@@ -50,4 +52,6 @@ OpenAI 연결은 Codex app-server의 ChatGPT OAuth 흐름을 사용합니다. ap
 
 기본 Codex 계정은 같은 컴퓨터의 Codex CLI와 인증 상태 및 thread 기록을 공유합니다. 추가 계정은 macOS의 앱 데이터 폴더 아래 계정별 `CODEX_HOME`으로 격리하며, 인증 파일을 복사하지 않습니다. 각 Codex 계정의 app-server가 제공하는 사용 한도 창의 남은 비율과 재설정 시각을 표시합니다. 사용 한도 초과가 app-server 응답에서 확인되면 남은 한도가 있는 연결 계정에서 같은 대화 내용을 새 thread로 재시도합니다. 인증 실패, 네트워크 오류, 모델 사용 불가 오류는 계정을 바꾸어 재시도하지 않습니다. Claude Code CLI는 로그인 상태를 확인하며, 플랜 사용량은 Claude Code 내부에서 `/usage`를 실행해 확인해야 합니다. Codex app-server의 프로토콜 상태와 호환성은 [공식 문서](https://learn.chatgpt.com/docs/app-server)를 확인해 주세요. Mosaic에서 Codex 대화를 삭제하면 해당 계정의 app-server thread 기록도 삭제됩니다.
 
-Projects는 대화와 프로젝트 지침을 앱 창의 `localStorage`에 저장합니다. 프로젝트를 삭제해도 해당 대화는 보존되고 ‘모든 대화’로 이동합니다. Codex 연결 해제는 Mosaic 안에서 계정을 숨기는 동작이며 OAuth 인증, `CODEX_HOME`, Codex CLI 로그인과 원본 thread 기록을 로그아웃하거나 삭제하지 않습니다. 진행 중인 응답이 있으면 연결 해제가 거부됩니다.
+Projects는 대화와 프로젝트 지침을 앱 창의 `localStorage`에 저장합니다. 사이드바의 아래 화살표에서 ChatGPT 또는 Claude 계정 설정의 데이터 내보내기로 받은 ZIP이나 JSON 파일을 고르면 파일을 이 Mac에서 읽고, 가져오기 전에 서비스와 자료 수를 확인합니다. 가져온 프로젝트 지침과 텍스트 자료는 이후 응답 문맥에 포함되며, 대화는 원본 서비스 ID를 사용해 반복 가져오기에서 중복을 건너뜁니다. 첨부 파일 바이너리는 가져오지 않습니다. 현재 로컬 저장 방식에 맞춰 파일은 256MB, 개별 JSON은 64MB, ZIP 안의 JSON 총량은 128MB 이하로 제한하고, 기존 대화를 포함한 앱 저장 데이터가 약 3.8MB를 넘을 것으로 예상되면 저장하지 않습니다. ChatGPT 내보내기에 원래 Projects 정보가 포함되지 않은 경우 해당 대화는 가져오기 프로젝트로 묶입니다.
+
+Codex Fast 토글은 모델이 지원하는 경우 낮은 추론 단계를 적용합니다. 모델 목록에서 Fast 서비스 티어를 제공한다고 알리는 경우에만 그 티어도 요청합니다. 티어 정보가 없는 모델은 낮은 추론 단계만 사용하며, 이 앱은 서버가 실제로 처리한 속도 티어의 별도 확인 신호를 제공하지 않습니다. Claude에서는 Fast 토글을 사용하지 않습니다. 프로젝트를 삭제해도 해당 대화는 보존되고 ‘모든 대화’로 이동합니다. Codex 연결 해제는 Mosaic 안에서 계정을 숨기는 동작이며 OAuth 인증, `CODEX_HOME`, Codex CLI 로그인과 원본 thread 기록을 로그아웃하거나 삭제하지 않습니다. 진행 중인 응답이 있으면 연결 해제가 거부됩니다.

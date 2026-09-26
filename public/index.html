@@ -42,7 +42,7 @@
             <button class="icon-button" id="settingsButtonTop" title="연결 설정" aria-label="연결 설정">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.25a3.75 3.75 0 1 0 0 7.5 3.75 3.75 0 0 0 0-7.5Z"/><path d="m19.4 15 .05.04a1.7 1.7 0 1 1-2.4 2.4l-.04-.05a1.7 1.7 0 0 0-2.9 1.2v.15a1.7 1.7 0 1 1-3.4 0v-.08a1.7 1.7 0 0 0-2.9-1.2l-.05.05a1.7 1.7 0 1 1-2.4-2.4l.05-.04a1.7 1.7 0 0 0-1.2-2.9h-.15a1.7 1.7 0 1 1 0-3.4h.08a1.7 1.7 0 0 0 1.2-2.9l-.05-.05a1.7 1.7 0 1 1 2.4-2.4l.04.05a1.7 1.7 0 0 0 2.9-1.2v-.15a1.7 1.7 0 1 1 3.4 0v.08a1.7 1.7 0 0 0 2.9 1.2l.05-.05a1.7 1.7 0 1 1 2.4 2.4l-.05.04a1.7 1.7 0 0 0 1.2 2.9h.15a1.7 1.7 0 1 1 0 3.4h-.08a1.7 1.7 0 0 0-1.2 2.9Z"/></svg>
             </button>
-            <div class="provider-pill" title="공식 API로 연결됩니다"><span class="provider-dot" id="providerDot"></span><span id="providerPillText">OpenAI API</span></div>
+          <div class="provider-pill" title="공식 CLI 계정으로 연결됩니다"><span class="provider-dot" id="providerDot"></span><span id="providerPillText">OpenAI 계정</span></div>
           </div>
         </header>
 
@@ -78,9 +78,9 @@
               </button>
             </div>
             <div class="provider-menu" id="providerMenu" hidden>
-              <button type="button" data-provider="openai"><span class="provider-option-logo openai-logo">◉</span><span><strong>OpenAI</strong><small>OpenAI API 키 사용</small></span><span class="option-check">✓</span></button>
-              <button type="button" data-provider="anthropic"><span class="provider-option-logo claude-logo">✳</span><span><strong>Claude</strong><small>Anthropic API 키 사용</small></span><span class="option-check">✓</span></button>
-              <div class="provider-menu-footer">계정 구독 로그인은 지원하지 않습니다.</div>
+              <button type="button" data-provider="openai"><span class="provider-option-logo openai-logo">◉</span><span><strong>OpenAI</strong><small>ChatGPT 계정 로그인</small></span><span class="option-check">✓</span></button>
+              <button type="button" data-provider="anthropic"><span class="provider-option-logo claude-logo">✳</span><span><strong>Claude</strong><small>Claude 계정 로그인</small></span><span class="option-check">✓</span></button>
+              <div class="provider-menu-footer">공식 CLI 계정으로 연결합니다.</div>
             </div>
           </form>
           <p class="disclaimer">AI 응답은 부정확할 수 있습니다. 중요한 내용은 확인해 주세요.</p>
@@ -91,10 +91,19 @@
     <div class="modal-backdrop" id="settingsModal" hidden>
       <section class="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
         <div class="modal-header"><div><p class="eyebrow">연결 설정</p><h2 id="settingsTitle">AI 제공자</h2></div><button class="icon-button close-modal" id="closeSettings" aria-label="닫기">×</button></div>
-        <p class="modal-description">API 키는 브라우저에 저장하지 않습니다. 앱 폴더의 <code>.env</code> 파일에 키를 설정하고 서버를 다시 시작하세요.</p>
-        <div class="connection-row"><div class="connection-logo openai-logo">◉</div><div class="connection-details"><strong>OpenAI API</strong><small>환경 변수: OPENAI_API_KEY</small></div><span class="connection-status" id="openaiStatus">확인 중</span></div>
-        <div class="connection-row"><div class="connection-logo claude-logo">✳</div><div class="connection-details"><strong>Anthropic API</strong><small>환경 변수: ANTHROPIC_API_KEY</small></div><span class="connection-status" id="anthropicStatus">확인 중</span></div>
-        <div class="notice-box"><strong>사용량 및 비용</strong><p>각 요청은 선택한 제공자의 API로 전송되며, 제공자의 API 요금 및 사용량 한도가 적용됩니다. 구독 계정 간 자동 전환은 하지 않습니다.</p></div>
+        <p class="modal-description">계정 연결 버튼은 각 제공자의 공식 CLI 로그인 절차를 시작합니다. Mosaic 안에서 이메일·비밀번호를 입력하지 않으며, 인증 정보도 읽거나 저장하지 않습니다.</p>
+        <div class="connection-row">
+          <div class="connection-logo openai-logo">◉</div>
+          <div class="connection-details"><strong>OpenAI · Codex</strong><small id="openaiHelp">ChatGPT 계정으로 Codex CLI에 로그인</small><code class="install-command" id="openaiInstall" hidden></code></div>
+          <div class="connection-actions"><span class="connection-status" id="openaiStatus">확인 중</span><button class="connect-button" id="connectOpenAI" type="button">로그인</button></div>
+        </div>
+        <div class="connection-row">
+          <div class="connection-logo claude-logo">✳</div>
+          <div class="connection-details"><strong>Claude · Claude Code</strong><small id="anthropicHelp">Claude 구독 계정으로 Claude Code에 로그인</small><code class="install-command" id="anthropicInstall" hidden></code></div>
+          <div class="connection-actions"><span class="connection-status" id="anthropicStatus">확인 중</span><button class="connect-button" id="connectClaude" type="button">로그인</button></div>
+        </div>
+        <div class="login-feedback" id="loginFeedback" hidden></div>
+        <div class="notice-box"><strong>계정 사용량</strong><p>각 계정의 공식 사용량 한도와 정책을 따릅니다. 한도 초과 시 다른 계정으로 자동 전환하지 않습니다. 연결된 계정을 바꾸려면 해당 CLI에서 로그아웃한 뒤 다시 로그인하세요.</p></div>
         <div class="modal-actions"><button class="secondary-button" id="refreshStatus">연결 상태 새로고침</button><button class="primary-button" id="doneSettings">완료</button></div>
       </section>
     </div>

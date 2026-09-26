@@ -26,7 +26,11 @@ const state = {
   activeId: null,
   provider: 'openai',
   model: 'gpt-5.6',
-  providers: { openai: false, anthropic: false },
+  providers: {
+    openai: { installed: false, connected: false, label: '상태 확인 중' },
+    anthropic: { installed: false, connected: false, label: '상태 확인 중' },
+  },
+  loginJobs: {},
   busy: false,
   controller: null,
 };
@@ -156,8 +160,8 @@ function renderModelSelect() {
     `<option value="${model.id}"${model.id === state.model ? ' selected' : ''}>${model.label}</option>`).join('');
   document.querySelector('#providerSelectLabel').textContent = provider.label;
   document.querySelector('#miniProviderMark').textContent = provider.mark;
-  document.querySelector('#providerPillText').textContent = `${provider.label} API`;
-  document.querySelector('#providerDot').classList.toggle('connected', state.providers[state.provider]);
+  document.querySelector('#providerPillText').textContent = `${provider.label} 계정`;
+  document.querySelector('#providerDot').classList.toggle('connected', state.providers[state.provider]?.connected === true);
   document.querySelectorAll('.provider-menu [data-provider]').forEach((button) => {
     button.classList.toggle('selected', button.dataset.provider === state.provider);
   });
@@ -171,24 +175,84 @@ function render() {
 }
 
 function connectionSummary() {
-  const count = Object.values(state.providers).filter(Boolean).length;
-  if (count === 0) return 'API 키 설정 필요';
-  return `${count}개 제공자 연결됨`;
+  const count = Object.values(state.providers).filter((provider) => provider?.connected).length;
+  if (count === 0) return '계정 연결 필요';
+  return `${count}개 계정 연결됨`;
+}
+
+let statusRequestInProgress = false;
+let statusPollTimer = null;
+
+function updateConnectionControls() {
+  const feedback = document.querySelector('#loginFeedback');
+  const rows = [
+    ['openai', 'openaiStatus', 'connectOpenAI', 'openaiInstall'],
+    ['anthropic', 'anthropicStatus', 'connectClaude', 'anthropicInstall'],
+  ];
+  const messages = [];
+
+  for (const [provider, statusId, buttonId, installId] of rows) {
+    const details = state.providers[provider] || {};
+    const job = state.loginJobs[provider];
+    const statusElement = document.querySelector(`#${statusId}`);
+    const button = document.querySelector(`#${buttonId}`);
+    const installElement = document.querySelector(`#${installId}`);
+    statusElement.textContent = details.label || '상태 확인 실패';
+    statusElement.classList.toggle('ready', details.connected === true);
+    button.textContent = details.connected ? '연결됨' : job?.state === 'running' || job?.state === 'starting' ? '진행 중' : details.installed ? '로그인' : '설치 필요';
+    button.disabled = details.connected === true || details.installed !== true || job?.state === 'running' || job?.state === 'starting';
+    button.classList.toggle('connected', details.connected === true);
+    installElement.textContent = details.installCommand || '';
+    installElement.hidden = details.installed !== false || !details.installCommand;
+
+    if (details.connected) continue;
+    if (job?.output) messages.push(`${PROVIDERS[provider].label} 로그인 안내:\n${job.output.trim()}`);
+    else if (job?.state === 'running' || job?.state === 'starting') messages.push(`${PROVIDERS[provider].label} 공식 로그인 창에서 인증을 완료해 주세요.`);
+    else if (job?.state === 'failed') messages.push(`${PROVIDERS[provider].label} 로그인 절차가 종료되었습니다. CLI 상태를 새로고침해 주세요.`);
+  }
+
+  feedback.textContent = messages.join('\n\n');
+  feedback.hidden = messages.length === 0;
 }
 
 async function refreshStatus() {
+  if (statusRequestInProgress) return;
+  statusRequestInProgress = true;
   try {
     const response = await fetch('/api/status', { cache: 'no-store' });
     const status = await response.json();
     state.providers = status.providers || state.providers;
+    state.loginJobs = status.loginJobs || {};
   } catch {
-    state.providers = { openai: false, anthropic: false };
+    state.providers = {
+      openai: { installed: false, connected: false, label: '서버 연결 실패' },
+      anthropic: { installed: false, connected: false, label: '서버 연결 실패' },
+    };
+  } finally {
+    statusRequestInProgress = false;
   }
-  document.querySelector('#openaiStatus').textContent = state.providers.openai ? '연결 준비됨' : '키 미설정';
-  document.querySelector('#anthropicStatus').textContent = state.providers.anthropic ? '연결 준비됨' : '키 미설정';
-  document.querySelector('#openaiStatus').classList.toggle('ready', state.providers.openai);
-  document.querySelector('#anthropicStatus').classList.toggle('ready', state.providers.anthropic);
+  updateConnectionControls();
   render();
+}
+
+async function connectProvider(provider) {
+  const feedback = document.querySelector('#loginFeedback');
+  feedback.hidden = false;
+  feedback.textContent = `${PROVIDERS[provider].label} 공식 CLI 로그인 절차를 여는 중입니다…`;
+  try {
+    const response = await fetch(`/api/connect/${provider}`, { method: 'POST' });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      feedback.textContent = [data.error, data.installCommand].filter(Boolean).join('\n');
+      showToast(data.error || '로그인을 시작하지 못했습니다.');
+    } else {
+      feedback.textContent = data.message || '공식 로그인 절차를 확인해 주세요.';
+      if (!statusPollTimer) statusPollTimer = setInterval(refreshStatus, 2500);
+    }
+  } catch {
+    feedback.textContent = '로그인 요청을 처리하지 못했습니다. Mosaic 서버가 실행 중인지 확인해 주세요.';
+  }
+  refreshStatus();
 }
 
 let toastTimeout;
@@ -336,11 +400,14 @@ function resizeInput() {
 function showSettings() {
   elements.settingsModal.hidden = false;
   refreshStatus();
+  if (!statusPollTimer) statusPollTimer = setInterval(refreshStatus, 2500);
   document.querySelector('#closeSettings').focus();
 }
 
 function hideSettings() {
   elements.settingsModal.hidden = true;
+  clearInterval(statusPollTimer);
+  statusPollTimer = null;
 }
 
 function closeMobileSidebar() {
@@ -355,6 +422,8 @@ document.querySelector('#settingsButtonTop').addEventListener('click', showSetti
 document.querySelector('#closeSettings').addEventListener('click', hideSettings);
 document.querySelector('#doneSettings').addEventListener('click', hideSettings);
 document.querySelector('#refreshStatus').addEventListener('click', refreshStatus);
+document.querySelector('#connectOpenAI').addEventListener('click', () => connectProvider('openai'));
+document.querySelector('#connectClaude').addEventListener('click', () => connectProvider('anthropic'));
 elements.settingsModal.addEventListener('click', (event) => { if (event.target === elements.settingsModal) hideSettings(); });
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {

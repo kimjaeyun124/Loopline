@@ -37,6 +37,7 @@ export class CodexAppServer extends EventEmitter {
       child = spawn(this.command, [
         'app-server',
         '--listen', 'stdio://',
+        '--enable', 'fast_mode',
         '-c', 'mcp_servers={}',
       ], {
         cwd: this.cwd,

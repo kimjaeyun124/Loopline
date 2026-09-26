@@ -34,6 +34,7 @@ const state = {
   movingConversationId: null,
   provider: 'openai',
   model: 'gpt-5.6',
+  fastMode: false,
   providers: {
     openai: { installed: false, connected: false, label: '상태 확인 중' },
     anthropic: { installed: false, connected: false, label: '상태 확인 중' },
@@ -73,6 +74,7 @@ const elements = {
   messageInput: document.querySelector('#messageInput'),
   sendButton: document.querySelector('#sendButton'),
   modelSelect: document.querySelector('#modelSelect'),
+  fastModeToggle: document.querySelector('#fastModeToggle'),
   providerSelectButton: document.querySelector('#providerSelectButton'),
   providerMenu: document.querySelector('#providerMenu'),
   codexAccountSelect: document.querySelector('#codexAccountSelect'),
@@ -152,6 +154,7 @@ function loadPreferences() {
     if (Object.hasOwn(PROVIDERS, preferences.provider)) state.provider = preferences.provider;
     if (typeof preferences.codexAccountId === 'string') state.activeCodexAccountId = preferences.codexAccountId;
     if (typeof preferences.activeProjectId === 'string') state.activeProjectId = preferences.activeProjectId;
+    if (typeof preferences.fastMode === 'boolean') state.fastMode = preferences.fastMode;
     if (PROVIDERS[state.provider].models.some((model) => model.id === preferences.model)) state.model = preferences.model;
   } catch {
     // 기본 모델 설정을 유지합니다.
@@ -164,6 +167,7 @@ function savePreferences() {
     model: state.model,
     codexAccountId: state.activeCodexAccountId,
     activeProjectId: state.activeProjectId,
+    fastMode: state.fastMode,
   }));
 }
 
@@ -350,6 +354,19 @@ function renderModelSelect() {
   document.querySelectorAll('.provider-menu [data-provider]').forEach((button) => {
     button.classList.toggle('selected', button.dataset.provider === state.provider);
   });
+  const fastEfforts = models.find((model) => model.id === state.model)?.supportedReasoningEfforts || [];
+  const fastAvailable = fastEfforts.some((item) => item.reasoningEffort === 'low');
+  elements.fastModeToggle.hidden = state.provider !== 'openai';
+  elements.fastModeToggle.disabled = !fastAvailable;
+  elements.fastModeToggle.classList.toggle('active', state.fastMode && fastAvailable);
+  elements.fastModeToggle.setAttribute('aria-pressed', String(state.fastMode && fastAvailable));
+  const fastTierAvailable = (models.find((model) => model.id === state.model)?.serviceTiers || [])
+    .some((tier) => /fast|priority/i.test(`${tier.id} ${tier.name}`));
+  elements.fastModeToggle.title = fastAvailable
+    ? fastTierAvailable
+      ? '낮은 추론 단계와 이 모델이 광고한 Fast 서비스 티어를 요청합니다.'
+      : '낮은 추론 단계로 빠르게 응답합니다. 이 모델은 별도 Fast 서비스 티어를 광고하지 않습니다.'
+    : '선택한 모델이 빠른 추론 단계를 제공하지 않습니다.';
 }
 
 function render() {
@@ -475,7 +492,7 @@ async function refreshStatus() {
     }
     const defaultModels = state.codexAccounts.find((account) => account.id === 'default')?.models;
     if (Array.isArray(defaultModels) && defaultModels.length) {
-      PROVIDERS.openai.models = defaultModels.map((model) => ({ id: model.id, label: model.label }));
+      PROVIDERS.openai.models = defaultModels.map((model) => ({ ...model }));
     }
     const codexModels = modelsForProvider('openai');
     if (codexModels.length && !codexModels.some((model) => model.id === state.model)) {
@@ -931,6 +948,19 @@ function setModel(model) {
   if (conversation && conversation.messages.length === 0) conversation.model = model;
   savePreferences();
   saveConversations();
+  renderModelSelect();
+}
+
+function toggleFastMode() {
+  if (elements.fastModeToggle.disabled || state.provider !== 'openai') return;
+  state.fastMode = !state.fastMode;
+  savePreferences();
+  renderModelSelect();
+  if (state.fastMode) {
+    const model = modelsForProvider().find((item) => item.id === state.model);
+    const serviceTierAvailable = (model?.serviceTiers || []).some((tier) => /fast|priority/i.test(`${tier.id} ${tier.name}`));
+    showToast(serviceTierAvailable ? 'Fast 응답과 모델 우선순위 티어를 요청합니다.' : 'Fast 응답을 켰습니다. 이 모델에는 낮은 추론 단계가 적용됩니다.');
+  }
 }
 
 function setCodexAccount(accountId) {
@@ -1069,6 +1099,7 @@ async function sendMessage(value) {
       body: JSON.stringify({
         provider: state.provider,
         model: state.model,
+        ...(state.provider === 'openai' ? { fastMode: state.fastMode } : {}),
         ...(state.provider === 'openai' ? { codexAccountId: conversation.codexAccountId || 'default' } : {}),
         ...(projectInstructions ? { projectInstructions } : {}),
         messages,
@@ -1285,6 +1316,7 @@ document.addEventListener('click', (event) => {
   }
 });
 elements.modelSelect.addEventListener('change', (event) => setModel(event.target.value));
+elements.fastModeToggle.addEventListener('click', toggleFastMode);
 elements.codexAccountSelect.addEventListener('change', (event) => setCodexAccount(event.target.value));
 elements.composerForm.addEventListener('submit', (event) => {
   event.preventDefault();

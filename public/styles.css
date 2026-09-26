@@ -127,6 +127,12 @@ kbd { margin-left: auto; color: #898989; font-family: inherit; font-size: 10px; 
 .mini-provider-mark { color: #555; font-size: 12px; }
 .chevron { color: #777; font-size: 14px; }
 .toolbar-divider { width: 1px; height: 17px; background: #ddd; }
+.fast-mode-toggle { display: inline-flex; min-width: 54px; align-items: center; justify-content: center; gap: 4px; padding: 5px 8px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: #666; font-size: 10px; font-weight: 550; cursor: pointer; }
+.fast-mode-toggle:hover { background: #e9e9e9; color: #222; }
+.fast-mode-toggle.active { border-color: #e6dcc8; background: #f8f4ec; color: #765a22; }
+.fast-mode-toggle:disabled { color: #aaa; cursor: not-allowed; }
+.fast-mode-toggle[hidden] { display: none; }
+.fast-mode-icon { font-size: 14px; line-height: 10px; }
 .composer select { max-width: 175px; overflow: hidden; padding: 5px 20px 5px 4px; border: 0; background: transparent; color: #5a5a5a; font-size: 10px; outline: 0; text-overflow: ellipsis; cursor: pointer; }
 #codexAccountSelect { max-width: 150px; }
 #codexAccountSelect[hidden] { display: none; }

@@ -270,6 +270,8 @@ async function readOpenAiProviderStatus(accountId = 'default') {
           label: item.displayName || item.id || item.model,
           defaultReasoningEffort: item.defaultReasoningEffort || null,
           supportedReasoningEfforts: item.supportedReasoningEfforts || [],
+          defaultServiceTier: item.defaultServiceTier || null,
+          serviceTiers: Array.isArray(item.serviceTiers) ? item.serviceTiers : [],
           isDefault: item.isDefault === true,
         }))
         .filter((item) => typeof item.id === 'string' && item.id.length > 0);
@@ -900,8 +902,20 @@ async function codexFallbackCandidates(excludedAccountIds, model) {
   });
 }
 
-async function runCodexTurnAttempt(context, model, messages, requestedThreadId, res, projectInstructions) {
+async function runCodexTurnAttempt(context, model, messages, requestedThreadId, res, projectInstructions, fastMode, accountStatus) {
   const client = await getCodexAppServer(context);
+  const modelInfo = accountStatus.models?.find((item) => item.id === model);
+  const supportedEfforts = modelInfo?.supportedReasoningEfforts
+    ?.map((item) => item.reasoningEffort)
+    .filter((effort) => typeof effort === 'string') || [];
+  const requestedEffort = fastMode && supportedEfforts.includes('low')
+    ? 'low'
+    : supportedEfforts.includes(modelInfo?.defaultReasoningEffort)
+      ? modelInfo.defaultReasoningEffort
+      : supportedEfforts[0];
+  const fastServiceTier = fastMode
+    ? modelInfo?.serviceTiers?.find((tier) => /fast|priority/i.test(`${tier.id} ${tier.name}`))
+    : null;
   let thread;
   try {
     thread = await ensureCodexThread(context, requestedThreadId, model);
@@ -969,6 +983,8 @@ async function runCodexTurnAttempt(context, model, messages, requestedThreadId, 
         },
       },
       model,
+      ...(requestedEffort ? { effort: requestedEffort } : {}),
+      serviceTierForTurn: fastServiceTier?.id || 'default',
     }, 30_000);
     active.turnId = started.turn?.id || null;
     if (active.cancelled && active.turnId) {
@@ -986,7 +1002,7 @@ async function runCodexTurnAttempt(context, model, messages, requestedThreadId, 
   return completion;
 }
 
-async function runCodexTurn(requestedAccountId, model, messages, requestedThreadId, res, projectInstructions = '') {
+async function runCodexTurn(requestedAccountId, model, messages, requestedThreadId, res, projectInstructions = '', fastMode = false) {
   let candidates;
   try {
     candidates = await codexTurnCandidates(requestedAccountId, model);
@@ -999,7 +1015,7 @@ async function runCodexTurn(requestedAccountId, model, messages, requestedThread
   const attempted = new Set();
   let retrying = false;
   while (candidates.length) {
-    const { account } = candidates[0];
+    const { account, status: accountStatus } = candidates[0];
     const context = await getCodexAccountContext(account.id);
     if (locallyDisconnectedCodexAccounts.has(account.id)) {
       attempted.add(account.id);
@@ -1016,7 +1032,7 @@ async function runCodexTurn(requestedAccountId, model, messages, requestedThread
     context.pendingChatRequests.add(reservation);
     let result;
     try {
-      result = await runCodexTurnAttempt(context, model, messages, threadId, res, projectInstructions);
+      result = await runCodexTurnAttempt(context, model, messages, threadId, res, projectInstructions, fastMode, accountStatus);
     } finally {
       context.pendingChatRequests.delete(reservation);
     }
@@ -1094,7 +1110,7 @@ async function relayChat(req, res) {
       'X-Accel-Buffering': 'no',
       'X-Content-Type-Options': 'nosniff',
     });
-    if (provider === 'openai') await runCodexTurn(codexAccountId, model, messages, body.codexThreadId, res, projectInstructions);
+    if (provider === 'openai') await runCodexTurn(codexAccountId, model, messages, body.codexThreadId, res, projectInstructions, body.fastMode === true);
     else await runClaudeCli(model, conversationPrompt(messages, projectInstructions), res);
   } catch (error) {
     if (res.destroyed) return;

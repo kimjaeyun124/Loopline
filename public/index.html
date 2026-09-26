@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#212121" />
+    <title>Mosaic AI</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-top">
+          <a class="brand" href="/" aria-label="Mosaic AI 홈">
+            <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span><span></span></span>
+            <span>Mosaic</span>
+          </a>
+          <button class="icon-button sidebar-toggle" id="sidebarToggle" title="사이드바 접기" aria-label="사이드바 접기">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.75A1.75 1.75 0 0 1 5.75 4h12.5A1.75 1.75 0 0 1 20 5.75v12.5A1.75 1.75 0 0 1 18.25 20H5.75A1.75 1.75 0 0 1 4 18.25zM9 4v16" /></svg>
+          </button>
+        </div>
+        <button class="new-chat-button" id="newChatButton">
+          <span class="plus-icon">＋</span><span>새 대화</span><kbd>⌘ K</kbd>
+        </button>
+        <div class="sidebar-label">최근 대화</div>
+        <nav class="conversation-list" id="conversationList" aria-label="대화 목록"></nav>
+        <div class="sidebar-bottom">
+          <button class="account-card" id="settingsButton">
+            <span class="avatar">M</span>
+            <span class="account-copy"><strong>내 작업 공간</strong><small id="connectionSummary">연결 상태 확인 중</small></span>
+            <span class="more-icon">•••</span>
+          </button>
+        </div>
+      </aside>
+
+      <main class="main-panel">
+        <header class="topbar">
+          <button class="mobile-menu icon-button" id="mobileMenu" aria-label="대화 목록 열기">☰</button>
+          <div class="mode-label"><span class="mode-dot"></span> Chat</div>
+          <div class="topbar-actions">
+            <button class="icon-button" id="settingsButtonTop" title="연결 설정" aria-label="연결 설정">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.25a3.75 3.75 0 1 0 0 7.5 3.75 3.75 0 0 0 0-7.5Z"/><path d="m19.4 15 .05.04a1.7 1.7 0 1 1-2.4 2.4l-.04-.05a1.7 1.7 0 0 0-2.9 1.2v.15a1.7 1.7 0 1 1-3.4 0v-.08a1.7 1.7 0 0 0-2.9-1.2l-.05.05a1.7 1.7 0 1 1-2.4-2.4l.05-.04a1.7 1.7 0 0 0-1.2-2.9h-.15a1.7 1.7 0 1 1 0-3.4h.08a1.7 1.7 0 0 0 1.2-2.9l-.05-.05a1.7 1.7 0 1 1 2.4-2.4l.04.05a1.7 1.7 0 0 0 2.9-1.2v-.15a1.7 1.7 0 1 1 3.4 0v.08a1.7 1.7 0 0 0 2.9 1.2l.05-.05a1.7 1.7 0 1 1 2.4 2.4l-.05.04a1.7 1.7 0 0 0 1.2 2.9h.15a1.7 1.7 0 1 1 0 3.4h-.08a1.7 1.7 0 0 0-1.2 2.9Z"/></svg>
+            </button>
+            <div class="provider-pill" title="공식 API로 연결됩니다"><span class="provider-dot" id="providerDot"></span><span id="providerPillText">OpenAI API</span></div>
+          </div>
+        </header>
+
+        <section class="chat-scroll" id="chatScroll">
+          <div class="welcome" id="welcome">
+            <div class="welcome-mark" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+            <h1>무엇을 도와드릴까요?</h1>
+            <p>대화할 AI와 모델을 선택해 시작하세요.</p>
+            <div class="suggestions">
+              <button class="suggestion" data-prompt="복잡한 주제를 이해하기 쉽게 단계별로 설명해줘."><span class="suggestion-icon">✳</span><span><strong>함께 알아보기</strong><small>어려운 주제를 쉽게 설명해 드려요</small></span></button>
+              <button class="suggestion" data-prompt="이 아이디어를 실행할 수 있는 구체적인 계획으로 정리해줘."><span class="suggestion-icon">↗</span><span><strong>아이디어 구체화</strong><small>생각을 다음 단계로 발전시켜요</small></span></button>
+              <button class="suggestion" data-prompt="이 코드의 문제점을 찾고 개선 방향을 설명해줘."><span class="suggestion-icon">⌘</span><span><strong>코드 검토</strong><small>코드 흐름과 개선점을 살펴봐요</small></span></button>
+              <button class="suggestion" data-prompt="이 문장을 더 명확하고 자연스럽게 다듬어줘."><span class="suggestion-icon">✎</span><span><strong>글 다듬기</strong><small>문장을 더 또렷하게 정리해요</small></span></button>
+            </div>
+          </div>
+          <div class="messages" id="messages" aria-live="polite"></div>
+        </section>
+
+        <footer class="composer-wrap">
+          <form class="composer" id="composerForm">
+            <textarea id="messageInput" rows="1" placeholder="Mosaic에게 메시지 보내기" aria-label="메시지 입력"></textarea>
+            <div class="composer-toolbar">
+              <div class="composer-left">
+                <button class="select-button" type="button" id="providerSelectButton" aria-label="AI 제공자 선택">
+                  <span class="mini-provider-mark" id="miniProviderMark">◉</span><span id="providerSelectLabel">OpenAI</span><span class="chevron">⌄</span>
+                </button>
+                <span class="toolbar-divider"></span>
+                <select id="modelSelect" aria-label="모델 선택"></select>
+              </div>
+              <button class="send-button" id="sendButton" type="submit" aria-label="메시지 보내기">
+                <svg class="send-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5m0 0-6 6m6-6 6 6" /></svg>
+                <span class="stop-icon" aria-hidden="true"></span>
+              </button>
+            </div>
+            <div class="provider-menu" id="providerMenu" hidden>
+              <button type="button" data-provider="openai"><span class="provider-option-logo openai-logo">◉</span><span><strong>OpenAI</strong><small>OpenAI API 키 사용</small></span><span class="option-check">✓</span></button>
+              <button type="button" data-provider="anthropic"><span class="provider-option-logo claude-logo">✳</span><span><strong>Claude</strong><small>Anthropic API 키 사용</small></span><span class="option-check">✓</span></button>
+              <div class="provider-menu-footer">계정 구독 로그인은 지원하지 않습니다.</div>
+            </div>
+          </form>
+          <p class="disclaimer">AI 응답은 부정확할 수 있습니다. 중요한 내용은 확인해 주세요.</p>
+        </footer>
+      </main>
+    </div>
+
+    <div class="modal-backdrop" id="settingsModal" hidden>
+      <section class="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+        <div class="modal-header"><div><p class="eyebrow">연결 설정</p><h2 id="settingsTitle">AI 제공자</h2></div><button class="icon-button close-modal" id="closeSettings" aria-label="닫기">×</button></div>
+        <p class="modal-description">API 키는 브라우저에 저장하지 않습니다. 앱 폴더의 <code>.env</code> 파일에 키를 설정하고 서버를 다시 시작하세요.</p>
+        <div class="connection-row"><div class="connection-logo openai-logo">◉</div><div class="connection-details"><strong>OpenAI API</strong><small>환경 변수: OPENAI_API_KEY</small></div><span class="connection-status" id="openaiStatus">확인 중</span></div>
+        <div class="connection-row"><div class="connection-logo claude-logo">✳</div><div class="connection-details"><strong>Anthropic API</strong><small>환경 변수: ANTHROPIC_API_KEY</small></div><span class="connection-status" id="anthropicStatus">확인 중</span></div>
+        <div class="notice-box"><strong>사용량 및 비용</strong><p>각 요청은 선택한 제공자의 API로 전송되며, 제공자의 API 요금 및 사용량 한도가 적용됩니다. 구독 계정 간 자동 전환은 하지 않습니다.</p></div>
+        <div class="modal-actions"><button class="secondary-button" id="refreshStatus">연결 상태 새로고침</button><button class="primary-button" id="doneSettings">완료</button></div>
+      </section>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  </body>
+</html>

@@ -106,7 +106,12 @@ export class CodexAppServer extends EventEmitter {
       clearTimeout(pending.timer);
       this.pending.delete(message.id);
       if (message.error) {
-        pending.reject(new Error(message.error.message || 'Codex app-server 요청에 실패했습니다.'));
+        pending.reject(Object.assign(new Error(message.error.message || 'Codex app-server 요청에 실패했습니다.'), {
+          code: message.error.code,
+          data: message.error.data,
+          codexErrorInfo: message.error.codexErrorInfo || message.error.data?.codexErrorInfo || message.error.data?.codex_error_info,
+          httpStatusCode: message.error.httpStatusCode || message.error.data?.httpStatusCode || message.error.data?.http_status_code,
+        }));
       } else {
         pending.resolve(message.result || {});
       }

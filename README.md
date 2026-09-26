@@ -1,6 +1,6 @@
 # Mosaic Desk
 
-ChatGPT 계정으로 로그인한 Codex app-server와 Claude 계정으로 로그인한 Claude Code CLI를 한 화면에서 선택해 사용하는 macOS 데스크톱 앱입니다. 대화 내용은 앱 창의 `localStorage`에 저장되고, Codex 대화는 Codex의 thread 기록에도 저장됩니다. 이메일·비밀번호, 세션 쿠키, API 키를 Mosaic Desk에 입력하지 않습니다.
+ChatGPT 계정으로 로그인한 Codex app-server와 Claude 계정으로 로그인한 Claude Code CLI를 한 화면에서 선택해 사용하는 macOS 데스크톱 앱입니다. 여러 Codex 계정을 연결하고 계정별 남은 사용량을 확인할 수 있으며, Codex 사용 한도 소진 시 남은 계정으로 요청을 다시 시도합니다. 대화 내용은 앱 창의 `localStorage`에 저장되고, Codex 대화는 연결된 계정의 Codex thread 기록에도 저장됩니다. 이메일·비밀번호, 세션 쿠키, API 키를 Mosaic Desk에 입력하지 않습니다.
 
 ## 데스크톱 앱 만들기
 
@@ -41,8 +41,9 @@ OpenAI 연결은 Codex app-server의 ChatGPT OAuth 흐름을 사용합니다. ap
 - OpenAI와 Claude 계정·모델 선택
 - 응답 스트리밍, 대화 생성·전환·삭제
 - Mosaic Desk 앱 창의 대화 기록 저장
-- Codex app-server 기반 ChatGPT 로그인, 대화 thread 이어하기, 모델·남은 사용 한도 비율 조회
+- 여러 Codex 계정의 ChatGPT OAuth 로그인, 계정별 모델·남은 사용 한도 조회 및 계정 선택
+- Codex app-server 기반 대화 thread 이어하기와 한도 초과 시 다른 계정으로 재시도
 - Codex 대화별 읽기 전용 임시 작업 폴더와 사용자 MCP 서버 차단
 - Claude Code CLI 로그인 상태 표시와 계정 오류 안내
 
-계정 연결은 제공자마다 한 개씩 지원합니다. Codex 로그인은 같은 컴퓨터의 Codex CLI와 인증 상태를 공유하고, app-server가 제공하는 rate limit 창의 남은 비율과 재설정 시각을 표시합니다. Claude Code CLI는 로그인 상태를 확인하며, 플랜 사용량은 Claude Code 내부에서 `/usage`를 실행해 확인해야 합니다. 사용량은 각 구독 계정의 공식 한도를 따르며, 계정 간 자동 전환·파일 업로드·웹 검색 도구는 포함하지 않았습니다. Mosaic에서 Codex 대화를 삭제하면 해당 app-server thread 기록도 삭제됩니다.
+기본 Codex 계정은 같은 컴퓨터의 Codex CLI와 인증 상태 및 thread 기록을 공유합니다. 추가 계정은 macOS의 앱 데이터 폴더 아래 계정별 `CODEX_HOME`으로 격리하며, 인증 파일을 복사하지 않습니다. 각 Codex 계정의 app-server가 제공하는 사용 한도 창의 남은 비율과 재설정 시각을 표시합니다. 사용 한도 초과가 app-server 응답에서 확인되면 남은 한도가 있는 연결 계정에서 같은 대화 내용을 새 thread로 재시도합니다. 인증 실패, 네트워크 오류, 모델 사용 불가 오류는 계정을 바꾸어 재시도하지 않습니다. Claude Code CLI는 로그인 상태를 확인하며, 플랜 사용량은 Claude Code 내부에서 `/usage`를 실행해 확인해야 합니다. Codex app-server의 프로토콜 상태와 호환성은 [공식 문서](https://learn.chatgpt.com/docs/app-server)를 확인해 주세요. Mosaic에서 Codex 대화를 삭제하면 해당 계정의 app-server thread 기록도 삭제됩니다.

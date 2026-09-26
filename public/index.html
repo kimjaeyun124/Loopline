@@ -73,6 +73,7 @@
                 <button class="select-button" type="button" id="providerSelectButton" aria-label="AI 제공자 선택">
                   <span class="mini-provider-mark" id="miniProviderMark">◉</span><span id="providerSelectLabel">OpenAI</span><span class="chevron">⌄</span>
                 </button>
+                <select id="codexAccountSelect" aria-label="Codex 계정 선택"></select>
                 <span class="toolbar-divider"></span>
                 <select id="modelSelect" aria-label="모델 선택"></select>
               </div>
@@ -108,12 +109,11 @@
 
     <div class="modal-backdrop" id="settingsModal" hidden>
       <section class="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
-        <div class="modal-header"><div><p class="eyebrow">연결 설정</p><h2 id="settingsTitle">AI 제공자</h2></div><button class="icon-button close-modal" id="closeSettings" aria-label="닫기">×</button></div>
-        <p class="modal-description">OpenAI는 Codex app-server의 ChatGPT OAuth 로그인을 사용하고, Claude는 공식 CLI 로그인을 사용합니다. Mosaic 안에서 비밀번호나 인증 토큰을 입력·저장하지 않습니다.</p>
-        <div class="connection-row">
-          <div class="connection-logo openai-logo">◉</div>
-          <div class="connection-details"><strong>OpenAI · Codex</strong><small id="openaiHelp">ChatGPT 계정으로 Codex app-server에 로그인</small><small class="usage-status" id="openaiUsage">Codex 사용 한도 확인 중…</small><code class="install-command" id="openaiInstall" hidden></code></div>
-          <div class="connection-actions"><span class="connection-status" id="openaiStatus">확인 중</span><button class="connect-button" id="connectOpenAI" type="button">로그인</button></div>
+        <div class="modal-header"><div><p class="eyebrow">연결 설정</p><h2 id="settingsTitle">계정 및 연결</h2></div><button class="icon-button close-modal" id="closeSettings" aria-label="닫기">×</button></div>
+        <p class="modal-description">Codex app-server가 ChatGPT OAuth 로그인과 계정별 토큰 저장·갱신을 관리합니다. Claude는 공식 Claude Code CLI 로그인을 사용합니다. Mosaic에 비밀번호나 API 키를 입력하지 않습니다.</p>
+        <div class="codex-account-section">
+          <div class="codex-account-heading"><div><strong>Codex 계정</strong><small>계정별 로그인과 사용 한도를 관리합니다.</small></div><button class="add-account-button" id="addCodexAccount" type="button">＋ 계정 추가</button></div>
+          <div class="codex-account-list" id="codexAccountsList"></div>
         </div>
         <div class="connection-row">
           <div class="connection-logo claude-logo">✳</div>
@@ -121,7 +121,7 @@
           <div class="connection-actions"><span class="connection-status" id="anthropicStatus">확인 중</span><button class="connect-button" id="connectClaude" type="button">로그인</button></div>
         </div>
         <div class="login-feedback" id="loginFeedback" hidden></div>
-        <div class="notice-box"><strong>사용 한도 확인</strong><p>Codex는 app-server가 제공하는 사용 한도 창의 남은 비율과 재설정 시각을 표시합니다. Claude Code CLI는 로그인 상태만 자동 확인할 수 있습니다. Claude 플랜 사용량은 Claude Code에서 <code>/usage</code>를 실행해 확인하세요.</p></div>
+        <div class="notice-box"><strong>계정별 사용 한도</strong><p>Codex 한도가 소진되면 한도가 남은 연결 계정으로 해당 요청을 다시 시도합니다. Claude Code CLI는 로그인 상태만 자동 확인할 수 있으며, 플랜 사용량은 Claude Code에서 <code>/usage</code>를 실행해 확인하세요.</p></div>
         <div class="modal-actions"><button class="secondary-button" id="refreshStatus">연결 상태 새로고침</button><button class="primary-button" id="doneSettings">완료</button></div>
       </section>
     </div>

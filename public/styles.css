@@ -108,6 +108,8 @@ kbd { margin-left: auto; color: #898989; font-family: inherit; font-size: 10px; 
 .chevron { color: #777; font-size: 14px; }
 .toolbar-divider { width: 1px; height: 17px; background: #ddd; }
 .composer select { max-width: 175px; overflow: hidden; padding: 5px 20px 5px 4px; border: 0; background: transparent; color: #5a5a5a; font-size: 10px; outline: 0; text-overflow: ellipsis; cursor: pointer; }
+#codexAccountSelect { max-width: 150px; }
+#codexAccountSelect[hidden] { display: none; }
 .send-button { display: grid; width: 31px; height: 31px; place-items: center; border: 0; border-radius: 50%; background: #202020; color: #fff; cursor: pointer; transition: background .15s ease; }
 .send-button:hover { background: #424242; }
 .send-button:disabled { opacity: .45; cursor: not-allowed; }
@@ -152,7 +154,7 @@ kbd { margin-left: auto; color: #898989; font-family: inherit; font-size: 10px; 
 
 .modal-backdrop { position: fixed; z-index: 10; inset: 0; display: grid; place-items: center; padding: 20px; background: #16161645; backdrop-filter: blur(3px); }
 .modal-backdrop[hidden] { display: none; }
-.settings-modal { width: min(100%, 480px); padding: 24px; border: 1px solid #ececec; border-radius: 18px; background: #fff; box-shadow: 0 24px 80px #1414142e; }
+.settings-modal { width: min(100%, 560px); max-height: calc(100dvh - 40px); overflow: auto; padding: 24px; border: 1px solid #ececec; border-radius: 18px; background: #fff; box-shadow: 0 24px 80px #1414142e; }
 .modal-header { display: flex; align-items: flex-start; justify-content: space-between; }
 .eyebrow { margin: 0 0 4px; color: #777; font-size: 10px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
 .modal-header h2 { margin: 0; font-size: 19px; letter-spacing: -.035em; }
@@ -160,6 +162,28 @@ kbd { margin-left: auto; color: #898989; font-family: inherit; font-size: 10px; 
 .modal-description { margin: 15px 0 19px; color: #666; font-size: 11px; line-height: 1.7; }
 .modal-description code { padding: 2px 5px; border-radius: 4px; background: #f3f3f3; color: #444; font-size: 10px; }
 .connection-row { display: flex; align-items: center; gap: 10px; padding: 11px 0; border-top: 1px solid #eee; }
+.codex-account-section { margin-top: 8px; border-top: 1px solid #eee; }
+.codex-account-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0 8px; }
+.codex-account-heading > div { display: flex; flex-direction: column; gap: 4px; }
+.codex-account-heading strong { font-size: 11px; font-weight: 600; }
+.codex-account-heading small { color: #777; font-size: 10px; }
+.add-account-button { flex: 0 0 auto; height: 29px; padding: 0 9px; border: 1px solid #e2e2e2; border-radius: 7px; background: #fff; color: #444; font-size: 9px; font-weight: 550; cursor: pointer; }
+.add-account-button:hover { background: #f6f6f6; }
+.add-account-button:disabled { opacity: .6; cursor: wait; }
+.codex-account-list { max-height: 270px; overflow: auto; }
+.codex-account-card { display: flex; align-items: center; gap: 9px; padding: 10px 0; border-top: 1px solid #f0f0f0; }
+.codex-account-card.active { background: linear-gradient(90deg, #f8f8f8, transparent); }
+.codex-account-card .connection-logo { align-self: flex-start; margin-top: 2px; }
+.codex-account-card .connection-details { gap: 4px; }
+.codex-account-title { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.codex-account-title strong { font-size: 11px; font-weight: 600; }
+.active-account-badge { padding: 2px 5px; border-radius: 10px; background: #ededed; color: #555; font-size: 8px; }
+.codex-account-plan { color: #777; }
+.codex-account-card .usage-status { color: #444; line-height: 1.45; overflow-wrap: anywhere; }
+.codex-account-card .install-command { display: block; max-width: 170px; }
+.account-use-button { min-width: 58px; height: 27px; padding: 0 8px; border: 1px solid #e1e1e1; border-radius: 7px; background: #fff; color: #444; font-size: 9px; font-weight: 550; cursor: pointer; }
+.account-use-button:hover { background: #f5f5f5; }
+.account-use-button:disabled { background: #f4f4f4; color: #777; cursor: default; }
 .connection-details { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 4px; }
 .connection-details strong { font-size: 11px; font-weight: 600; }
 .connection-details small { color: #777; font-size: 10px; }

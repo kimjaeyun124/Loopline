@@ -1,13 +1,18 @@
 import { createServer } from 'node:http';
 import { spawn } from 'node:child_process';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { randomUUID } from 'node:crypto';
+import { mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { homedir, tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CodexAppServer } from './codex-app-server.mjs';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const publicDir = join(root, 'public');
+const userDataDir = resolve(process.env.MOSAIC_USER_DATA_DIR || join(homedir(), '.mosaic-desk'));
+const codexAccountsDir = join(userDataDir, 'codex-accounts');
+const codexAccountsFile = join(userDataDir, 'codex-accounts.json');
+const defaultCodexHome = resolve(process.env.CODEX_HOME || join(homedir(), '.codex'));
 const port = Number(process.env.PORT || 4173);
 const host = process.env.HOST || '127.0.0.1';
 
@@ -28,11 +33,10 @@ const providers = {
 
 const modelAllowlist = { anthropic: new Set(['claude-sonnet-5', 'claude-opus-5', 'claude-haiku-4-5-20251001']) };
 const loginJobs = new Map();
-const loadedCodexThreads = new Set();
-const activeCodexTurns = new Map();
-let codexSandboxDirPromise;
-let codexAppServer;
-let openAiStatusCache = { checkedAt: 0, value: null, pending: null };
+const codexAccountContexts = new Map();
+const openAiStatusCache = new Map();
+let codexAccountsPromise;
+let codexAccountWrites = Promise.resolve();
 
 function cliEnvironment(provider) {
   const env = { ...process.env };
@@ -85,9 +89,250 @@ function captureCommand(provider, args, timeoutMs = 8000) {
   });
 }
 
-async function providerStatus(provider) {
-  if (provider === 'openai') return openAiProviderStatus();
+async function getCodexAccounts() {
+  if (!codexAccountsPromise) {
+    codexAccountsPromise = (async () => {
+      await mkdir(userDataDir, { recursive: true, mode: 0o700 });
+      const accounts = new Map([['default', {
+        id: 'default',
+        name: '기본 Codex 계정',
+        home: defaultCodexHome,
+        isDefault: true,
+      }]]);
+      let saved;
+      try {
+        saved = JSON.parse(await readFile(codexAccountsFile, 'utf8'));
+      } catch (error) {
+        if (error.code !== 'ENOENT') throw new Error('Codex 계정 목록을 읽지 못했습니다. 계정 설정 파일을 확인해 주세요.');
+        saved = { accounts: [] };
+      }
+      if (!Array.isArray(saved?.accounts)) throw new Error('Codex 계정 목록 형식이 올바르지 않습니다.');
+      for (const item of saved.accounts) {
+        if (typeof item?.id !== 'string' || !/^[0-9a-f-]{36}$/i.test(item.id) || typeof item.name !== 'string' || !item.name.trim()) continue;
+        const home = join(codexAccountsDir, item.id, 'codex-home');
+        accounts.set(item.id, { id: item.id, name: item.name.trim().slice(0, 48), home, isDefault: false });
+        await mkdir(home, { recursive: true, mode: 0o700 });
+      }
+      return accounts;
+    })();
+  }
+  return codexAccountsPromise;
+}
 
+async function persistCodexAccounts(accounts) {
+  await mkdir(userDataDir, { recursive: true, mode: 0o700 });
+  await mkdir(codexAccountsDir, { recursive: true, mode: 0o700 });
+  const payload = JSON.stringify({
+    version: 1,
+    accounts: [...accounts.values()].filter((account) => !account.isDefault)
+      .map(({ id, name }) => ({ id, name })),
+  }, null, 2) + '\n';
+  const temporary = `${codexAccountsFile}.${randomUUID()}.tmp`;
+  try {
+    await writeFile(temporary, payload, { mode: 0o600, flag: 'wx' });
+    await rename(temporary, codexAccountsFile);
+  } catch (error) {
+    await rm(temporary, { force: true }).catch(() => {});
+    throw error;
+  }
+}
+
+function queueCodexAccountWrite(operation) {
+  const result = codexAccountWrites.then(operation);
+  codexAccountWrites = result.catch(() => {});
+  return result;
+}
+
+async function createCodexAccount(name) {
+  return queueCodexAccountWrite(async () => {
+    const accounts = await getCodexAccounts();
+    const id = randomUUID();
+    const accountName = typeof name === 'string' && name.trim()
+      ? name.trim().slice(0, 48)
+      : `Codex 계정 ${accounts.size}`;
+    const account = { id, name: accountName, home: join(codexAccountsDir, id, 'codex-home'), isDefault: false };
+    await mkdir(account.home, { recursive: true, mode: 0o700 });
+    accounts.set(id, account);
+    try {
+      await persistCodexAccounts(accounts);
+    } catch (error) {
+      accounts.delete(id);
+      await rm(join(codexAccountsDir, id), { recursive: true, force: true }).catch(() => {});
+      throw error;
+    }
+    return account;
+  });
+}
+
+async function getCodexAccountContext(accountId = 'default') {
+  const accounts = await getCodexAccounts();
+  const account = accounts.get(accountId);
+  if (!account) throw Object.assign(new Error('Codex 계정을 찾을 수 없습니다.'), { status: 404 });
+  let context = codexAccountContexts.get(accountId);
+  if (!context) {
+    context = {
+      account,
+      client: null,
+      clientPromise: null,
+      loadedThreads: new Set(),
+      activeTurns: new Map(),
+      sandboxDirPromise: null,
+      loginJob: null,
+    };
+    codexAccountContexts.set(accountId, context);
+  }
+  return context;
+}
+
+async function codexSandboxDir(context) {
+  if (!context.sandboxDirPromise) {
+    context.sandboxDirPromise = mkdtemp(join(tmpdir(), `mosaic-codex-chat-${context.account.id}-`));
+  }
+  return context.sandboxDirPromise;
+}
+
+async function getCodexAppServer(context) {
+  if (context.client && context.client.ready) return context.client;
+  if (context.clientPromise) return context.clientPromise;
+  context.clientPromise = (async () => {
+    const cwd = await codexSandboxDir(context);
+    const env = cliEnvironment('openai');
+    env.CODEX_HOME = context.account.home;
+    const client = new CodexAppServer({
+      command: process.env.CODEX_CLI || providers.openai.command,
+      cwd,
+      env,
+    });
+    context.client = client;
+    client.on('notification', (message) => handleCodexNotification(context, message));
+    client.on('serverRequest', ({ id }) => {
+      client.respondError(id, -32601, '이 앱에서 처리하지 않는 app-server 요청입니다.');
+    });
+    client.on('disconnect', () => {
+      context.loadedThreads.clear();
+      invalidateOpenAiStatus(context.account.id);
+      for (const active of context.activeTurns.values()) {
+        finalizeCodexTurn(active, { error: 'Codex app-server 연결이 종료되었습니다. 다시 시도해 주세요.' });
+      }
+    });
+    return client;
+  })();
+  try {
+    return await context.clientPromise;
+  } finally {
+    context.clientPromise = null;
+  }
+}
+
+function invalidateOpenAiStatus(accountId) {
+  openAiStatusCache.delete(accountId);
+}
+
+async function readOpenAiProviderStatus(accountId = 'default') {
+  const context = await getCodexAccountContext(accountId);
+  const client = await getCodexAppServer(context);
+  const auth = await client.request('account/read', { refreshToken: false }, 15_000);
+  const account = auth.account || null;
+  const connected = account?.type === 'chatgpt';
+  let limits = null;
+  let models = [];
+
+  if (connected) {
+    const [limitResult, modelResult] = await Promise.allSettled([
+      client.request('account/rateLimits/read', {}, 15_000),
+      client.request('model/list', { limit: 100, includeHidden: false }, 15_000),
+    ]);
+    if (limitResult.status === 'fulfilled') limits = limitResult.value;
+    if (modelResult.status === 'fulfilled') {
+      models = (modelResult.value.data || [])
+        .filter((item) => item && item.hidden !== true && (item.inputModalities || ['text']).includes('text'))
+        .map((item) => ({
+          id: item.id || item.model,
+          label: item.displayName || item.id || item.model,
+          defaultReasoningEffort: item.defaultReasoningEffort || null,
+          supportedReasoningEfforts: item.supportedReasoningEfforts || [],
+          isDefault: item.isDefault === true,
+        }))
+        .filter((item) => typeof item.id === 'string' && item.id.length > 0);
+    }
+  }
+
+  const buckets = Object.entries(limits?.rateLimitsByLimitId || {});
+  if (buckets.length === 0 && limits?.rateLimits) buckets.push(['codex', limits.rateLimits]);
+  const windows = buckets.flatMap(([limitId, bucket]) => ['primary', 'secondary']
+    .filter((period) => Number.isFinite(bucket?.[period]?.usedPercent))
+    .map((period) => {
+      const window = bucket[period];
+      return {
+        limitId,
+        limitName: bucket.limitName || null,
+        rateLimitReachedType: bucket.rateLimitReachedType || null,
+        period,
+        usedPercent: window.usedPercent,
+        remainingPercent: Math.max(0, Math.min(100, Math.round(100 - window.usedPercent))),
+        windowDurationMins: Number.isFinite(window.windowDurationMins) ? window.windowDurationMins : null,
+        resetsAt: Number.isFinite(window.resetsAt) ? window.resetsAt : null,
+      };
+    }));
+  const primaryLimit = limits?.rateLimitsByLimitId?.codex?.primary || limits?.rateLimits?.primary;
+  const parts = [];
+  if (connected) parts.push(account.planType || 'ChatGPT 연결됨');
+  if (typeof primaryLimit?.usedPercent === 'number') parts.push(`Codex 사용 ${Math.round(primaryLimit.usedPercent)}%`);
+
+  return {
+    installed: true,
+    connected,
+    label: connected ? (parts.join(' · ') || 'ChatGPT 계정 연결됨') : 'ChatGPT 계정 로그인 필요',
+    installCommand: providers.openai.installCommand,
+    planType: account?.planType || null,
+    accountEmail: typeof account?.email === 'string' ? account.email : null,
+    usageSummary: connected ? {
+      source: 'codex-app-server',
+      available: windows.length > 0,
+      ordinaryUsageAllowed: typeof limits?.ordinaryUsageAllowed === 'boolean' ? limits.ordinaryUsageAllowed : null,
+      rateLimitReachedType: limits?.rateLimitsByLimitId?.codex?.rateLimitReachedType || limits?.rateLimits?.rateLimitReachedType || null,
+      windows,
+    } : null,
+    models,
+  };
+}
+
+async function openAiProviderStatus(accountId = 'default') {
+  const now = Date.now();
+  const cache = openAiStatusCache.get(accountId) || { checkedAt: 0, value: null, pending: null };
+  if (cache.value && now - cache.checkedAt < 4_000) return cache.value;
+  if (cache.pending) return cache.pending;
+
+  cache.pending = (async () => {
+    try {
+      const value = await readOpenAiProviderStatus(accountId);
+      openAiStatusCache.set(accountId, { checkedAt: Date.now(), value, pending: null });
+      return value;
+    } catch (error) {
+      const value = {
+        installed: error.code !== 'ENOENT',
+        connected: false,
+        label: error.code === 'ENOENT' ? 'Codex CLI 설치 필요' : 'Codex app-server 연결 실패',
+        installCommand: providers.openai.installCommand,
+        models: [],
+      };
+      openAiStatusCache.set(accountId, { checkedAt: Date.now(), value, pending: null });
+      return value;
+    }
+  })();
+  openAiStatusCache.set(accountId, cache);
+  return cache.pending;
+}
+
+async function providerStatus(provider, accountId = 'default') {
+  if (provider === 'openai') return openAiProviderStatus(accountId);
+  const config = providers[provider];
+  if (!config) throw Object.assign(new Error('지원하지 않는 제공자입니다.'), { status: 400 });
+  return anthropicProviderStatus();
+}
+
+async function anthropicProviderStatus() {
+  const provider = 'anthropic';
   const config = providers[provider];
   const result = await captureCommand(provider, config.statusArgs);
   if (!result.available) {
@@ -125,130 +370,30 @@ async function providerStatus(provider) {
   };
 }
 
-async function codexSandboxDir() {
-  if (!codexSandboxDirPromise) codexSandboxDirPromise = mkdtemp(join(tmpdir(), 'mosaic-codex-chat-'));
-  return codexSandboxDirPromise;
-}
-
-async function getCodexAppServer() {
-  if (codexAppServer) return codexAppServer;
-  const cwd = await codexSandboxDir();
-  codexAppServer = new CodexAppServer({
-    command: process.env.CODEX_CLI || providers.openai.command,
-    cwd,
-    env: cliEnvironment('openai'),
-  });
-  codexAppServer.on('notification', handleCodexNotification);
-  codexAppServer.on('serverRequest', ({ id }) => {
-    codexAppServer?.respondError(id, -32601, '이 앱에서 처리하지 않는 app-server 요청입니다.');
-  });
-  codexAppServer.on('disconnect', () => {
-    loadedCodexThreads.clear();
-    invalidateOpenAiStatus();
-    for (const active of activeCodexTurns.values()) {
-      finalizeCodexTurn(active, { error: 'Codex app-server 연결이 종료되었습니다. 다시 시도해 주세요.' });
-    }
-  });
-  return codexAppServer;
-}
-
-function invalidateOpenAiStatus() {
-  openAiStatusCache = { checkedAt: 0, value: null, pending: null };
-}
-
-async function readOpenAiProviderStatus() {
-  const client = await getCodexAppServer();
-  const auth = await client.request('account/read', { refreshToken: false }, 15_000);
-  const account = auth.account || null;
-  const connected = account?.type === 'chatgpt';
-  let limits = null;
-  let models = [];
-
-  if (connected) {
-    const [limitResult, modelResult] = await Promise.allSettled([
-      client.request('account/rateLimits/read', {}, 15_000),
-      client.request('model/list', { limit: 100, includeHidden: false }, 15_000),
-    ]);
-    if (limitResult.status === 'fulfilled') limits = limitResult.value;
-    if (modelResult.status === 'fulfilled') {
-      models = (modelResult.value.data || [])
-        .filter((item) => item && item.hidden !== true && (item.inputModalities || ['text']).includes('text'))
-        .map((item) => ({
-          id: item.id || item.model,
-          label: item.displayName || item.id || item.model,
-          defaultReasoningEffort: item.defaultReasoningEffort || null,
-          supportedReasoningEfforts: item.supportedReasoningEfforts || [],
-          isDefault: item.isDefault === true,
-        }))
-        .filter((item) => typeof item.id === 'string' && item.id.length > 0);
-    }
-  }
-
-  const buckets = Object.entries(limits?.rateLimitsByLimitId || {});
-  if (buckets.length === 0 && limits?.rateLimits) buckets.push(['codex', limits.rateLimits]);
-  const windows = buckets.flatMap(([limitId, bucket]) => ['primary', 'secondary']
-    .filter((period) => Number.isFinite(bucket?.[period]?.usedPercent))
-    .map((period) => {
-      const window = bucket[period];
-      return {
-        limitId,
-        limitName: bucket.limitName || null,
-        period,
-        usedPercent: window.usedPercent,
-        remainingPercent: Math.max(0, Math.min(100, Math.round(100 - window.usedPercent))),
-        windowDurationMins: Number.isFinite(window.windowDurationMins) ? window.windowDurationMins : null,
-        resetsAt: Number.isFinite(window.resetsAt) ? window.resetsAt : null,
-      };
-    }));
-  const primaryLimit = limits?.rateLimitsByLimitId?.codex?.primary || limits?.rateLimits?.primary;
-  const parts = [];
-  if (connected) parts.push(account.planType || 'ChatGPT 연결됨');
-  if (typeof primaryLimit?.usedPercent === 'number') parts.push(`Codex 사용 ${Math.round(primaryLimit.usedPercent)}%`);
-
-  return {
-    installed: true,
-    connected,
-    label: connected ? (parts.join(' · ') || 'ChatGPT 계정 연결됨') : 'ChatGPT 계정 로그인 필요',
-    installCommand: providers.openai.installCommand,
-    planType: account?.planType || null,
-    usageSummary: connected ? {
-      source: 'codex-app-server',
-      available: windows.length > 0,
-      ordinaryUsageAllowed: typeof limits?.ordinaryUsageAllowed === 'boolean' ? limits.ordinaryUsageAllowed : null,
-      windows,
-    } : null,
-    models,
-  };
-}
-
-async function openAiProviderStatus() {
-  const now = Date.now();
-  if (openAiStatusCache.value && now - openAiStatusCache.checkedAt < 4_000) return openAiStatusCache.value;
-  if (openAiStatusCache.pending) return openAiStatusCache.pending;
-
-  openAiStatusCache.pending = (async () => {
-    try {
-      const value = await readOpenAiProviderStatus();
-      openAiStatusCache = { checkedAt: Date.now(), value, pending: null };
-      return value;
-    } catch (error) {
-      const value = {
-        installed: error.code !== 'ENOENT',
-        connected: false,
-        label: error.code === 'ENOENT' ? 'Codex CLI 설치 필요' : 'Codex app-server 연결 실패',
-        installCommand: providers.openai.installCommand,
-        models: [],
-      };
-      openAiStatusCache = { checkedAt: Date.now(), value, pending: null };
-      return value;
-    }
-  })();
-  return openAiStatusCache.pending;
-}
-
 async function allProviderStatuses() {
-  const entries = await Promise.all(Object.keys(providers).map(async (provider) => [provider, await providerStatus(provider)]));
+  const entries = await Promise.all([
+    openAiProviderStatus('default').then((value) => ['openai', value]),
+    anthropicProviderStatus().then((value) => ['anthropic', value]),
+  ]);
   return Object.fromEntries(entries);
+}
+
+async function allCodexAccountStatuses() {
+  const accounts = await getCodexAccounts();
+  return Promise.all([...accounts.values()].map(async (account) => {
+    const status = await openAiProviderStatus(account.id);
+    const context = await getCodexAccountContext(account.id);
+    return { ...accountPublicInfo(account), ...status, loginJob: publicJob(context.loginJob) };
+  }));
+}
+
+function accountPublicInfo(account) {
+  return { id: account.id, name: account.name, isDefault: account.isDefault };
+}
+
+function publicJob(job) {
+  if (!job) return null;
+  return { state: job.state, output: job.output, exitCode: job.exitCode, startedAt: job.startedAt };
 }
 
 function appendJobOutput(job, chunk) {
@@ -338,8 +483,10 @@ function finalizeCodexTurn(active, result = {}) {
   if (!active || active.finished) return;
   active.finished = true;
   clearTimeout(active.timer);
-  activeCodexTurns.delete(active.threadId);
+  active.context.activeTurns.delete(active.threadId);
   if (active.onResponseClose) active.res.removeListener('close', active.onResponseClose);
+  active.resolveCompletion?.(result);
+  if (result.rateLimited || result.suppressResponse) return;
   if (active.res.destroyed || active.res.writableEnded) return;
 
   if (result.error) sendEvent(active.res, 'error', { error: result.error });
@@ -347,40 +494,40 @@ function finalizeCodexTurn(active, result = {}) {
   active.res.end();
 }
 
-function findActiveCodexTurn(params = {}) {
+function findActiveCodexTurn(context, params = {}) {
   const threadId = params.threadId || params.turn?.threadId;
-  if (threadId && activeCodexTurns.has(threadId)) return activeCodexTurns.get(threadId);
+  if (threadId && context.activeTurns.has(threadId)) return context.activeTurns.get(threadId);
   const turnId = params.turnId || params.turn?.id;
   if (!turnId) return null;
-  return [...activeCodexTurns.values()].find((turn) => turn.turnId === turnId) || null;
+  return [...context.activeTurns.values()].find((turn) => turn.turnId === turnId) || null;
 }
 
-function handleCodexNotification(message) {
+function handleCodexNotification(context, message) {
   const params = message.params || {};
   if (message.method === 'account/login/completed') {
-    const job = loginJobs.get('openai');
+    const job = context.loginJob;
     if (job && (!job.loginId || job.loginId === params.loginId)) {
       job.state = params.success ? 'finished' : 'failed';
       job.exitCode = params.success ? 0 : 1;
       job.output = params.success ? '' : (params.error || 'ChatGPT 로그인이 완료되지 않았습니다.');
     }
-    invalidateOpenAiStatus();
+    invalidateOpenAiStatus(context.account.id);
     return;
   }
   if (message.method === 'account/updated' || message.method === 'account/rateLimits/updated') {
-    invalidateOpenAiStatus();
+    invalidateOpenAiStatus(context.account.id);
     return;
   }
   if (message.method === 'thread/status/changed' && params.status?.type === 'notLoaded') {
-    loadedCodexThreads.delete(params.threadId);
+    context.loadedThreads.delete(params.threadId);
     return;
   }
   if (message.method === 'thread/closed' || message.method === 'thread/deleted') {
-    loadedCodexThreads.delete(params.threadId);
+    context.loadedThreads.delete(params.threadId);
     return;
   }
 
-  const active = findActiveCodexTurn(params);
+  const active = findActiveCodexTurn(context, params);
   if (!active || active.finished) return;
   const eventTurnId = params.turnId || params.turn?.id;
   if (active.turnId && eventTurnId && active.turnId !== eventTurnId) return;
@@ -400,20 +547,27 @@ function handleCodexNotification(message) {
     const error = turn.status === 'failed'
       ? turn.error?.message || 'Codex 요청을 완료하지 못했습니다.'
       : turn.status === 'interrupted' ? '응답이 중단되었습니다.' : '';
-    finalizeCodexTurn(active, { error });
+    finalizeCodexTurn(active, { error, rateLimited: turn.status === 'failed' && isUsageLimitError(turn.error) });
   }
 }
 
-async function startOpenAiLogin() {
-  const previous = loginJobs.get('openai');
+function isUsageLimitError(error) {
+  const info = error?.codexErrorInfo;
+  const variant = typeof info === 'string' ? info : info?.kind || info?.type || Object.keys(info || {})[0];
+  return variant === 'UsageLimitExceeded' || error?.httpStatusCode === 429 || info?.httpStatusCode === 429;
+}
+
+async function startOpenAiLogin(accountId = 'default') {
+  const context = await getCodexAccountContext(accountId);
+  const previous = context.loginJob;
   if (previous?.state === 'running' || previous?.state === 'starting') {
     return { state: previous.state, authUrl: previous.authUrl || null };
   }
 
   const job = { state: 'starting', output: '', startedAt: Date.now(), exitCode: null, loginId: null, authUrl: null };
-  loginJobs.set('openai', job);
+  context.loginJob = job;
   try {
-    const client = await getCodexAppServer();
+    const client = await getCodexAppServer(context);
     const result = await client.request('account/login/start', {
       type: 'chatgpt',
       useHostedLoginSuccessPage: true,
@@ -561,13 +715,14 @@ function validCodexThreadId(value) {
   return typeof value === 'string' && value.length <= 160 && /^[A-Za-z0-9_-]+$/.test(value);
 }
 
-async function ensureCodexThread(client, requestedId, model) {
-  const cwd = await codexSandboxDir();
+async function ensureCodexThread(context, requestedId, model) {
+  const client = await getCodexAppServer(context);
+  const cwd = await codexSandboxDir(context);
   if (requestedId && !validCodexThreadId(requestedId)) {
     throw Object.assign(new Error('대화 식별자가 올바르지 않습니다.'), { status: 400 });
   }
   if (requestedId) {
-    if (!loadedCodexThreads.has(requestedId)) {
+    if (!context.loadedThreads.has(requestedId)) {
       await client.request('thread/resume', {
         threadId: requestedId,
         model,
@@ -575,7 +730,7 @@ async function ensureCodexThread(client, requestedId, model) {
         approvalPolicy: 'never',
         sandbox: 'readOnly',
       });
-      loadedCodexThreads.add(requestedId);
+      context.loadedThreads.add(requestedId);
     }
     return { id: requestedId, cwd, created: false };
   }
@@ -589,35 +744,79 @@ async function ensureCodexThread(client, requestedId, model) {
   });
   const id = result.thread?.id;
   if (!validCodexThreadId(id)) throw new Error('Codex app-server가 대화 식별자를 반환하지 않았습니다.');
-  loadedCodexThreads.add(id);
+  context.loadedThreads.add(id);
   return { id, cwd, created: true };
 }
 
-async function runCodexTurn(model, messages, requestedThreadId, res) {
-  const client = await getCodexAppServer();
-  let thread;
-  try {
-    thread = await ensureCodexThread(client, requestedThreadId, model);
-  } catch (error) {
-    if (!res.destroyed) {
-      sendEvent(res, 'error', { error: error.message || 'Codex 대화를 열지 못했습니다.' });
-      if (!res.writableEnded) res.end();
-    }
-    return;
+function hasCodexUsageLimit(status) {
+  if (status?.usageSummary?.rateLimitReachedType) return true;
+  const limits = status?.usageSummary?.windows?.filter((window) => window.limitId === 'codex') || [];
+  return limits.some((window) => window.remainingPercent <= 0);
+}
+
+async function codexTurnCandidates(requestedAccountId, model) {
+  const accounts = await getCodexAccounts();
+  const selected = accounts.get(requestedAccountId);
+  if (!selected) throw Object.assign(new Error('Codex 계정을 찾을 수 없습니다.'), { status: 404 });
+  const ordered = [selected, ...[...accounts.values()].filter((account) => account.id !== selected.id)];
+  const statuses = new Map();
+  for (const account of ordered) statuses.set(account.id, await openAiProviderStatus(account.id));
+
+  const selectedStatus = statuses.get(selected.id);
+  if (!selectedStatus?.connected) throw Object.assign(new Error('선택한 Codex 계정에 로그인해 주세요.'), { status: 401 });
+  if (!selectedStatus.models?.some((item) => item.id === model)) {
+    throw Object.assign(new Error('선택한 계정에서 이 Codex 모델을 사용할 수 없습니다.'), { status: 400 });
   }
 
-  if (res.destroyed) return;
-  if (activeCodexTurns.has(thread.id)) {
-    sendEvent(res, 'error', { error: '이 대화에서 진행 중인 응답이 있습니다. 완료 후 다시 시도해 주세요.' });
-    res.end();
-    return;
+  const alternatives = ordered.slice(1).filter((account) => {
+    const status = statuses.get(account.id);
+    return status?.connected && status.models?.some((item) => item.id === model) && !hasCodexUsageLimit(status);
+  });
+  if (hasCodexUsageLimit(selectedStatus) && alternatives.length) {
+    return alternatives.map((account) => ({ account, status: statuses.get(account.id) }));
   }
-  sendEvent(res, 'thread', { threadId: thread.id });
+
+  const candidates = [{ account: selected, status: selectedStatus }];
+  candidates.push(...alternatives.map((account) => ({ account, status: statuses.get(account.id) })));
+  return candidates;
+}
+
+async function codexFallbackCandidates(excludedAccountIds, model) {
+  const accounts = await getCodexAccounts();
+  const remaining = [...accounts.values()].filter((account) => !excludedAccountIds.has(account.id));
+  for (const account of remaining) invalidateOpenAiStatus(account.id);
+  const statuses = await Promise.all(remaining.map((account) => openAiProviderStatus(account.id)));
+  return remaining.flatMap((account, index) => {
+    const status = statuses[index];
+    return status?.connected && status.models?.some((item) => item.id === model) && !hasCodexUsageLimit(status)
+      ? [{ account, status }]
+      : [];
+  });
+}
+
+async function runCodexTurnAttempt(context, model, messages, requestedThreadId, res) {
+  const client = await getCodexAppServer(context);
+  let thread;
+  try {
+    thread = await ensureCodexThread(context, requestedThreadId, model);
+  } catch (error) {
+    return { error: error.message || 'Codex 대화를 열지 못했습니다.', rateLimited: isUsageLimitError(error) };
+  }
+
+  if (res.destroyed) return { error: '요청이 취소되었습니다.', cancelled: true };
+  if (context.activeTurns.has(thread.id)) {
+    return { error: '이 대화에서 진행 중인 응답이 있습니다. 완료 후 다시 시도해 주세요.' };
+  }
+  sendEvent(res, 'account', accountPublicInfo(context.account));
+  sendEvent(res, 'thread', { threadId: thread.id, accountId: context.account.id });
   const lastMessage = messages.at(-1);
   const text = !requestedThreadId && messages.length > 1
     ? conversationPrompt(messages)
     : lastMessage.content;
+  let resolveCompletion;
+  const completion = new Promise((resolveResult) => { resolveCompletion = resolveResult; });
   const active = {
+    context,
     threadId: thread.id,
     turnId: null,
     res,
@@ -625,8 +824,9 @@ async function runCodexTurn(model, messages, requestedThreadId, res) {
     finished: false,
     cancelled: false,
     timer: null,
+    resolveCompletion,
   };
-  activeCodexTurns.set(thread.id, active);
+  context.activeTurns.set(thread.id, active);
 
   const interrupt = () => {
     if (active.finished || res.writableEnded) return;
@@ -634,6 +834,7 @@ async function runCodexTurn(model, messages, requestedThreadId, res) {
     if (active.turnId) {
       client.request('turn/interrupt', { threadId: active.threadId, turnId: active.turnId }, 10_000).catch(() => {});
     }
+    finalizeCodexTurn(active, { cancelled: true, suppressResponse: true });
   };
   const onResponseClose = () => {
     if (!res.writableEnded) interrupt();
@@ -666,10 +867,56 @@ async function runCodexTurn(model, messages, requestedThreadId, res) {
       client.request('turn/interrupt', { threadId: active.threadId, turnId: active.turnId }, 10_000).catch(() => {});
     }
     if (started.turn?.status === 'failed') {
-      finalizeCodexTurn(active, { error: started.turn.error?.message || 'Codex 요청을 시작하지 못했습니다.' });
+      finalizeCodexTurn(active, {
+        error: started.turn.error?.message || 'Codex 요청을 시작하지 못했습니다.',
+        rateLimited: isUsageLimitError(started.turn.error),
+      });
     }
   } catch (error) {
-    finalizeCodexTurn(active, { error: error.message || 'Codex 요청을 시작하지 못했습니다.' });
+    finalizeCodexTurn(active, { error: error.message || 'Codex 요청을 시작하지 못했습니다.', rateLimited: isUsageLimitError(error) });
+  }
+  return completion;
+}
+
+async function runCodexTurn(requestedAccountId, model, messages, requestedThreadId, res) {
+  let candidates;
+  try {
+    candidates = await codexTurnCandidates(requestedAccountId, model);
+  } catch (error) {
+    sendEvent(res, 'error', { error: error.message || 'Codex 계정을 확인하지 못했습니다.' });
+    res.end();
+    return;
+  }
+
+  const attempted = new Set();
+  let retrying = false;
+  while (candidates.length) {
+    const { account } = candidates[0];
+    const context = await getCodexAccountContext(account.id);
+    if (retrying) {
+      sendEvent(res, 'retry', { accountId: account.id, name: account.name });
+      retrying = false;
+    }
+    const threadId = account.id === requestedAccountId ? requestedThreadId : null;
+    const result = await runCodexTurnAttempt(context, model, messages, threadId, res);
+    if (result?.rateLimited && !result.cancelled && !res.destroyed) {
+      attempted.add(account.id);
+      candidates = await codexFallbackCandidates(attempted, model);
+      if (candidates.length) {
+        retrying = true;
+        continue;
+      }
+      sendEvent(res, 'error', { error: '선택한 Codex 계정의 사용 한도가 소진되었고, 한도가 남은 다른 연결 계정이 없습니다.' });
+      if (!res.writableEnded) res.end();
+      return;
+    }
+    if (result?.error && !result.cancelled && !res.writableEnded && !res.destroyed) {
+      sendEvent(res, 'error', { error: result.error });
+      res.end();
+      return;
+    }
+    if (result?.cancelled || res.destroyed) return;
+    return;
   }
 }
 
@@ -678,6 +925,7 @@ async function relayChat(req, res) {
     const body = await readJson(req);
     const provider = body.provider;
     const model = body.model;
+    const codexAccountId = provider === 'openai' && typeof body.codexAccountId === 'string' ? body.codexAccountId : 'default';
     if (!Object.hasOwn(providers, provider)) {
       return json(res, 400, { error: '지원하지 않는 제공자 또는 모델입니다.' });
     }
@@ -697,7 +945,7 @@ async function relayChat(req, res) {
       return { role: message.role, content: message.content.slice(0, 40_000) };
     });
 
-    const status = await providerStatus(provider);
+    const status = await providerStatus(provider, codexAccountId);
     if (!status.installed) return json(res, 503, { error: providers[provider].label + ' CLI가 설치되어 있지 않습니다. 연결 설정에서 설치 방법을 확인해 주세요.' });
     if (!status.connected) return json(res, 401, { error: providers[provider].label + ' 계정을 먼저 연결해 주세요.' });
     if (provider === 'openai' && !status.models.some((item) => item.id === model)) {
@@ -711,7 +959,7 @@ async function relayChat(req, res) {
       'X-Accel-Buffering': 'no',
       'X-Content-Type-Options': 'nosniff',
     });
-    if (provider === 'openai') await runCodexTurn(model, messages, body.codexThreadId, res);
+    if (provider === 'openai') await runCodexTurn(codexAccountId, model, messages, body.codexThreadId, res);
     else await runClaudeCli(model, conversationPrompt(messages), res);
   } catch (error) {
     if (res.destroyed) return;
@@ -753,8 +1001,46 @@ const server = createServer(async (req, res) => {
   const url = new URL(req.url, 'http://' + (req.headers.host || '127.0.0.1'));
 
   if (req.method === 'GET' && url.pathname === '/api/status') {
-    const providerState = await allProviderStatuses();
-    return json(res, 200, { providers: providerState, loginJobs: publicLoginJobs() });
+    try {
+      const [providerState, codexAccounts] = await Promise.all([allProviderStatuses(), allCodexAccountStatuses()]);
+      return json(res, 200, { providers: providerState, codexAccounts, loginJobs: publicLoginJobs() });
+    } catch (error) {
+      return json(res, 500, { error: error.message || '계정 상태를 읽지 못했습니다.' });
+    }
+  }
+  if (req.method === 'POST' && url.pathname === '/api/codex/accounts') {
+    let account;
+    try {
+      const body = await readJson(req);
+      const installation = await openAiProviderStatus('default');
+      if (!installation.installed) return json(res, 503, { error: 'Codex CLI가 설치되어 있지 않습니다.', installCommand: installation.installCommand });
+      account = await createCodexAccount(body.name);
+      const job = await startOpenAiLogin(account.id);
+      return json(res, 202, {
+        accountId: account.id,
+        state: job.state,
+        authUrl: job.authUrl,
+        message: '새 Codex 계정의 ChatGPT 로그인 창에서 인증을 완료해 주세요.',
+      });
+    } catch (error) {
+      return json(res, error.status || 502, {
+        ...(account ? { accountId: account.id } : {}),
+        error: error.message || 'Codex 계정을 추가하지 못했습니다.',
+      });
+    }
+  }
+  const codexAccountConnectMatch = url.pathname.match(/^\/api\/codex\/accounts\/(default|[0-9a-f-]{36})\/connect$/i);
+  if (req.method === 'POST' && codexAccountConnectMatch) {
+    const accountId = codexAccountConnectMatch[1];
+    try {
+      const status = await providerStatus('openai', accountId);
+      if (!status.installed) return json(res, 503, { error: 'Codex CLI가 설치되어 있지 않습니다.', installCommand: status.installCommand });
+      if (status.connected) return json(res, 200, { connected: true, message: '이미 계정이 연결되어 있습니다.' });
+      const job = await startOpenAiLogin(accountId);
+      return json(res, 202, { accountId, state: job.state, authUrl: job.authUrl, message: 'ChatGPT 로그인 창에서 인증을 완료해 주세요.' });
+    } catch (error) {
+      return json(res, error.status || 502, { error: error.message || 'ChatGPT 로그인 절차를 시작하지 못했습니다.' });
+    }
   }
   const connectMatch = url.pathname.match(/^\/api\/connect\/(openai|anthropic)$/);
   if (req.method === 'POST' && connectMatch) {
@@ -778,10 +1064,12 @@ const server = createServer(async (req, res) => {
     try {
       const body = await readJson(req);
       if (!validCodexThreadId(body.threadId)) return json(res, 400, { error: 'Codex 대화 식별자가 올바르지 않습니다.' });
-      if (activeCodexTurns.has(body.threadId)) return json(res, 409, { error: '응답이 진행 중인 Codex 대화는 삭제할 수 없습니다.' });
-      const client = await getCodexAppServer();
+      const accountId = typeof body.codexAccountId === 'string' ? body.codexAccountId : 'default';
+      const context = await getCodexAccountContext(accountId);
+      if (context.activeTurns.has(body.threadId)) return json(res, 409, { error: '응답이 진행 중인 Codex 대화는 삭제할 수 없습니다.' });
+      const client = await getCodexAppServer(context);
       await client.request('thread/delete', { threadId: body.threadId }, 15_000);
-      loadedCodexThreads.delete(body.threadId);
+      context.loadedThreads.delete(body.threadId);
       return json(res, 200, { deleted: true });
     } catch (error) {
       return json(res, error.status || 502, { error: error.message || 'Codex 대화를 삭제하지 못했습니다.' });
@@ -807,12 +1095,15 @@ async function shutdown() {
   if (isShuttingDown) return;
   isShuttingDown = true;
   server.close();
-  for (const active of activeCodexTurns.values()) {
-    finalizeCodexTurn(active, { error: 'Mosaic Desk 서버가 종료되었습니다.' });
+  for (const context of codexAccountContexts.values()) {
+    for (const active of context.activeTurns.values()) {
+      finalizeCodexTurn(active, { error: 'Mosaic Desk 서버가 종료되었습니다.' });
+    }
+    context.client?.stop();
   }
-  codexAppServer?.stop();
-  const sandboxDir = await codexSandboxDirPromise?.catch(() => null);
-  if (sandboxDir) await rm(sandboxDir, { recursive: true, force: true }).catch(() => {});
+  const sandboxes = await Promise.all([...codexAccountContexts.values()]
+    .map((context) => context.sandboxDirPromise?.catch(() => null)));
+  await Promise.all(sandboxes.filter(Boolean).map((sandboxDir) => rm(sandboxDir, { recursive: true, force: true }).catch(() => {})));
 }
 
 process.once('SIGINT', () => { void shutdown(); });

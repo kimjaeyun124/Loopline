@@ -86,6 +86,7 @@ function startBackend() {
           HOST: '127.0.0.1',
           PORT: BACKEND_PORT,
           MOSAIC_DESKTOP: '1',
+          MOSAIC_USER_DATA_DIR: app.getPath('userData'),
           PATH: getCliPath(),
         },
         serviceName: `${APP_NAME} Local Server`,

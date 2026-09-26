@@ -34,6 +34,8 @@ const state = {
   loginUrls: {},
   busy: false,
   controller: null,
+  codexAccounts: [],
+  activeCodexAccountId: 'default',
 };
 state.activeId = [...state.conversations].sort((a, b) => b.updatedAt - a.updatedAt)[0]?.id || null;
 
@@ -49,6 +51,9 @@ const elements = {
   modelSelect: document.querySelector('#modelSelect'),
   providerSelectButton: document.querySelector('#providerSelectButton'),
   providerMenu: document.querySelector('#providerMenu'),
+  codexAccountSelect: document.querySelector('#codexAccountSelect'),
+  codexAccountsList: document.querySelector('#codexAccountsList'),
+  addCodexAccountButton: document.querySelector('#addCodexAccount'),
   settingsModal: document.querySelector('#settingsModal'),
   searchModal: document.querySelector('#searchModal'),
   searchInput: document.querySelector('#searchInput'),
@@ -68,6 +73,7 @@ function loadConversations() {
         provider: Object.hasOwn(PROVIDERS, item.provider) ? item.provider : 'openai',
         model: String(item.model || 'gpt-5.6'),
         codexThreadId: typeof item.codexThreadId === 'string' ? item.codexThreadId : null,
+        codexAccountId: typeof item.codexAccountId === 'string' ? item.codexAccountId : 'default',
         updatedAt: Number(item.updatedAt) || Date.now(),
         messages: item.messages.filter((message) => ['user', 'assistant'].includes(message?.role) && typeof message.content === 'string')
           .map((message) => ({ role: message.role, content: message.content.slice(0, 40_000) })),
@@ -89,6 +95,7 @@ function loadPreferences() {
   try {
     const preferences = JSON.parse(localStorage.getItem(PREFERENCE_KEY) || '{}');
     if (Object.hasOwn(PROVIDERS, preferences.provider)) state.provider = preferences.provider;
+    if (typeof preferences.codexAccountId === 'string') state.activeCodexAccountId = preferences.codexAccountId;
     if (PROVIDERS[state.provider].models.some((model) => model.id === preferences.model)) state.model = preferences.model;
   } catch {
     // 기본 모델 설정을 유지합니다.
@@ -96,7 +103,11 @@ function loadPreferences() {
 }
 
 function savePreferences() {
-  localStorage.setItem(PREFERENCE_KEY, JSON.stringify({ provider: state.provider, model: state.model }));
+  localStorage.setItem(PREFERENCE_KEY, JSON.stringify({
+    provider: state.provider,
+    model: state.model,
+    codexAccountId: state.activeCodexAccountId,
+  }));
 }
 
 function activeConversation() {
@@ -109,6 +120,7 @@ function createConversation() {
     title: '새 대화',
     provider: state.provider,
     model: state.model,
+    codexAccountId: state.provider === 'openai' ? state.activeCodexAccountId : 'default',
     updatedAt: Date.now(),
     messages: [],
   };
@@ -177,17 +189,79 @@ function renderMessages() {
   elements.chatScroll.scrollTop = elements.chatScroll.scrollHeight;
 }
 
+function activeCodexAccount() {
+  return state.codexAccounts.find((account) => account.id === state.activeCodexAccountId) || null;
+}
+
+function modelsForProvider(providerId = state.provider) {
+  if (providerId === 'openai') {
+    const account = activeCodexAccount();
+    return account?.models?.length ? account.models : PROVIDERS.openai.models;
+  }
+  return PROVIDERS[providerId].models;
+}
+
+function codexUsageText(account) {
+  if (!account.connected) return '로그인 후 이 계정의 사용 한도를 확인합니다.';
+  const usage = account.usageSummary;
+  if (!usage?.available || !Array.isArray(usage.windows) || usage.windows.length === 0) return '사용 한도 정보를 현재 확인할 수 없습니다.';
+  return usage.windows.map((window) => {
+    const duration = formatUsageWindow(window.windowDurationMins, window.period);
+    const resets = formatUsageReset(window.resetsAt);
+    return `${window.limitName || 'Codex'} ${duration} 남은 ${window.remainingPercent}%${resets ? ` · ${resets} 초기화` : ''}`;
+  }).join(' / ');
+}
+
+function renderCodexAccounts() {
+  elements.codexAccountsList.innerHTML = state.codexAccounts.map((account) => {
+    const selected = account.id === state.activeCodexAccountId;
+    const job = account.loginJob;
+    const waiting = job?.state === 'starting' || job?.state === 'running';
+    const loginLabel = waiting ? '로그인 중' : account.installed ? '로그인' : 'CLI 설치 필요';
+    const accountHint = [account.accountEmail, account.planType || (!account.accountEmail ? account.label : '')].filter(Boolean).join(' · ') || 'Codex 계정';
+    return `<article class="codex-account-card${selected ? ' active' : ''}">
+      <span class="connection-logo openai-logo">◉</span>
+      <div class="connection-details"><div class="codex-account-title"><strong>${escapeHtml(account.name)}</strong>${selected ? '<span class="active-account-badge">사용 중</span>' : ''}</div>
+        <small class="codex-account-plan">${escapeHtml(accountHint)}</small>
+        <small class="usage-status">${escapeHtml(codexUsageText(account))}</small>
+        ${!account.installed && account.installCommand ? `<code class="install-command">${escapeHtml(account.installCommand)}</code>` : ''}
+      </div>
+      <div class="connection-actions"><span class="connection-status${account.connected ? ' ready' : ''}">${account.connected ? '연결됨' : waiting ? '인증 중' : '로그인 필요'}</span>
+        ${account.connected
+          ? `<button class="account-use-button" type="button" data-use-codex-account="${escapeHtml(account.id)}"${selected ? ' disabled' : ''}>${selected ? '선택됨' : '사용'}</button>`
+          : `<button class="connect-button" type="button" data-connect-codex-account="${escapeHtml(account.id)}"${!account.installed || waiting ? ' disabled' : ''}>${loginLabel}</button>`}
+      </div>
+    </article>`;
+  }).join('');
+  elements.addCodexAccountButton.disabled = state.addingCodexAccount === true;
+  elements.addCodexAccountButton.textContent = state.addingCodexAccount ? '계정 준비 중…' : '＋ 계정 추가';
+}
+
+function renderCodexAccountSelect() {
+  const visible = state.provider === 'openai';
+  elements.codexAccountSelect.hidden = !visible;
+  if (!visible) return;
+  elements.codexAccountSelect.innerHTML = state.codexAccounts.length
+    ? state.codexAccounts.map((account) => `<option value="${escapeHtml(account.id)}"${account.id === state.activeCodexAccountId ? ' selected' : ''}${!account.connected ? ' disabled' : ''}>${escapeHtml(account.name)}${account.connected ? '' : ' · 로그인 필요'}</option>`).join('')
+    : '<option value="default">Codex 계정 확인 중…</option>';
+  elements.codexAccountSelect.value = state.activeCodexAccountId;
+}
+
 function renderModelSelect() {
   const provider = PROVIDERS[state.provider];
-  elements.modelSelect.disabled = provider.models.length === 0;
-  elements.modelSelect.innerHTML = provider.models.length
-    ? provider.models.map((model) =>
+  const models = modelsForProvider();
+  elements.modelSelect.disabled = models.length === 0;
+  elements.modelSelect.innerHTML = models.length
+    ? models.map((model) =>
       `<option value="${escapeHtml(model.id)}"${model.id === state.model ? ' selected' : ''}>${escapeHtml(model.label)}</option>`).join('')
     : '<option value="">로그인 후 모델 표시</option>';
   document.querySelector('#providerSelectLabel').textContent = provider.label;
   document.querySelector('#miniProviderMark').textContent = provider.mark;
-  document.querySelector('#providerPillText').textContent = `${provider.label} 계정`;
-  document.querySelector('#providerDot').classList.toggle('connected', state.providers[state.provider]?.connected === true);
+  const codexAccount = state.provider === 'openai' ? activeCodexAccount() : null;
+  document.querySelector('#providerPillText').textContent = codexAccount?.name || `${provider.label} 계정`;
+  document.querySelector('#providerDot').classList.toggle('connected', state.provider === 'openai'
+    ? codexAccount?.connected === true
+    : state.providers[state.provider]?.connected === true);
   document.querySelectorAll('.provider-menu [data-provider]').forEach((button) => {
     button.classList.toggle('selected', button.dataset.provider === state.provider);
   });
@@ -196,6 +270,8 @@ function renderModelSelect() {
 function render() {
   renderConversationList();
   renderMessages();
+  renderCodexAccounts();
+  renderCodexAccountSelect();
   renderModelSelect();
   document.querySelector('#connectionSummary').textContent = connectionSummary();
   const conversation = activeConversation();
@@ -204,9 +280,12 @@ function render() {
 }
 
 function connectionSummary() {
-  const count = Object.values(state.providers).filter((provider) => provider?.connected).length;
-  if (count === 0) return '계정 연결 필요';
-  return `${count}개 계정 연결됨`;
+  const codexCount = state.codexAccounts.filter((account) => account.connected).length;
+  const claudeConnected = state.providers.anthropic?.connected === true;
+  const parts = [];
+  if (codexCount) parts.push(`Codex ${codexCount}개`);
+  if (claudeConnected) parts.push('Claude');
+  return parts.length ? `${parts.join(' · ')} 연결됨` : '계정 연결 필요';
 }
 
 let statusRequestInProgress = false;
@@ -214,66 +293,51 @@ let statusPollTimer = null;
 
 function updateConnectionControls() {
   const feedback = document.querySelector('#loginFeedback');
-  const rows = [
-    ['openai', 'openaiStatus', 'connectOpenAI', 'openaiInstall'],
-    ['anthropic', 'anthropicStatus', 'connectClaude', 'anthropicInstall'],
-  ];
   const messages = [];
+  const anthropic = state.providers.anthropic || {};
+  const claudeJob = state.loginJobs.anthropic;
+  document.querySelector('#anthropicStatus').textContent = anthropic.label || '상태 확인 실패';
+  document.querySelector('#anthropicStatus').classList.toggle('ready', anthropic.connected === true);
+  const claudeButton = document.querySelector('#connectClaude');
+  claudeButton.textContent = anthropic.connected ? '연결됨' : claudeJob?.state === 'running' || claudeJob?.state === 'starting' ? '진행 중' : anthropic.installed ? '로그인' : '설치 필요';
+  claudeButton.disabled = anthropic.connected === true || anthropic.installed !== true || claudeJob?.state === 'running' || claudeJob?.state === 'starting';
+  claudeButton.classList.toggle('connected', anthropic.connected === true);
+  document.querySelector('#anthropicInstall').textContent = anthropic.installCommand || '';
+  document.querySelector('#anthropicInstall').hidden = anthropic.installed !== false || !anthropic.installCommand;
+  document.querySelector('#anthropicUsage').textContent = anthropic.usageSummary?.message || (anthropic.connected
+    ? 'Claude Code에서 /usage를 실행해 플랜 사용량을 확인하세요.'
+    : 'Claude Code CLI 로그인 후 /usage에서 플랜 사용량을 확인하세요.');
+  if (!anthropic.connected && claudeJob?.output) messages.push(`Claude 로그인 안내:\n${claudeJob.output.trim()}`);
+  else if (!anthropic.connected && (claudeJob?.state === 'running' || claudeJob?.state === 'starting')) messages.push('Claude 공식 로그인 창에서 인증을 완료해 주세요.');
+  else if (!anthropic.connected && claudeJob?.state === 'failed') messages.push('Claude 로그인 절차가 종료되었습니다. CLI 상태를 새로고침해 주세요.');
 
-  for (const [provider, statusId, buttonId, installId] of rows) {
-    const details = state.providers[provider] || {};
-    const job = state.loginJobs[provider];
-    const statusElement = document.querySelector(`#${statusId}`);
-    const button = document.querySelector(`#${buttonId}`);
-    const installElement = document.querySelector(`#${installId}`);
-    statusElement.textContent = details.label || '상태 확인 실패';
-    statusElement.classList.toggle('ready', details.connected === true);
-    button.textContent = details.connected ? '연결됨' : job?.state === 'running' || job?.state === 'starting' ? '진행 중' : details.installed ? '로그인' : '설치 필요';
-    button.disabled = details.connected === true || details.installed !== true || job?.state === 'running' || job?.state === 'starting';
-    button.classList.toggle('connected', details.connected === true);
-    installElement.textContent = details.installCommand || '';
-    installElement.hidden = details.installed !== false || !details.installCommand;
-
-    const usageElement = document.querySelector(`#${provider === 'openai' ? 'openaiUsage' : 'anthropicUsage'}`);
-    if (provider === 'openai') {
-      const usage = details.usageSummary;
-      if (!details.connected) {
-        usageElement.textContent = 'Codex 사용 한도는 ChatGPT 계정 로그인 후 표시됩니다.';
-      } else if (!usage?.available || !Array.isArray(usage.windows) || usage.windows.length === 0) {
-        usageElement.textContent = 'Codex 사용 한도 정보를 현재 확인할 수 없습니다.';
-      } else {
-        const windows = usage.windows.map((window) => {
-          const duration = formatUsageWindow(window.windowDurationMins, window.period);
-          const resets = formatUsageReset(window.resetsAt);
-          return `${window.limitName || 'Codex'} ${duration}: 남은 ${window.remainingPercent}%${resets ? ` · 재설정 ${resets}` : ''}`;
-        });
-        const restriction = usage.ordinaryUsageAllowed === false ? '일반 사용이 제한됨 · ' : '';
-        usageElement.textContent = `${restriction}${windows.join(' / ')}`;
-      }
-    } else {
-      usageElement.textContent = details.usageSummary?.message || (details.connected
-        ? 'Claude Code에서 /usage를 실행해 플랜 사용량을 확인하세요.'
-        : 'Claude Code CLI 로그인 후 /usage에서 플랜 사용량을 확인하세요.');
+  for (const account of state.codexAccounts) {
+    const job = account.loginJob;
+    const key = `openai:${account.id}`;
+    if (account.connected) {
+      delete state.loginUrls[key];
+      continue;
     }
-
-    if (details.connected) continue;
-    if (job?.output) messages.push(`${PROVIDERS[provider].label} 로그인 안내:\n${job.output.trim()}`);
-    else if (job?.state === 'running' || job?.state === 'starting') messages.push(`${PROVIDERS[provider].label} 공식 로그인 창에서 인증을 완료해 주세요.`);
-    else if (job?.state === 'failed') messages.push(`${PROVIDERS[provider].label} 로그인 절차가 종료되었습니다. CLI 상태를 새로고침해 주세요.`);
+    if (job?.output) messages.push(`${account.name} 로그인 안내:\n${job.output.trim()}`);
+    else if (job?.state === 'running' || job?.state === 'starting') messages.push(`${account.name} ChatGPT 로그인 창에서 인증을 완료해 주세요.`);
+    else if (job?.state === 'failed') messages.push(`${account.name} 로그인 절차가 종료되었습니다. 다시 시도해 주세요.`);
   }
 
-  feedback.textContent = messages.join('\n\n');
-  const authUrl = !state.providers.openai?.connected ? safeChatGptAuthUrl(state.loginUrls.openai || '') : '';
-  if (authUrl) {
-    if (messages.length) feedback.append(document.createTextNode('\n\n'));
+  feedback.replaceChildren(document.createTextNode(messages.join('\n\n')));
+  const authLinks = state.codexAccounts
+    .map((account) => ({ account, url: safeChatGptAuthUrl(state.loginUrls[`openai:${account.id}`] || '') }))
+    .filter(({ account, url }) => !account.connected && url);
+  for (const { account, url } of authLinks) {
+    if (messages.length || feedback.childNodes.length) feedback.append(document.createTextNode('\n\n'));
     const link = document.createElement('a');
-    link.href = authUrl;
+    link.href = url;
     link.target = '_blank';
     link.rel = 'noopener noreferrer';
-    link.textContent = 'ChatGPT 로그인 창 열기';
+    link.textContent = `${account.name} ChatGPT 로그인 창 열기`;
     feedback.append(link);
   }
-  feedback.hidden = messages.length === 0 && !authUrl;
+  feedback.hidden = messages.length === 0 && authLinks.length === 0;
+  renderCodexAccounts();
 }
 
 function formatUsageWindow(durationMins, period) {
@@ -310,15 +374,18 @@ async function refreshStatus() {
     const status = await response.json();
     state.providers = status.providers || state.providers;
     state.loginJobs = status.loginJobs || {};
-    const codexModels = state.providers.openai?.models;
-    if (Array.isArray(codexModels) && codexModels.length) {
-      PROVIDERS.openai.models = codexModels.map((model) => ({ id: model.id, label: model.label }));
-      if (!PROVIDERS.openai.models.some((model) => model.id === state.model)) {
-        state.model = codexModels.find((model) => model.isDefault)?.id || codexModels[0].id;
-        savePreferences();
-      }
+    state.codexAccounts = Array.isArray(status.codexAccounts) ? status.codexAccounts : [];
+    if (!state.codexAccounts.some((account) => account.id === state.activeCodexAccountId)) state.activeCodexAccountId = 'default';
+    const defaultModels = state.codexAccounts.find((account) => account.id === 'default')?.models;
+    if (Array.isArray(defaultModels) && defaultModels.length) {
+      PROVIDERS.openai.models = defaultModels.map((model) => ({ id: model.id, label: model.label }));
     }
-    if (state.providers.openai?.connected) state.loginUrls.openai = '';
+    const codexModels = modelsForProvider('openai');
+    if (codexModels.length && !codexModels.some((model) => model.id === state.model)) {
+      state.model = codexModels.find((model) => model.isDefault)?.id || codexModels[0].id;
+      savePreferences();
+    }
+    savePreferences();
   } catch {
     state.providers = {
       openai: { installed: false, connected: false, label: '서버 연결 실패' },
@@ -333,38 +400,80 @@ async function refreshStatus() {
 
 async function connectProvider(provider) {
   const feedback = document.querySelector('#loginFeedback');
-  const loginWindow = provider === 'openai' ? window.open('about:blank', '_blank') : null;
   feedback.hidden = false;
-  feedback.textContent = provider === 'openai'
-    ? 'Codex app-server에서 ChatGPT 로그인을 시작하는 중입니다…'
-    : 'Claude 공식 CLI 로그인 절차를 여는 중입니다…';
+  feedback.textContent = 'Claude 공식 CLI 로그인 절차를 여는 중입니다…';
   try {
     const response = await fetch(`/api/connect/${provider}`, { method: 'POST' });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-      loginWindow?.close();
       feedback.textContent = [data.error, data.installCommand].filter(Boolean).join('\n');
       showToast(data.error || '로그인을 시작하지 못했습니다.');
     } else {
       feedback.textContent = data.message || '공식 로그인 절차를 확인해 주세요.';
-      if (provider === 'openai' && data.authUrl) {
-        const authUrl = safeChatGptAuthUrl(data.authUrl);
-        if (!authUrl) throw new Error('안전하지 않은 ChatGPT 로그인 주소를 받았습니다.');
-        state.loginUrls.openai = authUrl;
-        if (loginWindow) {
-          loginWindow.opener = null;
-          loginWindow.location.replace(authUrl);
-        } else {
-          showToast('팝업이 차단되었습니다. 아래 로그인 링크를 눌러 계속해 주세요.');
-        }
-      }
       if (!statusPollTimer) statusPollTimer = setInterval(refreshStatus, 2500);
     }
   } catch {
-    loginWindow?.close();
     feedback.textContent = '로그인 요청을 처리하지 못했습니다. Mosaic 서버가 실행 중인지 확인해 주세요.';
   }
   refreshStatus();
+}
+
+async function connectCodexAccount(accountId = null) {
+  const feedback = document.querySelector('#loginFeedback');
+  const loginWindow = window.open('about:blank', '_blank');
+  state.addingCodexAccount = accountId === null;
+  feedback.hidden = false;
+  feedback.textContent = accountId
+    ? 'Codex app-server에서 이 계정의 로그인을 시작하는 중입니다…'
+    : '새 Codex 계정 프로필을 준비하고 로그인을 시작하는 중입니다…';
+  renderCodexAccounts();
+
+  try {
+    const endpoint = accountId
+      ? `/api/codex/accounts/${encodeURIComponent(accountId)}/connect`
+      : '/api/codex/accounts';
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: accountId ? undefined : { 'Content-Type': 'application/json' },
+      body: accountId ? undefined : JSON.stringify({}),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      loginWindow?.close();
+      feedback.textContent = [data.error, data.installCommand].filter(Boolean).join('\n');
+      showToast(data.error || 'Codex 계정을 연결하지 못했습니다.');
+      if (data.accountId) await refreshStatus();
+      return;
+    }
+    accountId = data.accountId || accountId;
+    if (data.connected) {
+      loginWindow?.close();
+      feedback.textContent = data.message || '이 계정은 이미 연결되어 있습니다.';
+      await refreshStatus();
+      return;
+    }
+    feedback.textContent = data.message || 'ChatGPT 로그인 창에서 인증을 완료해 주세요.';
+    if (data.authUrl && accountId) {
+      const authUrl = safeChatGptAuthUrl(data.authUrl);
+      if (!authUrl) throw new Error('안전하지 않은 ChatGPT 로그인 주소를 받았습니다.');
+      state.loginUrls[`openai:${accountId}`] = authUrl;
+      if (loginWindow) {
+        loginWindow.opener = null;
+        loginWindow.location.replace(authUrl);
+      } else {
+        showToast('팝업이 차단되었습니다. 아래 로그인 링크를 눌러 계속해 주세요.');
+      }
+    }
+    if (!statusPollTimer) statusPollTimer = setInterval(refreshStatus, 2500);
+  } catch (error) {
+    loginWindow?.close();
+    feedback.textContent = error.message || 'Codex 로그인을 시작하지 못했습니다.';
+    showToast(error.message || 'Codex 로그인을 시작하지 못했습니다.');
+  } finally {
+    state.addingCodexAccount = false;
+    renderCodexAccounts();
+  }
+  await refreshStatus();
 }
 
 function safeChatGptAuthUrl(value) {
@@ -388,11 +497,13 @@ function showToast(message) {
 function setProvider(provider) {
   if (!Object.hasOwn(PROVIDERS, provider)) return;
   state.provider = provider;
-  if (!PROVIDERS[provider].models.some((model) => model.id === state.model)) state.model = PROVIDERS[provider].models[0].id;
+  const models = modelsForProvider(provider);
+  if (!models.some((model) => model.id === state.model)) state.model = models[0]?.id || '';
   const conversation = activeConversation();
   if (conversation && conversation.messages.length === 0) {
     conversation.provider = provider;
     conversation.model = state.model;
+    conversation.codexAccountId = provider === 'openai' ? state.activeCodexAccountId : 'default';
   }
   savePreferences();
   saveConversations();
@@ -401,12 +512,39 @@ function setProvider(provider) {
 }
 
 function setModel(model) {
-  if (!PROVIDERS[state.provider].models.some((item) => item.id === model)) return;
+  if (!modelsForProvider().some((item) => item.id === model)) return;
   state.model = model;
   const conversation = activeConversation();
   if (conversation && conversation.messages.length === 0) conversation.model = model;
   savePreferences();
   saveConversations();
+}
+
+function setCodexAccount(accountId) {
+  const account = state.codexAccounts.find((item) => item.id === accountId && item.connected);
+  if (!account) return;
+  if (state.busy) {
+    showToast('응답이 끝난 뒤 Codex 계정을 전환해 주세요.');
+    renderCodexAccountSelect();
+    return;
+  }
+  const previousId = state.activeCodexAccountId;
+  state.activeCodexAccountId = account.id;
+  if (state.provider === 'openai') {
+    const models = account.models || [];
+    if (!models.some((model) => model.id === state.model)) state.model = models.find((model) => model.isDefault)?.id || models[0]?.id || '';
+    const conversation = activeConversation();
+    if (conversation?.provider === 'openai' && conversation.codexAccountId !== account.id) {
+      conversation.codexAccountId = account.id;
+      conversation.codexThreadId = null;
+      if (!models.some((model) => model.id === conversation.model)) conversation.model = state.model;
+      if (conversation.messages.length) showToast('계정을 바꿨습니다. 이전 대화 내용을 새 계정에 이어 전달합니다.');
+    }
+  }
+  savePreferences();
+  saveConversations();
+  render();
+  if (previousId !== account.id && state.provider !== 'openai') showToast('새 Codex 대화에 사용할 계정을 바꿨습니다.');
 }
 
 function updateConversationTitle(conversation, firstMessage) {
@@ -437,8 +575,25 @@ async function streamResponse(response, assistantMessage, conversation) {
       const parsed = parseSseBlock(buffer.slice(0, separator));
       buffer = buffer.slice(separator + 2);
       if (!parsed) continue;
+      if (parsed.event === 'account' && typeof parsed.data.id === 'string') {
+        conversation.codexAccountId = parsed.data.id;
+        state.activeCodexAccountId = parsed.data.id;
+        savePreferences();
+        saveConversations();
+        render();
+      }
       if (parsed.event === 'thread' && typeof parsed.data.threadId === 'string') {
         conversation.codexThreadId = parsed.data.threadId;
+        if (typeof parsed.data.accountId === 'string') conversation.codexAccountId = parsed.data.accountId;
+        saveConversations();
+      }
+      if (parsed.event === 'retry' && typeof parsed.data.accountId === 'string') {
+        assistantMessage.content = '';
+        assistantMessage.error = false;
+        conversation.codexThreadId = null;
+        conversation.codexAccountId = parsed.data.accountId;
+        state.activeCodexAccountId = parsed.data.accountId;
+        savePreferences();
         saveConversations();
       }
       if (parsed.event === 'delta') assistantMessage.content += parsed.data.text || '';
@@ -472,6 +627,10 @@ async function sendMessage(value) {
   if (conversation.provider !== state.provider && state.provider === 'openai') conversation.codexThreadId = null;
   conversation.provider = state.provider;
   conversation.model = state.model;
+  if (state.provider === 'openai') {
+    if (conversation.codexAccountId !== state.activeCodexAccountId) conversation.codexThreadId = null;
+    conversation.codexAccountId = state.activeCodexAccountId;
+  }
   updateConversationTitle(conversation, message);
   conversation.messages.push({ role: 'user', content: message, id: crypto.randomUUID() });
   const assistantMessage = { role: 'assistant', content: '', id: crypto.randomUUID(), pending: true };
@@ -496,6 +655,7 @@ async function sendMessage(value) {
       body: JSON.stringify({
         provider: state.provider,
         model: state.model,
+        ...(state.provider === 'openai' ? { codexAccountId: conversation.codexAccountId || 'default' } : {}),
         messages,
         ...(state.provider === 'openai' && conversation.codexThreadId ? { codexThreadId: conversation.codexThreadId } : {}),
       }),
@@ -555,9 +715,15 @@ function selectConversation(conversation) {
   }
   state.activeId = conversation.id;
   state.provider = conversation.provider;
-  state.model = PROVIDERS[state.provider].models.some((model) => model.id === conversation.model)
+  if (state.provider === 'openai') {
+    state.activeCodexAccountId = state.codexAccounts.some((account) => account.id === conversation.codexAccountId)
+      ? conversation.codexAccountId
+      : 'default';
+  }
+  const models = modelsForProvider(state.provider);
+  state.model = models.some((model) => model.id === conversation.model)
     ? conversation.model
-    : PROVIDERS[state.provider].models[0].id;
+    : models[0]?.id || '';
   savePreferences();
   render();
   closeMobileSidebar();
@@ -583,8 +749,17 @@ document.querySelector('#settingsButtonTop').addEventListener('click', showSetti
 document.querySelector('#closeSettings').addEventListener('click', hideSettings);
 document.querySelector('#doneSettings').addEventListener('click', hideSettings);
 document.querySelector('#refreshStatus').addEventListener('click', refreshStatus);
-document.querySelector('#connectOpenAI').addEventListener('click', () => connectProvider('openai'));
 document.querySelector('#connectClaude').addEventListener('click', () => connectProvider('anthropic'));
+elements.addCodexAccountButton.addEventListener('click', () => connectCodexAccount());
+elements.codexAccountsList.addEventListener('click', (event) => {
+  const connectButton = event.target.closest('[data-connect-codex-account]');
+  if (connectButton) {
+    connectCodexAccount(connectButton.dataset.connectCodexAccount);
+    return;
+  }
+  const useButton = event.target.closest('[data-use-codex-account]');
+  if (useButton) setCodexAccount(useButton.dataset.useCodexAccount);
+});
 elements.settingsModal.addEventListener('click', (event) => { if (event.target === elements.settingsModal) hideSettings(); });
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
@@ -629,7 +804,7 @@ elements.conversationList.addEventListener('click', (event) => {
       fetch('/api/thread/delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ threadId: conversation.codexThreadId }),
+        body: JSON.stringify({ threadId: conversation.codexThreadId, codexAccountId: conversation.codexAccountId || 'default' }),
       }).then(async (response) => {
         if (!response.ok) showToast('브라우저 대화는 삭제했지만 Codex 기록은 삭제하지 못했습니다.');
       }).catch(() => showToast('브라우저 대화는 삭제했지만 Codex 기록을 서버에 전달하지 못했습니다.'));
@@ -661,6 +836,7 @@ document.addEventListener('click', (event) => {
   }
 });
 elements.modelSelect.addEventListener('change', (event) => setModel(event.target.value));
+elements.codexAccountSelect.addEventListener('change', (event) => setCodexAccount(event.target.value));
 elements.composerForm.addEventListener('submit', (event) => {
   event.preventDefault();
   if (state.busy) {

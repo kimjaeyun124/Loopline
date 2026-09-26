@@ -4,6 +4,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { CodexAppServer } from './codex-app-server.mjs';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const publicDir = join(root, 'public');
@@ -12,10 +13,8 @@ const host = process.env.HOST || '127.0.0.1';
 
 const providers = {
   openai: {
-    label: 'OpenAI',
+    label: 'Codex',
     command: 'codex',
-    statusArgs: ['login', 'status'],
-    loginArgs: ['login'],
     installCommand: 'npm install -g @openai/codex',
   },
   anthropic: {
@@ -27,11 +26,13 @@ const providers = {
   },
 };
 
-const modelAllowlist = {
-  openai: new Set(['gpt-5.6', 'gpt-5.6-terra', 'gpt-5.6-luna']),
-  anthropic: new Set(['claude-sonnet-5', 'claude-opus-5', 'claude-haiku-4-5-20251001']),
-};
+const modelAllowlist = { anthropic: new Set(['claude-sonnet-5', 'claude-opus-5', 'claude-haiku-4-5-20251001']) };
 const loginJobs = new Map();
+const loadedCodexThreads = new Set();
+const activeCodexTurns = new Map();
+let codexSandboxDirPromise;
+let codexAppServer;
+let openAiStatusCache = { checkedAt: 0, value: null, pending: null };
 
 function cliEnvironment(provider) {
   const env = { ...process.env };
@@ -85,6 +86,8 @@ function captureCommand(provider, args, timeoutMs = 8000) {
 }
 
 async function providerStatus(provider) {
+  if (provider === 'openai') return openAiProviderStatus();
+
   const config = providers[provider];
   const result = await captureCommand(provider, config.statusArgs);
   if (!result.available) {
@@ -98,17 +101,12 @@ async function providerStatus(provider) {
 
   let connected = false;
   let accountLabel = '로그인 필요';
-  if (provider === 'openai') {
-    connected = result.code === 0 && /logged in using chatgpt/i.test(result.stdout + '\n' + result.stderr);
-    if (connected) accountLabel = 'ChatGPT 계정 연결됨';
-  } else {
-    try {
-      const status = JSON.parse(result.stdout.trim());
-      connected = status.loggedIn === true && status.apiProvider === 'firstParty' && status.authMethod === 'claude.ai';
-      if (connected) accountLabel = 'Claude 계정 연결됨';
-    } catch {
-      connected = false;
-    }
+  try {
+    const status = JSON.parse(result.stdout.trim());
+    connected = status.loggedIn === true && status.apiProvider === 'firstParty' && status.authMethod === 'claude.ai';
+    if (connected) accountLabel = 'Claude 계정 연결됨';
+  } catch {
+    connected = false;
   }
 
   return {
@@ -117,6 +115,118 @@ async function providerStatus(provider) {
     label: accountLabel,
     installCommand: config.installCommand,
   };
+}
+
+async function codexSandboxDir() {
+  if (!codexSandboxDirPromise) codexSandboxDirPromise = mkdtemp(join(tmpdir(), 'mosaic-codex-chat-'));
+  return codexSandboxDirPromise;
+}
+
+async function getCodexAppServer() {
+  if (codexAppServer) return codexAppServer;
+  const cwd = await codexSandboxDir();
+  codexAppServer = new CodexAppServer({
+    command: process.env.CODEX_CLI || providers.openai.command,
+    cwd,
+    env: cliEnvironment('openai'),
+  });
+  codexAppServer.on('notification', handleCodexNotification);
+  codexAppServer.on('serverRequest', ({ id }) => {
+    codexAppServer?.respondError(id, -32601, '이 앱에서 처리하지 않는 app-server 요청입니다.');
+  });
+  codexAppServer.on('disconnect', () => {
+    loadedCodexThreads.clear();
+    invalidateOpenAiStatus();
+    for (const active of activeCodexTurns.values()) {
+      finalizeCodexTurn(active, { error: 'Codex app-server 연결이 종료되었습니다. 다시 시도해 주세요.' });
+    }
+  });
+  return codexAppServer;
+}
+
+function invalidateOpenAiStatus() {
+  openAiStatusCache = { checkedAt: 0, value: null, pending: null };
+}
+
+async function readOpenAiProviderStatus() {
+  const client = await getCodexAppServer();
+  const auth = await client.request('account/read', { refreshToken: false }, 15_000);
+  const account = auth.account || null;
+  const connected = account?.type === 'chatgpt';
+  let limits = null;
+  let models = [];
+
+  if (connected) {
+    const [limitResult, modelResult] = await Promise.allSettled([
+      client.request('account/rateLimits/read', {}, 15_000),
+      client.request('model/list', { limit: 100, includeHidden: false }, 15_000),
+    ]);
+    if (limitResult.status === 'fulfilled') limits = limitResult.value;
+    if (modelResult.status === 'fulfilled') {
+      models = (modelResult.value.data || [])
+        .filter((item) => item && item.hidden !== true && (item.inputModalities || ['text']).includes('text'))
+        .map((item) => ({
+          id: item.id || item.model,
+          label: item.displayName || item.id || item.model,
+          defaultReasoningEffort: item.defaultReasoningEffort || null,
+          supportedReasoningEfforts: item.supportedReasoningEfforts || [],
+          isDefault: item.isDefault === true,
+        }))
+        .filter((item) => typeof item.id === 'string' && item.id.length > 0);
+    }
+  }
+
+  const primaryLimit = limits?.rateLimitsByLimitId?.codex?.primary || limits?.rateLimits?.primary;
+  const secondaryLimit = limits?.rateLimitsByLimitId?.codex?.secondary || limits?.rateLimits?.secondary;
+  const parts = [];
+  if (connected) parts.push(account.planType || 'ChatGPT 연결됨');
+  if (typeof primaryLimit?.usedPercent === 'number') parts.push(`Codex 사용 ${Math.round(primaryLimit.usedPercent)}%`);
+
+  return {
+    installed: true,
+    connected,
+    label: connected ? (parts.join(' · ') || 'ChatGPT 계정 연결됨') : 'ChatGPT 계정 로그인 필요',
+    installCommand: providers.openai.installCommand,
+    planType: account?.planType || null,
+    rateLimits: connected ? {
+      primary: primaryLimit ? {
+        usedPercent: primaryLimit.usedPercent,
+        windowDurationMins: primaryLimit.windowDurationMins,
+        resetsAt: primaryLimit.resetsAt,
+      } : null,
+      secondary: secondaryLimit ? {
+        usedPercent: secondaryLimit.usedPercent,
+        windowDurationMins: secondaryLimit.windowDurationMins,
+        resetsAt: secondaryLimit.resetsAt,
+      } : null,
+    } : null,
+    models,
+  };
+}
+
+async function openAiProviderStatus() {
+  const now = Date.now();
+  if (openAiStatusCache.value && now - openAiStatusCache.checkedAt < 4_000) return openAiStatusCache.value;
+  if (openAiStatusCache.pending) return openAiStatusCache.pending;
+
+  openAiStatusCache.pending = (async () => {
+    try {
+      const value = await readOpenAiProviderStatus();
+      openAiStatusCache = { checkedAt: Date.now(), value, pending: null };
+      return value;
+    } catch (error) {
+      const value = {
+        installed: error.code !== 'ENOENT',
+        connected: false,
+        label: error.code === 'ENOENT' ? 'Codex CLI 설치 필요' : 'Codex app-server 연결 실패',
+        installCommand: providers.openai.installCommand,
+        models: [],
+      };
+      openAiStatusCache = { checkedAt: Date.now(), value, pending: null };
+      return value;
+    }
+  })();
+  return openAiStatusCache.pending;
 }
 
 async function allProviderStatuses() {
@@ -207,6 +317,115 @@ function sendEvent(res, event, payload) {
   if (!res.destroyed && !res.writableEnded) res.write('event: ' + event + '\ndata: ' + JSON.stringify(payload) + '\n\n');
 }
 
+function finalizeCodexTurn(active, result = {}) {
+  if (!active || active.finished) return;
+  active.finished = true;
+  clearTimeout(active.timer);
+  activeCodexTurns.delete(active.threadId);
+  if (active.onResponseClose) active.res.removeListener('close', active.onResponseClose);
+  if (active.res.destroyed || active.res.writableEnded) return;
+
+  if (result.error) sendEvent(active.res, 'error', { error: result.error });
+  else sendEvent(active.res, 'done', {});
+  active.res.end();
+}
+
+function findActiveCodexTurn(params = {}) {
+  const threadId = params.threadId || params.turn?.threadId;
+  if (threadId && activeCodexTurns.has(threadId)) return activeCodexTurns.get(threadId);
+  const turnId = params.turnId || params.turn?.id;
+  if (!turnId) return null;
+  return [...activeCodexTurns.values()].find((turn) => turn.turnId === turnId) || null;
+}
+
+function handleCodexNotification(message) {
+  const params = message.params || {};
+  if (message.method === 'account/login/completed') {
+    const job = loginJobs.get('openai');
+    if (job && (!job.loginId || job.loginId === params.loginId)) {
+      job.state = params.success ? 'finished' : 'failed';
+      job.exitCode = params.success ? 0 : 1;
+      job.output = params.success ? '' : (params.error || 'ChatGPT 로그인이 완료되지 않았습니다.');
+    }
+    invalidateOpenAiStatus();
+    return;
+  }
+  if (message.method === 'account/updated' || message.method === 'account/rateLimits/updated') {
+    invalidateOpenAiStatus();
+    return;
+  }
+  if (message.method === 'thread/status/changed' && params.status?.type === 'notLoaded') {
+    loadedCodexThreads.delete(params.threadId);
+    return;
+  }
+  if (message.method === 'thread/closed' || message.method === 'thread/deleted') {
+    loadedCodexThreads.delete(params.threadId);
+    return;
+  }
+
+  const active = findActiveCodexTurn(params);
+  if (!active || active.finished) return;
+  const eventTurnId = params.turnId || params.turn?.id;
+  if (active.turnId && eventTurnId && active.turnId !== eventTurnId) return;
+
+  if (message.method === 'item/agentMessage/delta' && typeof params.delta === 'string') {
+    active.sentText += params.delta;
+    sendEvent(active.res, 'delta', { text: params.delta });
+  } else if (message.method === 'item/completed' && params.item?.type === 'agentMessage' && typeof params.item.text === 'string') {
+    const text = params.item.text;
+    if (text.startsWith(active.sentText)) {
+      const remainder = text.slice(active.sentText.length);
+      if (remainder) sendEvent(active.res, 'delta', { text: remainder });
+      active.sentText = text;
+    }
+  } else if (message.method === 'turn/completed') {
+    const turn = params.turn || {};
+    const error = turn.status === 'failed'
+      ? turn.error?.message || 'Codex 요청을 완료하지 못했습니다.'
+      : turn.status === 'interrupted' ? '응답이 중단되었습니다.' : '';
+    finalizeCodexTurn(active, { error });
+  }
+}
+
+async function startOpenAiLogin() {
+  const previous = loginJobs.get('openai');
+  if (previous?.state === 'running' || previous?.state === 'starting') {
+    return { state: previous.state, authUrl: previous.authUrl || null };
+  }
+
+  const job = { state: 'starting', output: '', startedAt: Date.now(), exitCode: null, loginId: null, authUrl: null };
+  loginJobs.set('openai', job);
+  try {
+    const client = await getCodexAppServer();
+    const result = await client.request('account/login/start', {
+      type: 'chatgpt',
+      useHostedLoginSuccessPage: true,
+      appBrand: 'chatgpt',
+    }, 15_000);
+    if (typeof result.authUrl !== 'string' || !isAllowedChatGptAuthUrl(result.authUrl)) {
+      throw new Error('Codex app-server가 안전한 ChatGPT 로그인 주소를 반환하지 않았습니다.');
+    }
+    job.loginId = result.loginId || null;
+    job.authUrl = result.authUrl;
+    if (job.state === 'starting') job.state = 'running';
+    return { state: job.state, authUrl: job.authUrl };
+  } catch (error) {
+    job.state = 'failed';
+    job.exitCode = 1;
+    job.output = error.message || 'ChatGPT 로그인을 시작하지 못했습니다.';
+    throw error;
+  }
+}
+
+function isAllowedChatGptAuthUrl(value) {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' && ['chatgpt.com', 'auth.openai.com'].includes(url.hostname);
+  } catch {
+    return false;
+  }
+}
+
 function conversationPrompt(messages) {
   const transcript = messages.map((message) => {
     const speaker = message.role === 'assistant' ? '도우미' : '사용자';
@@ -222,29 +441,10 @@ function conversationPrompt(messages) {
   ].join('\n\n');
 }
 
-function handleCliJsonLine(provider, line, res, outputState) {
+function handleClaudeJsonLine(line, res, outputState) {
   if (!line.trim()) return;
   let event;
   try { event = JSON.parse(line); } catch { return; }
-
-  if (provider === 'openai') {
-    if (event.type === 'item.updated' || event.type === 'item.completed') {
-      const item = event.item;
-      if (item?.type !== 'agent_message' || typeof item.text !== 'string') return;
-      const previous = outputState.lastText;
-      if (item.text.startsWith(previous)) {
-        const delta = item.text.slice(previous.length);
-        if (delta) sendEvent(res, 'delta', { text: delta });
-        outputState.lastText = item.text;
-      } else if (event.type === 'item.completed') {
-        sendEvent(res, 'delta', { text: item.text });
-        outputState.lastText = item.text;
-      }
-    } else if (event.type === 'turn.failed' || event.type === 'error') {
-      outputState.error = event.error?.message || event.message || 'Codex 요청에 실패했습니다.';
-    }
-    return;
-  }
 
   if (event.type === 'stream_event' && event.event?.type === 'content_block_delta' && event.event.delta?.type === 'text_delta') {
     const text = event.event.delta.text || '';
@@ -262,7 +462,7 @@ function handleCliJsonLine(provider, line, res, outputState) {
   }
 }
 
-function runProviderCli(provider, model, prompt, res) {
+function runClaudeCli(model, prompt, res) {
   return new Promise((resolve) => {
     let child;
     let stdoutBuffer = '';
@@ -270,22 +470,19 @@ function runProviderCli(provider, model, prompt, res) {
     let timedOut = false;
     let finished = false;
     const outputState = { lastText: '', error: '' };
-    const args = provider === 'openai'
-      ? ['--ask-for-approval', 'never', 'exec', '--json', '--ephemeral', '--ignore-user-config', '--sandbox', 'read-only', '--skip-git-repo-check', '--model', model, '-']
-      : ['-p', '--model', model, '--safe-mode', '--no-session-persistence', '--tools', '', '--input-format', 'stream-json', '--output-format', 'stream-json', '--include-partial-messages'];
+    const args = ['-p', '--model', model, '--safe-mode', '--no-session-persistence', '--tools', '', '--input-format', 'stream-json', '--output-format', 'stream-json', '--include-partial-messages'];
 
-    const finish = async (result) => {
+    const finish = (result) => {
       if (finished) return;
       finished = true;
       clearTimeout(timer);
       res.removeListener('close', onResponseClose);
-      if (result.tempDir) await rm(result.tempDir, { recursive: true, force: true }).catch(() => {});
       if (res.destroyed) return resolve();
       if (timedOut) sendEvent(res, 'error', { error: '요청 시간이 초과되었습니다.' });
       else if (outputState.error) sendEvent(res, 'error', { error: outputState.error });
       else if (result.code !== 0) {
         const detail = stderr.trim().slice(-900);
-        sendEvent(res, 'error', { error: detail || providers[provider].label + ' CLI 실행에 실패했습니다. 로그인 상태와 CLI 버전을 확인해 주세요.' });
+        sendEvent(res, 'error', { error: detail || providers.anthropic.label + ' CLI 실행에 실패했습니다. 로그인 상태와 CLI 버전을 확인해 주세요.' });
       } else sendEvent(res, 'done', {});
       if (!res.writableEnded) res.end();
       resolve();
@@ -302,17 +499,10 @@ function runProviderCli(provider, model, prompt, res) {
     }, 120_000);
 
     (async () => {
-      let tempDir;
       try {
-        if (provider === 'openai') tempDir = await mkdtemp(join(tmpdir(), 'mosaic-codex-'));
-        if (res.destroyed) {
-          if (tempDir) await rm(tempDir, { recursive: true, force: true }).catch(() => {});
-          clearTimeout(timer);
-          return resolve();
-        }
-        child = spawn(providers[provider].command, args, {
-          cwd: tempDir || root,
-          env: cliEnvironment(provider),
+        child = spawn(providers.anthropic.command, args, {
+          cwd: root,
+          env: cliEnvironment('anthropic'),
           stdio: ['pipe', 'pipe', 'pipe'],
           windowsHide: true,
         });
@@ -324,34 +514,146 @@ function runProviderCli(provider, model, prompt, res) {
           while ((newline = stdoutBuffer.indexOf('\n')) !== -1) {
             const line = stdoutBuffer.slice(0, newline);
             stdoutBuffer = stdoutBuffer.slice(newline + 1);
-            handleCliJsonLine(provider, line, res, outputState);
+            handleClaudeJsonLine(line, res, outputState);
           }
         });
         child.stderr.on('data', (chunk) => { stderr = (stderr + chunk).slice(-4000); });
         child.stdin.on('error', () => {});
         child.once('error', (error) => {
           outputState.error = error.code === 'ENOENT'
-            ? providers[provider].command + ' CLI를 찾을 수 없습니다. 연결 설정에서 설치 방법을 확인해 주세요.'
+            ? providers.anthropic.command + ' CLI를 찾을 수 없습니다. 연결 설정에서 설치 방법을 확인해 주세요.'
             : '공식 CLI를 실행하지 못했습니다.';
-          finish({ code: 1, tempDir });
+          finish({ code: 1 });
         });
         child.once('close', (code) => {
-          if (stdoutBuffer.trim()) handleCliJsonLine(provider, stdoutBuffer, res, outputState);
-          finish({ code, tempDir });
+          if (stdoutBuffer.trim()) handleClaudeJsonLine(stdoutBuffer, res, outputState);
+          finish({ code });
         });
 
-        if (provider === 'openai') {
-          child.stdin.end(prompt);
-        } else {
-          const input = { type: 'user', message: { role: 'user', content: [{ type: 'text', text: prompt }] } };
-          child.stdin.end(JSON.stringify(input) + '\n');
-        }
+        const input = { type: 'user', message: { role: 'user', content: [{ type: 'text', text: prompt }] } };
+        child.stdin.end(JSON.stringify(input) + '\n');
       } catch (error) {
         outputState.error = error.message || 'CLI 실행 중 오류가 발생했습니다.';
-        finish({ code: 1, tempDir });
+        finish({ code: 1 });
       }
     })();
   });
+}
+
+function validCodexThreadId(value) {
+  return typeof value === 'string' && value.length <= 160 && /^[A-Za-z0-9_-]+$/.test(value);
+}
+
+async function ensureCodexThread(client, requestedId, model) {
+  const cwd = await codexSandboxDir();
+  if (requestedId && !validCodexThreadId(requestedId)) {
+    throw Object.assign(new Error('대화 식별자가 올바르지 않습니다.'), { status: 400 });
+  }
+  if (requestedId) {
+    if (!loadedCodexThreads.has(requestedId)) {
+      await client.request('thread/resume', {
+        threadId: requestedId,
+        model,
+        cwd,
+        approvalPolicy: 'never',
+        sandbox: 'readOnly',
+      });
+      loadedCodexThreads.add(requestedId);
+    }
+    return { id: requestedId, cwd, created: false };
+  }
+
+  const result = await client.request('thread/start', {
+    model,
+    cwd,
+    approvalPolicy: 'never',
+    sandbox: 'readOnly',
+    serviceName: 'mosaic_ai',
+  });
+  const id = result.thread?.id;
+  if (!validCodexThreadId(id)) throw new Error('Codex app-server가 대화 식별자를 반환하지 않았습니다.');
+  loadedCodexThreads.add(id);
+  return { id, cwd, created: true };
+}
+
+async function runCodexTurn(model, messages, requestedThreadId, res) {
+  const client = await getCodexAppServer();
+  let thread;
+  try {
+    thread = await ensureCodexThread(client, requestedThreadId, model);
+  } catch (error) {
+    if (!res.destroyed) {
+      sendEvent(res, 'error', { error: error.message || 'Codex 대화를 열지 못했습니다.' });
+      if (!res.writableEnded) res.end();
+    }
+    return;
+  }
+
+  if (res.destroyed) return;
+  if (activeCodexTurns.has(thread.id)) {
+    sendEvent(res, 'error', { error: '이 대화에서 진행 중인 응답이 있습니다. 완료 후 다시 시도해 주세요.' });
+    res.end();
+    return;
+  }
+  sendEvent(res, 'thread', { threadId: thread.id });
+  const lastMessage = messages.at(-1);
+  const text = !requestedThreadId && messages.length > 1
+    ? conversationPrompt(messages)
+    : lastMessage.content;
+  const active = {
+    threadId: thread.id,
+    turnId: null,
+    res,
+    sentText: '',
+    finished: false,
+    cancelled: false,
+    timer: null,
+  };
+  activeCodexTurns.set(thread.id, active);
+
+  const interrupt = () => {
+    if (active.finished || res.writableEnded) return;
+    active.cancelled = true;
+    if (active.turnId) {
+      client.request('turn/interrupt', { threadId: active.threadId, turnId: active.turnId }, 10_000).catch(() => {});
+    }
+  };
+  const onResponseClose = () => {
+    if (!res.writableEnded) interrupt();
+  };
+  active.onResponseClose = onResponseClose;
+  res.on('close', onResponseClose);
+  active.timer = setTimeout(() => {
+    if (active.turnId) client.request('turn/interrupt', { threadId: active.threadId, turnId: active.turnId }, 10_000).catch(() => {});
+    finalizeCodexTurn(active, { error: '요청 시간이 초과되었습니다.' });
+  }, 120_000);
+
+  try {
+    const started = await client.request('turn/start', {
+      threadId: thread.id,
+      input: [{ type: 'text', text }],
+      cwd: thread.cwd,
+      approvalPolicy: 'never',
+      sandboxPolicy: {
+        type: 'readOnly',
+        access: {
+          type: 'restricted',
+          includePlatformDefaults: true,
+          readableRoots: [thread.cwd],
+        },
+      },
+      model,
+    }, 30_000);
+    active.turnId = started.turn?.id || null;
+    if (active.cancelled && active.turnId) {
+      client.request('turn/interrupt', { threadId: active.threadId, turnId: active.turnId }, 10_000).catch(() => {});
+    }
+    if (started.turn?.status === 'failed') {
+      finalizeCodexTurn(active, { error: started.turn.error?.message || 'Codex 요청을 시작하지 못했습니다.' });
+    }
+  } catch (error) {
+    finalizeCodexTurn(active, { error: error.message || 'Codex 요청을 시작하지 못했습니다.' });
+  }
 }
 
 async function relayChat(req, res) {
@@ -359,8 +661,14 @@ async function relayChat(req, res) {
     const body = await readJson(req);
     const provider = body.provider;
     const model = body.model;
-    if (!Object.hasOwn(providers, provider) || !modelAllowlist[provider].has(model)) {
+    if (!Object.hasOwn(providers, provider)) {
       return json(res, 400, { error: '지원하지 않는 제공자 또는 모델입니다.' });
+    }
+    if (provider === 'anthropic' && !modelAllowlist.anthropic.has(model)) {
+      return json(res, 400, { error: '지원하지 않는 제공자 또는 모델입니다.' });
+    }
+    if (provider === 'openai' && body.codexThreadId && !validCodexThreadId(body.codexThreadId)) {
+      return json(res, 400, { error: 'Codex 대화 식별자가 올바르지 않습니다.' });
     }
     if (!Array.isArray(body.messages) || body.messages.length === 0 || body.messages.length > 60) {
       return json(res, 400, { error: '대화 메시지 형식이 올바르지 않습니다.' });
@@ -375,6 +683,9 @@ async function relayChat(req, res) {
     const status = await providerStatus(provider);
     if (!status.installed) return json(res, 503, { error: providers[provider].label + ' CLI가 설치되어 있지 않습니다. 연결 설정에서 설치 방법을 확인해 주세요.' });
     if (!status.connected) return json(res, 401, { error: providers[provider].label + ' 계정을 먼저 연결해 주세요.' });
+    if (provider === 'openai' && !status.models.some((item) => item.id === model)) {
+      return json(res, 400, { error: '사용 가능한 Codex 모델 목록을 불러오지 못했습니다. 연결 상태를 새로고침해 주세요.' });
+    }
 
     res.writeHead(200, {
       'Content-Type': 'text/event-stream; charset=utf-8',
@@ -383,7 +694,8 @@ async function relayChat(req, res) {
       'X-Accel-Buffering': 'no',
       'X-Content-Type-Options': 'nosniff',
     });
-    await runProviderCli(provider, model, conversationPrompt(messages), res);
+    if (provider === 'openai') await runCodexTurn(model, messages, body.codexThreadId, res);
+    else await runClaudeCli(model, conversationPrompt(messages), res);
   } catch (error) {
     if (res.destroyed) return;
     if (res.headersSent) {
@@ -433,10 +745,31 @@ const server = createServer(async (req, res) => {
     const status = await providerStatus(provider);
     if (!status.installed) return json(res, 503, { error: providers[provider].label + ' CLI가 설치되어 있지 않습니다.', installCommand: status.installCommand });
     if (status.connected) return json(res, 200, { connected: true, message: '이미 계정이 연결되어 있습니다.' });
+    if (provider === 'openai') {
+      try {
+        const job = await startOpenAiLogin();
+        return json(res, 202, { state: job.state, authUrl: job.authUrl, message: 'ChatGPT 로그인 창에서 인증을 완료해 주세요.' });
+      } catch (error) {
+        return json(res, 502, { error: error.message || 'ChatGPT 로그인 절차를 시작하지 못했습니다.' });
+      }
+    }
     const job = startLogin(provider);
-    return json(res, 202, { state: job.state, message: '공식 CLI가 로그인 절차를 시작했습니다. 브라우저 또는 실행 안내를 확인해 주세요.' });
+    return json(res, 202, { state: job.state, message: 'Claude 공식 로그인 절차를 시작했습니다. 브라우저 또는 실행 안내를 확인해 주세요.' });
   }
   if (req.method === 'POST' && url.pathname === '/api/chat') return relayChat(req, res);
+  if (req.method === 'POST' && url.pathname === '/api/thread/delete') {
+    try {
+      const body = await readJson(req);
+      if (!validCodexThreadId(body.threadId)) return json(res, 400, { error: 'Codex 대화 식별자가 올바르지 않습니다.' });
+      if (activeCodexTurns.has(body.threadId)) return json(res, 409, { error: '응답이 진행 중인 Codex 대화는 삭제할 수 없습니다.' });
+      const client = await getCodexAppServer();
+      await client.request('thread/delete', { threadId: body.threadId }, 15_000);
+      loadedCodexThreads.delete(body.threadId);
+      return json(res, 200, { deleted: true });
+    } catch (error) {
+      return json(res, error.status || 502, { error: error.message || 'Codex 대화를 삭제하지 못했습니다.' });
+    }
+  }
   if (req.method === 'GET') return serveFile(res, url.pathname);
   return json(res, 405, { error: '지원하지 않는 요청입니다.' });
 });
@@ -445,3 +778,19 @@ server.listen(port, host, () => {
   console.log('Mosaic AI 실행 중: http://' + host + ':' + port);
   console.log('종료하려면 Ctrl+C를 누르세요.');
 });
+
+let isShuttingDown = false;
+async function shutdown() {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+  server.close();
+  for (const active of activeCodexTurns.values()) {
+    finalizeCodexTurn(active, { error: 'Mosaic AI 서버가 종료되었습니다.' });
+  }
+  codexAppServer?.stop();
+  const sandboxDir = await codexSandboxDirPromise?.catch(() => null);
+  if (sandboxDir) await rm(sandboxDir, { recursive: true, force: true }).catch(() => {});
+}
+
+process.once('SIGINT', () => { void shutdown(); });
+process.once('SIGTERM', () => { void shutdown(); });

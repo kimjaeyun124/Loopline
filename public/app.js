@@ -31,6 +31,7 @@ const state = {
     anthropic: { installed: false, connected: false, label: '상태 확인 중' },
   },
   loginJobs: {},
+  loginUrls: {},
   busy: false,
   controller: null,
 };
@@ -62,6 +63,7 @@ function loadConversations() {
         title: String(item.title || '새 대화').slice(0, 80),
         provider: Object.hasOwn(PROVIDERS, item.provider) ? item.provider : 'openai',
         model: String(item.model || 'gpt-5.6'),
+        codexThreadId: typeof item.codexThreadId === 'string' ? item.codexThreadId : null,
         updatedAt: Number(item.updatedAt) || Date.now(),
         messages: item.messages.filter((message) => ['user', 'assistant'].includes(message?.role) && typeof message.content === 'string')
           .map((message) => ({ role: message.role, content: message.content.slice(0, 40_000) })),
@@ -156,8 +158,11 @@ function renderMessages() {
 
 function renderModelSelect() {
   const provider = PROVIDERS[state.provider];
-  elements.modelSelect.innerHTML = provider.models.map((model) =>
-    `<option value="${model.id}"${model.id === state.model ? ' selected' : ''}>${model.label}</option>`).join('');
+  elements.modelSelect.disabled = provider.models.length === 0;
+  elements.modelSelect.innerHTML = provider.models.length
+    ? provider.models.map((model) =>
+      `<option value="${escapeHtml(model.id)}"${model.id === state.model ? ' selected' : ''}>${escapeHtml(model.label)}</option>`).join('')
+    : '<option value="">로그인 후 모델 표시</option>';
   document.querySelector('#providerSelectLabel').textContent = provider.label;
   document.querySelector('#miniProviderMark').textContent = provider.mark;
   document.querySelector('#providerPillText').textContent = `${provider.label} 계정`;
@@ -212,7 +217,17 @@ function updateConnectionControls() {
   }
 
   feedback.textContent = messages.join('\n\n');
-  feedback.hidden = messages.length === 0;
+  const authUrl = !state.providers.openai?.connected ? safeChatGptAuthUrl(state.loginUrls.openai || '') : '';
+  if (authUrl) {
+    if (messages.length) feedback.append(document.createTextNode('\n\n'));
+    const link = document.createElement('a');
+    link.href = authUrl;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.textContent = 'ChatGPT 로그인 창 열기';
+    feedback.append(link);
+  }
+  feedback.hidden = messages.length === 0 && !authUrl;
 }
 
 async function refreshStatus() {
@@ -223,6 +238,15 @@ async function refreshStatus() {
     const status = await response.json();
     state.providers = status.providers || state.providers;
     state.loginJobs = status.loginJobs || {};
+    const codexModels = state.providers.openai?.models;
+    if (Array.isArray(codexModels) && codexModels.length) {
+      PROVIDERS.openai.models = codexModels.map((model) => ({ id: model.id, label: model.label }));
+      if (!PROVIDERS.openai.models.some((model) => model.id === state.model)) {
+        state.model = codexModels.find((model) => model.isDefault)?.id || codexModels[0].id;
+        savePreferences();
+      }
+    }
+    if (state.providers.openai?.connected) state.loginUrls.openai = '';
   } catch {
     state.providers = {
       openai: { installed: false, connected: false, label: '서버 연결 실패' },
@@ -237,22 +261,48 @@ async function refreshStatus() {
 
 async function connectProvider(provider) {
   const feedback = document.querySelector('#loginFeedback');
+  const loginWindow = provider === 'openai' ? window.open('about:blank', '_blank') : null;
   feedback.hidden = false;
-  feedback.textContent = `${PROVIDERS[provider].label} 공식 CLI 로그인 절차를 여는 중입니다…`;
+  feedback.textContent = provider === 'openai'
+    ? 'Codex app-server에서 ChatGPT 로그인을 시작하는 중입니다…'
+    : 'Claude 공식 CLI 로그인 절차를 여는 중입니다…';
   try {
     const response = await fetch(`/api/connect/${provider}`, { method: 'POST' });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
+      loginWindow?.close();
       feedback.textContent = [data.error, data.installCommand].filter(Boolean).join('\n');
       showToast(data.error || '로그인을 시작하지 못했습니다.');
     } else {
       feedback.textContent = data.message || '공식 로그인 절차를 확인해 주세요.';
+      if (provider === 'openai' && data.authUrl) {
+        const authUrl = safeChatGptAuthUrl(data.authUrl);
+        if (!authUrl) throw new Error('안전하지 않은 ChatGPT 로그인 주소를 받았습니다.');
+        state.loginUrls.openai = authUrl;
+        if (loginWindow) {
+          loginWindow.opener = null;
+          loginWindow.location.replace(authUrl);
+        } else {
+          showToast('팝업이 차단되었습니다. 아래 로그인 링크를 눌러 계속해 주세요.');
+        }
+      }
       if (!statusPollTimer) statusPollTimer = setInterval(refreshStatus, 2500);
     }
   } catch {
+    loginWindow?.close();
     feedback.textContent = '로그인 요청을 처리하지 못했습니다. Mosaic 서버가 실행 중인지 확인해 주세요.';
   }
   refreshStatus();
+}
+
+function safeChatGptAuthUrl(value) {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== 'https:' || !['chatgpt.com', 'auth.openai.com'].includes(url.hostname)) return '';
+    return url.href;
+  } catch {
+    return '';
+  }
 }
 
 let toastTimeout;
@@ -315,6 +365,10 @@ async function streamResponse(response, assistantMessage, conversation) {
       const parsed = parseSseBlock(buffer.slice(0, separator));
       buffer = buffer.slice(separator + 2);
       if (!parsed) continue;
+      if (parsed.event === 'thread' && typeof parsed.data.threadId === 'string') {
+        conversation.codexThreadId = parsed.data.threadId;
+        saveConversations();
+      }
       if (parsed.event === 'delta') assistantMessage.content += parsed.data.text || '';
       if (parsed.event === 'error') {
         assistantMessage.content = `오류: ${parsed.data.error || '응답 생성에 실패했습니다.'}`;
@@ -343,6 +397,7 @@ async function sendMessage(value) {
     createConversation();
     conversation = activeConversation();
   }
+  if (conversation.provider !== state.provider && state.provider === 'openai') conversation.codexThreadId = null;
   conversation.provider = state.provider;
   conversation.model = state.model;
   updateConversationTitle(conversation, message);
@@ -366,7 +421,12 @@ async function sendMessage(value) {
     const response = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ provider: state.provider, model: state.model, messages }),
+      body: JSON.stringify({
+        provider: state.provider,
+        model: state.model,
+        messages,
+        ...(state.provider === 'openai' && conversation.codexThreadId ? { codexThreadId: conversation.codexThreadId } : {}),
+      }),
       signal: state.controller.signal,
     });
     if (!response.ok) {
@@ -442,6 +502,20 @@ elements.conversationList.addEventListener('click', (event) => {
   if (deleteButton) {
     event.stopPropagation();
     const id = deleteButton.dataset.delete;
+    const conversation = state.conversations.find((item) => item.id === id);
+    if (state.busy && state.activeId === id) {
+      showToast('응답이 끝난 뒤 대화를 삭제해 주세요.');
+      return;
+    }
+    if (conversation?.provider === 'openai' && conversation.codexThreadId) {
+      fetch('/api/thread/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ threadId: conversation.codexThreadId }),
+      }).then(async (response) => {
+        if (!response.ok) showToast('브라우저 대화는 삭제했지만 Codex 기록은 삭제하지 못했습니다.');
+      }).catch(() => showToast('브라우저 대화는 삭제했지만 Codex 기록을 서버에 전달하지 못했습니다.'));
+    }
     state.conversations = state.conversations.filter((conversation) => conversation.id !== id);
     if (state.activeId === id) state.activeId = null;
     saveConversations();

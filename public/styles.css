@@ -149,6 +149,7 @@ kbd { margin-left: auto; color: #a0a19c; font-family: inherit; font-size: 10px; 
 .install-command { max-width: 190px; overflow-wrap: anywhere; color: #777973; font-size: 9px; }
 .install-command[hidden], .login-feedback[hidden] { display: none; }
 .login-feedback { max-height: 96px; overflow: auto; margin-top: 10px; padding: 9px 10px; border: 1px solid #e8e9e5; border-radius: 8px; background: #f8f9f6; color: #62645e; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 9px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+.login-feedback a { color: #426f54; font-family: inherit; font-weight: 600; text-decoration: underline; }
 .notice-box { margin-top: 13px; padding: 12px 13px; border: 1px solid #eee9df; border-radius: 10px; background: #fbf9f4; }
 .notice-box strong { font-size: 10px; }
 .notice-box p { margin: 5px 0 0; color: #77766f; font-size: 10px; line-height: 1.6; }

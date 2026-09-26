@@ -1069,7 +1069,7 @@ async function relayChat(req, res) {
     });
 
     const projectInstructions = typeof body.projectInstructions === 'string'
-      ? body.projectInstructions.trim().slice(0, 8000)
+      ? body.projectInstructions.trim().slice(0, 24_000)
       : '';
     if (provider === 'openai') {
       reservedContext = await getCodexAccountContext(codexAccountId);
@@ -1115,6 +1115,7 @@ async function serveFile(res, pathname) {
     '/index.html': ['index.html', 'text/html; charset=utf-8'],
     '/styles.css': ['styles.css', 'text/css; charset=utf-8'],
     '/app.js': ['app.js', 'text/javascript; charset=utf-8'],
+    '/export-importer.js': ['export-importer.js', 'text/javascript; charset=utf-8'],
   };
   const entry = files[pathname];
   if (!entry) return json(res, 404, { error: '페이지를 찾을 수 없습니다.' });

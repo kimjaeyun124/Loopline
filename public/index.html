@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#212121" />
     <title>Mosaic Desk</title>
     <link rel="stylesheet" href="/styles.css" />
-    <script src="/app.js" defer></script>
+    <script type="module" src="/app.js"></script>
   </head>
   <body>
     <div class="app-shell">
@@ -28,7 +28,8 @@
           <span>대화 검색</span><kbd>⌘ K</kbd>
         </button>
         <section class="projects-panel" aria-label="프로젝트">
-          <div class="projects-heading"><span>Projects</span><button class="project-add-button" id="addProjectButton" type="button" aria-label="프로젝트 만들기" title="프로젝트 만들기">＋</button></div>
+          <div class="projects-heading"><span>Projects</span><div class="project-heading-actions"><button class="project-import-button" id="importProjectButton" type="button" aria-label="ChatGPT 또는 Claude 프로젝트 가져오기" title="ChatGPT 또는 Claude에서 가져오기">↓</button><button class="project-add-button" id="addProjectButton" type="button" aria-label="프로젝트 만들기" title="프로젝트 만들기">＋</button></div></div>
+          <input id="projectImportFile" type="file" accept=".zip,.json,application/zip,application/json" hidden />
           <nav class="project-list" id="projectList" aria-label="프로젝트 목록"></nav>
         </section>
         <div class="sidebar-label">대화</div>
@@ -121,7 +122,21 @@
         <div class="modal-header"><div><p class="eyebrow">Projects</p><h2 id="projectModalTitle">프로젝트 만들기</h2></div><button class="icon-button close-modal" id="closeProjectModal" type="button" aria-label="닫기">×</button></div>
         <label class="project-field"><span>프로젝트 이름</span><input id="projectNameInput" type="text" maxlength="60" placeholder="예: 웹사이트 리뉴얼" /></label>
         <label class="project-field"><span>프로젝트 지침 <small>프로젝트 대화의 AI 응답에 포함됩니다.</small></span><textarea id="projectInstructionsInput" rows="6" maxlength="8000" placeholder="예: 답변은 한국어로 작성하고, 변경 전 영향 범위를 먼저 설명해 주세요."></textarea></label>
+        <label class="project-field"><span>참고 자료 <small>프로젝트 대화에 함께 제공할 텍스트입니다.</small></span><textarea id="projectKnowledgeInput" rows="5" maxlength="16000" placeholder="가져온 프로젝트에 포함된 텍스트 자료"></textarea></label>
         <div class="project-modal-actions"><button class="danger-button" id="deleteProjectButton" type="button" hidden>프로젝트 삭제</button><span></span><button class="secondary-button" id="cancelProjectModal" type="button">취소</button><button class="primary-button" id="saveProjectButton" type="button">저장</button></div>
+      </section>
+    </div>
+
+    <div class="modal-backdrop" id="projectImportModal" hidden>
+      <section class="project-modal project-import-modal" role="dialog" aria-modal="true" aria-labelledby="projectImportTitle">
+        <div class="modal-header"><div><p class="eyebrow">Projects</p><h2 id="projectImportTitle">프로젝트 가져오기</h2></div><button class="icon-button close-modal" id="closeProjectImport" type="button" aria-label="닫기">×</button></div>
+        <p class="modal-description">내보내기 파일은 이 Mac에서 처리합니다. 대화와 프로젝트 JSON에 포함된 지침·텍스트 자료를 가져옵니다.</p>
+        <label class="project-field"><span>가져올 서비스</span><select id="projectImportProvider"><option value="openai">ChatGPT</option><option value="anthropic">Claude</option></select></label>
+        <label class="project-field"><span>가져오기 프로젝트 이름</span><input id="projectImportName" type="text" maxlength="60" /></label>
+        <div class="import-summary" id="projectImportSummary" role="status"></div>
+        <p class="import-warning">원본 내보내기에 프로젝트 정보가 없으면 가져온 대화는 하나의 Mosaic 프로젝트로 묶입니다. 첨부 파일은 가져오지 않습니다. ZIP은 256MB, 개별 JSON은 64MB까지 지원합니다.</p>
+        <p class="import-error" id="projectImportError" role="alert" hidden></p>
+        <div class="project-modal-actions"><span></span><button class="secondary-button" id="cancelProjectImport" type="button">취소</button><button class="primary-button" id="commitProjectImport" type="button">가져오기</button></div>
       </section>
     </div>
 

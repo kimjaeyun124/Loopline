@@ -1,3 +1,5 @@
+import { parseProviderExport } from './export-importer.js';
+
 const PROVIDERS = {
   openai: {
     label: 'OpenAI',
@@ -25,6 +27,7 @@ const PROJECT_STORAGE_KEY = 'mosaic-ai.projects.v1';
 const state = {
   conversations: loadConversations(),
   projects: loadProjects(),
+  pendingProjectImport: null,
   activeId: null,
   activeProjectId: null,
   editingProjectId: null,
@@ -52,6 +55,13 @@ const elements = {
   projectMoveModal: document.querySelector('#projectMoveModal'),
   projectNameInput: document.querySelector('#projectNameInput'),
   projectInstructionsInput: document.querySelector('#projectInstructionsInput'),
+  projectKnowledgeInput: document.querySelector('#projectKnowledgeInput'),
+  projectImportModal: document.querySelector('#projectImportModal'),
+  projectImportFile: document.querySelector('#projectImportFile'),
+  projectImportName: document.querySelector('#projectImportName'),
+  projectImportProvider: document.querySelector('#projectImportProvider'),
+  projectImportSummary: document.querySelector('#projectImportSummary'),
+  projectImportError: document.querySelector('#projectImportError'),
   projectMoveSelect: document.querySelector('#projectMoveSelect'),
   conversationProjectBar: document.querySelector('#conversationProjectBar'),
   conversationProjectLabel: document.querySelector('#conversationProjectLabel'),
@@ -89,6 +99,8 @@ function loadConversations() {
         codexThreadId: typeof item.codexThreadId === 'string' ? item.codexThreadId : null,
         codexAccountId: typeof item.codexAccountId === 'string' ? item.codexAccountId : 'default',
         projectId: typeof item.projectId === 'string' ? item.projectId : null,
+        importSource: ['openai', 'anthropic'].includes(item.importSource) ? item.importSource : null,
+        sourceId: typeof item.sourceId === 'string' ? item.sourceId.slice(0, 240) : null,
         updatedAt: Number(item.updatedAt) || Date.now(),
         messages: item.messages.filter((message) => ['user', 'assistant'].includes(message?.role) && typeof message.content === 'string')
           .map((message) => ({ role: message.role, content: message.content.slice(0, 40_000) })),
@@ -107,6 +119,9 @@ function loadProjects() {
         id: item.id,
         name: String(item.name || '새 프로젝트').trim().slice(0, 60) || '새 프로젝트',
         instructions: typeof item.instructions === 'string' ? item.instructions.slice(0, 8000) : '',
+        knowledge: typeof item.knowledge === 'string' ? item.knowledge.slice(0, 16000) : '',
+        importSource: ['openai', 'anthropic'].includes(item.importSource) ? item.importSource : null,
+        sourceId: typeof item.sourceId === 'string' ? item.sourceId.slice(0, 240) : null,
         createdAt: Number(item.createdAt) || Date.now(),
         updatedAt: Number(item.updatedAt) || Date.now(),
       }));
@@ -203,7 +218,7 @@ function renderProjectList() {
       <button class="project-select-button" type="button" data-select-project="all"><span class="project-icon">⌂</span><span>모든 대화</span></button>
     </div>`, ...state.projects.map((item) => `
     <div class="project-row${item.id === state.activeProjectId ? ' active' : ''}">
-      <button class="project-select-button" type="button" data-select-project="${escapeHtml(item.id)}"><span class="project-icon">▧</span><span class="project-name">${escapeHtml(item.name)}</span><span class="project-count">${state.conversations.filter((conversation) => conversation.projectId === item.id).length}</span></button>
+      <button class="project-select-button" type="button" data-select-project="${escapeHtml(item.id)}"><span class="project-icon" title="${item.importSource === 'anthropic' ? 'Claude에서 가져옴' : item.importSource === 'openai' ? 'ChatGPT에서 가져옴' : 'Mosaic 프로젝트'}">${item.importSource === 'anthropic' ? '✳' : item.importSource === 'openai' ? '◉' : '▧'}</span><span class="project-name">${escapeHtml(item.name)}</span><span class="project-count">${state.conversations.filter((conversation) => conversation.projectId === item.id).length}</span></button>
       <button class="project-edit-button" type="button" data-edit-project="${escapeHtml(item.id)}" aria-label="${escapeHtml(item.name)} 프로젝트 편집" title="프로젝트 편집">•••</button>
     </div>`)];
   elements.projectList.innerHTML = rows.join('');
@@ -587,7 +602,13 @@ async function updateCodexAccountLink(accountId, action) {
 function activeProjectInstructions() {
   const conversation = activeConversation();
   const projectId = conversation?.projectId || state.activeProjectId;
-  return project(projectId)?.instructions || '';
+  const activeProject = project(projectId);
+  if (!activeProject) return '';
+  const context = [
+    activeProject.instructions ? `Project instructions:\n${activeProject.instructions}` : '',
+    activeProject.knowledge ? `Project reference material:\n${activeProject.knowledge}` : '',
+  ].filter(Boolean).join('\n\n');
+  return context.slice(0, 24_000);
 }
 
 function openProjectEditor(projectId = null) {
@@ -596,6 +617,7 @@ function openProjectEditor(projectId = null) {
   document.querySelector('#projectModalTitle').textContent = item ? '프로젝트 편집' : '프로젝트 만들기';
   elements.projectNameInput.value = item?.name || '';
   elements.projectInstructionsInput.value = item?.instructions || '';
+  elements.projectKnowledgeInput.value = item?.knowledge || '';
   document.querySelector('#deleteProjectButton').hidden = !item;
   elements.projectModal.hidden = false;
   elements.projectNameInput.focus();
@@ -614,15 +636,17 @@ function saveProjectEditor() {
     return;
   }
   const instructions = elements.projectInstructionsInput.value.trim().slice(0, 8000);
+  const knowledge = elements.projectKnowledgeInput.value.trim().slice(0, 16000);
   const now = Date.now();
   if (state.editingProjectId) {
     const item = project(state.editingProjectId);
     if (!item) return closeProjectEditor();
     item.name = name.slice(0, 60);
     item.instructions = instructions;
+    item.knowledge = knowledge;
     item.updatedAt = now;
   } else {
-    const item = { id: crypto.randomUUID(), name: name.slice(0, 60), instructions, createdAt: now, updatedAt: now };
+    const item = { id: crypto.randomUUID(), name: name.slice(0, 60), instructions, knowledge, createdAt: now, updatedAt: now };
     state.projects.unshift(item);
     state.activeProjectId = item.id;
     state.activeId = null;
@@ -694,6 +718,175 @@ function moveConversationToProject() {
   savePreferences();
   closeProjectMove();
   render();
+}
+
+function importSourceName(provider) {
+  return provider === 'anthropic' ? 'Claude' : 'ChatGPT';
+}
+
+async function selectProjectImportFile(file) {
+  if (!file) return;
+  const importButton = document.querySelector('#importProjectButton');
+  importButton.disabled = true;
+  importButton.textContent = '…';
+  try {
+    const parsed = await parseProviderExport(file);
+    state.pendingProjectImport = { ...parsed, fileName: file.name };
+    elements.projectImportProvider.value = parsed.suggestedProvider;
+    elements.projectImportName.value = `${importSourceName(parsed.suggestedProvider)} 가져오기`.slice(0, 60);
+    const importedProjectCount = parsed.projects.length;
+    const conversationCount = parsed.conversations.length;
+    elements.projectImportSummary.textContent = `${file.name} · 프로젝트 ${importedProjectCount.toLocaleString()}개 · 대화 ${conversationCount.toLocaleString()}개 · JSON ${parsed.sourceFileCount.toLocaleString()}개`;
+    elements.projectImportError.hidden = true;
+    elements.projectImportError.textContent = '';
+    elements.projectImportModal.hidden = false;
+    elements.projectImportName.focus();
+  } catch (error) {
+    showToast(error.message || '내보내기 파일을 읽지 못했습니다.');
+  } finally {
+    importButton.disabled = false;
+    importButton.textContent = '↓';
+    elements.projectImportFile.value = '';
+  }
+}
+
+function closeProjectImport() {
+  elements.projectImportModal.hidden = true;
+  elements.projectImportError.hidden = true;
+  elements.projectImportError.textContent = '';
+  state.pendingProjectImport = null;
+}
+
+function importFingerprint(value) {
+  let hash = 2166136261;
+  for (const character of value) {
+    hash ^= character.codePointAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `derived-${(hash >>> 0).toString(16)}`;
+}
+
+function commitProjectImport() {
+  const pending = state.pendingProjectImport;
+  if (!pending) return closeProjectImport();
+  const provider = elements.projectImportProvider.value === 'anthropic' ? 'anthropic' : 'openai';
+  const importName = elements.projectImportName.value.trim().slice(0, 60);
+  if (!importName) {
+    elements.projectImportError.textContent = '가져오기 프로젝트 이름을 입력해 주세요.';
+    elements.projectImportError.hidden = false;
+    elements.projectImportName.focus();
+    return;
+  }
+
+  const stagedProjects = [];
+  const projectIds = new Map();
+  const importKeyFor = (sourceId, fallbackName) => sourceId || `project-${importFingerprint(`${provider}:${fallbackName}`)}`;
+  const ensureProject = (name, sourceId, instructions = '', knowledge = '') => {
+    const stableId = importKeyFor(sourceId, name);
+    const key = `${provider}:${stableId}`;
+    if (projectIds.has(key)) return projectIds.get(key);
+    const existing = state.projects.find((item) => item.importSource === provider && item.sourceId === stableId);
+    if (existing) {
+      projectIds.set(key, existing.id);
+      return existing.id;
+    }
+    const staged = stagedProjects.find((item) => item.importSource === provider && item.sourceId === stableId);
+    if (staged) {
+      projectIds.set(key, staged.id);
+      return staged.id;
+    }
+    const item = {
+      id: crypto.randomUUID(),
+      name: String(name || importName).trim().slice(0, 60) || importName,
+      instructions: String(instructions || '').slice(0, 8_000),
+      knowledge: String(knowledge || '').slice(0, 16_000),
+      importSource: provider,
+      sourceId: stableId.slice(0, 240),
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+    stagedProjects.push(item);
+    projectIds.set(key, item.id);
+    return item.id;
+  };
+
+  const externalProjectMap = new Map();
+  for (const item of pending.projects) {
+    const projectId = ensureProject(item.name, item.sourceId, item.instructions, item.knowledge);
+    if (item.sourceId) externalProjectMap.set(item.sourceId, projectId);
+  }
+
+  const sourceIdForConversation = (item) => item.sourceId || importFingerprint(`${item.title}:${item.createdAt}:${item.messages[0]?.content || ''}`);
+  const newConversations = [];
+  const duplicates = [];
+  const availableModels = provider === 'openai'
+    ? modelsForProvider('openai')
+    : PROVIDERS.anthropic.models;
+  const defaultModel = availableModels.find((item) => item.isDefault)?.id || availableModels[0]?.id || '';
+  const defaultProjectSourceId = `default-${importFingerprint(`${pending.fileName}:${importName}`)}`;
+
+  for (const item of pending.conversations) {
+    const sourceId = sourceIdForConversation(item);
+    const duplicate = state.conversations.some((conversation) => conversation.importSource === provider && conversation.sourceId === sourceId)
+      || newConversations.some((conversation) => conversation.importSource === provider && conversation.sourceId === sourceId);
+    if (duplicate) {
+      duplicates.push(item);
+      continue;
+    }
+
+    let projectId = item.sourceProjectId ? externalProjectMap.get(item.sourceProjectId) : null;
+    if (!projectId && item.sourceProjectId) {
+      projectId = ensureProject(item.sourceProjectName || `${importSourceName(provider)} 프로젝트`, item.sourceProjectId);
+      externalProjectMap.set(item.sourceProjectId, projectId);
+    }
+    if (!projectId) projectId = ensureProject(importName, defaultProjectSourceId);
+
+    newConversations.push({
+      id: crypto.randomUUID(),
+      title: item.title,
+      provider,
+      model: defaultModel,
+      codexThreadId: null,
+      codexAccountId: state.activeCodexAccountId,
+      projectId,
+      importSource: provider,
+      sourceId,
+      updatedAt: Number(item.createdAt) || Date.now(),
+      messages: item.messages.map((message) => ({ role: message.role, content: message.content.slice(0, 40_000) })),
+    });
+  }
+
+  if (!stagedProjects.length && !newConversations.length) {
+    closeProjectImport();
+    showToast('이 내보내기의 프로젝트와 대화는 이미 가져왔습니다.');
+    return;
+  }
+
+  const nextProjects = [...stagedProjects, ...state.projects];
+  const nextConversations = [...newConversations, ...state.conversations];
+  const storageKeys = [STORAGE_KEY, PROJECT_STORAGE_KEY];
+  const otherStorageBytes = Object.keys(localStorage)
+    .filter((key) => !storageKeys.includes(key))
+    .reduce((total, key) => total + (key.length + (localStorage.getItem(key) || '').length) * 2, 0);
+  const estimatedBytes = otherStorageBytes
+    + (JSON.stringify(nextProjects).length + JSON.stringify(nextConversations).length) * 2;
+  if (estimatedBytes > 3_800_000) {
+    elements.projectImportError.textContent = '가져온 자료가 앱의 현재 로컬 저장 한도를 넘습니다. 더 작은 내보내기 파일로 나누어 가져와 주세요. 이번 가져오기는 저장되지 않았습니다.';
+    elements.projectImportError.hidden = false;
+    return;
+  }
+
+  state.projects = nextProjects;
+  state.conversations = nextConversations;
+  state.activeProjectId = newConversations[0]?.projectId || stagedProjects[0]?.id || null;
+  saveProjects();
+  saveConversations();
+  savePreferences();
+  closeProjectImport();
+  if (newConversations.length) selectConversation(newConversations[0]);
+  else render();
+  const duplicateNotice = duplicates.length ? ` · 중복 대화 ${duplicates.length.toLocaleString()}개 건너뜀` : '';
+  showToast(`${importSourceName(provider)} 가져오기 완료 · 프로젝트 ${stagedProjects.length.toLocaleString()}개 · 대화 ${newConversations.length.toLocaleString()}개${duplicateNotice}`);
 }
 
 function safeChatGptAuthUrl(value) {
@@ -965,6 +1158,11 @@ function closeMobileSidebar() {
 
 document.querySelector('#newChatButton').addEventListener('click', createConversation);
 document.querySelector('#addProjectButton').addEventListener('click', () => openProjectEditor());
+document.querySelector('#importProjectButton').addEventListener('click', () => elements.projectImportFile.click());
+elements.projectImportFile.addEventListener('change', (event) => selectProjectImportFile(event.target.files?.[0]));
+document.querySelector('#commitProjectImport').addEventListener('click', commitProjectImport);
+document.querySelector('#cancelProjectImport').addEventListener('click', closeProjectImport);
+document.querySelector('#closeProjectImport').addEventListener('click', closeProjectImport);
 document.querySelector('#saveProjectButton').addEventListener('click', saveProjectEditor);
 document.querySelector('#cancelProjectModal').addEventListener('click', closeProjectEditor);
 document.querySelector('#closeProjectModal').addEventListener('click', closeProjectEditor);
@@ -1008,12 +1206,14 @@ elements.codexAccountsList.addEventListener('click', (event) => {
 elements.settingsModal.addEventListener('click', (event) => { if (event.target === elements.settingsModal) hideSettings(); });
 elements.projectModal.addEventListener('click', (event) => { if (event.target === elements.projectModal) closeProjectEditor(); });
 elements.projectMoveModal.addEventListener('click', (event) => { if (event.target === elements.projectMoveModal) closeProjectMove(); });
+elements.projectImportModal.addEventListener('click', (event) => { if (event.target === elements.projectImportModal) closeProjectImport(); });
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
     if (!elements.searchModal.hidden) hideSearch();
     hideSettings();
     closeProjectEditor();
     closeProjectMove();
+    closeProjectImport();
     elements.providerMenu.hidden = true;
     closeMobileSidebar();
   }

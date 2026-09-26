@@ -1,8 +1,20 @@
-# Mosaic AI
+# Mosaic Desk
 
-ChatGPT 계정으로 로그인한 Codex app-server와 Claude 계정으로 로그인한 Claude Code CLI를 한 화면에서 선택해 사용하는 로컬 웹 채팅 MVP입니다. 대화 내용은 브라우저의 `localStorage`에 저장되고, Codex 대화는 Codex의 thread 기록에도 저장됩니다. 이메일·비밀번호, 세션 쿠키, API 키를 Mosaic에 입력하지 않습니다.
+ChatGPT 계정으로 로그인한 Codex app-server와 Claude 계정으로 로그인한 Claude Code CLI를 한 화면에서 선택해 사용하는 macOS 데스크톱 앱입니다. 대화 내용은 앱 창의 `localStorage`에 저장되고, Codex 대화는 Codex의 thread 기록에도 저장됩니다. 이메일·비밀번호, 세션 쿠키, API 키를 Mosaic Desk에 입력하지 않습니다.
 
-## 실행
+## 데스크톱 앱 만들기
+
+macOS Apple Silicon용 `.app`을 빌드하고 실행합니다.
+
+```sh
+npm install
+npm run desktop:package
+open "release/mac-arm64/Mosaic Desk.app"
+```
+
+개발 중에는 `npm run desktop`으로 앱 창을 실행할 수 있습니다. 앱은 저장된 대화가 재실행 후에도 유지되도록 전용 로컬 포트 `41743`에서 서버를 시작하고, 창을 닫을 때 함께 종료합니다. 이 빌드는 로컬 실행용이며 배포용 Apple 서명·공증은 포함하지 않습니다.
+
+## 웹 개발 서버 실행
 
 1. Node.js 20.3 이상을 준비합니다.
 2. 사용할 공식 CLI를 설치합니다.
@@ -12,7 +24,7 @@ npm install -g @openai/codex
 npm install -g @anthropic-ai/claude-code
 ```
 
-3. Mosaic를 실행합니다.
+3. Mosaic Desk 웹 개발 서버를 실행합니다.
 
 ```bash
 npm start
@@ -28,7 +40,7 @@ OpenAI 연결은 Codex app-server의 ChatGPT OAuth 흐름을 사용합니다. ap
 
 - OpenAI와 Claude 계정·모델 선택
 - 응답 스트리밍, 대화 생성·전환·삭제
-- 브라우저 내 대화 기록 저장
+- Mosaic Desk 앱 창의 대화 기록 저장
 - Codex app-server 기반 ChatGPT 로그인, 대화 thread 이어하기, 모델·남은 사용 한도 비율 조회
 - Codex 대화별 읽기 전용 임시 작업 폴더와 사용자 MCP 서버 차단
 - Claude Code CLI 로그인 상태 표시와 계정 오류 안내

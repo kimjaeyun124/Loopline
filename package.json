@@ -3,10 +3,46 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "main": "desktop/main.mjs",
   "scripts": {
-    "start": "node server.mjs"
+    "start": "node server.mjs",
+    "desktop": "electron .",
+    "desktop:package": "electron-builder --mac dir --arm64"
+  },
+  "productName": "Mosaic Desk",
+  "build": {
+    "appId": "com.mosaic.desk",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "desktop/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "server.mjs",
+        "to": "app-server/server.mjs"
+      },
+      {
+        "from": "codex-app-server.mjs",
+        "to": "app-server/codex-app-server.mjs"
+      },
+      {
+        "from": "public",
+        "to": "app-server/public"
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "identity": null
+    }
   },
   "engines": {
     "node": ">=20.3"
+  },
+  "devDependencies": {
+    "electron": "^44.4.5",
+    "electron-builder": "^26.15.3"
   }
 }

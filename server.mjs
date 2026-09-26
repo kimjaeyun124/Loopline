@@ -585,7 +585,7 @@ async function ensureCodexThread(client, requestedId, model) {
     cwd,
     approvalPolicy: 'never',
     sandbox: 'readOnly',
-    serviceName: 'mosaic_ai',
+    serviceName: 'mosaic_desk',
   });
   const id = result.thread?.id;
   if (!validCodexThreadId(id)) throw new Error('Codex app-server가 대화 식별자를 반환하지 않았습니다.');
@@ -792,8 +792,14 @@ const server = createServer(async (req, res) => {
 });
 
 server.listen(port, host, () => {
-  console.log('Mosaic AI 실행 중: http://' + host + ':' + port);
-  console.log('종료하려면 Ctrl+C를 누르세요.');
+  const address = server.address();
+  const boundPort = typeof address === 'object' && address ? address.port : port;
+  const serverUrl = 'http://' + host + ':' + boundPort;
+  console.log('MOSAIC_SERVER_READY=' + serverUrl);
+  if (process.env.MOSAIC_DESKTOP !== '1') {
+    console.log('Mosaic Desk 실행 중: ' + serverUrl);
+    console.log('종료하려면 Ctrl+C를 누르세요.');
+  }
 });
 
 let isShuttingDown = false;
@@ -802,7 +808,7 @@ async function shutdown() {
   isShuttingDown = true;
   server.close();
   for (const active of activeCodexTurns.values()) {
-    finalizeCodexTurn(active, { error: 'Mosaic AI 서버가 종료되었습니다.' });
+    finalizeCodexTurn(active, { error: 'Mosaic Desk 서버가 종료되었습니다.' });
   }
   codexAppServer?.stop();
   const sandboxDir = await codexSandboxDirPromise?.catch(() => null);

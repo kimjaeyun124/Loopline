@@ -62,8 +62,8 @@ export class CodexAppServer extends EventEmitter {
     try {
       await this.requestRaw('initialize', {
         clientInfo: {
-          name: 'mosaic_ai',
-          title: 'Mosaic AI',
+          name: 'mosaic_desk',
+          title: 'Mosaic Desk',
           version: '0.1.0',
         },
       }, 15_000);

@@ -4,6 +4,16 @@
 
 ChatGPT Desktop처럼 채팅을 중심으로 화면을 구성한 macOS 데스크톱 앱입니다. ChatGPT 계정으로 로그인한 Codex app-server, Claude Code CLI, API로 연결한 에이전트의 모델을 하나의 목록에서 선택합니다. 여러 Codex 계정을 연결하고 계정별 남은 사용량을 확인할 수 있으며, Codex 사용 한도 소진 시 남은 계정으로 요청을 다시 시도합니다. 대화 내용은 앱 창의 `localStorage`에 저장되고, Codex 대화는 연결된 계정의 Codex thread 기록에도 저장됩니다. 공식 OpenAI 또는 Anthropic 앱은 아닙니다.
 
+## ChatGPT 사용
+
+사이드바의 **ChatGPT** 또는 **설정 및 연결 → 구독 계정 → ChatGPT → 열기**를 선택합니다. macOS 앱에서는 Loopline의 ChatGPT 전용 창이 열리고, 웹 개발 화면에서는 새 브라우저 탭으로 열립니다. [ChatGPT 공식 웹](https://learn.chatgpt.com/docs/web)에 직접 로그인한 뒤 해당 계정에서 제공하는 모델·대화·프로젝트를 사용합니다. API 키를 입력할 필요가 없습니다.
+
+전용 창은 `chatgpt.com`을 그대로 표시합니다. Codex 로그인과 별도의 세션(`persist:loopline-chatgpt`)에 로그인 쿠키를 보관하며, Loopline은 로그인 비밀번호·쿠키를 읽거나 다른 계정에 복사하지 않습니다. ChatGPT 대화가 Loopline의 로컬 대화 목록에 자동으로 복사되지는 않습니다. 필요한 기록은 **설정 → 대화 가져오기**에서 내보내기 파일로 가져올 수 있습니다.
+
+macOS 상단 **ChatGPT** 메뉴에서 창 열기(`⌘⇧G`), 작업 공간으로 돌아가기, 뒤로·앞으로, 새로고침을 사용할 수 있습니다. ChatGPT의 외부 링크는 확인 후 기본 브라우저에서 열립니다. 로그인 제공업체나 서비스의 브라우저 정책으로 전용 창에서 진행할 수 없는 경우 **ChatGPT → 브라우저에서 열기**를 사용하세요. 이 동작은 브라우저의 별도 로그인 세션을 사용합니다.
+
+마이크·카메라는 ChatGPT의 요청에 사용자가 허용한 경우에만 사용할 수 있으며 macOS 권한도 필요합니다. 화면 공유 등 이 창이 지원하지 않는 권한이 필요한 기능은 브라우저에서 사용하세요. 이 연결은 공식 웹 화면을 제공하는 방식이며, 모든 ChatGPT 기능의 전용 창 호환성을 보장하지 않습니다.
+
 ## API 에이전트 연결
 
 1. 사이드바의 **에이전트 +** 또는 **설정 및 연결 → API 에이전트 → 에이전트 추가**를 엽니다.
@@ -67,6 +77,7 @@ OpenAI 연결은 Codex app-server의 ChatGPT OAuth 흐름을 사용합니다. ap
 ## 포함된 기능
 
 - ChatGPT Desktop 스타일의 채팅 화면·접을 수 있는 에이전트 목록·macOS 통합 타이틀바
+- ChatGPT 공식 웹 전용 창, 독립 로그인 세션 및 브라우저에서 열기
 - Codex·Claude·API 모델을 통합한 검색 가능한 모델 선택기
 - DeepSeek·OpenAI·사용자 지정 OpenAI 호환 API 에이전트 추가 및 모델 자동 조회
 - API 에이전트 편집·모델 새로고침·연결 해제·삭제 및 API 키 암호화 보관

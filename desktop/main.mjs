@@ -3,6 +3,7 @@ import { mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { delimiter, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { CHATGPT_URL, createChatGptWindow } from './chatgpt-window.mjs';
 
 const APP_NAME = 'Loopline';
 const STORAGE_NAME = 'Mosaic Desk';
@@ -12,6 +13,7 @@ const desktopDir = dirname(fileURLToPath(import.meta.url));
 let backendProcess = null;
 let backendUrl = null;
 let mainWindow = null;
+const chatGptWindow = createChatGptWindow();
 
 // Electron uses this internal name for macOS Safe Storage keys as well as user data.
 // Keep the established identity so the visual rename can read existing encrypted keys.
@@ -179,6 +181,19 @@ function installApplicationMenu() {
         { role: 'selectAll' },
       ],
     },
+    {
+      label: 'ChatGPT',
+      submenu: [
+        { label: 'ChatGPT 열기', accelerator: 'CmdOrCtrl+Shift+G', click: () => chatGptWindow.open() },
+        { label: 'Loopline 작업 공간으로', click: () => { mainWindow?.show(); mainWindow?.focus(); } },
+        { type: 'separator' },
+        { label: '뒤로', click: () => chatGptWindow.navigate('back') },
+        { label: '앞으로', click: () => chatGptWindow.navigate('forward') },
+        { label: '새로고침', click: () => chatGptWindow.navigate('reload') },
+        { type: 'separator' },
+        { label: '브라우저에서 열기', click: () => { void chatGptWindow.openInBrowser().catch(() => {}); } },
+      ],
+    },
   ]));
 }
 
@@ -218,6 +233,10 @@ async function createMainWindow(url) {
     void openAllowedExternal(destination);
   });
   mainWindow.webContents.setWindowOpenHandler(({ url: destination }) => {
+    if (destination === CHATGPT_URL) {
+      chatGptWindow.open();
+      return { action: 'deny' };
+    }
     void openAllowedExternal(destination);
     return { action: 'deny' };
   });

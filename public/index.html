@@ -29,6 +29,9 @@
           <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#search"></use></svg>
           <span>작업 검색</span><kbd>⌘ K</kbd>
         </button>
+        <a class="search-chat-button chatgpt-link" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer" title="ChatGPT 열기">
+          <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#chat"></use></svg><span>ChatGPT</span>
+        </a>
         <details class="agents-panel">
           <summary><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#agents"></use></svg><span>에이전트</span><svg class="ui-icon disclosure-chevron" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#chevron-right"></use></svg><button class="project-add-button" id="addAgentSidebar" type="button" title="API 에이전트 추가" aria-label="API 에이전트 추가"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#plus"></use></svg></button></summary>
           <div class="agent-list" id="agentList"></div>
@@ -203,6 +206,11 @@
         <div class="settings-content">
         <div id="accountsPanel" role="tabpanel" aria-labelledby="accountsTab" data-settings-panel="accounts">
         <div class="settings-panel-heading"><h3>구독 계정</h3><p>Codex와 Claude를 연결하고 사용 한도를 확인하세요.</p></div>
+        <div class="connection-row chatgpt-connection">
+          <div class="connection-logo" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 24 24"><use href="/icons.svg#chat"></use></svg></div>
+          <div class="connection-details"><strong>ChatGPT</strong><small>ChatGPT에 로그인하여 대화와 프로젝트를 사용하세요.</small></div>
+          <div class="connection-actions"><span class="connection-status">공식 웹</span><a class="connect-button chatgpt-link" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">열기</a></div>
+        </div>
         <div class="codex-account-section">
           <div class="codex-account-heading"><div><strong>Codex 계정</strong><small>계정별 로그인과 사용 한도를 관리합니다.</small></div><button class="add-account-button" id="addCodexAccount" type="button"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#plus"></use></svg><span>계정 추가</span></button></div>
           <div class="codex-account-list" id="codexAccountsList"></div>

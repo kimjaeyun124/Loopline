@@ -44,6 +44,10 @@
     "mac": {
       "icon": "desktop/assets/loopline.icns",
       "category": "public.app-category.productivity",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "ChatGPT에서 음성 입력과 음성 대화를 사용할 때 마이크에 접근합니다.",
+        "NSCameraUsageDescription": "ChatGPT에서 사용자가 선택한 카메라 기능을 사용할 때 카메라에 접근합니다."
+      },
       "identity": null
     }
   },

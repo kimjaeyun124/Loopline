@@ -189,7 +189,7 @@ async function createMainWindow(url) {
     minWidth: 900,
     minHeight: 620,
     show: false,
-    backgroundColor: '#fafafa',
+    backgroundColor: '#ffffff',
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 18, y: 18 },
     webPreferences: {

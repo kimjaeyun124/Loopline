@@ -232,6 +232,13 @@ kbd { margin-left: auto; color: var(--muted); font-family: inherit; font-size: 1
 .messages.visible { display: flex; flex-direction: column; gap: 34px; }
 .message { display: flex; gap: 12px; align-items: flex-start; }
 .message.user { justify-content: flex-end; }
+.assistant-response { min-width: 0; flex: 1; }
+.worked-for-row { display: flex; width: 100%; min-height: 31px; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 13px; padding: 0 0 10px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 13px; line-height: 1.4; }
+.worked-for-label { font-variant-numeric: tabular-nums; }
+.worked-for-live { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11px; }
+.worked-for-live i { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 1.3s infinite ease-in-out; }
+.assistant-result { min-width: 0; }
+.assistant-result-label { margin: 0 0 5px; color: var(--secondary); font-size: 11px; font-weight: 550; line-height: 1.5; }
 .message-content { max-width: 100%; color: var(--ink); font-size: 16px; line-height: 1.8; overflow-wrap: anywhere; white-space: pre-wrap; }
 .message.user .message-content { max-width: 78%; padding: 12px 20px; border-radius: 24px; background: var(--soft); }
 .assistant-mark { display: none; }

@@ -114,6 +114,8 @@ const elements = {
   toast: document.querySelector('#toast'),
 };
 let modelMenuMode = 'providers';
+let workedForInterval = null;
+let workedForMessageId = null;
 const apiConnectionsUI = createApiConnectionsUI({ onChange: refreshApiConnections, showToast });
 const accountMenuUI = createAccountMenuUI({
   onOpen: () => { closeModelMenu(); void refreshStatus(); },
@@ -163,7 +165,17 @@ function loadConversations() {
     const conversations = value.filter((item) => item && typeof item.id === 'string' && Array.isArray(item.messages))
       .map((item) => {
         const messages = item.messages.filter((message) => ['user', 'assistant'].includes(message?.role) && typeof message.content === 'string')
-          .map((message) => ({ role: message.role, content: message.content.slice(0, item.historySourceLabel ? 1_600_000 : 40_000) }));
+          .map((message) => {
+            const normalized = {
+              role: message.role,
+              content: message.content.slice(0, item.historySourceLabel ? 1_600_000 : 40_000),
+            };
+            if (typeof message.id === 'string') normalized.id = message.id.slice(0, 120);
+            if (message.role === 'assistant' && Number.isFinite(message.workedForMs) && message.workedForMs >= 0) {
+              normalized.workedForMs = Math.floor(message.workedForMs);
+            }
+            return normalized;
+          });
         const storedTitle = String(item.title || '새 대화').slice(0, 80);
         const firstUserMessage = messages.find((message) => message.role === 'user')?.content;
         const title = ['새 작업', '새 대화'].includes(storedTitle) && firstUserMessage
@@ -424,12 +436,61 @@ function renderMessages() {
     const content = message.pending && !message.content
       ? '<span class="typing-dots" aria-label="응답 생성 중"><i></i><i></i><i></i></span>'
       : assistant ? renderMarkdown(message.content, { copyDisabled: message.pending }) : escapeHtml(message.content);
+    if (assistant) {
+      const hasWorkedFor = message.pending || Number.isFinite(message.workedForMs);
+      const elapsedMs = message.pending ? Date.now() - (message.startedAt || Date.now()) : message.workedForMs;
+      return `<article class="message assistant${errorClass}" data-message-id="${escapeHtml(message.id || '')}">
+        <div class="assistant-response">
+          ${hasWorkedFor ? `<div class="worked-for-row"><span class="worked-for-label" data-worked-for="${escapeHtml(message.id || '')}">${formatWorkedFor(elapsedMs)}</span>${message.pending ? '<span class="worked-for-live"><i aria-hidden="true"></i>진행 중</span>' : ''}</div>` : ''}
+          <section class="assistant-result" aria-label="${message.pending ? '응답' : '결과'}">
+            <div class="assistant-result-label">${message.pending ? '응답' : '결과'}</div>
+            <div class="message-content markdown-content">${content}${message.pending && message.content ? '<span class="typing-dots" aria-label="응답 생성 중"><i></i><i></i><i></i></span>' : ''}</div>
+          </section>
+        </div>
+      </article>`;
+    }
     return `<article class="message ${assistant ? 'assistant' : 'user'}${errorClass}" data-message-id="${escapeHtml(message.id || '')}">
-      ${assistant ? `<span class="assistant-mark" aria-hidden="true">${icon('brand')}</span>` : ''}
-      <div class="message-content${assistant ? ' markdown-content' : ''}">${content}${message.pending && message.content ? '<span class="typing-dots" aria-label="응답 생성 중"><i></i><i></i><i></i></span>' : ''}</div>
+      <div class="message-content">${content}</div>
     </article>`;
   }).join('');
   elements.chatScroll.scrollTop = elements.chatScroll.scrollHeight;
+}
+
+function formatWorkedFor(milliseconds) {
+  const seconds = Math.floor(Math.max(0, Number(milliseconds) || 0) / 1000);
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const remainder = seconds % 60;
+  if (hours) return `Worked for ${hours}h ${minutes}m`;
+  if (minutes) return `Worked for ${minutes}m ${remainder}s`;
+  return `Worked for ${remainder}s`;
+}
+
+function updateWorkedForLabel(message) {
+  const label = [...elements.messages.querySelectorAll('[data-worked-for]')]
+    .find((element) => element.dataset.workedFor === message.id);
+  if (!label) return;
+  label.textContent = formatWorkedFor(Date.now() - message.startedAt);
+}
+
+function startWorkedForTimer(message) {
+  clearInterval(workedForInterval);
+  workedForMessageId = message.id;
+  workedForInterval = setInterval(() => {
+    if (workedForMessageId === message.id && message.pending) updateWorkedForLabel(message);
+  }, 1000);
+}
+
+function finishAssistantWork(message) {
+  if (Number.isFinite(message.startedAt)) {
+    message.workedForMs = Math.max(0, Date.now() - message.startedAt);
+    delete message.startedAt;
+  }
+  if (workedForMessageId === message.id) {
+    clearInterval(workedForInterval);
+    workedForInterval = null;
+    workedForMessageId = null;
+  }
 }
 
 function activeCodexAccount() {
@@ -1593,6 +1654,7 @@ async function streamResponse(response, assistantMessage, conversation) {
     assistantMessage.content = '응답이 중단되었습니다.';
     assistantMessage.error = true;
   }
+  finishAssistantWork(assistantMessage);
   assistantMessage.pending = false;
   conversation.updatedAt = Date.now();
   saveConversations();
@@ -1629,7 +1691,7 @@ async function sendMessage(value) {
   }
   updateConversationTitle(conversation, message);
   conversation.messages.push({ role: 'user', content: message, id: crypto.randomUUID() });
-  const assistantMessage = { role: 'assistant', content: '', id: crypto.randomUUID(), pending: true };
+  const assistantMessage = { role: 'assistant', content: '', id: crypto.randomUUID(), pending: true, startedAt: Date.now() };
   conversation.messages.push(assistantMessage);
   conversation.updatedAt = Date.now();
   saveConversations();
@@ -1644,6 +1706,7 @@ async function sendMessage(value) {
   elements.sendButton.disabled = false;
   elements.sendButton.classList.add('busy');
   elements.sendButton.setAttribute('aria-label', '응답 중지');
+  startWorkedForTimer(assistantMessage);
 
   const allMessages = conversation.messages.filter((item) => !item.pending);
   const messages = allMessages.slice(-60).map(({ role, content }) => ({ role, content: content.slice(0, 40_000) }));
@@ -1675,6 +1738,7 @@ async function sendMessage(value) {
     }
     await streamResponse(response, assistantMessage, conversation);
   } catch (error) {
+    finishAssistantWork(assistantMessage);
     assistantMessage.pending = false;
     assistantMessage.error = error.name !== 'AbortError';
     assistantMessage.content = error.name === 'AbortError'

@@ -199,6 +199,10 @@ function loadConversations() {
                   title: activity.title.slice(0, 220),
                   detail: typeof activity.detail === 'string' ? activity.detail.slice(0, 240) : '',
                   status,
+                  ...(activity.kind === 'commentary' ? {
+                    kind: 'commentary',
+                    text: typeof activity.text === 'string' ? activity.text.slice(0, 6000) : '',
+                  } : {}),
                 }];
               });
               const responseActivityIndex = normalized.activities.findIndex((activity) => activity.id === 'response');
@@ -503,7 +507,9 @@ function renderMessages() {
       const activityItems = Array.isArray(message.activities) ? message.activities : [];
       const activityMarkup = activityItems.length ? `<details class="worked-for-details" data-activity-message-id="${escapeHtml(message.id || '')}"${message.activityExpanded === true || (message.activityExpanded !== false && message.pending) ? ' open' : ''}>
         <summary class="worked-for-row"><span class="worked-for-label" data-worked-for="${escapeHtml(message.id || '')}">${hasWorkedFor ? formatWorkedFor(elapsedMs) : '작업 과정'}</span>${message.pending ? '<span class="worked-for-live"><i aria-hidden="true"></i>진행 중</span>' : ''}</summary>
-        <ol class="assistant-activity-list" aria-label="작업 단계">${activityItems.map((activity) => `<li class="activity-${escapeHtml(activity.status)}"><span class="activity-marker" aria-hidden="true"></span><div><span class="activity-event-label">${icon(activityIconName(activity))}<strong>${escapeHtml(activity.title)}</strong><span class="activity-state">${activityStatusLabel(activity.status)}</span></span>${activity.detail ? `<small>${escapeHtml(activity.detail)}</small>` : ''}</div></li>`).join('')}</ol>
+        <ol class="assistant-activity-list" aria-label="작업 단계">${activityItems.map((activity) => activity.kind === 'commentary'
+          ? `<li class="activity-commentary activity-${escapeHtml(activity.status)}"><div class="activity-commentary-text">${renderMarkdown(activity.text || '', { copyDisabled: true })}</div></li>`
+          : `<li class="activity-${escapeHtml(activity.status)}"><span class="activity-marker" aria-hidden="true"></span><div><span class="activity-event-label">${icon(activityIconName(activity))}<strong>${escapeHtml(activity.title)}</strong><span class="activity-state">${activityStatusLabel(activity.status)}</span></span>${activity.detail ? `<small>${escapeHtml(activity.detail)}</small>` : ''}</div></li>`).join('')}</ol>
       </details>` : hasWorkedFor ? `<div class="worked-for-row"><span class="worked-for-label" data-worked-for="${escapeHtml(message.id || '')}">${formatWorkedFor(elapsedMs)}</span>${message.pending ? '<span class="worked-for-live"><i aria-hidden="true"></i>진행 중</span>' : ''}</div>` : '';
       return `<article class="message assistant${errorClass}" data-message-id="${escapeHtml(message.id || '')}">
         <div class="assistant-response">
@@ -549,6 +555,10 @@ function updateAssistantActivity(message, activity) {
     title: activity.title.replace(/\s+/g, ' ').trim().slice(0, 220),
     detail: typeof activity.detail === 'string' ? activity.detail.replace(/\s+/g, ' ').trim().slice(0, 240) : '',
     status,
+    ...(activity.kind === 'commentary' ? {
+      kind: 'commentary',
+      text: typeof activity.text === 'string' ? activity.text.slice(0, 6000) : '',
+    } : {}),
   };
   if (!next.id || !next.title) return;
   if (!Array.isArray(message.activities)) message.activities = [];
@@ -559,6 +569,23 @@ function updateAssistantActivity(message, activity) {
   }
   else message.activities.push(next);
   if (message.activities.length > 60) message.activities.splice(0, message.activities.length - 60);
+}
+
+function updateAssistantProgress(message, progress) {
+  if (!message || !progress || typeof progress.id !== 'string' || typeof progress.text !== 'string') return;
+  const existing = message.activities?.find((item) => item.id === progress.id);
+  const text = progress.append === true
+    ? `${existing?.text || ''}${progress.text}`
+    : progress.text;
+  updateAssistantActivity(message, {
+    id: progress.id,
+    kind: 'commentary',
+    title: '진행 안내',
+    text,
+    status: ['pending', 'running', 'completed', 'failed', 'stopped'].includes(progress.status)
+      ? progress.status
+      : 'running',
+  });
 }
 
 function updateResponseActivity(message, status, title, detail = '') {
@@ -1791,6 +1818,13 @@ async function streamResponse(response, assistantMessage, conversation) {
       buffer = buffer.slice(separator + 2);
       if (!parsed) continue;
       if (parsed.event === 'activity') updateAssistantActivity(assistantMessage, parsed.data);
+      if (parsed.event === 'progress') {
+        const rollbackText = typeof parsed.data.rollbackText === 'string' ? parsed.data.rollbackText : '';
+        if (rollbackText && assistantMessage.content.endsWith(rollbackText)) {
+          assistantMessage.content = assistantMessage.content.slice(0, -rollbackText.length);
+        }
+        updateAssistantProgress(assistantMessage, parsed.data);
+      }
       if (parsed.event === 'account' && typeof parsed.data.id === 'string') {
         conversation.codexAccountId = parsed.data.id;
         state.activeCodexAccountId = parsed.data.id;

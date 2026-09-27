@@ -12,6 +12,12 @@ import { accountActivity, localActivity } from './usage-activity.mjs';
 import { modelEffortCapability } from './public/model-capabilities.mjs';
 
 const root = dirname(fileURLToPath(import.meta.url));
+const codexProgressInstructions = [
+  '실행이 필요한 여러 단계의 작업에서는 사용자에게 진행 상황을 간결한 한국어 문장으로 알려 주세요.',
+  '작업을 시작할 때와 중요한 단계가 바뀔 때 다음에 할 일을 한두 문장으로 말하고, 각 단계가 끝난 뒤 확인한 사실과 다음 단계를 알려 주세요.',
+  '이 진행 설명은 사용자에게 보여도 되는 상태 업데이트로 별도 commentary 메시지에 작성하고, 최종 결과와 내부 추론은 섞지 마세요.',
+  '단순 질문에는 진행 설명을 덧붙이지 말고, 같은 내용을 반복하거나 도구 호출마다 설명하지 마세요.',
+].join('\n');
 const publicDir = join(root, 'public');
 const userDataDir = resolve(process.env.MOSAIC_USER_DATA_DIR || join(homedir(), '.mosaic-desk'));
 const codexAccountsDir = join(userDataDir, 'codex-accounts');
@@ -721,6 +727,12 @@ function handleCodexNotification(context, message) {
       });
     });
   } else if (message.method === 'item/started') {
+    if (params.item?.type === 'agentMessage' && typeof params.item.id === 'string') {
+      active.agentMessages.set(params.item.id, {
+        phase: params.item.phase || null,
+        text: '',
+      });
+    }
     const activity = codexActivityItem(params.item);
     if (activity) {
       activity.status = 'running';
@@ -733,15 +745,41 @@ function handleCodexNotification(context, message) {
       sendEvent(active.res, 'activity', activity);
     }
   } else if (message.method === 'item/agentMessage/delta' && typeof params.delta === 'string') {
-    active.sentText += params.delta;
-    sendEvent(active.res, 'delta', { text: params.delta });
-  } else if (message.method === 'item/completed' && params.item?.type === 'agentMessage' && typeof params.item.text === 'string') {
-    const text = params.item.text;
-    if (text.startsWith(active.sentText)) {
-      const remainder = text.slice(active.sentText.length);
-      if (remainder) sendEvent(active.res, 'delta', { text: remainder });
-      active.sentText = text;
+    const itemId = typeof params.itemId === 'string' ? params.itemId : '';
+    const itemState = active.agentMessages.get(itemId) || { phase: null, text: '' };
+    itemState.text += params.delta;
+    active.agentMessages.set(itemId, itemState);
+    if (itemState.phase === 'commentary') {
+      sendEvent(active.res, 'progress', {
+        id: `codex-commentary-${itemId}`,
+        text: params.delta,
+        append: true,
+        status: 'running',
+      });
+    } else {
+      sendEvent(active.res, 'delta', { text: params.delta });
     }
+  } else if (message.method === 'item/completed' && params.item?.type === 'agentMessage' && typeof params.item.text === 'string') {
+    const itemId = params.item.id;
+    const itemState = typeof itemId === 'string' ? active.agentMessages.get(itemId) : null;
+    const phase = params.item.phase || itemState?.phase || null;
+    const streamedText = itemState?.text || '';
+    const text = params.item.text;
+    if (phase === 'commentary') {
+      sendEvent(active.res, 'progress', {
+        id: `codex-commentary-${itemId}`,
+        text,
+        append: false,
+        status: 'completed',
+        ...(itemState?.phase !== 'commentary' && streamedText ? { rollbackText: streamedText } : {}),
+      });
+    } else if (text.startsWith(streamedText)) {
+      const remainder = text.slice(streamedText.length);
+      if (remainder) sendEvent(active.res, 'delta', { text: remainder });
+    } else if (!streamedText) {
+      sendEvent(active.res, 'delta', { text });
+    }
+    if (typeof itemId === 'string') active.agentMessages.delete(itemId);
   } else if (message.method === 'turn/completed') {
     const turn = params.turn || {};
     const error = turn.status === 'failed'
@@ -1078,6 +1116,7 @@ async function ensureCodexThread(context, requestedId, model) {
         cwd,
         approvalPolicy: 'never',
         sandbox: 'read-only',
+        developerInstructions: codexProgressInstructions,
       });
       context.loadedThreads.add(requestedId);
     }
@@ -1089,6 +1128,7 @@ async function ensureCodexThread(context, requestedId, model) {
     cwd,
     approvalPolicy: 'never',
     sandbox: 'read-only',
+    developerInstructions: codexProgressInstructions,
     serviceName: 'mosaic_desk',
   });
   const id = result.thread?.id;
@@ -1194,7 +1234,7 @@ async function runCodexTurnAttempt(context, model, messages, requestedThreadId, 
     threadId: thread.id,
     turnId: null,
     res,
-    sentText: '',
+    agentMessages: new Map(),
     finished: false,
     cancelled: false,
     timer: null,

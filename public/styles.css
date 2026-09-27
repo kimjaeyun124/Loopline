@@ -250,6 +250,11 @@ kbd { margin-left: auto; color: var(--muted); font-family: inherit; font-size: 1
 .activity-running .activity-marker { border-color: var(--accent); background: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent); animation: pulse 1.3s infinite ease-in-out; }
 .activity-completed .activity-marker { border-color: var(--accent); background: var(--accent); }
 .activity-failed .activity-marker { border-color: var(--danger); background: var(--danger); }
+.assistant-activity-list .activity-commentary { display: block; min-height: 0; padding: 2px 0 12px; }
+.assistant-activity-list .activity-commentary::before { display: none; }
+.activity-commentary-text { color: var(--ink); font-size: 14px; line-height: 1.7; overflow-wrap: anywhere; }
+.activity-commentary-text > :first-child { margin-top: 0; }
+.activity-commentary-text > :last-child { margin-bottom: 0; }
 .assistant-activity-list li > div { min-width: 0; }
 .activity-event-label { display: flex; min-width: 0; align-items: center; gap: 7px; }
 .activity-event-label .ui-icon { width: 14px; height: 14px; flex: 0 0 14px; color: var(--muted); }

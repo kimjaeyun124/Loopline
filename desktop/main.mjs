@@ -1,9 +1,11 @@
 import { app, BrowserWindow, dialog, Menu, safeStorage, shell, utilityProcess } from 'electron';
+import { mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { delimiter, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const APP_NAME = 'Mosaic Desk';
+const APP_NAME = 'Loopline';
+const STORAGE_NAME = 'Mosaic Desk';
 const EXTERNAL_AUTH_HOSTS = new Set(['auth.openai.com', 'chatgpt.com']);
 const BACKEND_PORT = process.env.MOSAIC_DESKTOP_PORT || '41743';
 const desktopDir = dirname(fileURLToPath(import.meta.url));
@@ -11,7 +13,13 @@ let backendProcess = null;
 let backendUrl = null;
 let mainWindow = null;
 
-app.setName(APP_NAME);
+// Electron uses this internal name for macOS Safe Storage keys as well as user data.
+// Keep the established identity so the visual rename can read existing encrypted keys.
+app.setName(STORAGE_NAME);
+const userDataPath = join(app.getPath('appData'), STORAGE_NAME);
+mkdirSync(userDataPath, { recursive: true });
+app.setPath('userData', userDataPath);
+app.setPath('sessionData', userDataPath);
 
 if (!app.requestSingleInstanceLock()) {
   app.quit();
@@ -23,6 +31,9 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   app.whenReady().then(async () => {
+    const iconPath = join(desktopDir, 'assets', 'loopline-icon.png');
+    app.dock?.setIcon(iconPath);
+    app.setAboutPanelOptions({ applicationName: APP_NAME, applicationVersion: app.getVersion(), iconPath });
     installApplicationMenu();
     try {
       backendUrl = await startBackend();
@@ -145,15 +156,15 @@ function installApplicationMenu() {
     {
       label: APP_NAME,
       submenu: [
-        { role: 'about' },
+        { role: 'about', label: `${APP_NAME} 정보` },
         { type: 'separator' },
         { role: 'services' },
         { type: 'separator' },
-        { role: 'hide' },
+        { role: 'hide', label: `${APP_NAME} 가리기` },
         { role: 'hideOthers' },
         { role: 'unhide' },
         { type: 'separator' },
-        { role: 'quit' },
+        { role: 'quit', label: `${APP_NAME} 종료` },
       ],
     },
     {

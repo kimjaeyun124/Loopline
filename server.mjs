@@ -1265,6 +1265,9 @@ async function serveFile(res, pathname) {
     '/index.html': ['index.html', 'text/html; charset=utf-8'],
     '/styles.css': ['styles.css', 'text/css; charset=utf-8'],
     '/app.js': ['app.js', 'text/javascript; charset=utf-8'],
+    '/icons.js': ['icons.js', 'text/javascript; charset=utf-8'],
+    '/icons.svg': ['icons.svg', 'image/svg+xml'],
+    '/loopline-icon.svg': ['loopline-icon.svg', 'image/svg+xml'],
     '/export-importer.js': ['export-importer.js', 'text/javascript; charset=utf-8'],
     '/api-connections-ui.js': ['api-connections-ui.js', 'text/javascript; charset=utf-8'],
     '/history-import-ui.js': ['history-import-ui.js', 'text/javascript; charset=utf-8'],
@@ -1437,7 +1440,7 @@ server.listen(port, host, () => {
   const serverUrl = 'http://' + host + ':' + boundPort;
   console.log('MOSAIC_SERVER_READY=' + serverUrl);
   if (process.env.MOSAIC_DESKTOP !== '1') {
-    console.log('Mosaic Desk 실행 중: ' + serverUrl);
+    console.log('Loopline 실행 중: ' + serverUrl);
     console.log('종료하려면 Ctrl+C를 누르세요.');
   }
 });
@@ -1449,7 +1452,7 @@ async function shutdown() {
   server.close();
   for (const context of codexAccountContexts.values()) {
     for (const active of context.activeTurns.values()) {
-      finalizeCodexTurn(active, { error: 'Mosaic Desk 서버가 종료되었습니다.' });
+      finalizeCodexTurn(active, { error: 'Loopline 서버가 종료되었습니다.' });
     }
     context.client?.stop();
   }

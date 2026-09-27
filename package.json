@@ -9,7 +9,7 @@
     "desktop": "electron .",
     "desktop:package": "electron-builder --mac dir --arm64"
   },
-  "productName": "Mosaic Desk",
+  "productName": "Loopline",
   "build": {
     "appId": "com.mosaic.desk",
     "directories": {
@@ -42,6 +42,7 @@
       }
     ],
     "mac": {
+      "icon": "desktop/assets/loopline.icns",
       "category": "public.app-category.productivity",
       "identity": null
     }

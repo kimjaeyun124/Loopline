@@ -1,3 +1,4 @@
+import { icon } from './icons.js';
 import { parseProviderExport } from './export-importer.js';
 import { createApiConnectionsUI } from './api-connections-ui.js';
 import { createHistoryImportUI } from './history-import-ui.js';
@@ -5,7 +6,7 @@ import { createHistoryImportUI } from './history-import-ui.js';
 const PROVIDERS = {
   openai: {
     label: 'Codex',
-    mark: '◉',
+    mark: icon('terminal'),
     models: [
       { id: 'gpt-5.6', label: 'GPT-5.6 Sol' },
       { id: 'gpt-5.6-terra', label: 'GPT-5.6 Terra' },
@@ -14,14 +15,14 @@ const PROVIDERS = {
   },
   anthropic: {
     label: 'Claude',
-    mark: '✳',
+    mark: icon('asterisk'),
     models: [
       { id: 'claude-sonnet-5', label: 'Claude Sonnet 5' },
       { id: 'claude-opus-5', label: 'Claude Opus 5' },
       { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' },
     ],
   },
-  api: { label: 'API', mark: '◇', models: [] },
+  api: { label: 'API', mark: icon('plug'), models: [] },
 };
 
 const STORAGE_KEY = 'mosaic-ai.conversations.v1';
@@ -251,10 +252,10 @@ function activeConversation() {
 }
 
 function createConversation() {
-  if (state.busy) { showToast('응답을 중지하거나 완료한 뒤 새 채팅을 시작해 주세요.'); return; }
+  if (state.busy) { showToast('응답을 중지하거나 완료한 뒤 새 작업을 시작해 주세요.'); return; }
   const conversation = {
     id: crypto.randomUUID(),
-    title: '새 채팅',
+    title: '새 작업',
     provider: state.provider,
     model: state.model,
     connectionId: state.provider === 'api' ? state.activeConnectionId : null,
@@ -283,9 +284,9 @@ function renderConversationList() {
     .sort((a, b) => b.updatedAt - a.updatedAt);
   elements.conversationList.innerHTML = sorted.map((conversation) => `
     <div class="conversation-row${conversation.id === state.activeId ? ' active' : ''}" data-id="${escapeHtml(conversation.id)}" role="button" tabindex="0" aria-label="${escapeHtml(conversation.title)} 열기">
-      <span class="conversation-provider-mark">${PROVIDERS[conversation.provider]?.mark || '◉'}</span>
+      <span class="conversation-provider-mark">${PROVIDERS[conversation.provider]?.mark || icon('terminal')}</span>
       <span class="conversation-title">${escapeHtml(conversation.title)}</span>
-      <button class="delete-conversation" type="button" data-delete="${escapeHtml(conversation.id)}" aria-label="대화 삭제">×</button>
+      <button class="delete-conversation" type="button" data-delete="${escapeHtml(conversation.id)}" aria-label="대화 삭제">${icon('trash')}</button>
     </div>`).join('');
 }
 
@@ -296,11 +297,11 @@ function project(projectId) {
 function renderProjectList() {
   const rows = [`
     <div class="project-row${state.activeProjectId === null ? ' active' : ''}">
-      <button class="project-select-button" type="button" data-select-project="all"><span class="project-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a8 8 0 0 1-8 8H5l-3 2v-10a9 9 0 0 1 18 0Z"/></svg></span><span>모든 채팅</span></button>
+      <button class="project-select-button" type="button" data-select-project="all"><span class="project-icon">${icon('chat')}</span><span>모든 작업</span></button>
     </div>`, ...state.projects.map((item) => `
     <div class="project-row${item.id === state.activeProjectId ? ' active' : ''}">
-      <button class="project-select-button" type="button" data-select-project="${escapeHtml(item.id)}"><span class="project-icon" title="${item.importSource === 'anthropic' ? 'Claude에서 가져옴' : item.importSource === 'openai' ? 'ChatGPT에서 가져옴' : 'Mosaic 프로젝트'}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7V5a1 1 0 0 1 1-1h5l3 3h8a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></svg></span><span class="project-name">${escapeHtml(item.name)}</span><span class="project-count">${state.conversations.filter((conversation) => conversation.projectId === item.id).length}</span></button>
-      <button class="project-edit-button" type="button" data-edit-project="${escapeHtml(item.id)}" aria-label="${escapeHtml(item.name)} 프로젝트 편집" title="프로젝트 편집">•••</button>
+      <button class="project-select-button" type="button" data-select-project="${escapeHtml(item.id)}"><span class="project-icon" title="${item.importSource === 'anthropic' ? 'Claude에서 가져옴' : item.importSource === 'openai' ? 'ChatGPT에서 가져옴' : 'Loopline 프로젝트'}">${icon('folder')}</span><span class="project-name">${escapeHtml(item.name)}</span><span class="project-count">${state.conversations.filter((conversation) => conversation.projectId === item.id).length}</span></button>
+      <button class="project-edit-button" type="button" data-edit-project="${escapeHtml(item.id)}" aria-label="${escapeHtml(item.name)} 프로젝트 편집" title="프로젝트 편집">${icon('more')}</button>
     </div>`)];
   elements.projectList.innerHTML = rows.join('');
   const conversation = activeConversation();
@@ -325,7 +326,7 @@ function renderSearchResults() {
 
   elements.searchResults.innerHTML = matches.map((conversation) => `
     <button class="search-result${conversation.id === state.activeId ? ' active' : ''}" type="button" role="option" aria-selected="${conversation.id === state.activeId}" data-search-id="${escapeHtml(conversation.id)}">
-      <span class="search-result-icon">${PROVIDERS[conversation.provider]?.mark || '◉'}</span>
+      <span class="search-result-icon">${PROVIDERS[conversation.provider]?.mark || icon('terminal')}</span>
       <span class="search-result-copy"><strong>${escapeHtml(conversation.title)}</strong><small>${escapeHtml(conversation.messages.find((message) => message.role === 'user')?.content || '아직 메시지가 없습니다.')}</small></span>
     </button>`).join('');
   elements.searchEmpty.hidden = matches.length > 0;
@@ -350,7 +351,7 @@ function renderMessages() {
       ? '<span class="typing-dots" aria-label="응답 생성 중"><i></i><i></i><i></i></span>'
       : escapeHtml(message.content);
     return `<article class="message ${assistant ? 'assistant' : 'user'}${errorClass}" data-message-id="${escapeHtml(message.id || '')}">
-      ${assistant ? '<span class="assistant-mark" aria-hidden="true">✳</span>' : ''}
+      ${assistant ? `<span class="assistant-mark" aria-hidden="true">${icon('brand')}</span>` : ''}
       <div class="message-content">${content}${message.pending && message.content ? '<span class="typing-dots" aria-label="응답 생성 중"><i></i><i></i><i></i></span>' : ''}</div>
     </article>`;
   }).join('');
@@ -409,7 +410,7 @@ function renderCodexAccounts() {
         : `<button class="connect-button" type="button" data-connect-codex-account="${escapeHtml(account.id)}"${!account.installed || busy ? ' disabled' : ''}>${account.disconnected ? '다시 연결' : loginLabel}</button>${!account.disconnected ? `<button class="account-unlink-button" type="button" data-disconnect-codex-account="${escapeHtml(account.id)}"${busy ? ' disabled' : ''}>연결 해제</button>` : ''}`;
     const deleteAction = account.isDefault ? '' : `<button class="account-delete-button" type="button" data-delete-codex-account="${escapeHtml(account.id)}"${busy ? ' disabled' : ''}>삭제</button>`;
     return `<article class="codex-account-card${selected ? ' active' : ''}">
-      <span class="connection-logo openai-logo">◉</span>
+      <span class="connection-logo openai-logo" aria-hidden="true">${icon('terminal')}</span>
       <div class="connection-details"><div class="codex-account-title"><strong>${escapeHtml(displayName)}</strong>${selected ? '<span class="active-account-badge">사용 중</span>' : ''}</div>
         <small class="codex-account-plan">${escapeHtml(accountHint)}</small>
         <small class="usage-status">${escapeHtml(codexUsageText(account))}</small>
@@ -421,7 +422,7 @@ function renderCodexAccounts() {
     </article>`;
   }).join('');
   elements.addCodexAccountButton.disabled = state.addingCodexAccount === true;
-  elements.addCodexAccountButton.textContent = state.addingCodexAccount ? '계정 준비 중…' : '＋ 계정 추가';
+  elements.addCodexAccountButton.innerHTML = state.addingCodexAccount ? `${icon('loader', 'spinning')}<span>계정 준비 중…</span>` : `${icon('plus')}<span>계정 추가</span>`;
 }
 
 function modelCatalog() {
@@ -492,7 +493,7 @@ function renderModelOptions() {
   const models = modelCatalog().filter((model) => `${model.label} ${model.id} ${model.source}`.toLocaleLowerCase().includes(query));
   elements.modelOptions.innerHTML = models.slice(0, 200).map((model) => {
     const selected = modelKey(model) === selectedModelKey();
-    return `<button class="model-option${selected ? ' selected' : ''}" type="button" role="option" aria-selected="${selected}" data-model-key="${escapeHtml(modelKey(model))}"${!model.connected || state.busy ? ' disabled' : ''}><span><strong>${escapeHtml(model.label)}</strong><small>${escapeHtml(model.source)}${!model.connected ? ' · 연결 필요' : ''}</small></span><span class="model-check" aria-hidden="true">${selected ? '✓' : ''}</span></button>`;
+    return `<button class="model-option${selected ? ' selected' : ''}" type="button" role="option" aria-selected="${selected}" data-model-key="${escapeHtml(modelKey(model))}"${!model.connected || state.busy ? ' disabled' : ''}><span><strong>${escapeHtml(model.label)}</strong><small>${escapeHtml(model.source)}${!model.connected ? ' · 연결 필요' : ''}</small></span><span class="model-check" aria-hidden="true">${selected ? icon('check') : ''}</span></button>`;
   }).join('') || '<p class="model-empty">일치하는 모델이 없습니다.<br>API 에이전트를 연결하거나 검색어를 바꿔보세요.</p>';
   if (models.length > 200) elements.modelOptions.insertAdjacentHTML('beforeend', '<p class="model-empty">더 많은 모델은 이름으로 검색하세요.</p>');
   if (!elements.modelMenu.hidden) positionModelMenu();
@@ -517,9 +518,9 @@ function closeModelMenu(restoreFocus = false) {
 function renderAgentList() {
   const codexCount = state.codexAccounts.filter((account) => account.connected).length;
   const agents = [
-    { name: 'Codex', mark: '◉', connected: codexCount > 0, detail: codexCount ? `${codexCount}개 계정` : '로그인 필요', tab: 'accounts' },
-    { name: 'Claude Code', mark: '✳', connected: state.providers.anthropic?.connected, detail: state.providers.anthropic?.connected ? '연결됨' : '로그인 필요', tab: 'accounts' },
-    ...state.apiConnections.map((connection) => ({ name: connection.name, mark: '◇', connected: connection.connected, detail: connection.connected ? `${connection.models.length}개 모델` : '키 필요', tab: 'agents' })),
+    { name: 'Codex', mark: icon('terminal'), connected: codexCount > 0, detail: codexCount ? `${codexCount}개 계정` : '로그인 필요', tab: 'accounts' },
+    { name: 'Claude Code', mark: icon('asterisk'), connected: state.providers.anthropic?.connected, detail: state.providers.anthropic?.connected ? '연결됨' : '로그인 필요', tab: 'accounts' },
+    ...state.apiConnections.map((connection) => ({ name: connection.name, mark: icon('plug'), connected: connection.connected, detail: connection.connected ? `${connection.models.length}개 모델` : '키 필요', tab: 'agents' })),
   ];
   document.querySelector('#agentList').innerHTML = agents.map((agent) => `<button class="agent-sidebar-row" type="button" data-agent-tab="${agent.tab}" title="${escapeHtml(agent.name)} · ${escapeHtml(agent.detail)}"><span class="agent-mark" aria-hidden="true">${agent.mark}</span><span class="agent-name">${escapeHtml(agent.name)}</span><span class="agent-detail">${escapeHtml(agent.detail)}</span><span class="agent-status${agent.connected ? ' connected' : ''}" aria-label="${agent.connected ? '연결됨' : '연결 필요'}"></span></button>`).join('');
 }
@@ -565,7 +566,7 @@ function render() {
   const activeProject = project(conversation?.projectId || state.activeProjectId);
   document.querySelector('#modeLabel').textContent = conversation?.messages.length
     ? conversation.title
-    : activeProject ? `${activeProject.name} · 새 채팅` : '새 채팅';
+    : activeProject ? `${activeProject.name} · 새 작업` : '새 작업';
   if (!elements.searchModal.hidden) renderSearchResults();
 }
 
@@ -725,7 +726,7 @@ async function connectProvider(provider) {
       if (!statusPollTimer) statusPollTimer = setInterval(refreshStatus, 2500);
     }
   } catch {
-    feedback.textContent = '로그인 요청을 처리하지 못했습니다. Mosaic 서버가 실행 중인지 확인해 주세요.';
+    feedback.textContent = '로그인 요청을 처리하지 못했습니다. Loopline 서버가 실행 중인지 확인해 주세요.';
   }
   refreshStatus();
 }
@@ -803,7 +804,7 @@ async function updateCodexAccountLink(accountId, action) {
     if (!window.confirm(`${account.name}을 연결 해제할까요?\n\n${impact}`)) return;
   } else if (action === 'delete') {
     if (account.isDefault) return;
-    const impact = '계정 인증 정보와 이 Mosaic 계정 전용 Codex 프로필·세션 기록을 삭제합니다. Mosaic 대화 본문은 남지만 Codex 세션 연결을 끊고, 다음 응답은 남은 계정에서 대화 내용으로 이어집니다.';
+    const impact = '계정 인증 정보와 이 Loopline 계정 전용 Codex 프로필·세션 기록을 삭제합니다. Loopline 대화 본문은 남지만 Codex 세션 연결을 끊고, 다음 응답은 남은 계정에서 대화 내용으로 이어집니다.';
     if (!window.confirm(`${account.name}을 계정 목록에서 삭제할까요?\n\n${impact}`)) return;
   }
   if (state.busyCodexAccountIds.has(accountId)) return;
@@ -830,7 +831,7 @@ async function updateCodexAccountLink(accountId, action) {
       if (state.activeCodexAccountId === accountId) state.activeCodexAccountId = replacementId;
       saveConversations();
       savePreferences();
-      showToast('Codex 계정을 삭제했습니다. Mosaic 대화 본문은 남아 있습니다.');
+      showToast('Codex 계정을 삭제했습니다. Loopline 대화 본문은 남아 있습니다.');
     } else if (action === 'disconnect' && accountId === state.activeCodexAccountId) {
       state.activeCodexAccountId = state.codexAccounts.find((item) => item.id !== accountId && item.connected)?.id || 'default';
       savePreferences();
@@ -847,7 +848,7 @@ async function updateCodexAccountLink(accountId, action) {
 
 async function disconnectClaudeAccount() {
   if (state.busyClaudeDisconnect) return;
-  if (!window.confirm('Claude Code CLI에서 로그아웃할까요?\n\n이 로그아웃은 Mosaic와 터미널 등 Claude Code CLI를 사용하는 곳에 영향을 줍니다.')) return;
+  if (!window.confirm('Claude Code CLI에서 로그아웃할까요?\n\n이 로그아웃은 Loopline과 터미널 등 Claude Code CLI를 사용하는 곳에 영향을 줍니다.')) return;
   state.busyClaudeDisconnect = true;
   updateConnectionControls();
   try {
@@ -997,7 +998,7 @@ async function selectProjectImportFile(file) {
   if (!file) return;
   const importButton = document.querySelector('#importProjectButton');
   importButton.disabled = true;
-  importButton.textContent = '…';
+  importButton.innerHTML = icon('loader', 'spinning');
   try {
     const parsed = await parseProviderExport(file);
     state.pendingProjectImport = { ...parsed, fileName: file.name, selected: new Set() };
@@ -1016,7 +1017,7 @@ async function selectProjectImportFile(file) {
     showToast(error.message || '내보내기 파일을 읽지 못했습니다.');
   } finally {
     importButton.disabled = false;
-    importButton.textContent = '↓';
+    importButton.innerHTML = icon('import');
     elements.projectImportFile.value = '';
   }
 }

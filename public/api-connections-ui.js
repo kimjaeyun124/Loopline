@@ -1,3 +1,5 @@
+import { icon } from './icons.js';
+
 const PRESETS = {
   deepseek: { name: 'DeepSeek', baseUrl: 'https://api.deepseek.com' },
   openai: { name: 'OpenAI API', baseUrl: 'https://api.openai.com/v1' },
@@ -34,7 +36,7 @@ export function createApiConnectionsUI({ onChange, showToast }) {
         <div class="api-model-preview">${connection.models.slice(0, 4).map((model) => `<span>${escape(model.label)}</span>`).join('')}${connection.models.length > 4 ? `<span>+${connection.models.length - 4}</span>` : ''}</div>
         <div class="api-card-footer"><small>${connection.models.length}개 모델${busy.has(connection.id) ? ' · 처리 중…' : ''}</small><div class="account-button-group"><button type="button" class="account-use-button" data-api-action="edit" data-api-id="${escape(connection.id)}"${disabled}>${connection.connected ? '편집' : '다시 연결'}</button><button type="button" class="account-use-button" data-api-action="refresh" data-api-id="${escape(connection.id)}"${disabled}${connection.connected ? '' : ' disabled'}>모델 새로고침</button>${connection.connected ? `<button type="button" class="account-unlink-button" data-api-action="disconnect" data-api-id="${escape(connection.id)}"${disabled}>연결 해제</button>` : ''}<button type="button" class="account-delete-button" data-api-action="delete" data-api-id="${escape(connection.id)}"${disabled}>삭제</button></div></div>
       </article>`;
-    }).join('') : '<div class="api-empty"><span aria-hidden="true">＋</span><strong>원하는 모델을 내 작업 공간에</strong><p>DeepSeek, OpenAI 또는 호환 API를 연결하세요.<br>연결된 모든 모델을 한 곳에서 선택할 수 있습니다.</p><button class="secondary-button" type="button" data-api-action="add">첫 에이전트 연결하기</button></div>';
+    }).join('') : `<div class="api-empty"><span aria-hidden="true">${icon('plug')}</span><strong>원하는 모델을 내 작업 공간에</strong><p>DeepSeek, OpenAI 또는 호환 API를 연결하세요.<br>연결된 모든 모델을 한 곳에서 선택할 수 있습니다.</p><button class="secondary-button" type="button" data-api-action="add">첫 에이전트 연결하기</button></div>`;
   }
 
   function openEditor(id = null) {

@@ -301,14 +301,27 @@ function codexUsageText(account) {
   }).join(' / ');
 }
 
+function codexAccountDisplayName(account) {
+  if (account.isDefault || !account.connected || !account.accountEmail) return account.name;
+  return account.accountEmail;
+}
+
+function codexAccountHint(account, displayName) {
+  const isGeneratedName = /^Codex 계정 \d+$/.test(account.name);
+  const alias = displayName !== account.name && !isGeneratedName ? account.name : '';
+  return [alias, account.planType || (!account.accountEmail ? account.label : '')]
+    .filter(Boolean).join(' · ') || (account.accountEmail ? 'Codex 계정' : '');
+}
+
 function renderCodexAccounts() {
   elements.codexAccountsList.innerHTML = state.codexAccounts.map((account) => {
     const selected = account.id === state.activeCodexAccountId;
     const job = account.loginJob;
     const waiting = job?.state === 'starting' || job?.state === 'running';
     const busy = state.busyCodexAccountIds.has(account.id);
+    const displayName = codexAccountDisplayName(account);
     const loginLabel = waiting ? '로그인 중' : account.installed ? '로그인' : 'CLI 설치 필요';
-    const accountHint = [account.accountEmail, account.planType || (!account.accountEmail ? account.label : '')].filter(Boolean).join(' · ') || 'Codex 계정';
+    const accountHint = codexAccountHint(account, displayName);
     const accountActions = account.connected
       ? `<button class="account-use-button" type="button" data-use-codex-account="${escapeHtml(account.id)}"${selected || busy ? ' disabled' : ''}>${selected ? '선택됨' : '사용'}</button><button class="account-unlink-button" type="button" data-disconnect-codex-account="${escapeHtml(account.id)}"${busy ? ' disabled' : ''}>${busy ? '처리 중…' : '연결 해제'}</button>`
       : waiting
@@ -317,7 +330,7 @@ function renderCodexAccounts() {
     const deleteAction = account.isDefault ? '' : `<button class="account-delete-button" type="button" data-delete-codex-account="${escapeHtml(account.id)}"${busy ? ' disabled' : ''}>삭제</button>`;
     return `<article class="codex-account-card${selected ? ' active' : ''}">
       <span class="connection-logo openai-logo">◉</span>
-      <div class="connection-details"><div class="codex-account-title"><strong>${escapeHtml(account.name)}</strong>${selected ? '<span class="active-account-badge">사용 중</span>' : ''}</div>
+      <div class="connection-details"><div class="codex-account-title"><strong>${escapeHtml(displayName)}</strong>${selected ? '<span class="active-account-badge">사용 중</span>' : ''}</div>
         <small class="codex-account-plan">${escapeHtml(accountHint)}</small>
         <small class="usage-status">${escapeHtml(codexUsageText(account))}</small>
         ${!account.installed && account.installCommand ? `<code class="install-command">${escapeHtml(account.installCommand)}</code>` : ''}
@@ -336,7 +349,7 @@ function renderCodexAccountSelect() {
   elements.codexAccountSelect.hidden = !visible;
   if (!visible) return;
   elements.codexAccountSelect.innerHTML = state.codexAccounts.length
-    ? state.codexAccounts.map((account) => `<option value="${escapeHtml(account.id)}"${account.id === state.activeCodexAccountId ? ' selected' : ''}${!account.connected ? ' disabled' : ''}>${escapeHtml(account.name)}${account.connected ? '' : ' · 로그인 필요'}</option>`).join('')
+    ? state.codexAccounts.map((account) => `<option value="${escapeHtml(account.id)}"${account.id === state.activeCodexAccountId ? ' selected' : ''}${!account.connected ? ' disabled' : ''}>${escapeHtml(codexAccountDisplayName(account))}${account.connected ? '' : ' · 로그인 필요'}</option>`).join('')
     : '<option value="default">Codex 계정 확인 중…</option>';
   elements.codexAccountSelect.value = state.activeCodexAccountId;
 }
@@ -539,7 +552,7 @@ async function connectProvider(provider) {
   refreshStatus();
 }
 
-async function connectCodexAccount(accountId = null) {
+async function connectCodexAccount(accountId = null, accountName = '') {
   const feedback = document.querySelector('#loginFeedback');
   const loginWindow = window.open('about:blank', '_blank');
   state.addingCodexAccount = accountId === null;
@@ -556,7 +569,7 @@ async function connectCodexAccount(accountId = null) {
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: accountId ? undefined : { 'Content-Type': 'application/json' },
-      body: accountId ? undefined : JSON.stringify({}),
+      body: accountId ? undefined : JSON.stringify({ name: accountName }),
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
@@ -595,6 +608,18 @@ async function connectCodexAccount(accountId = null) {
     renderCodexAccounts();
   }
   await refreshStatus();
+}
+
+function addCodexAccount() {
+  const accountNumber = state.codexAccounts.filter((account) => !account.isDefault).length + 1;
+  const enteredName = window.prompt('추가할 Codex 계정의 구분 이름을 입력하세요.', `Codex 계정 ${accountNumber}`);
+  if (enteredName === null) return;
+  const accountName = enteredName.trim().slice(0, 48);
+  if (!accountName) {
+    showToast('Codex 계정 이름을 입력해 주세요.');
+    return;
+  }
+  connectCodexAccount(null, accountName);
 }
 
 async function updateCodexAccountLink(accountId, action) {
@@ -1276,7 +1301,7 @@ document.querySelector('#closeSettings').addEventListener('click', hideSettings)
 document.querySelector('#doneSettings').addEventListener('click', hideSettings);
 document.querySelector('#refreshStatus').addEventListener('click', refreshStatus);
 document.querySelector('#connectClaude').addEventListener('click', toggleClaudeConnection);
-elements.addCodexAccountButton.addEventListener('click', () => connectCodexAccount());
+elements.addCodexAccountButton.addEventListener('click', addCodexAccount);
 elements.codexAccountsList.addEventListener('click', (event) => {
   const connectButton = event.target.closest('[data-connect-codex-account]');
   if (connectButton) {

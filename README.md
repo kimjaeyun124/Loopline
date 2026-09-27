@@ -45,6 +45,7 @@ OpenAI 연결은 Codex app-server의 ChatGPT OAuth 흐름을 사용합니다. ap
 - ChatGPT·Claude 내보내기 ZIP/JSON에서 프로젝트, 텍스트 지침·자료와 대화 기록 가져오기
 - Codex Fast 모드: 낮은 추론 단계를 사용하고 모델이 제공하는 경우 Fast 서비스 티어 요청
 - 여러 Codex 계정의 ChatGPT OAuth 로그인, 계정별 모델·남은 사용 한도 조회 및 계정 선택
+- 추가 Codex 계정 별칭 입력 및 로그인 이메일 표시
 - OAuth 로그인 취소, Codex app-server 로그아웃, 추가 계정 프로필 삭제
 - Claude Code CLI 로그아웃
 - Codex app-server 기반 대화 thread 이어하기와 한도 초과 시 다른 계정으로 재시도

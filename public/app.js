@@ -34,12 +34,16 @@ const PROVIDERS = {
 const STORAGE_KEY = 'mosaic-ai.conversations.v1';
 const PREFERENCE_KEY = 'mosaic-ai.preferences.v1';
 const PROJECT_STORAGE_KEY = 'mosaic-ai.projects.v1';
+const SIDEBAR_WIDTH_DEFAULT = 248;
+const SIDEBAR_WIDTH_MIN = 208;
+const SIDEBAR_WIDTH_MAX = 440;
 const state = {
   conversations: loadConversations(),
   projects: loadProjects(),
   pendingProjectImport: null,
   activeId: null,
   activeProjectId: null,
+  sidebarWidth: SIDEBAR_WIDTH_DEFAULT,
   editingProjectId: null,
   movingConversationId: null,
   provider: '',
@@ -75,6 +79,7 @@ state.activeId = [...state.conversations].sort((a, b) => b.updatedAt - a.updated
 
 const elements = {
   sidebar: document.querySelector('#sidebar'),
+  sidebarResizeHandle: document.querySelector('#sidebarResizeHandle'),
   sidebarToggle: document.querySelector('#sidebarToggle'),
   mobileMenu: document.querySelector('#mobileMenu'),
   conversationList: document.querySelector('#conversationList'),
@@ -335,6 +340,9 @@ function commitHistoryImport(items, projectId) {
 function loadPreferences() {
   try {
     const preferences = JSON.parse(localStorage.getItem(PREFERENCE_KEY) || '{}');
+    if (Number.isFinite(preferences.sidebarWidth)) {
+      state.sidebarWidth = Math.max(SIDEBAR_WIDTH_MIN, Math.min(SIDEBAR_WIDTH_MAX, Math.round(preferences.sidebarWidth)));
+    }
     if (Object.hasOwn(PROVIDERS, preferences.provider)) state.provider = preferences.provider;
     if (typeof preferences.codexAccountId === 'string') state.activeCodexAccountId = preferences.codexAccountId;
     if (typeof preferences.activeProjectId === 'string') state.activeProjectId = preferences.activeProjectId;
@@ -379,6 +387,7 @@ function savePreferences() {
     connectionId: state.activeConnectionId,
     codexAccountId: state.activeCodexAccountId,
     activeProjectId: state.activeProjectId,
+    sidebarWidth: state.sidebarWidth,
     fastMode: state.fastMode,
     agentInstructions: state.agentInstructions,
     reasoningEffort: reasoningSettings().selectedEffort,
@@ -2179,6 +2188,74 @@ function updateSidebarControls() {
   elements.sidebar.inert = mobile && !expanded;
 }
 
+function sidebarWidthBounds() {
+  return {
+    min: SIDEBAR_WIDTH_MIN,
+    max: Math.max(SIDEBAR_WIDTH_MIN, Math.min(SIDEBAR_WIDTH_MAX, Math.floor(innerWidth * 0.44), innerWidth - 420)),
+  };
+}
+
+function applySidebarWidth() {
+  const { min, max } = sidebarWidthBounds();
+  const width = Math.max(min, Math.min(max, state.sidebarWidth));
+  document.documentElement.style.setProperty('--sidebar-width', `${width}px`);
+  elements.sidebarResizeHandle.setAttribute('aria-valuemin', String(min));
+  elements.sidebarResizeHandle.setAttribute('aria-valuemax', String(max));
+  elements.sidebarResizeHandle.setAttribute('aria-valuenow', String(width));
+  elements.sidebarResizeHandle.setAttribute('aria-valuetext', `${width} 픽셀`);
+}
+
+function setSidebarWidth(width, persist = false) {
+  state.sidebarWidth = Math.max(SIDEBAR_WIDTH_MIN, Math.min(SIDEBAR_WIDTH_MAX, Math.round(width)));
+  applySidebarWidth();
+  if (persist) {
+    try { savePreferences(); }
+    catch { showToast('사이드바 크기를 저장하지 못했습니다.'); }
+  }
+}
+
+let sidebarResizePointerId = null;
+let sidebarResizeStartX = 0;
+let sidebarResizeStartWidth = 0;
+elements.sidebarResizeHandle.addEventListener('pointerdown', (event) => {
+  if (innerWidth <= 760 || elements.sidebar.classList.contains('collapsed') || event.button !== 0) return;
+  event.preventDefault();
+  sidebarResizePointerId = event.pointerId;
+  sidebarResizeStartX = event.clientX;
+  sidebarResizeStartWidth = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sidebar-width')) || SIDEBAR_WIDTH_DEFAULT;
+  elements.sidebarResizeHandle.setPointerCapture(event.pointerId);
+  document.body.classList.add('sidebar-resizing');
+});
+elements.sidebarResizeHandle.addEventListener('pointermove', (event) => {
+  if (event.pointerId !== sidebarResizePointerId) return;
+  setSidebarWidth(sidebarResizeStartWidth + event.clientX - sidebarResizeStartX);
+});
+function finishSidebarResize(event) {
+  if (event.pointerId !== sidebarResizePointerId) return;
+  sidebarResizePointerId = null;
+  document.body.classList.remove('sidebar-resizing');
+  try { savePreferences(); }
+  catch { showToast('사이드바 크기를 저장하지 못했습니다.'); }
+  if (elements.sidebarResizeHandle.hasPointerCapture(event.pointerId)) {
+    elements.sidebarResizeHandle.releasePointerCapture(event.pointerId);
+  }
+}
+elements.sidebarResizeHandle.addEventListener('pointerup', finishSidebarResize);
+elements.sidebarResizeHandle.addEventListener('pointercancel', finishSidebarResize);
+elements.sidebarResizeHandle.addEventListener('dblclick', () => setSidebarWidth(SIDEBAR_WIDTH_DEFAULT, true));
+elements.sidebarResizeHandle.addEventListener('keydown', (event) => {
+  const { min, max } = sidebarWidthBounds();
+  const current = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sidebar-width')) || SIDEBAR_WIDTH_DEFAULT;
+  const step = event.shiftKey ? 32 : 16;
+  const next = event.key === 'ArrowLeft' ? current - step
+    : event.key === 'ArrowRight' ? current + step
+      : event.key === 'Home' ? min
+        : event.key === 'End' ? max : null;
+  if (next === null) return;
+  event.preventDefault();
+  setSidebarWidth(next, true);
+});
+
 function toggleSidebar() {
   accountMenuUI.close();
   const mobile = innerWidth <= 760;
@@ -2476,7 +2553,7 @@ elements.exportConversationButton.addEventListener('click', exportConversationMa
 elements.fastModeToggle.addEventListener('click', toggleFastMode);
 elements.composerReasoningEffortSelect.addEventListener('change', (event) => setReasoningEffort(event.target.value));
 elements.stopResponseButton.addEventListener('click', () => state.controller?.abort());
-window.addEventListener('resize', () => { closeModelMenu(); updateSidebarControls(); });
+window.addEventListener('resize', () => { closeModelMenu(); updateSidebarControls(); applySidebarWidth(); });
 elements.composerForm.addEventListener('submit', (event) => {
   event.preventDefault();
   if (state.busy) {
@@ -2510,6 +2587,7 @@ document.querySelectorAll('.suggestion').forEach((button) => {
 });
 
 loadPreferences();
+applySidebarWidth();
 renderAgentInstructionSettings();
 if (!state.provider && activeConversation()?.provider) {
   const conversation = activeConversation();

@@ -82,7 +82,14 @@ button, a, input, textarea, select { -webkit-app-region: no-drag; }
 button:focus-visible, select:focus-visible, textarea:focus-visible, input:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .app-shell { display: flex; width: 100%; min-height: 0; flex: 1; overflow: hidden; }
 
-.sidebar { position: relative; z-index: 2; display: flex; flex: 0 0 var(--sidebar-width); flex-direction: column; padding: 14px 12px; border-right: 1px solid var(--line); background: var(--sidebar); transition: width .2s ease, flex-basis .2s ease, transform .2s ease; }
+.sidebar { position: relative; z-index: 2; display: flex; flex: 0 0 var(--sidebar-width); flex-direction: column; padding: 14px 12px; border-right: 1px solid var(--line); background: var(--sidebar); transition: flex-basis .18s ease, transform .2s ease; }
+.sidebar-resize-handle { position: absolute; z-index: 4; top: 0; right: -4px; bottom: 0; width: 8px; cursor: col-resize; touch-action: none; outline: none; }
+.sidebar-resize-handle::after { position: absolute; inset: 0 3px; background: transparent; content: ''; transition: background .14s ease; }
+.sidebar-resize-handle::before { position: absolute; top: 50%; left: 50%; width: 3px; height: 28px; transform: translate(-50%, -50%); border-radius: 3px; background: transparent; content: ''; transition: background .14s ease; }
+.sidebar-resize-handle:hover::after, .sidebar-resize-handle:focus-visible::after, body.sidebar-resizing .sidebar-resize-handle::after { background: var(--line-strong); }
+.sidebar-resize-handle:hover::before, .sidebar-resize-handle:focus-visible::before, body.sidebar-resizing .sidebar-resize-handle::before { background: var(--muted); }
+body.sidebar-resizing, body.sidebar-resizing * { cursor: col-resize !important; user-select: none !important; }
+body.sidebar-resizing .sidebar { transition: none; }
 .sidebar-top { -webkit-app-region: no-drag; display: flex; align-items: center; justify-content: space-between; height: 38px; margin: 0 4px 14px; }
 .brand { display: flex; align-items: center; gap: 9px; color: var(--ink); font-size: 16px; font-weight: 600; letter-spacing: -.035em; text-decoration: none; }
 .brand-mark { display: grid; flex: 0 0 28px; width: 28px; height: 28px; place-items: center; border: 1px solid #ffffff18; border-radius: 9px; background: linear-gradient(145deg, #383c40, #17191c); color: #fff; box-shadow: 0 1px 2px #16191c15; }
@@ -695,6 +702,7 @@ kbd { margin-left: auto; color: var(--muted); font-family: inherit; font-size: 1
 .toast { position: fixed; z-index: 20; right: 24px; bottom: 24px; max-width: min(420px, calc(100% - 48px)); padding: 11px 14px; transform: translateY(12px); border: 1px solid var(--line); border-radius: 10px; background: var(--canvas); color: var(--ink); box-shadow: 0 8px 28px #17171720; font-size: 11px; line-height: 1.5; opacity: 0; pointer-events: none; transition: opacity .18s ease, transform .18s ease; }
 .toast.visible { transform: translateY(0); opacity: 1; }
 .sidebar.collapsed { flex-basis: 68px; padding-right: 9px; padding-left: 9px; }
+.sidebar.collapsed .sidebar-resize-handle { display: none; }
 .sidebar.collapsed .agents-panel, .sidebar.collapsed .brand > span:last-child, .sidebar.collapsed .new-chat-button > span:last-of-type, .sidebar.collapsed .new-chat-button kbd, .sidebar.collapsed .search-chat-button > span, .sidebar.collapsed .search-chat-button kbd, .sidebar.collapsed .sidebar-label, .sidebar.collapsed .projects-panel, .sidebar.collapsed .conversation-list, .sidebar.collapsed .account-copy, .sidebar.collapsed .more-icon { display: none; }
 .sidebar.collapsed .sidebar-top { -webkit-app-region: no-drag; justify-content: center; margin-right: 0; margin-left: 0; }
 .sidebar.collapsed .new-chat-button, .sidebar.collapsed .search-chat-button { justify-content: center; padding: 0; }
@@ -739,6 +747,7 @@ kbd { margin-left: auto; color: var(--muted); font-family: inherit; font-size: 1
   .codex-account-card .connection-actions { margin-left: auto; }
   .sidebar.collapsed .agents-panel { display: block; }
   .sidebar { position: fixed; z-index: 8; top: var(--app-header-height); bottom: 0; left: 0; width: 260px; box-shadow: 8px 0 30px #10101013; transform: translateX(-105%); }
+  .sidebar-resize-handle { display: none; }
   .sidebar.mobile-open { transform: translateX(0); }
   .sidebar.collapsed { flex-basis: 260px; padding-right: 12px; padding-left: 12px; }
   .sidebar.collapsed .brand > span:last-child, .sidebar.collapsed .new-chat-button > span:last-of-type, .sidebar.collapsed .new-chat-button kbd, .sidebar.collapsed .search-chat-button > span, .sidebar.collapsed .search-chat-button kbd, .sidebar.collapsed .sidebar-label, .sidebar.collapsed .conversation-list, .sidebar.collapsed .account-copy, .sidebar.collapsed .more-icon { display: initial; }

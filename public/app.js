@@ -430,12 +430,14 @@ function renderMessages() {
     return;
   }
 
-  elements.messages.innerHTML = messages.map((message) => {
+  elements.messages.innerHTML = messages.map((message, index) => {
     const assistant = message.role === 'assistant';
     const errorClass = message.error ? ' error' : '';
     const content = message.pending && !message.content
       ? '<span class="typing-dots" aria-label="응답 생성 중"><i></i><i></i><i></i></span>'
       : assistant ? renderMarkdown(message.content, { copyDisabled: message.pending }) : escapeHtml(message.content);
+    const copyLabel = assistant ? '답변' : '질문';
+    const copyButton = `<button class="message-copy-button" type="button" data-copy-message-index="${index}" aria-label="${copyLabel} 복사" title="${copyLabel} 복사">${icon('copy')}<span>복사</span></button>`;
     if (assistant) {
       const hasWorkedFor = message.pending || Number.isFinite(message.workedForMs);
       const elapsedMs = message.pending ? Date.now() - (message.startedAt || Date.now()) : message.workedForMs;
@@ -446,11 +448,15 @@ function renderMessages() {
             <div class="assistant-result-label">${message.pending ? '응답' : '결과'}</div>
             <div class="message-content markdown-content">${content}${message.pending && message.content ? '<span class="typing-dots" aria-label="응답 생성 중"><i></i><i></i><i></i></span>' : ''}</div>
           </section>
+          ${!message.pending && message.content ? `<div class="message-actions">${copyButton}</div>` : ''}
         </div>
       </article>`;
     }
-    return `<article class="message ${assistant ? 'assistant' : 'user'}${errorClass}" data-message-id="${escapeHtml(message.id || '')}">
-      <div class="message-content">${content}</div>
+    return `<article class="message user${errorClass}" data-message-id="${escapeHtml(message.id || '')}">
+      <div class="user-message-group">
+        <div class="message-content">${content}</div>
+        <div class="message-actions">${copyButton}</div>
+      </div>
     </article>`;
   }).join('');
   elements.chatScroll.scrollTop = elements.chatScroll.scrollHeight;
@@ -1452,6 +1458,18 @@ async function copyLastResponse() {
   elements.conversationActions.open = false;
 }
 
+async function copyMessage(button) {
+  const index = Number(button.dataset.copyMessageIndex);
+  const message = Number.isInteger(index) ? activeConversation()?.messages[index] : null;
+  if (!message || typeof message.content !== 'string' || message.pending) return;
+  try {
+    await navigator.clipboard.writeText(message.content);
+    showToast(message.role === 'user' ? '질문을 복사했습니다.' : '답변을 복사했습니다.');
+  } catch {
+    showToast('클립보드에 복사하지 못했습니다. 앱 권한을 확인해 주세요.');
+  }
+}
+
 async function copyCodeBlock(button) {
   const code = button.closest('.code-block')?.querySelector('pre code')?.textContent;
   if (typeof code !== 'string') return;
@@ -2108,8 +2126,10 @@ document.addEventListener('click', (event) => {
 });
 elements.copyLastResponseButton.addEventListener('click', () => { void copyLastResponse(); });
 elements.messages.addEventListener('click', (event) => {
-  const button = event.target.closest('.copy-code-button');
-  if (button) void copyCodeBlock(button);
+  const button = event.target.closest('.copy-code-button, .message-copy-button');
+  if (!button) return;
+  if (button.matches('.copy-code-button')) void copyCodeBlock(button);
+  else void copyMessage(button);
 });
 elements.exportConversationButton.addEventListener('click', exportConversationMarkdown);
 elements.fastModeToggle.addEventListener('click', toggleFastMode);

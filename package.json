@@ -29,6 +29,10 @@
         "to": "app-server/codex-app-server.mjs"
       },
       {
+        "from": "api-connections.mjs",
+        "to": "app-server/api-connections.mjs"
+      },
+      {
         "from": "public",
         "to": "app-server/public"
       }

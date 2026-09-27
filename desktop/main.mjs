@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, Menu, shell, utilityProcess } from 'electron';
+import { app, BrowserWindow, dialog, Menu, safeStorage, shell, utilityProcess } from 'electron';
 import { homedir } from 'node:os';
 import { delimiter, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -97,6 +97,20 @@ function startBackend() {
       return;
     }
 
+    const child = backendProcess;
+    child.on('message', async (message) => {
+      if (message?.scope !== 'mosaic-secrets' || !['encrypt', 'decrypt'].includes(message.action)) return;
+      try {
+        if (typeof message.value !== 'string' || message.value.length > 64_000 || !await safeStorage.isAsyncEncryptionAvailable()) throw new Error('Keychain unavailable');
+        const value = message.action === 'encrypt'
+          ? (await safeStorage.encryptStringAsync(message.value)).toString('base64')
+          : (await safeStorage.decryptStringAsync(Buffer.from(message.value, 'base64'))).result;
+        if (child.pid) child.postMessage({ scope: 'mosaic-secrets', id: message.id, value });
+      } catch {
+        if (child.pid) child.postMessage({ scope: 'mosaic-secrets', id: message.id, error: true });
+      }
+    });
+
     backendProcess.stdout?.on('data', (chunk) => {
       const lines = (outputBuffer + chunk.toString()).split(/\r?\n/);
       outputBuffer = lines.pop() || '';
@@ -175,7 +189,9 @@ async function createMainWindow(url) {
     minWidth: 900,
     minHeight: 620,
     show: false,
-    backgroundColor: '#f8f9f6',
+    backgroundColor: '#fafafa',
+    titleBarStyle: 'hiddenInset',
+    trafficLightPosition: { x: 18, y: 18 },
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -201,5 +217,5 @@ async function createMainWindow(url) {
     app.quit();
   });
 
-  await mainWindow.loadURL(url);
+  await mainWindow.loadURL(`${url}?desktop=1`);
 }

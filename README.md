@@ -1,6 +1,19 @@
 # Mosaic Desk
 
-ChatGPT 계정으로 로그인한 Codex app-server와 Claude 계정으로 로그인한 Claude Code CLI를 한 화면에서 선택해 사용하는 macOS 데스크톱 앱입니다. 여러 Codex 계정을 연결하고 계정별 남은 사용량을 확인할 수 있으며, Codex 사용 한도 소진 시 남은 계정으로 요청을 다시 시도합니다. 대화 내용은 앱 창의 `localStorage`에 저장되고, Codex 대화는 연결된 계정의 Codex thread 기록에도 저장됩니다. 이메일·비밀번호, 세션 쿠키, API 키를 Mosaic Desk에 입력하지 않습니다.
+Codex Desktop의 사이드바와 작업 화면 구성을 참고한 macOS 데스크톱 앱입니다. ChatGPT 계정으로 로그인한 Codex app-server, Claude Code CLI, API로 연결한 에이전트의 모델을 하나의 목록에서 선택합니다. 여러 Codex 계정을 연결하고 계정별 남은 사용량을 확인할 수 있으며, Codex 사용 한도 소진 시 남은 계정으로 요청을 다시 시도합니다. 대화 내용은 앱 창의 `localStorage`에 저장되고, Codex 대화는 연결된 계정의 Codex thread 기록에도 저장됩니다. 공식 OpenAI 또는 Anthropic 앱은 아닙니다.
+
+## API 에이전트 연결
+
+1. 사이드바의 **에이전트 +** 또는 **설정 및 연결 → API 에이전트 → 에이전트 추가**를 엽니다.
+2. DeepSeek, OpenAI API 또는 직접 입력을 선택하고, 이름·API 기본 주소·키를 입력합니다.
+3. **연결 및 모델 가져오기**를 누르면 `/models`를 조회합니다. 성공한 연결의 모델이 입력창의 **모델 선택** 목록에 바로 나타납니다.
+4. 목록에서 모델을 고르고 메시지를 보냅니다. 별도의 서비스 선택 단계는 없습니다. 같은 모델 이름도 연결별로 구분됩니다.
+
+DeepSeek 기본 주소는 `https://api.deepseek.com`, OpenAI는 `https://api.openai.com/v1`입니다. 사용자 지정 서비스는 Bearer API 키, `GET /models`, `POST /chat/completions`와 SSE 스트리밍을 제공하는 OpenAI 호환 API를 지원합니다. 기본 주소에는 `/models`나 `/chat/completions`를 붙이지 않습니다. HTTPS를 사용하며 localhost만 HTTP를 허용합니다. 모델 목록에 포함되어 있어도 일부 모델은 Chat Completions를 지원하지 않을 수 있습니다. 그런 모델은 응답 시 지원 여부를 확인하는 오류가 표시됩니다. API 에이전트는 텍스트 대화와 프로젝트 지침을 지원하며 도구 실행은 제공하지 않습니다.
+
+키는 대화 기록이나 브라우저 `localStorage`에 저장하지 않습니다. 데스크톱에서는 Electron `safeStorage`와 macOS 키체인으로 암호화하여 앱 데이터 폴더의 `api-connections.json`에 저장합니다. 서명되지 않은 로컬 빌드는 업데이트 시 키체인 접근을 다시 요청할 수 있습니다. 웹 개발 서버는 키를 메모리에만 보관하므로 서버 재시작 후 다시 입력해야 합니다. API 사용료는 각 서비스의 API 계정에 청구되며 구독 계정 한도와 별개입니다.
+
+API 연결은 편집·모델 새로고침·연결 해제·삭제가 가능합니다. 연결 해제는 이 앱에서 키를 제거하며 서비스 측 키 자체를 폐기하지 않습니다. 삭제해도 대화 본문은 남고, 다음 응답에는 사용자가 다른 모델을 선택해야 합니다. API 주소를 바꿀 때는 새로운 키를 입력해야 하며, 응답 중인 연결은 편집하거나 삭제할 수 없습니다. API 오류에 대한 자동 재시도나 다른 API 계정으로의 자동 전환은 하지 않습니다.
 
 ## 데스크톱 앱 만들기
 
@@ -38,7 +51,10 @@ OpenAI 연결은 Codex app-server의 ChatGPT OAuth 흐름을 사용합니다. ap
 
 ## 포함된 기능
 
-- OpenAI와 Claude 계정·모델 선택
+- Codex Desktop 스타일의 사이드바·작업 화면·macOS 통합 타이틀바
+- Codex·Claude·API 모델을 통합한 검색 가능한 모델 선택기
+- DeepSeek·OpenAI·사용자 지정 OpenAI 호환 API 에이전트 추가 및 모델 자동 조회
+- API 에이전트 편집·모델 새로고침·연결 해제·삭제 및 API 키 암호화 보관
 - 응답 스트리밍, 대화 생성·전환·삭제
 - Mosaic Desk 앱 창의 대화 기록 저장
 - Projects 생성·이름 변경·삭제, 대화 배정·이동·해제 및 프로젝트 지침 적용

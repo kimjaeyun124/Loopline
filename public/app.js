@@ -1,8 +1,9 @@
 import { parseProviderExport } from './export-importer.js';
+import { createApiConnectionsUI } from './api-connections-ui.js';
 
 const PROVIDERS = {
   openai: {
-    label: 'OpenAI',
+    label: 'Codex',
     mark: '◉',
     models: [
       { id: 'gpt-5.6', label: 'GPT-5.6 Sol' },
@@ -19,6 +20,7 @@ const PROVIDERS = {
       { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' },
     ],
   },
+  api: { label: 'API', mark: '◇', models: [] },
 };
 
 const STORAGE_KEY = 'mosaic-ai.conversations.v1';
@@ -34,6 +36,9 @@ const state = {
   movingConversationId: null,
   provider: 'openai',
   model: 'gpt-5.6',
+  activeConnectionId: null,
+  apiConnections: [],
+  keyStorage: 'session',
   fastMode: false,
   providers: {
     openai: { installed: false, connected: false, label: '상태 확인 중' },
@@ -75,11 +80,11 @@ const elements = {
   composerForm: document.querySelector('#composerForm'),
   messageInput: document.querySelector('#messageInput'),
   sendButton: document.querySelector('#sendButton'),
-  modelSelect: document.querySelector('#modelSelect'),
+  modelSelectButton: document.querySelector('#modelSelectButton'),
+  modelMenu: document.querySelector('#modelMenu'),
+  modelSearch: document.querySelector('#modelSearch'),
+  modelOptions: document.querySelector('#modelOptions'),
   fastModeToggle: document.querySelector('#fastModeToggle'),
-  providerSelectButton: document.querySelector('#providerSelectButton'),
-  providerMenu: document.querySelector('#providerMenu'),
-  codexAccountSelect: document.querySelector('#codexAccountSelect'),
   codexAccountsList: document.querySelector('#codexAccountsList'),
   addCodexAccountButton: document.querySelector('#addCodexAccount'),
   settingsModal: document.querySelector('#settingsModal'),
@@ -89,6 +94,11 @@ const elements = {
   searchEmpty: document.querySelector('#searchEmpty'),
   toast: document.querySelector('#toast'),
 };
+const apiConnectionsUI = createApiConnectionsUI({ onChange: refreshApiConnections, showToast });
+if (new URLSearchParams(location.search).get('desktop') === '1') {
+  document.body.classList.add('desktop');
+  document.querySelector('.brand').href = '/?desktop=1';
+}
 
 function loadConversations() {
   try {
@@ -100,6 +110,7 @@ function loadConversations() {
         title: String(item.title || '새 대화').slice(0, 80),
         provider: Object.hasOwn(PROVIDERS, item.provider) ? item.provider : 'openai',
         model: String(item.model || 'gpt-5.6'),
+        connectionId: typeof item.connectionId === 'string' ? item.connectionId : null,
         codexThreadId: typeof item.codexThreadId === 'string' ? item.codexThreadId : null,
         codexAccountId: typeof item.codexAccountId === 'string' ? item.codexAccountId : 'default',
         projectId: typeof item.projectId === 'string' ? item.projectId : null,
@@ -157,7 +168,8 @@ function loadPreferences() {
     if (typeof preferences.codexAccountId === 'string') state.activeCodexAccountId = preferences.codexAccountId;
     if (typeof preferences.activeProjectId === 'string') state.activeProjectId = preferences.activeProjectId;
     if (typeof preferences.fastMode === 'boolean') state.fastMode = preferences.fastMode;
-    if (PROVIDERS[state.provider].models.some((model) => model.id === preferences.model)) state.model = preferences.model;
+    if (typeof preferences.model === 'string') state.model = preferences.model;
+    if (typeof preferences.connectionId === 'string') state.activeConnectionId = preferences.connectionId;
   } catch {
     // 기본 모델 설정을 유지합니다.
   }
@@ -167,6 +179,7 @@ function savePreferences() {
   localStorage.setItem(PREFERENCE_KEY, JSON.stringify({
     provider: state.provider,
     model: state.model,
+    connectionId: state.activeConnectionId,
     codexAccountId: state.activeCodexAccountId,
     activeProjectId: state.activeProjectId,
     fastMode: state.fastMode,
@@ -178,11 +191,13 @@ function activeConversation() {
 }
 
 function createConversation() {
+  if (state.busy) { showToast('응답을 중지하거나 완료한 뒤 새 작업을 시작해 주세요.'); return; }
   const conversation = {
     id: crypto.randomUUID(),
-    title: '새 대화',
+    title: '새 작업',
     provider: state.provider,
     model: state.model,
+    connectionId: state.provider === 'api' ? state.activeConnectionId : null,
     codexAccountId: state.provider === 'openai' ? state.activeCodexAccountId : 'default',
     projectId: state.activeProjectId,
     updatedAt: Date.now(),
@@ -257,6 +272,7 @@ function renderSearchResults() {
 function renderMessages() {
   const conversation = activeConversation();
   const messages = conversation?.messages || [];
+  document.querySelector('.main-panel').classList.toggle('empty', messages.length === 0);
   elements.welcome.hidden = messages.length > 0;
   elements.messages.classList.toggle('visible', messages.length > 0);
   if (!messages.length) {
@@ -287,6 +303,7 @@ function modelsForProvider(providerId = state.provider) {
     const account = activeCodexAccount();
     return account?.models?.length ? account.models : PROVIDERS.openai.models;
   }
+  if (providerId === 'api') return state.apiConnections.find((item) => item.id === state.activeConnectionId)?.models || [];
   return PROVIDERS[providerId].models;
 }
 
@@ -302,12 +319,12 @@ function codexUsageText(account) {
 }
 
 function codexAccountDisplayName(account) {
-  if (account.isDefault || !account.connected || !account.accountEmail) return account.name;
+  if (!account.connected || !account.accountEmail) return account.name;
   return account.accountEmail;
 }
 
 function codexAccountHint(account, displayName) {
-  const isGeneratedName = /^Codex 계정 \d+$/.test(account.name);
+  const isGeneratedName = account.isDefault || /^Codex 계정 \d+$/.test(account.name);
   const alias = displayName !== account.name && !isGeneratedName ? account.name : '';
   return [alias, account.planType || (!account.accountEmail ? account.label : '')]
     .filter(Boolean).join(' · ') || (account.accountEmail ? 'Codex 계정' : '');
@@ -344,38 +361,73 @@ function renderCodexAccounts() {
   elements.addCodexAccountButton.textContent = state.addingCodexAccount ? '계정 준비 중…' : '＋ 계정 추가';
 }
 
-function renderCodexAccountSelect() {
-  const visible = state.provider === 'openai';
-  elements.codexAccountSelect.hidden = !visible;
-  if (!visible) return;
-  elements.codexAccountSelect.innerHTML = state.codexAccounts.length
-    ? state.codexAccounts.map((account) => `<option value="${escapeHtml(account.id)}"${account.id === state.activeCodexAccountId ? ' selected' : ''}${!account.connected ? ' disabled' : ''}>${escapeHtml(codexAccountDisplayName(account))}${account.connected ? '' : ' · 로그인 필요'}</option>`).join('')
-    : '<option value="default">Codex 계정 확인 중…</option>';
-  elements.codexAccountSelect.value = state.activeCodexAccountId;
+function modelCatalog() {
+  return [
+    ...modelsForProvider('openai').map((model) => ({ ...model, provider: 'openai', source: 'Codex', connected: activeCodexAccount()?.connected === true })),
+    ...PROVIDERS.anthropic.models.map((model) => ({ ...model, provider: 'anthropic', source: 'Claude Code', connected: state.providers.anthropic?.connected === true })),
+    ...state.apiConnections.flatMap((connection) => connection.models.map((model) => ({ ...model, provider: 'api', connectionId: connection.id, source: connection.name, connected: connection.connected }))),
+  ];
+}
+
+function modelKey(model) {
+  return JSON.stringify([model.provider, model.connectionId || '', model.id]);
+}
+
+function selectedModelKey() {
+  return modelKey({ provider: state.provider, connectionId: state.provider === 'api' ? state.activeConnectionId : null, id: state.model });
+}
+
+function renderModelOptions() {
+  const query = elements.modelSearch.value.trim().toLocaleLowerCase();
+  const models = modelCatalog().filter((model) => `${model.label} ${model.id} ${model.source}`.toLocaleLowerCase().includes(query));
+  elements.modelOptions.innerHTML = models.slice(0, 200).map((model) => {
+    const selected = modelKey(model) === selectedModelKey();
+    return `<button class="model-option${selected ? ' selected' : ''}" type="button" role="option" aria-selected="${selected}" data-model-key="${escapeHtml(modelKey(model))}"${!model.connected || state.busy ? ' disabled' : ''}><span><strong>${escapeHtml(model.label)}</strong><small>${escapeHtml(model.source)}${!model.connected ? ' · 연결 필요' : ''}</small></span><span class="model-check" aria-hidden="true">${selected ? '✓' : ''}</span></button>`;
+  }).join('') || '<p class="model-empty">일치하는 모델이 없습니다.<br>API 에이전트를 연결하거나 검색어를 바꿔보세요.</p>';
+  if (models.length > 200) elements.modelOptions.insertAdjacentHTML('beforeend', '<p class="model-empty">더 많은 모델은 이름으로 검색하세요.</p>');
+  if (!elements.modelMenu.hidden) positionModelMenu();
+}
+
+function positionModelMenu() {
+  const anchor = elements.modelSelectButton.getBoundingClientRect();
+  const below = innerHeight - anchor.bottom - 16;
+  const above = anchor.top - 16;
+  const openBelow = below >= 320 || below > above;
+  elements.modelMenu.style.maxHeight = `${Math.min(420, Math.max(160, openBelow ? below : above))}px`;
+  elements.modelMenu.style.left = `${Math.max(16, Math.min(anchor.left, innerWidth - elements.modelMenu.offsetWidth - 16))}px`;
+  elements.modelMenu.style.top = `${openBelow ? anchor.bottom + 8 : Math.max(16, anchor.top - elements.modelMenu.offsetHeight - 8)}px`;
+}
+
+function closeModelMenu(restoreFocus = false) {
+  elements.modelMenu.hidden = true;
+  elements.modelSelectButton.setAttribute('aria-expanded', 'false');
+  if (restoreFocus) elements.modelSelectButton.focus();
+}
+
+function renderAgentList() {
+  const codexCount = state.codexAccounts.filter((account) => account.connected).length;
+  const agents = [
+    { name: 'Codex', mark: '◉', connected: codexCount > 0, detail: codexCount ? `${codexCount}개 계정` : '로그인 필요', tab: 'accounts' },
+    { name: 'Claude Code', mark: '✳', connected: state.providers.anthropic?.connected, detail: state.providers.anthropic?.connected ? '연결됨' : '로그인 필요', tab: 'accounts' },
+    ...state.apiConnections.map((connection) => ({ name: connection.name, mark: '◇', connected: connection.connected, detail: connection.connected ? `${connection.models.length}개 모델` : '키 필요', tab: 'agents' })),
+  ];
+  document.querySelector('#agentList').innerHTML = agents.map((agent) => `<button class="agent-sidebar-row" type="button" data-agent-tab="${agent.tab}" title="${escapeHtml(agent.name)} · ${escapeHtml(agent.detail)}"><span class="agent-mark" aria-hidden="true">${agent.mark}</span><span class="agent-name">${escapeHtml(agent.name)}</span><span class="agent-detail">${escapeHtml(agent.detail)}</span><span class="agent-status${agent.connected ? ' connected' : ''}" aria-label="${agent.connected ? '연결됨' : '연결 필요'}"></span></button>`).join('');
 }
 
 function renderModelSelect() {
-  const provider = PROVIDERS[state.provider];
   const models = modelsForProvider();
-  elements.modelSelect.disabled = models.length === 0;
-  elements.modelSelect.innerHTML = models.length
-    ? models.map((model) =>
-      `<option value="${escapeHtml(model.id)}"${model.id === state.model ? ' selected' : ''}>${escapeHtml(model.label)}</option>`).join('')
-    : '<option value="">로그인 후 모델 표시</option>';
-  document.querySelector('#providerSelectLabel').textContent = provider.label;
-  document.querySelector('#miniProviderMark').textContent = provider.mark;
+  const selected = modelCatalog().find((model) => modelKey(model) === selectedModelKey());
+  document.querySelector('#selectedModelLabel').textContent = selected?.label || state.model || '모델 선택';
+  elements.modelSelectButton.disabled = state.busy;
+  elements.modelSelectButton.title = selected ? `${selected.label} · ${selected.source}` : '사용 가능한 모델을 선택하세요.';
   const codexAccount = state.provider === 'openai' ? activeCodexAccount() : null;
-  document.querySelector('#providerPillText').textContent = codexAccount?.name || `${provider.label} 계정`;
-  document.querySelector('#providerDot').classList.toggle('connected', state.provider === 'openai'
-    ? codexAccount?.connected === true
-    : state.providers[state.provider]?.connected === true);
-  document.querySelectorAll('.provider-menu [data-provider]').forEach((button) => {
-    button.classList.toggle('selected', button.dataset.provider === state.provider);
-  });
+  document.querySelector('#providerPillText').textContent = codexAccount ? codexAccountDisplayName(codexAccount) : selected?.source || '연결 필요';
+  document.querySelector('#providerDot').classList.toggle('connected', selected?.connected === true);
+  if (!elements.modelMenu.hidden) renderModelOptions();
   const fastEfforts = models.find((model) => model.id === state.model)?.supportedReasoningEfforts || [];
   const fastAvailable = fastEfforts.some((item) => item.reasoningEffort === 'low');
   elements.fastModeToggle.hidden = state.provider !== 'openai';
-  elements.fastModeToggle.disabled = !fastAvailable;
+  elements.fastModeToggle.disabled = !fastAvailable || state.busy;
   elements.fastModeToggle.classList.toggle('active', state.fastMode && fastAvailable);
   elements.fastModeToggle.setAttribute('aria-pressed', String(state.fastMode && fastAvailable));
   const fastTierAvailable = (models.find((model) => model.id === state.model)?.serviceTiers || [])
@@ -398,14 +450,14 @@ function render() {
   renderProjectList();
   renderMessages();
   renderCodexAccounts();
-  renderCodexAccountSelect();
+  renderAgentList();
   renderModelSelect();
   document.querySelector('#connectionSummary').textContent = connectionSummary();
   const conversation = activeConversation();
   const activeProject = project(conversation?.projectId || state.activeProjectId);
   document.querySelector('#modeLabel').textContent = conversation?.messages.length
     ? conversation.title
-    : activeProject ? `${activeProject.name} · 새 대화` : '새 대화';
+    : activeProject ? `${activeProject.name} · 새 작업` : '새 작업';
   if (!elements.searchModal.hidden) renderSearchResults();
 }
 
@@ -415,11 +467,27 @@ function connectionSummary() {
   const parts = [];
   if (codexCount) parts.push(`Codex ${codexCount}개`);
   if (claudeConnected) parts.push('Claude');
+  const apiCount = state.apiConnections.filter((connection) => connection.connected).length;
+  if (apiCount) parts.push(`API ${apiCount}개`);
   return parts.length ? `${parts.join(' · ')} 연결됨` : '계정 연결 필요';
 }
 
 let statusRequestInProgress = false;
 let statusPollTimer = null;
+
+function updateApiConnections(status) {
+  state.apiConnections = Array.isArray(status.connections) ? status.connections : [];
+  state.keyStorage = status.keyStorage || 'session';
+  apiConnectionsUI.update({ connections: state.apiConnections, keyStorage: state.keyStorage });
+}
+
+async function refreshApiConnections() {
+  const response = await fetch('/api/connections', { cache: 'no-store' });
+  const status = await response.json();
+  if (!response.ok) throw new Error(status.error || 'API 연결 목록을 불러오지 못했습니다.');
+  updateApiConnections(status);
+  render();
+}
 
 function updateConnectionControls() {
   const feedback = document.querySelector('#loginFeedback');
@@ -504,9 +572,11 @@ async function refreshStatus() {
   try {
     const response = await fetch('/api/status', { cache: 'no-store' });
     const status = await response.json();
+    if (!response.ok) throw new Error(status.error || '연결 상태 조회에 실패했습니다.');
     state.providers = status.providers || state.providers;
     state.loginJobs = status.loginJobs || {};
     state.codexAccounts = Array.isArray(status.codexAccounts) ? status.codexAccounts : [];
+    updateApiConnections(status);
     if (!state.codexAccounts.some((account) => account.id === state.activeCodexAccountId && account.connected)) {
       state.activeCodexAccountId = state.codexAccounts.find((account) => account.id !== state.activeCodexAccountId && account.connected)?.id || 'default';
     }
@@ -515,7 +585,7 @@ async function refreshStatus() {
       PROVIDERS.openai.models = defaultModels.map((model) => ({ ...model }));
     }
     const codexModels = modelsForProvider('openai');
-    if (codexModels.length && !codexModels.some((model) => model.id === state.model)) {
+    if (!state.busy && state.provider === 'openai' && codexModels.length && !codexModels.some((model) => model.id === state.model)) {
       state.model = codexModels.find((model) => model.isDefault)?.id || codexModels[0].id;
       savePreferences();
     }
@@ -611,15 +681,8 @@ async function connectCodexAccount(accountId = null, accountName = '') {
 }
 
 function addCodexAccount() {
-  const accountNumber = state.codexAccounts.filter((account) => !account.isDefault).length + 1;
-  const enteredName = window.prompt('추가할 Codex 계정의 구분 이름을 입력하세요.', `Codex 계정 ${accountNumber}`);
-  if (enteredName === null) return;
-  const accountName = enteredName.trim().slice(0, 48);
-  if (!accountName) {
-    showToast('Codex 계정 이름을 입력해 주세요.');
-    return;
-  }
-  connectCodexAccount(null, accountName);
+  document.querySelector('#codexAccountForm').hidden = false;
+  document.querySelector('#codexAccountName').focus();
 }
 
 async function updateCodexAccountLink(accountId, action) {
@@ -1005,31 +1068,24 @@ function showToast(message) {
   toastTimeout = setTimeout(() => elements.toast.classList.remove('visible'), 3800);
 }
 
-function setProvider(provider) {
-  if (!Object.hasOwn(PROVIDERS, provider)) return;
-  state.provider = provider;
-  const models = modelsForProvider(provider);
-  if (!models.some((model) => model.id === state.model)) state.model = models[0]?.id || '';
+function setModel(key) {
+  if (state.busy) return;
+  const model = modelCatalog().find((item) => modelKey(item) === key && item.connected);
+  if (!model) return;
+  state.provider = model.provider;
+  state.activeConnectionId = model.connectionId || null;
+  state.model = model.id;
   const conversation = activeConversation();
   if (conversation && conversation.messages.length === 0) {
-    conversation.provider = provider;
-    conversation.model = state.model;
-    conversation.codexAccountId = provider === 'openai' ? state.activeCodexAccountId : 'default';
+    conversation.provider = model.provider;
+    conversation.connectionId = state.activeConnectionId;
+    conversation.model = model.id;
+    conversation.codexAccountId = model.provider === 'openai' ? state.activeCodexAccountId : 'default';
   }
   savePreferences();
   saveConversations();
   render();
-  elements.providerMenu.hidden = true;
-}
-
-function setModel(model) {
-  if (!modelsForProvider().some((item) => item.id === model)) return;
-  state.model = model;
-  const conversation = activeConversation();
-  if (conversation && conversation.messages.length === 0) conversation.model = model;
-  savePreferences();
-  saveConversations();
-  renderModelSelect();
+  closeModelMenu(true);
 }
 
 function toggleFastMode() {
@@ -1049,7 +1105,6 @@ function setCodexAccount(accountId) {
   if (!account) return;
   if (state.busy) {
     showToast('응답이 끝난 뒤 Codex 계정을 전환해 주세요.');
-    renderCodexAccountSelect();
     return;
   }
   const previousId = state.activeCodexAccountId;
@@ -1143,6 +1198,12 @@ async function streamResponse(response, assistantMessage, conversation) {
 async function sendMessage(value) {
   const message = value.trim();
   if (!message || state.busy) return;
+  const selected = modelCatalog().find((model) => modelKey(model) === selectedModelKey());
+  if (!selected?.connected) {
+    showToast('연결된 모델을 선택하거나 에이전트를 연결해 주세요.');
+    showSettings(state.provider === 'api' ? 'agents' : 'accounts');
+    return;
+  }
   let conversation = activeConversation();
   if (!conversation) {
     createConversation();
@@ -1151,6 +1212,7 @@ async function sendMessage(value) {
   if (conversation.provider !== state.provider && state.provider === 'openai') conversation.codexThreadId = null;
   conversation.provider = state.provider;
   conversation.model = state.model;
+  conversation.connectionId = state.provider === 'api' ? state.activeConnectionId : null;
   if (state.provider === 'openai') {
     if (conversation.codexAccountId !== state.activeCodexAccountId) conversation.codexThreadId = null;
     conversation.codexAccountId = state.activeCodexAccountId;
@@ -1167,6 +1229,8 @@ async function sendMessage(value) {
   resizeInput();
   state.busy = true;
   state.controller = new AbortController();
+  closeModelMenu();
+  renderModelSelect();
   elements.sendButton.disabled = false;
   elements.sendButton.classList.add('busy');
   elements.sendButton.setAttribute('aria-label', '응답 중지');
@@ -1180,6 +1244,7 @@ async function sendMessage(value) {
       body: JSON.stringify({
         provider: state.provider,
         model: state.model,
+        ...(state.provider === 'api' ? { connectionId: conversation.connectionId } : {}),
         ...(state.provider === 'openai' ? { fastMode: state.fastMode } : {}),
         ...(state.provider === 'openai' ? { codexAccountId: conversation.codexAccountId || 'default' } : {}),
         ...(projectInstructions ? { projectInstructions } : {}),
@@ -1208,6 +1273,7 @@ async function sendMessage(value) {
     elements.sendButton.classList.remove('busy');
     elements.sendButton.setAttribute('aria-label', '메시지 보내기');
     elements.sendButton.disabled = false;
+    renderModelSelect();
   }
 }
 
@@ -1216,7 +1282,19 @@ function resizeInput() {
   elements.messageInput.style.height = `${Math.min(elements.messageInput.scrollHeight, 170)}px`;
 }
 
-function showSettings() {
+function selectSettingsTab(tab) {
+  const name = tab === 'agents' ? 'agents' : 'accounts';
+  document.querySelectorAll('[data-settings-tab]').forEach((button) => {
+    const selected = button.dataset.settingsTab === name;
+    button.setAttribute('aria-selected', String(selected));
+    button.tabIndex = selected ? 0 : -1;
+  });
+  document.querySelectorAll('[data-settings-panel]').forEach((panel) => { panel.hidden = panel.dataset.settingsPanel !== name; });
+}
+
+function showSettings(tab = 'accounts') {
+  closeModelMenu();
+  selectSettingsTab(tab);
   elements.settingsModal.hidden = false;
   refreshStatus();
   if (!statusPollTimer) statusPollTimer = setInterval(refreshStatus, 2500);
@@ -1243,13 +1321,14 @@ function selectConversation(conversation) {
   state.activeId = conversation.id;
   state.activeProjectId = project(conversation.projectId) ? conversation.projectId : null;
   state.provider = conversation.provider;
+  state.activeConnectionId = conversation.connectionId || null;
   if (state.provider === 'openai') {
     state.activeCodexAccountId = state.codexAccounts.some((account) => account.id === conversation.codexAccountId)
       ? conversation.codexAccountId
       : 'default';
   }
   const models = modelsForProvider(state.provider);
-  state.model = models.some((model) => model.id === conversation.model)
+  state.model = state.provider === 'api' || models.some((model) => model.id === conversation.model)
     ? conversation.model
     : models[0]?.id || '';
   savePreferences();
@@ -1294,13 +1373,43 @@ document.querySelector('#cancelProjectMove').addEventListener('click', closeProj
 document.querySelector('#closeProjectMoveModal').addEventListener('click', closeProjectMove);
 document.querySelector('#searchChatButton').addEventListener('click', showSearch);
 document.querySelector('#sidebarToggle').addEventListener('click', () => elements.sidebar.classList.toggle('collapsed'));
-document.querySelector('#mobileMenu').addEventListener('click', () => elements.sidebar.classList.toggle('mobile-open'));
+document.querySelector('#mobileMenu').addEventListener('click', () => elements.sidebar.classList.toggle(innerWidth > 760 ? 'collapsed' : 'mobile-open'));
 document.querySelector('#settingsButton').addEventListener('click', showSettings);
 document.querySelector('#settingsButtonTop').addEventListener('click', showSettings);
 document.querySelector('#closeSettings').addEventListener('click', hideSettings);
 document.querySelector('#doneSettings').addEventListener('click', hideSettings);
 document.querySelector('#refreshStatus').addEventListener('click', refreshStatus);
 document.querySelector('#connectClaude').addEventListener('click', toggleClaudeConnection);
+document.querySelector('#connectionDetails').addEventListener('click', () => showSettings(state.provider === 'api' ? 'agents' : 'accounts'));
+document.querySelectorAll('[data-settings-tab]').forEach((button) => {
+  button.addEventListener('click', () => selectSettingsTab(button.dataset.settingsTab));
+  button.addEventListener('keydown', (event) => {
+    if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+    event.preventDefault();
+    const next = document.querySelector(`[data-settings-tab="${button.dataset.settingsTab === 'accounts' ? 'agents' : 'accounts'}"]`);
+    next.click();
+    next.focus();
+  });
+});
+function openNewApiConnection() {
+  showSettings('agents');
+  apiConnectionsUI.openEditor();
+}
+document.querySelector('#addAgentSidebar').addEventListener('click', openNewApiConnection);
+document.querySelector('#addAgentFromModels').addEventListener('click', openNewApiConnection);
+document.querySelector('#agentList').addEventListener('click', (event) => {
+  const button = event.target.closest('[data-agent-tab]');
+  if (button) showSettings(button.dataset.agentTab);
+});
+document.querySelector('#codexAccountForm').addEventListener('submit', (event) => {
+  event.preventDefault();
+  if (state.addingCodexAccount) return;
+  const input = document.querySelector('#codexAccountName');
+  document.querySelector('#codexAccountForm').hidden = true;
+  void connectCodexAccount(null, input.value.trim().slice(0, 48));
+  input.value = '';
+});
+document.querySelector('#cancelCodexAccountForm').addEventListener('click', () => { document.querySelector('#codexAccountForm').hidden = true; });
 elements.addCodexAccountButton.addEventListener('click', addCodexAccount);
 elements.codexAccountsList.addEventListener('click', (event) => {
   const connectButton = event.target.closest('[data-connect-codex-account]');
@@ -1322,13 +1431,15 @@ elements.projectModal.addEventListener('click', (event) => { if (event.target ==
 elements.projectMoveModal.addEventListener('click', (event) => { if (event.target === elements.projectMoveModal) closeProjectMove(); });
 elements.projectImportModal.addEventListener('click', (event) => { if (event.target === elements.projectImportModal) closeProjectImport(); });
 document.addEventListener('keydown', (event) => {
+  if (!document.querySelector('#apiConnectionModal').hidden) return;
   if (event.key === 'Escape') {
+    if (!document.querySelector('#apiConnectionModal').hidden) return;
+    if (!elements.modelMenu.hidden) { closeModelMenu(true); return; }
     if (!elements.searchModal.hidden) hideSearch();
     hideSettings();
     closeProjectEditor();
     closeProjectMove();
     closeProjectImport();
-    elements.providerMenu.hidden = true;
     closeMobileSidebar();
   }
   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
@@ -1388,19 +1499,45 @@ elements.conversationList.addEventListener('keydown', (event) => {
   if ((event.key === 'Enter' || event.key === ' ') && event.target.matches('.conversation-row')) event.target.click();
 });
 
-elements.providerSelectButton.addEventListener('click', () => { elements.providerMenu.hidden = !elements.providerMenu.hidden; });
-elements.providerMenu.addEventListener('click', (event) => {
-  const button = event.target.closest('[data-provider]');
-  if (button) setProvider(button.dataset.provider);
+elements.modelSelectButton.addEventListener('click', () => {
+  if (!elements.modelMenu.hidden) { closeModelMenu(true); return; }
+  elements.modelSearch.value = '';
+  renderModelOptions();
+  elements.modelMenu.hidden = false;
+  positionModelMenu();
+  elements.modelSelectButton.setAttribute('aria-expanded', 'true');
+  elements.modelSearch.focus();
+});
+elements.modelSearch.addEventListener('input', renderModelOptions);
+elements.modelOptions.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-model-key]');
+  if (button) setModel(button.dataset.modelKey);
+});
+document.querySelector('#closeModelMenu').addEventListener('click', () => closeModelMenu(true));
+elements.modelMenu.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter' && event.target === elements.modelSearch) {
+    event.preventDefault();
+    const first = elements.modelOptions.querySelector('button:not(:disabled)');
+    if (first) setModel(first.dataset.modelKey);
+    return;
+  }
+  if (!['ArrowDown', 'ArrowUp'].includes(event.key)) return;
+  event.preventDefault();
+  const items = [elements.modelSearch, ...elements.modelOptions.querySelectorAll('button:not(:disabled)')];
+  const index = items.indexOf(document.activeElement);
+  const next = (index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+  items[next].focus();
+});
+elements.modelMenu.addEventListener('focusout', () => {
+  requestAnimationFrame(() => { if (!elements.modelMenu.contains(document.activeElement) && document.activeElement !== elements.modelSelectButton) closeModelMenu(); });
 });
 document.addEventListener('click', (event) => {
-  if (!elements.providerMenu.hidden && !elements.providerMenu.contains(event.target) && !elements.providerSelectButton.contains(event.target)) {
-    elements.providerMenu.hidden = true;
+  if (!elements.modelMenu.hidden && !elements.modelMenu.contains(event.target) && !elements.modelSelectButton.contains(event.target)) {
+    closeModelMenu();
   }
 });
-elements.modelSelect.addEventListener('change', (event) => setModel(event.target.value));
 elements.fastModeToggle.addEventListener('click', toggleFastMode);
-elements.codexAccountSelect.addEventListener('change', (event) => setCodexAccount(event.target.value));
+window.addEventListener('resize', () => closeModelMenu());
 elements.composerForm.addEventListener('submit', (event) => {
   event.preventDefault();
   if (state.busy) {

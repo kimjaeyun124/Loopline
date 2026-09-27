@@ -9,35 +9,40 @@
     <script type="module" src="/app.js"></script>
   </head>
   <body>
+    <div class="window-drag-region" aria-hidden="true"></div>
     <div class="app-shell">
       <aside class="sidebar" id="sidebar">
         <div class="sidebar-top">
-          <a class="brand" href="/" aria-label="Mosaic AI 홈">
+          <a class="brand" href="/" aria-label="Mosaic Desk 홈">
             <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span><span></span></span>
-            <span>Mosaic</span>
+            <span>Mosaic Desk</span>
           </a>
           <button class="icon-button sidebar-toggle" id="sidebarToggle" title="사이드바 접기" aria-label="사이드바 접기">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.75A1.75 1.75 0 0 1 5.75 4h12.5A1.75 1.75 0 0 1 20 5.75v12.5A1.75 1.75 0 0 1 18.25 20H5.75A1.75 1.75 0 0 1 4 18.25zM9 4v16" /></svg>
           </button>
         </div>
         <button class="new-chat-button" id="newChatButton">
-          <span class="plus-icon">＋</span><span>새 대화</span><kbd>⌘ N</kbd>
+          <span class="plus-icon">＋</span><span>새 작업</span><kbd>⌘ N</kbd>
         </button>
         <button class="search-chat-button" id="searchChatButton" type="button">
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.3"/><path d="m15.5 15.5 4.2 4.2"/></svg>
-          <span>대화 검색</span><kbd>⌘ K</kbd>
+          <span>작업 검색</span><kbd>⌘ K</kbd>
         </button>
+        <section class="agents-panel" aria-label="연결한 에이전트">
+          <div class="projects-heading"><span>에이전트</span><button class="project-add-button" id="addAgentSidebar" type="button" title="API 에이전트 추가" aria-label="API 에이전트 추가">＋</button></div>
+          <div class="agent-list" id="agentList"></div>
+        </section>
         <section class="projects-panel" aria-label="프로젝트">
-          <div class="projects-heading"><span>Projects</span><div class="project-heading-actions"><button class="project-import-button" id="importProjectButton" type="button" aria-label="ChatGPT 또는 Claude 프로젝트 가져오기" title="ChatGPT 또는 Claude에서 가져오기">↓</button><button class="project-add-button" id="addProjectButton" type="button" aria-label="프로젝트 만들기" title="프로젝트 만들기">＋</button></div></div>
+          <div class="projects-heading"><span>프로젝트</span><div class="project-heading-actions"><button class="project-import-button" id="importProjectButton" type="button" aria-label="ChatGPT 또는 Claude 프로젝트 가져오기" title="ChatGPT 또는 Claude에서 가져오기">↓</button><button class="project-add-button" id="addProjectButton" type="button" aria-label="프로젝트 만들기" title="프로젝트 만들기">＋</button></div></div>
           <input id="projectImportFile" type="file" accept=".zip,.json,application/zip,application/json" hidden />
           <nav class="project-list" id="projectList" aria-label="프로젝트 목록"></nav>
         </section>
-        <div class="sidebar-label">대화</div>
+        <div class="sidebar-label">최근 작업</div>
         <nav class="conversation-list" id="conversationList" aria-label="대화 목록"></nav>
         <div class="sidebar-bottom">
           <button class="account-card" id="settingsButton">
             <span class="avatar">M</span>
-            <span class="account-copy"><strong>내 작업 공간</strong><small id="connectionSummary">연결 상태 확인 중</small></span>
+            <span class="account-copy"><strong>설정 및 연결</strong><small id="connectionSummary">연결 상태 확인 중</small></span>
             <span class="more-icon">•••</span>
           </button>
         </div>
@@ -46,26 +51,20 @@
       <main class="main-panel">
         <header class="topbar">
           <button class="mobile-menu icon-button" id="mobileMenu" aria-label="대화 목록 열기">☰</button>
-          <div class="mode-label"><span class="mode-dot"></span><span id="modeLabel">새 대화</span></div>
+          <div class="mode-label"><span class="workspace-breadcrumb">Mosaic Desk <span>/</span></span><span id="modeLabel">새 작업</span></div>
           <div class="topbar-actions">
             <button class="icon-button" id="settingsButtonTop" title="연결 설정" aria-label="연결 설정">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.25a3.75 3.75 0 1 0 0 7.5 3.75 3.75 0 0 0 0-7.5Z"/><path d="m19.4 15 .05.04a1.7 1.7 0 1 1-2.4 2.4l-.04-.05a1.7 1.7 0 0 0-2.9 1.2v.15a1.7 1.7 0 1 1-3.4 0v-.08a1.7 1.7 0 0 0-2.9-1.2l-.05.05a1.7 1.7 0 1 1-2.4-2.4l.05-.04a1.7 1.7 0 0 0-1.2-2.9h-.15a1.7 1.7 0 1 1 0-3.4h.08a1.7 1.7 0 0 0 1.2-2.9l-.05-.05a1.7 1.7 0 1 1 2.4-2.4l.04.05a1.7 1.7 0 0 0 2.9-1.2v-.15a1.7 1.7 0 1 1 3.4 0v.08a1.7 1.7 0 0 0 2.9 1.2l.05-.05a1.7 1.7 0 1 1 2.4 2.4l-.05.04a1.7 1.7 0 0 0 1.2 2.9h.15a1.7 1.7 0 1 1 0 3.4h-.08a1.7 1.7 0 0 0-1.2 2.9Z"/></svg>
             </button>
-          <div class="provider-pill" title="Codex app-server 계정으로 연결됩니다"><span class="provider-dot" id="providerDot"></span><span id="providerPillText">OpenAI 계정</span></div>
+          <button class="provider-pill" id="connectionDetails" type="button" title="사용 중인 연결 관리"><span class="provider-dot" id="providerDot"></span><span id="providerPillText">연결 확인 중</span></button>
           </div>
         </header>
 
         <section class="chat-scroll" id="chatScroll">
           <div class="welcome" id="welcome">
             <div class="welcome-mark" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
-            <h1>무엇을 도와드릴까요?</h1>
-            <p>대화할 AI와 모델을 선택해 시작하세요.</p>
-            <div class="suggestions">
-              <button class="suggestion" data-prompt="복잡한 주제를 이해하기 쉽게 단계별로 설명해줘."><span class="suggestion-icon">✳</span><span><strong>함께 알아보기</strong><small>어려운 주제를 쉽게 설명해 드려요</small></span></button>
-              <button class="suggestion" data-prompt="이 아이디어를 실행할 수 있는 구체적인 계획으로 정리해줘."><span class="suggestion-icon">↗</span><span><strong>아이디어 구체화</strong><small>생각을 다음 단계로 발전시켜요</small></span></button>
-              <button class="suggestion" data-prompt="이 코드의 문제점을 찾고 개선 방향을 설명해줘."><span class="suggestion-icon">⌘</span><span><strong>코드 검토</strong><small>코드 흐름과 개선점을 살펴봐요</small></span></button>
-              <button class="suggestion" data-prompt="이 문장을 더 명확하고 자연스럽게 다듬어줘."><span class="suggestion-icon">✎</span><span><strong>글 다듬기</strong><small>문장을 더 또렷하게 정리해요</small></span></button>
-            </div>
+            <h1>어디서부터 시작할까요?</h1>
+            <p>아이디어부터 다음 작업까지, 원하는 모델과 함께.</p>
           </div>
           <div class="messages" id="messages" aria-live="polite"></div>
         </section>
@@ -77,15 +76,12 @@
 
         <footer class="composer-wrap">
           <form class="composer" id="composerForm">
-            <textarea id="messageInput" rows="1" placeholder="Mosaic에게 메시지 보내기" aria-label="메시지 입력"></textarea>
+            <textarea id="messageInput" rows="2" placeholder="만들고 싶은 것, 해결할 문제를 알려주세요…" aria-label="메시지 입력"></textarea>
             <div class="composer-toolbar">
               <div class="composer-left">
-                <button class="select-button" type="button" id="providerSelectButton" aria-label="AI 제공자 선택">
-                  <span class="mini-provider-mark" id="miniProviderMark">◉</span><span id="providerSelectLabel">OpenAI</span><span class="chevron">⌄</span>
+                <button class="select-button model-picker-button" type="button" id="modelSelectButton" aria-label="모델 선택" aria-haspopup="dialog" aria-expanded="false" aria-controls="modelMenu">
+                  <span id="selectedModelLabel">모델 선택</span><span class="chevron" aria-hidden="true">⌄</span>
                 </button>
-                <select id="codexAccountSelect" aria-label="Codex 계정 선택"></select>
-                <span class="toolbar-divider"></span>
-                <select id="modelSelect" aria-label="모델 선택"></select>
                 <button class="fast-mode-toggle" id="fastModeToggle" type="button" aria-pressed="false" title="낮은 추론 단계로 빠르게 응답합니다. 모델이 지원하면 Fast 서비스 티어도 요청합니다."><span class="fast-mode-icon" aria-hidden="true">ϟ</span><span>Fast</span></button>
               </div>
               <button class="send-button" id="sendButton" type="submit" aria-label="메시지 보내기">
@@ -93,13 +89,19 @@
                 <span class="stop-icon" aria-hidden="true"></span>
               </button>
             </div>
-            <div class="provider-menu" id="providerMenu" hidden>
-              <button type="button" data-provider="openai"><span class="provider-option-logo openai-logo">◉</span><span><strong>OpenAI</strong><small>ChatGPT 계정 로그인</small></span><span class="option-check">✓</span></button>
-              <button type="button" data-provider="anthropic"><span class="provider-option-logo claude-logo">✳</span><span><strong>Claude</strong><small>Claude 계정 로그인</small></span><span class="option-check">✓</span></button>
-              <div class="provider-menu-footer">OpenAI는 Codex app-server, Claude는 공식 CLI로 연결합니다.</div>
+            <div class="model-menu" id="modelMenu" role="dialog" aria-label="모델 선택" hidden>
+              <div class="model-menu-heading"><strong>모델 선택</strong><button class="icon-button" type="button" id="closeModelMenu" aria-label="모델 목록 닫기">×</button></div>
+              <input id="modelSearch" type="search" placeholder="모델 검색…" aria-label="모델 검색" autocomplete="off" />
+              <div class="model-options" id="modelOptions" role="listbox" aria-label="사용 가능한 모델"></div>
+              <button class="model-menu-add" id="addAgentFromModels" type="button">＋ API 에이전트 연결</button>
             </div>
           </form>
-          <p class="disclaimer">AI 응답은 부정확할 수 있습니다. 중요한 내용은 확인해 주세요.</p>
+          <div class="suggestions">
+            <button class="suggestion" type="button" data-prompt="이 코드의 구조와 개선할 부분을 함께 살펴봐줘."><span class="suggestion-icon">⌘</span><span><strong>코드 살펴보기</strong><small>구조를 이해하고 개선하기</small></span><span class="suggestion-arrow">↗</span></button>
+            <button class="suggestion" type="button" data-prompt="아이디어를 실행할 수 있는 단계별 계획으로 정리해줘."><span class="suggestion-icon">↗</span><span><strong>계획 세우기</strong><small>아이디어를 다음 단계로</small></span><span class="suggestion-arrow">↗</span></button>
+            <button class="suggestion" type="button" data-prompt="이 주제를 조사하고 핵심 내용을 정리해줘."><span class="suggestion-icon">✳</span><span><strong>함께 알아보기</strong><small>궁금한 내용을 깊이 있게</small></span><span class="suggestion-arrow">↗</span></button>
+          </div>
+          <p class="disclaimer"><span>로컬 작업 공간</span><span>↵ 보내기 · ⇧ ↵ 줄바꿈</span></p>
         </footer>
       </main>
     </div>
@@ -151,12 +153,14 @@
 
     <div class="modal-backdrop" id="settingsModal" hidden>
       <section class="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
-        <div class="modal-header"><div><p class="eyebrow">연결 설정</p><h2 id="settingsTitle">계정 및 연결</h2></div><button class="icon-button close-modal" id="closeSettings" aria-label="닫기">×</button></div>
-        <p class="modal-description">Codex app-server가 ChatGPT OAuth 로그인과 계정별 토큰 저장·갱신을 관리합니다. Claude는 공식 Claude Code CLI 로그인을 사용합니다. Mosaic에 비밀번호나 API 키를 입력하지 않습니다.</p>
-        <p class="modal-description security-description">Codex 연결 해제는 app-server에서 로그아웃합니다. 기본 계정은 ~/.codex를 Codex CLI와 공유하므로 CLI에서도 로그아웃됩니다. 추가 계정 삭제는 해당 계정 프로필과 Codex 세션 기록을 지우지만 Mosaic 대화 본문은 보존합니다. Claude 연결 해제는 Claude Code CLI에서 로그아웃합니다.</p>
+        <div class="modal-header"><div><p class="eyebrow">Mosaic Desk</p><h2 id="settingsTitle">에이전트 및 연결</h2></div><button class="icon-button close-modal" id="closeSettings" aria-label="닫기">×</button></div>
+        <div class="settings-tabs" role="tablist" aria-label="연결 종류"><button type="button" id="accountsTab" role="tab" aria-controls="accountsPanel" aria-selected="true" data-settings-tab="accounts">구독 계정</button><button type="button" id="agentsTab" role="tab" aria-controls="agentsPanel" aria-selected="false" data-settings-tab="agents">API 에이전트 <span id="apiConnectionCount">0</span></button></div>
+        <div id="accountsPanel" role="tabpanel" aria-labelledby="accountsTab" data-settings-panel="accounts">
+        <p class="modal-description">Codex와 Claude 계정을 연결하세요. 연결한 계정의 모델을 하나의 목록에서 선택할 수 있습니다.</p>
         <div class="codex-account-section">
           <div class="codex-account-heading"><div><strong>Codex 계정</strong><small>계정별 로그인과 사용 한도를 관리합니다.</small></div><button class="add-account-button" id="addCodexAccount" type="button">＋ 계정 추가</button></div>
           <div class="codex-account-list" id="codexAccountsList"></div>
+          <form class="inline-account-form" id="codexAccountForm" hidden><input id="codexAccountName" maxlength="60" placeholder="계정 이름 (선택 사항)" aria-label="새 Codex 계정 이름" /><button type="submit" class="primary-button">로그인</button><button type="button" id="cancelCodexAccountForm" class="secondary-button">취소</button></form>
         </div>
         <div class="connection-row">
           <div class="connection-logo claude-logo">✳</div>
@@ -165,8 +169,29 @@
         </div>
         <div class="login-feedback" id="loginFeedback" hidden></div>
         <div class="notice-box"><strong>계정별 사용 한도</strong><p>Codex 한도가 소진되면 한도가 남은 연결 계정으로 해당 요청을 다시 시도합니다. Claude Code CLI는 로그인 상태만 자동 확인할 수 있으며, 플랜 사용량은 Claude Code에서 <code>/usage</code>를 실행해 확인하세요.</p></div>
+        <p class="settings-footnote">Codex 기본 계정과 Claude는 설치된 CLI의 로그인 상태를 공유합니다. 연결을 해제하면 CLI에서도 로그아웃됩니다.</p>
+        </div>
+        <div id="agentsPanel" role="tabpanel" aria-labelledby="agentsTab" data-settings-panel="agents" hidden>
+          <div class="api-section-heading"><div><h3>나만의 에이전트</h3><p>API를 연결하면 사용 가능한 모델을 자동으로 가져옵니다.</p></div><button class="primary-button" id="addApiConnection" type="button">＋ 에이전트 추가</button></div>
+          <div id="apiConnectionsList" class="api-connections-list"></div>
+          <p class="settings-footnote" id="apiKeyStorageInfo"></p>
+        </div>
         <div class="modal-actions"><button class="secondary-button" id="refreshStatus">연결 상태 새로고침</button><button class="primary-button" id="doneSettings">완료</button></div>
       </section>
+    </div>
+
+    <div class="modal-backdrop agent-editor-backdrop" id="apiConnectionModal" hidden>
+      <form class="project-modal agent-editor" id="apiConnectionForm" role="dialog" aria-modal="true" aria-labelledby="apiConnectionTitle">
+        <div class="modal-header"><div><p class="eyebrow">API Connection</p><h2 id="apiConnectionTitle">에이전트 추가</h2></div><button class="icon-button close-modal" id="closeApiConnection" type="button" aria-label="닫기">×</button></div>
+        <p class="modal-description">원하는 API를 연결하세요. 모델 목록을 확인한 뒤 바로 선택할 수 있습니다.</p>
+        <label class="project-field"><span>빠른 설정</span><select id="apiPreset"><option value="deepseek">DeepSeek</option><option value="openai">OpenAI API</option><option value="custom">직접 입력 · OpenAI 호환 API</option></select></label>
+        <label class="project-field"><span>에이전트 이름</span><input id="apiConnectionName" type="text" maxlength="60" required placeholder="예: 나의 DeepSeek" autocomplete="off" /></label>
+        <label class="project-field"><span>API 기본 주소</span><input id="apiBaseUrl" type="url" required placeholder="https://api.example.com/v1" autocomplete="off" spellcheck="false" /><small>서비스의 OpenAI 호환 주소를 입력하세요. /models는 자동으로 붙습니다.</small></label>
+        <label class="project-field"><span>API 키 <small id="apiKeyHint"></small></span><input id="apiKey" type="password" maxlength="8192" autocomplete="off" spellcheck="false" placeholder="API 키 입력" /></label>
+        <p class="settings-footnote" id="apiEditorStorageInfo"></p>
+        <p class="import-error" id="apiConnectionError" role="alert" hidden></p>
+        <div class="project-modal-actions"><span></span><button class="secondary-button" id="cancelApiConnection" type="button">취소</button><button class="primary-button" id="saveApiConnection" type="submit">연결 및 모델 가져오기</button></div>
+      </form>
     </div>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>

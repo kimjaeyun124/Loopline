@@ -6,6 +6,7 @@ import { homedir, tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CodexAppServer } from './codex-app-server.mjs';
+import { ApiConnections } from './api-connections.mjs';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const publicDir = join(root, 'public');
@@ -15,6 +16,7 @@ const codexAccountsFile = join(userDataDir, 'codex-accounts.json');
 const defaultCodexHome = resolve(process.env.CODEX_HOME || join(homedir(), '.codex'));
 const port = Number(process.env.PORT || 4173);
 const host = process.env.HOST || '127.0.0.1';
+const apiConnections = new ApiConnections(userDataDir);
 
 const providers = {
   openai: {
@@ -505,10 +507,11 @@ function json(res, status, data) {
 }
 
 function allowedOrigin(req) {
-  const origin = req.headers.origin;
-  if (!origin) return true;
   const hostHeader = req.headers.host || '';
   if (!/^(localhost|127\.0\.0\.1)(:\d+)?$/.test(hostHeader)) return false;
+  if (req.headers['sec-fetch-site'] === 'cross-site') return false;
+  const origin = req.headers.origin;
+  if (!origin) return true;
   return origin === 'http://' + hostHeader;
 }
 
@@ -1151,7 +1154,7 @@ async function relayChat(req, res) {
     const provider = body.provider;
     const model = body.model;
     const codexAccountId = provider === 'openai' && typeof body.codexAccountId === 'string' ? body.codexAccountId : 'default';
-    if (!Object.hasOwn(providers, provider)) {
+    if (!Object.hasOwn(providers, provider) && provider !== 'api') {
       return json(res, 400, { error: '지원하지 않는 제공자 또는 모델입니다.' });
     }
     if (provider === 'anthropic' && !modelAllowlist.anthropic.has(model)) {
@@ -1173,6 +1176,26 @@ async function relayChat(req, res) {
     const projectInstructions = typeof body.projectInstructions === 'string'
       ? body.projectInstructions.trim().slice(0, 24_000)
       : '';
+    if (provider === 'api') {
+      const controller = new AbortController();
+      const cancel = () => controller.abort();
+      res.on('close', cancel);
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream; charset=utf-8',
+        'Cache-Control': 'no-cache, no-transform',
+        'X-Content-Type-Options': 'nosniff',
+      });
+      try {
+        const apiMessages = projectInstructions ? [{ role: 'system', content: projectInstructions }, ...messages] : messages;
+        await apiConnections.chat(body.connectionId, model, apiMessages, {
+          signal: controller.signal,
+          onDelta: (text) => sendEvent(res, 'delta', { text }),
+        });
+        sendEvent(res, 'done', {});
+        res.end();
+      } finally { res.off('close', cancel); }
+      return;
+    }
     if (provider === 'openai') {
       reservedContext = await getCodexAccountContext(codexAccountId);
       if (deletingCodexAccounts.has(codexAccountId)) {
@@ -1221,6 +1244,7 @@ async function serveFile(res, pathname) {
     '/styles.css': ['styles.css', 'text/css; charset=utf-8'],
     '/app.js': ['app.js', 'text/javascript; charset=utf-8'],
     '/export-importer.js': ['export-importer.js', 'text/javascript; charset=utf-8'],
+    '/api-connections-ui.js': ['api-connections-ui.js', 'text/javascript; charset=utf-8'],
   };
   const entry = files[pathname];
   if (!entry) return json(res, 404, { error: '페이지를 찾을 수 없습니다.' });
@@ -1246,9 +1270,29 @@ const server = createServer(async (req, res) => {
   if (req.method === 'GET' && url.pathname === '/api/status') {
     try {
       const [providerState, codexAccounts] = await Promise.all([allProviderStatuses(), allCodexAccountStatuses()]);
-      return json(res, 200, { providers: providerState, codexAccounts, loginJobs: publicLoginJobs() });
+      const apiState = await apiConnections.list();
+      return json(res, 200, { providers: providerState, codexAccounts, loginJobs: publicLoginJobs(), ...apiState });
     } catch (error) {
       return json(res, 500, { error: error.message || '계정 상태를 읽지 못했습니다.' });
+    }
+  }
+  if (url.pathname === '/api/connections' || url.pathname.startsWith('/api/connections/')) {
+    try {
+      if (req.method === 'GET' && url.pathname === '/api/connections') return json(res, 200, await apiConnections.list());
+      const match = url.pathname.match(/^\/api\/connections\/([0-9a-f-]{36})(?:\/(refresh|disconnect))?$/i);
+      if ((req.method === 'POST' && url.pathname === '/api/connections') || (req.method === 'PUT' && match && !match[2])) {
+        if (!req.headers['content-type']?.startsWith('application/json')) return json(res, 415, { error: 'JSON 요청이 필요합니다.' });
+        const connection = await apiConnections.connect(await readJson(req), match?.[1]);
+        return json(res, 200, { connection });
+      }
+      if (req.method === 'POST' && match?.[2] === 'refresh') return json(res, 200, { connection: await apiConnections.refresh(match[1]) });
+      if (match && (req.method === 'DELETE' && !match[2] || req.method === 'POST' && match[2] === 'disconnect')) {
+        await apiConnections.remove(match[1], match[2] === 'disconnect');
+        return json(res, 200, { success: true });
+      }
+      return json(res, 404, { error: 'API 연결 경로를 찾을 수 없습니다.' });
+    } catch (error) {
+      return json(res, error.status || 500, { error: error.status ? error.message : 'API 연결 설정을 저장하지 못했습니다.' });
     }
   }
   if (req.method === 'POST' && url.pathname === '/api/codex/accounts') {

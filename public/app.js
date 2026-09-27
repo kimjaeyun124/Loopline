@@ -49,6 +49,13 @@ const state = {
   keyStorage: 'session',
   fastMode: false,
   reasoningEfforts: {},
+  agentInstructions: {
+    shared: '',
+    codex: '',
+    claude: '',
+    codexUsesShared: true,
+    claudeUsesShared: true,
+  },
   providers: {
     openai: { installed: false, connected: false, label: '상태 확인 중' },
     anthropic: { installed: false, connected: false, label: '상태 확인 중' },
@@ -108,6 +115,12 @@ const elements = {
   codexAccountsList: document.querySelector('#codexAccountsList'),
   addCodexAccountButton: document.querySelector('#addCodexAccount'),
   settingsModal: document.querySelector('#settingsModal'),
+  sharedAgentInstructions: document.querySelector('#sharedAgentInstructions'),
+  codexAgentInstructions: document.querySelector('#codexAgentInstructions'),
+  claudeAgentInstructions: document.querySelector('#claudeAgentInstructions'),
+  codexUsesSharedInstructions: document.querySelector('#codexUsesSharedInstructions'),
+  claudeUsesSharedInstructions: document.querySelector('#claudeUsesSharedInstructions'),
+  agentInstructionsSaveStatus: document.querySelector('#agentInstructionsSaveStatus'),
   searchModal: document.querySelector('#searchModal'),
   searchInput: document.querySelector('#searchInput'),
   searchResults: document.querySelector('#searchResults'),
@@ -322,6 +335,14 @@ function loadPreferences() {
     if (typeof preferences.codexAccountId === 'string') state.activeCodexAccountId = preferences.codexAccountId;
     if (typeof preferences.activeProjectId === 'string') state.activeProjectId = preferences.activeProjectId;
     if (typeof preferences.fastMode === 'boolean') state.fastMode = preferences.fastMode;
+    if (preferences.agentInstructions && typeof preferences.agentInstructions === 'object' && !Array.isArray(preferences.agentInstructions)) {
+      const saved = preferences.agentInstructions;
+      if (typeof saved.shared === 'string') state.agentInstructions.shared = saved.shared.slice(0, 12_000);
+      if (typeof saved.codex === 'string') state.agentInstructions.codex = saved.codex.slice(0, 8_000);
+      if (typeof saved.claude === 'string') state.agentInstructions.claude = saved.claude.slice(0, 8_000);
+      if (typeof saved.codexUsesShared === 'boolean') state.agentInstructions.codexUsesShared = saved.codexUsesShared;
+      if (typeof saved.claudeUsesShared === 'boolean') state.agentInstructions.claudeUsesShared = saved.claudeUsesShared;
+    }
     if (state.provider && typeof preferences.model === 'string') state.model = preferences.model;
     if (typeof preferences.connectionId === 'string') state.activeConnectionId = preferences.connectionId;
     if (preferences.reasoningEfforts && typeof preferences.reasoningEfforts === 'object' && !Array.isArray(preferences.reasoningEfforts)) {
@@ -355,6 +376,7 @@ function savePreferences() {
     codexAccountId: state.activeCodexAccountId,
     activeProjectId: state.activeProjectId,
     fastMode: state.fastMode,
+    agentInstructions: state.agentInstructions,
     reasoningEffort: reasoningSettings().selectedEffort,
     reasoningEfforts: state.reasoningEfforts,
   }));
@@ -1197,6 +1219,45 @@ function activeProjectInstructions() {
   return context.slice(0, 24_000);
 }
 
+function activeAgentInstructions() {
+  const settings = state.agentInstructions;
+  const sections = [];
+  if (state.provider === 'openai') {
+    if (settings.codexUsesShared && settings.shared.trim()) sections.push(`공통 작업 지침:\n${settings.shared.trim()}`);
+    if (settings.codex.trim()) sections.push(`Codex 전용 지침 (AGENTS.md):\n${settings.codex.trim()}`);
+  } else if (state.provider === 'anthropic') {
+    if (settings.claudeUsesShared && settings.shared.trim()) sections.push(`공통 작업 지침:\n${settings.shared.trim()}`);
+    if (settings.claude.trim()) sections.push(`Claude Code 전용 지침 (CLAUDE.md):\n${settings.claude.trim()}`);
+  } else if (state.provider === 'api' && settings.shared.trim()) {
+    sections.push(`공통 작업 지침:\n${settings.shared.trim()}`);
+  }
+  return sections.join('\n\n').slice(0, 24_000);
+}
+
+function renderAgentInstructionSettings() {
+  elements.sharedAgentInstructions.value = state.agentInstructions.shared;
+  elements.codexAgentInstructions.value = state.agentInstructions.codex;
+  elements.claudeAgentInstructions.value = state.agentInstructions.claude;
+  elements.codexUsesSharedInstructions.checked = state.agentInstructions.codexUsesShared;
+  elements.claudeUsesSharedInstructions.checked = state.agentInstructions.claudeUsesShared;
+}
+
+function saveAgentInstructionSettings() {
+  state.agentInstructions = {
+    shared: elements.sharedAgentInstructions.value.slice(0, 12_000),
+    codex: elements.codexAgentInstructions.value.slice(0, 8_000),
+    claude: elements.claudeAgentInstructions.value.slice(0, 8_000),
+    codexUsesShared: elements.codexUsesSharedInstructions.checked,
+    claudeUsesShared: elements.claudeUsesSharedInstructions.checked,
+  };
+  try {
+    savePreferences();
+    elements.agentInstructionsSaveStatus.textContent = '저장됨 · 모든 변경 사항이 자동으로 저장됩니다.';
+  } catch {
+    elements.agentInstructionsSaveStatus.textContent = '저장하지 못했습니다. 기기의 저장 공간을 확인해 주세요.';
+  }
+}
+
 function openProjectEditor(projectId = null) {
   const item = project(projectId);
   state.editingProjectId = item?.id || null;
@@ -1937,6 +1998,7 @@ async function sendMessage(value, queuedMessageId = null) {
   if (messages.length < allMessages.length || allMessages.some((item) => item.content.length > 40_000)) {
     showToast(`전체 기록은 보관하며, 이번 응답에는 최근 ${messages.length}개 메시지를 길이 한도 안에서 전달합니다.`);
   }
+  const agentInstructions = activeAgentInstructions();
   const projectInstructions = activeProjectInstructions();
   let shouldContinueQueue = false;
   try {
@@ -1950,6 +2012,7 @@ async function sendMessage(value, queuedMessageId = null) {
         ...(['openai', 'anthropic'].includes(state.provider) ? { reasoningEffort: reasoning.selectedEffort } : {}),
         ...(state.provider === 'openai' ? { fastMode: reasoning.fastEnabled } : {}),
         ...(state.provider === 'openai' ? { codexAccountId: conversation.codexAccountId || 'default' } : {}),
+        ...(agentInstructions ? { agentInstructions } : {}),
         ...(projectInstructions ? { projectInstructions } : {}),
         messages,
         ...(state.provider === 'openai' && conversation.codexThreadId ? { codexThreadId: conversation.codexThreadId } : {}),
@@ -1991,14 +2054,14 @@ function resizeInput() {
 }
 
 function selectSettingsTab(tab) {
-  const name = ['usage', 'accounts', 'agents', 'models', 'history', 'appearance'].includes(tab) ? tab : 'accounts';
+  const name = ['usage', 'accounts', 'agents', 'models', 'history', 'instructions', 'appearance'].includes(tab) ? tab : 'accounts';
   document.querySelectorAll('[data-settings-tab]').forEach((button) => {
     const selected = button.dataset.settingsTab === name;
     button.setAttribute('aria-selected', String(selected));
     button.tabIndex = selected ? 0 : -1;
   });
   document.querySelectorAll('[data-settings-panel]').forEach((panel) => { panel.hidden = panel.dataset.settingsPanel !== name; });
-  document.querySelector('#refreshStatus').hidden = ['history', 'appearance'].includes(name);
+  document.querySelector('#refreshStatus').hidden = ['history', 'instructions', 'appearance'].includes(name);
   document.querySelector('#refreshStatus').textContent = name === 'usage' ? '사용량 새로고침' : '연결 상태 새로고침';
   if (name === 'models') modelVisibilityUI.render();
   if (name === 'usage') { accountMenuUI.renderUsage(); usageActivityUI.show(); }
@@ -2166,6 +2229,15 @@ document.querySelectorAll('[data-settings-tab]').forEach((button) => {
     next.focus();
   });
 });
+[
+  elements.sharedAgentInstructions,
+  elements.codexAgentInstructions,
+  elements.claudeAgentInstructions,
+].forEach((field) => field.addEventListener('input', saveAgentInstructionSettings));
+[
+  elements.codexUsesSharedInstructions,
+  elements.claudeUsesSharedInstructions,
+].forEach((field) => field.addEventListener('change', saveAgentInstructionSettings));
 function openNewApiConnection() {
   showSettings('agents');
   apiConnectionsUI.openEditor();
@@ -2396,6 +2468,7 @@ document.querySelectorAll('.suggestion').forEach((button) => {
 });
 
 loadPreferences();
+renderAgentInstructionSettings();
 if (!state.provider && activeConversation()?.provider) {
   const conversation = activeConversation();
   state.provider = conversation.provider;

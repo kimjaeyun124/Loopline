@@ -486,6 +486,16 @@ kbd { margin-left: auto; color: var(--muted); font-family: inherit; font-size: 1
 .settings-panel-heading { margin-bottom: 22px; }
 .settings-panel-heading h3 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -.025em; }
 .settings-panel-heading p { margin: 8px 0 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.instruction-field { margin-top: 0; }
+.instruction-field textarea { min-height: 112px; }
+.agent-instruction-provider { margin-top: 16px; padding: 16px; border: 1px solid var(--line); border-radius: 12px; }
+.agent-instruction-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.agent-instruction-heading > div { display: flex; align-items: center; gap: 9px; }
+.agent-instruction-heading h4 { margin: 0; color: var(--ink); font-size: 14px; font-weight: 600; }
+.agent-instruction-heading code { padding: 3px 6px; border-radius: 5px; background: var(--soft); color: var(--muted); font-size: 10px; }
+.instruction-shared-toggle { display: inline-flex; align-items: center; gap: 7px; color: var(--secondary); font-size: 11px; white-space: nowrap; cursor: pointer; }
+.instruction-shared-toggle input { width: 14px; height: 14px; margin: 0; accent-color: var(--accent); }
+.agent-instruction-save-status { margin: 14px 0 0; color: var(--muted); font-size: 11px; }
 .usage-status-summary { margin: -8px 0 18px; color: var(--muted); font-size: 11px; line-height: 1.6; }
 .usage-accounts { display: flex; flex-direction: column; gap: 12px; }
 .usage-account-card { padding: 17px; border: 1px solid var(--line); border-radius: 12px; }
@@ -771,6 +781,8 @@ kbd { margin-left: auto; color: var(--muted); font-family: inherit; font-size: 1
   .settings-tabs > button > span { white-space: nowrap; }
   .settings-tabs .ui-icon, #apiConnectionCount { display: none; }
   .settings-content { padding: 20px 16px; }
+  .agent-instruction-provider { padding: 13px; }
+  .agent-instruction-heading { align-items: flex-start; flex-direction: column; gap: 12px; }
   .settings-import-card { gap: 10px; padding: 14px 12px; }
   .settings-import-icon { width: 34px; height: 34px; flex-basis: 34px; border-radius: 10px; }
   .settings-import-copy strong { font-size: 13px; }

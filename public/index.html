@@ -236,7 +236,7 @@
 
     <div class="modal-backdrop" id="settingsModal" hidden>
       <section class="settings-modal settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
-        <div class="modal-header"><div><h2 id="settingsTitle">설정</h2><p class="settings-subtitle">계정과 모델, 대화 기록, 화면을 관리하세요.</p></div><button class="icon-button close-modal" id="closeSettings" type="button" aria-label="설정 닫기"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#close"></use></svg></button></div>
+        <div class="modal-header"><div><h2 id="settingsTitle">설정</h2><p class="settings-subtitle">계정, 모델, 작업 지침, 대화 기록과 화면을 관리하세요.</p></div><button class="icon-button close-modal" id="closeSettings" type="button" aria-label="설정 닫기"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#close"></use></svg></button></div>
         <div class="settings-layout">
         <div class="settings-tabs" role="tablist" aria-label="설정 메뉴" aria-orientation="vertical">
           <button type="button" id="usageTab" role="tab" aria-controls="usagePanel" aria-selected="false" tabindex="-1" data-settings-tab="usage"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#gauge"></use></svg><span>Usage</span></button>
@@ -244,6 +244,7 @@
           <button type="button" id="agentsTab" role="tab" aria-controls="agentsPanel" aria-selected="false" tabindex="-1" data-settings-tab="agents"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#plug"></use></svg><span>API 에이전트</span><span id="apiConnectionCount">0</span></button>
           <button type="button" id="modelsTab" role="tab" aria-controls="modelsPanel" aria-selected="false" tabindex="-1" data-settings-tab="models"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#sliders"></use></svg><span>모델 표시</span></button>
           <button type="button" id="historyTab" role="tab" aria-controls="historyPanel" aria-selected="false" tabindex="-1" data-settings-tab="history"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#import"></use></svg><span>대화 가져오기</span></button>
+          <button type="button" id="instructionsTab" role="tab" aria-controls="instructionsPanel" aria-selected="false" tabindex="-1" data-settings-tab="instructions"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#pen"></use></svg><span>작업 지침</span></button>
           <button type="button" id="appearanceTab" role="tab" aria-controls="appearancePanel" aria-selected="false" tabindex="-1" data-settings-tab="appearance"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#moon"></use></svg><span>화면</span></button>
         </div>
         <div class="settings-content">
@@ -278,6 +279,20 @@
           <div class="model-visibility-actions"><p id="modelVisibilitySummary" role="status"></p><div><button class="secondary-button" id="showAllModels" type="button">모두 표시</button><button class="secondary-button" id="hideAllModels" type="button">모두 숨기기</button></div></div>
           <div id="modelVisibilityList"></div>
           <p class="settings-footnote">변경 사항은 자동으로 저장됩니다. 숨겨도 현재 사용 중인 모델과 기존 대화는 유지됩니다. 새로 추가된 모델은 기본으로 표시됩니다.</p>
+        </div>
+        <div id="instructionsPanel" role="tabpanel" aria-labelledby="instructionsTab" data-settings-panel="instructions" hidden>
+          <div class="settings-panel-heading"><h3>에이전트 작업 지침</h3><p>공통 규칙을 Codex와 Claude Code에 함께 적용하고, 필요한 내용은 각 도구별로 다르게 작성할 수 있습니다.</p></div>
+          <label class="project-field instruction-field"><span>공통 지침 <small>두 도구와 연결된 API 에이전트에 적용할 기본 규칙</small></span><textarea id="sharedAgentInstructions" rows="7" maxlength="12000" placeholder="예: 변경 전에 관련 코드를 확인하고, 요청 범위 안에서 수정한 뒤 결과를 요약해 주세요."></textarea></label>
+          <section class="agent-instruction-provider" aria-labelledby="codexInstructionsTitle">
+            <div class="agent-instruction-heading"><div><h4 id="codexInstructionsTitle">Codex</h4><code>AGENTS.md</code></div><label class="instruction-shared-toggle"><input id="codexUsesSharedInstructions" type="checkbox" checked />공통 지침 함께 적용</label></div>
+            <label class="project-field instruction-field"><span>Codex 전용 지침 <small>공통 지침에 더해 Codex에만 전달됩니다.</small></span><textarea id="codexAgentInstructions" rows="5" maxlength="8000" placeholder="예: Codex 앱 서버 대화에서는 먼저 저장소 상태와 작업 지침을 확인해 주세요."></textarea></label>
+          </section>
+          <section class="agent-instruction-provider" aria-labelledby="claudeInstructionsTitle">
+            <div class="agent-instruction-heading"><div><h4 id="claudeInstructionsTitle">Claude Code</h4><code>CLAUDE.md</code></div><label class="instruction-shared-toggle"><input id="claudeUsesSharedInstructions" type="checkbox" checked />공통 지침 함께 적용</label></div>
+            <label class="project-field instruction-field"><span>Claude Code 전용 지침 <small>공통 지침에 더해 Claude Code에만 전달됩니다.</small></span><textarea id="claudeAgentInstructions" rows="5" maxlength="8000" placeholder="예: Claude Code CLI 환경에 맞는 명령과 권한 확인 방식을 작성해 주세요."></textarea></label>
+          </section>
+          <p class="agent-instruction-save-status" id="agentInstructionsSaveStatus" role="status">변경 사항은 자동 저장됩니다.</p>
+          <p class="settings-footnote">Markdown 지침은 Loopline의 요청에 포함됩니다. Mac의 AGENTS.md·CLAUDE.md 파일을 직접 만들거나 덮어쓰지는 않습니다. ChatGPT·Gemini 공식 웹 대화에는 전달되지 않습니다.</p>
         </div>
         <div id="appearancePanel" role="tabpanel" aria-labelledby="appearanceTab" data-settings-panel="appearance" hidden>
           <div class="settings-panel-heading"><h3>화면</h3><p>앱 전체에 사용할 테마를 선택하세요.</p></div>

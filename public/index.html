@@ -73,8 +73,8 @@
         <header class="topbar">
           <div class="topbar-leading">
             <button class="mobile-menu icon-button" id="mobileMenu" type="button" title="사이드바 열기" aria-label="사이드바 열기" aria-expanded="false" aria-controls="sidebar"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#sidebar"></use></svg></button>
-            <button class="select-button model-picker-button" type="button" id="modelSelectButton" aria-label="모델 선택" aria-haspopup="dialog" aria-expanded="false" aria-controls="modelMenu">
-              <span id="selectedModelLabel">모델 선택</span><svg class="ui-icon chevron" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#chevron-down"></use></svg>
+            <button class="select-button model-picker-button" type="button" id="providerSelectButton" aria-label="모델 추가" aria-haspopup="dialog" aria-expanded="false" aria-controls="modelMenu">
+              <span id="selectedProviderLabel">모델 추가</span><svg class="ui-icon chevron" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#chevron-down"></use></svg>
             </button>
           </div>
           <div class="mode-label" id="modeLabel">새 작업</div>
@@ -108,8 +108,9 @@
             <textarea id="messageInput" rows="1" placeholder="작업이나 아이디어를 이야기해 주세요" aria-label="메시지 입력"></textarea>
             <div class="composer-toolbar">
               <div class="composer-left">
+                <button class="composer-tools composer-model-picker" id="modelSelectButton" type="button" aria-label="세부 모델 선택" aria-haspopup="dialog" aria-expanded="false" aria-controls="modelMenu" hidden><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#sparkles"></use></svg><span id="selectedModelLabel">모델 선택</span><svg class="ui-icon chevron" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#chevron-down"></use></svg></button>
                 <button class="composer-tools" id="composerConnections" type="button" title="계정 및 API 연결 관리"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#sliders"></use></svg><span>연결</span></button>
-                <button class="fast-mode-toggle" id="fastModeToggle" type="button" aria-pressed="false" title="Fast 모드"><svg class="ui-icon fast-mode-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#bolt"></use></svg><span>Fast</span></button>
+                <button class="fast-mode-toggle" id="fastModeToggle" type="button" aria-pressed="false" title="Fast 모드" hidden><svg class="ui-icon fast-mode-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#bolt"></use></svg><span>Fast</span></button>
                 <div class="composer-reasoning" id="composerReasoningControl" hidden>
                   <label for="composerReasoningEffortSelect"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#reasoning"></use></svg><span>추론</span></label>
                   <select id="composerReasoningEffortSelect" aria-label="추론 강도"></select>
@@ -129,10 +130,11 @@
           <p class="disclaimer">AI는 실수를 할 수 있습니다. 중요한 정보는 다시 확인하세요.</p>
         </footer>
         <div class="model-menu" id="modelMenu" role="dialog" aria-label="모델 선택" hidden>
-          <div class="model-menu-heading"><strong>모델 선택</strong><button class="icon-button" type="button" id="closeModelMenu" aria-label="모델 목록 닫기"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#close"></use></svg></button></div>
+          <div class="model-menu-heading"><strong id="modelMenuTitle">연결 선택</strong><button class="icon-button" type="button" id="closeModelMenu" aria-label="선택 목록 닫기"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#close"></use></svg></button></div>
           <input id="modelSearch" type="search" placeholder="모델 검색…" aria-label="모델 검색" autocomplete="off" />
           <div class="model-options" id="modelOptions" role="listbox" aria-label="사용 가능한 모델"></div>
           <div class="model-menu-footer">
+            <button class="model-menu-add" id="manageProviderConnections" type="button"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#user"></use></svg><span>계정 연결</span></button>
             <button class="model-menu-add" id="manageModelVisibility" type="button"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#sliders"></use></svg><span>표시 설정</span></button>
             <button class="model-menu-add" id="addAgentFromModels" type="button"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#plus"></use></svg><span>API 에이전트 연결</span></button>
           </div>

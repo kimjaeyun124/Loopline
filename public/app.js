@@ -41,8 +41,8 @@ const state = {
   activeProjectId: null,
   editingProjectId: null,
   movingConversationId: null,
-  provider: 'openai',
-  model: 'gpt-5.6',
+  provider: '',
+  model: '',
   activeConnectionId: null,
   apiConnections: [],
   keyStorage: 'session',
@@ -95,6 +95,7 @@ const elements = {
   composerForm: document.querySelector('#composerForm'),
   messageInput: document.querySelector('#messageInput'),
   sendButton: document.querySelector('#sendButton'),
+  providerSelectButton: document.querySelector('#providerSelectButton'),
   modelSelectButton: document.querySelector('#modelSelectButton'),
   modelMenu: document.querySelector('#modelMenu'),
   modelSearch: document.querySelector('#modelSearch'),
@@ -111,6 +112,7 @@ const elements = {
   searchEmpty: document.querySelector('#searchEmpty'),
   toast: document.querySelector('#toast'),
 };
+let modelMenuMode = 'providers';
 const apiConnectionsUI = createApiConnectionsUI({ onChange: refreshApiConnections, showToast });
 const accountMenuUI = createAccountMenuUI({
   onOpen: () => { closeModelMenu(); void refreshStatus(); },
@@ -160,8 +162,8 @@ function loadConversations() {
       .map((item) => ({
         id: item.id,
         title: String(item.title || '새 대화').slice(0, 80),
-        provider: Object.hasOwn(PROVIDERS, item.provider) ? item.provider : 'openai',
-        model: String(item.model || 'gpt-5.6'),
+        provider: Object.hasOwn(PROVIDERS, item.provider) ? item.provider : '',
+        model: String(item.model || ''),
         connectionId: typeof item.connectionId === 'string' ? item.connectionId : null,
         codexThreadId: typeof item.codexThreadId === 'string' ? item.codexThreadId : null,
         codexAccountId: typeof item.codexAccountId === 'string' ? item.codexAccountId : 'default',
@@ -261,7 +263,7 @@ function loadPreferences() {
     if (typeof preferences.codexAccountId === 'string') state.activeCodexAccountId = preferences.codexAccountId;
     if (typeof preferences.activeProjectId === 'string') state.activeProjectId = preferences.activeProjectId;
     if (typeof preferences.fastMode === 'boolean') state.fastMode = preferences.fastMode;
-    if (typeof preferences.model === 'string') state.model = preferences.model;
+    if (state.provider && typeof preferences.model === 'string') state.model = preferences.model;
     if (typeof preferences.connectionId === 'string') state.activeConnectionId = preferences.connectionId;
     if (preferences.reasoningEfforts && typeof preferences.reasoningEfforts === 'object' && !Array.isArray(preferences.reasoningEfforts)) {
       for (const [key, effort] of Object.entries(preferences.reasoningEfforts).slice(0, 500)) {
@@ -282,7 +284,7 @@ function loadPreferences() {
       if (!Object.hasOwn(state.reasoningEfforts, key)) state.reasoningEfforts[key] = preferences.reasoningEffort;
     }
   } catch {
-    // 기본 모델 설정을 유지합니다.
+    // 선택 이력이 없거나 읽을 수 없으면 모델을 자동 지정하지 않습니다.
   }
 }
 
@@ -425,7 +427,7 @@ function modelsForProvider(providerId = state.provider) {
     return account?.models?.length ? account.models : PROVIDERS.openai.models;
   }
   if (providerId === 'api') return state.apiConnections.find((item) => item.id === state.activeConnectionId)?.models || [];
-  return PROVIDERS[providerId].models;
+  return PROVIDERS[providerId]?.models || [];
 }
 
 function codexUsageText(account) {
@@ -494,6 +496,23 @@ function modelKey(model) {
   return JSON.stringify([model.provider, model.connectionId || '', model.id]);
 }
 
+function providerCatalog() {
+  const codexCount = state.codexAccounts.filter((account) => account.connected).length;
+  return [
+    { provider: 'openai', label: 'Codex', connected: activeCodexAccount()?.connected === true, detail: codexCount ? `${codexCount}개 계정 연결됨` : '계정 로그인' },
+    { provider: 'anthropic', label: 'Claude Code', connected: state.providers.anthropic?.connected === true, detail: state.providers.anthropic?.connected ? '구독 계정 연결됨' : '계정 로그인' },
+    ...state.apiConnections.map((connection) => ({ provider: 'api', connectionId: connection.id, label: connection.name, connected: connection.connected, detail: connection.connected ? `${connection.models.length}개 모델 · API` : 'API 키 연결 필요' })),
+  ];
+}
+
+function providerKey(provider) {
+  return JSON.stringify([provider.provider, provider.connectionId || '']);
+}
+
+function isSelectedProvider(item) {
+  return item.provider === state.provider && (item.provider !== 'api' || item.connectionId === state.activeConnectionId);
+}
+
 function selectedModelKey() {
   return modelKey({ provider: state.provider, connectionId: state.provider === 'api' ? state.activeConnectionId : null, id: state.model });
 }
@@ -558,21 +577,43 @@ function renderReasoningSelect(settings, connected) {
 }
 
 function renderModelOptions() {
+  const selectingProvider = modelMenuMode === 'providers';
+  const provider = providerCatalog().find(isSelectedProvider);
+  const title = selectingProvider ? '연결 선택' : `${provider?.label || '세부'} 모델 선택`;
+  document.querySelector('#modelMenuTitle').textContent = title;
+  elements.modelMenu.setAttribute('aria-label', title);
+  elements.modelSearch.placeholder = selectingProvider ? '연결 검색…' : '모델 검색…';
+  elements.modelSearch.setAttribute('aria-label', selectingProvider ? '연결 검색' : '모델 검색');
+  elements.modelOptions.setAttribute('aria-label', selectingProvider ? '사용할 연결' : '사용 가능한 세부 모델');
+  document.querySelector('#manageProviderConnections').hidden = !selectingProvider;
+  document.querySelector('#manageModelVisibility').hidden = selectingProvider;
   const query = elements.modelSearch.value.trim().toLocaleLowerCase();
-  const visibleModels = modelCatalog().filter(modelVisibilityUI.isVisible);
+  if (selectingProvider) {
+    const providers = providerCatalog().filter((item) => item.label.toLocaleLowerCase().includes(query));
+    elements.modelOptions.innerHTML = providers.map((item) => {
+      const selected = isSelectedProvider(item);
+      return `<button class="model-option${selected ? ' selected' : ''}" type="button" role="option" aria-selected="${selected}" data-provider-key="${escapeHtml(providerKey(item))}"${state.busy ? ' disabled' : ''}><span><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.detail)}</small></span><span class="model-check" aria-hidden="true">${selected ? icon('check') : icon('chevron-right')}</span></button>`;
+    }).join('') || '<p class="model-empty">일치하는 연결이 없습니다. 아래에서 계정이나 API 에이전트를 연결하세요.</p>';
+    if (!elements.modelMenu.hidden) positionModelMenu();
+    return;
+  }
+  const scopedModels = modelCatalog().filter(isSelectedProvider);
+  const visibleModels = scopedModels.filter(modelVisibilityUI.isVisible);
   const models = visibleModels.filter((model) => `${model.label} ${model.id} ${model.source}`.toLocaleLowerCase().includes(query));
   elements.modelOptions.innerHTML = models.slice(0, 200).map((model) => {
     const selected = modelKey(model) === selectedModelKey();
     return `<button class="model-option${selected ? ' selected' : ''}" type="button" role="option" aria-selected="${selected}" data-model-key="${escapeHtml(modelKey(model))}"${!model.connected || state.busy ? ' disabled' : ''}><span><strong>${escapeHtml(model.label)}</strong><small>${escapeHtml(model.source)}${!model.connected ? ' · 연결 필요' : ''}</small></span><span class="model-check" aria-hidden="true">${selected ? icon('check') : ''}</span></button>`;
   }).join('') || (visibleModels.length
     ? '<p class="model-empty">일치하는 모델이 없습니다.<br>검색어를 바꾸거나 아래 표시 설정을 확인하세요.</p>'
-    : '<p class="model-empty">표시할 모델이 없습니다.<br>아래 표시 설정에서 사용할 모델을 켜 주세요.</p>');
+    : scopedModels.length
+      ? '<p class="model-empty">표시할 모델이 없습니다.<br>아래 표시 설정에서 사용할 모델을 켜 주세요.</p>'
+      : '<p class="model-empty">모델 목록이 없습니다. 연결 설정에서 연결 상태와 모델 목록을 새로고침해 주세요.</p>');
   if (models.length > 200) elements.modelOptions.insertAdjacentHTML('beforeend', '<p class="model-empty">더 많은 모델은 이름으로 검색하세요.</p>');
   if (!elements.modelMenu.hidden) positionModelMenu();
 }
 
 function positionModelMenu() {
-  const anchor = elements.modelSelectButton.getBoundingClientRect();
+  const anchor = (modelMenuMode === 'providers' ? elements.providerSelectButton : elements.modelSelectButton).getBoundingClientRect();
   const below = innerHeight - anchor.bottom - 16;
   const above = anchor.top - 16;
   const openBelow = below >= 320 || below > above;
@@ -583,8 +624,22 @@ function positionModelMenu() {
 
 function closeModelMenu(restoreFocus = false) {
   elements.modelMenu.hidden = true;
+  elements.providerSelectButton.setAttribute('aria-expanded', 'false');
   elements.modelSelectButton.setAttribute('aria-expanded', 'false');
-  if (restoreFocus) elements.modelSelectButton.focus();
+  if (restoreFocus) (modelMenuMode === 'providers' ? elements.providerSelectButton : elements.modelSelectButton).focus();
+}
+
+function openModelMenu(mode) {
+  if (state.busy) return;
+  accountMenuUI.close();
+  modelMenuMode = mode === 'models' && state.provider ? 'models' : 'providers';
+  elements.modelSearch.value = '';
+  renderModelOptions();
+  elements.modelMenu.hidden = false;
+  positionModelMenu();
+  elements.providerSelectButton.setAttribute('aria-expanded', String(modelMenuMode === 'providers'));
+  elements.modelSelectButton.setAttribute('aria-expanded', String(modelMenuMode === 'models'));
+  elements.modelSearch.focus();
 }
 
 function renderAgentList() {
@@ -599,17 +654,25 @@ function renderAgentList() {
 
 function renderModelSelect() {
   const selected = modelCatalog().find((model) => modelKey(model) === selectedModelKey());
+  const provider = providerCatalog().find(isSelectedProvider);
   const reasoning = reasoningSettings();
+  document.querySelector('#selectedProviderLabel').textContent = provider?.label || (state.provider === 'api' ? 'API 연결' : '모델 추가');
+  elements.providerSelectButton.disabled = state.busy;
+  elements.providerSelectButton.title = provider ? `${provider.label} · 연결 선택` : '사용할 연결과 모델을 추가하세요.';
+  elements.providerSelectButton.setAttribute('aria-label', provider ? `연결 선택 · ${provider.label}` : '모델 추가');
   document.querySelector('#selectedModelLabel').textContent = selected?.label || state.model || '모델 선택';
+  elements.modelSelectButton.hidden = !state.provider;
   elements.modelSelectButton.disabled = state.busy;
   elements.modelSelectButton.title = selected ? `${selected.label} · ${selected.source}` : '사용 가능한 모델을 선택하세요.';
-  elements.modelSelectButton.setAttribute('aria-label', `모델 선택${selected ? ` · ${selected.label}` : ''}`);
+  elements.modelSelectButton.setAttribute('aria-label', `세부 모델 선택${selected ? ` · ${selected.label}` : ''}`);
   const codexAccount = state.provider === 'openai' ? activeCodexAccount() : null;
-  document.querySelector('#providerPillText').textContent = codexAccount ? codexAccountDisplayName(codexAccount) : selected?.source || '연결 필요';
-  document.querySelector('#providerDot').classList.toggle('connected', selected?.connected === true);
+  document.querySelector('#providerPillText').textContent = codexAccount ? codexAccountDisplayName(codexAccount) : provider?.label || '연결 관리';
+  document.querySelector('#providerDot').classList.toggle('connected', provider?.connected === true);
   renderReasoningSelect(reasoning, selected?.connected === true);
   if (!elements.modelMenu.hidden) renderModelOptions();
-  elements.fastModeToggle.hidden = state.provider !== 'openai';
+  elements.sendButton.disabled = !state.busy && !selected?.connected;
+  elements.sendButton.title = state.busy ? '응답 중지' : selected?.connected ? '메시지 보내기' : '먼저 연결과 모델을 선택하세요.';
+  elements.fastModeToggle.hidden = state.provider !== 'openai' || !state.model;
   elements.fastModeToggle.disabled = !selected?.connected || !reasoning.fastAvailable || state.busy;
   elements.fastModeToggle.classList.toggle('active', reasoning.fastEnabled);
   elements.fastModeToggle.setAttribute('aria-pressed', String(reasoning.fastEnabled));
@@ -635,7 +698,7 @@ function render() {
   renderModelSelect();
   modelVisibilityUI.render();
   accountMenuUI.update({
-    provider: state.provider,
+    provider: state.provider || 'openai',
     accountId: state.activeCodexAccountId,
     accounts: state.codexAccounts,
     claude: state.providers.anthropic || {},
@@ -778,8 +841,8 @@ async function refreshStatus() {
       PROVIDERS.openai.models = defaultModels.map((model) => ({ ...model }));
     }
     const codexModels = modelsForProvider('openai');
-    if (!state.busy && state.provider === 'openai' && codexModels.length && !codexModels.some((model) => model.id === state.model)) {
-      state.model = codexModels.find((model) => model.isDefault)?.id || codexModels[0].id;
+    if (!state.busy && state.provider === 'openai' && state.model && codexModels.length && !codexModels.some((model) => model.id === state.model)) {
+      state.model = '';
       savePreferences();
     }
     savePreferences();
@@ -1340,9 +1403,33 @@ function exportConversationMarkdown() {
   showToast('대화를 Markdown 파일로 내보냈습니다.');
 }
 
+function setProvider(key) {
+  if (state.busy) return;
+  const provider = providerCatalog().find((item) => providerKey(item) === key);
+  if (!provider) return;
+  if (!provider.connected) { showSettings(provider.provider === 'api' ? 'agents' : 'accounts'); return; }
+  if (!isSelectedProvider(provider)) {
+    state.provider = provider.provider;
+    state.activeConnectionId = provider.connectionId || null;
+    state.model = '';
+    state.fastMode = false;
+    const conversation = activeConversation();
+    if (conversation && !conversation.messages.length) {
+      conversation.provider = state.provider;
+      conversation.connectionId = state.activeConnectionId;
+      conversation.model = '';
+      conversation.codexAccountId = state.provider === 'openai' ? state.activeCodexAccountId : 'default';
+      saveConversations();
+    }
+    savePreferences();
+  }
+  render();
+  openModelMenu('models');
+}
+
 function setModel(key) {
   if (state.busy) return;
-  const model = modelCatalog().find((item) => modelKey(item) === key && item.connected);
+  const model = modelCatalog().find((item) => modelKey(item) === key && item.connected && isSelectedProvider(item));
   if (!model) return;
   state.provider = model.provider;
   state.activeConnectionId = model.connectionId || null;
@@ -1395,7 +1482,7 @@ function setCodexAccount(accountId) {
   state.activeCodexAccountId = account.id;
   if (state.provider === 'openai') {
     const models = account.models || [];
-    if (!models.some((model) => model.id === state.model)) state.model = models.find((model) => model.isDefault)?.id || models[0]?.id || '';
+    if (!models.some((model) => model.id === state.model)) state.model = '';
     const conversation = activeConversation();
     if (conversation?.provider === 'openai' && conversation.codexAccountId !== account.id) {
       conversation.codexAccountId = account.id;
@@ -1483,6 +1570,11 @@ async function streamResponse(response, assistantMessage, conversation) {
 async function sendMessage(value) {
   const message = value.trim();
   if (!message || state.busy) return;
+  if (!state.provider || !state.model) {
+    showToast('사용할 연결과 세부 모델을 선택해 주세요.');
+    openModelMenu(state.provider ? 'models' : 'providers');
+    return;
+  }
   const selected = modelCatalog().find((model) => modelKey(model) === selectedModelKey());
   if (!selected?.connected) {
     showToast('연결된 모델을 선택하거나 에이전트를 연결해 주세요.');
@@ -1629,10 +1721,7 @@ function selectConversation(conversation) {
       ? conversation.codexAccountId
       : 'default';
   }
-  const models = modelsForProvider(state.provider);
-  state.model = state.provider === 'api' || models.some((model) => model.id === conversation.model)
-    ? conversation.model
-    : models[0]?.id || '';
+  state.model = conversation.model || '';
   savePreferences();
   render();
   closeMobileSidebar();
@@ -1763,6 +1852,7 @@ document.querySelector('#addAgentSidebar').addEventListener('click', (event) => 
 });
 document.querySelector('#addAgentFromModels').addEventListener('click', openNewApiConnection);
 document.querySelector('#manageModelVisibility').addEventListener('click', () => showSettings('models'));
+document.querySelector('#manageProviderConnections').addEventListener('click', () => showSettings('accounts'));
 document.querySelector('#agentList').addEventListener('click', (event) => {
   const button = event.target.closest('[data-agent-tab]');
   if (button) showSettings(button.dataset.agentTab);
@@ -1878,17 +1968,21 @@ elements.conversationList.addEventListener('keydown', (event) => {
   if ((event.key === 'Enter' || event.key === ' ') && event.target.matches('.conversation-row')) event.target.click();
 });
 
-elements.modelSelectButton.addEventListener('click', () => {
-  if (!elements.modelMenu.hidden) { closeModelMenu(true); return; }
-  elements.modelSearch.value = '';
-  renderModelOptions();
-  elements.modelMenu.hidden = false;
-  positionModelMenu();
-  elements.modelSelectButton.setAttribute('aria-expanded', 'true');
-  elements.modelSearch.focus();
-});
+for (const [button, mode] of [[elements.providerSelectButton, 'providers'], [elements.modelSelectButton, 'models']]) {
+  button.addEventListener('click', () => {
+    if (!elements.modelMenu.hidden && modelMenuMode === mode) { closeModelMenu(true); return; }
+    openModelMenu(mode);
+  });
+}
 elements.modelSearch.addEventListener('input', renderModelOptions);
 elements.modelOptions.addEventListener('click', (event) => {
+  const providerButton = event.target.closest('[data-provider-key]');
+  if (providerButton) {
+    // Keep the next menu open after replacing the clicked connection row.
+    event.stopPropagation();
+    setProvider(providerButton.dataset.providerKey);
+    return;
+  }
   const button = event.target.closest('[data-model-key]');
   if (button) setModel(button.dataset.modelKey);
 });
@@ -1897,7 +1991,7 @@ elements.modelMenu.addEventListener('keydown', (event) => {
   if (event.key === 'Enter' && event.target === elements.modelSearch) {
     event.preventDefault();
     const first = elements.modelOptions.querySelector('button:not(:disabled)');
-    if (first) setModel(first.dataset.modelKey);
+    if (first) first.click();
     return;
   }
   if (!['ArrowDown', 'ArrowUp'].includes(event.key)) return;
@@ -1908,11 +2002,11 @@ elements.modelMenu.addEventListener('keydown', (event) => {
   items[next].focus();
 });
 elements.modelMenu.addEventListener('focusout', () => {
-  requestAnimationFrame(() => { if (!elements.modelMenu.contains(document.activeElement) && document.activeElement !== elements.modelSelectButton) closeModelMenu(); });
+  requestAnimationFrame(() => { if (!elements.modelMenu.contains(document.activeElement) && ![elements.providerSelectButton, elements.modelSelectButton].includes(document.activeElement)) closeModelMenu(); });
 });
 document.addEventListener('click', (event) => {
   if (!elements.conversationActions.contains(event.target)) elements.conversationActions.open = false;
-  if (!elements.modelMenu.hidden && !elements.modelMenu.contains(event.target) && !elements.modelSelectButton.contains(event.target)) {
+  if (!elements.modelMenu.hidden && !elements.modelMenu.contains(event.target) && !elements.providerSelectButton.contains(event.target) && !elements.modelSelectButton.contains(event.target)) {
     closeModelMenu();
   }
 });
@@ -1945,6 +2039,13 @@ document.querySelectorAll('.suggestion').forEach((button) => {
 });
 
 loadPreferences();
+if (!state.provider && activeConversation()?.provider) {
+  const conversation = activeConversation();
+  state.provider = conversation.provider;
+  state.model = conversation.model;
+  state.activeConnectionId = conversation.connectionId;
+  if (state.provider === 'openai') state.activeCodexAccountId = conversation.codexAccountId;
+}
 updateSidebarControls();
 render();
 refreshStatus();

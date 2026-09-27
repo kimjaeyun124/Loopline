@@ -226,6 +226,12 @@ kbd { margin-left: auto; color: #898989; font-family: inherit; font-size: 10px; 
 .account-use-button { min-width: 58px; height: 27px; padding: 0 8px; border: 1px solid #e1e1e1; border-radius: 7px; background: #fff; color: #444; font-size: 9px; font-weight: 550; cursor: pointer; }
 .account-use-button:hover { background: #f5f5f5; }
 .account-use-button:disabled { background: #f4f4f4; color: #777; cursor: default; }
+.account-button-group { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
+.account-unlink-button, .account-delete-button, .account-cancel-button { height: 27px; padding: 0 8px; border: 1px solid #e1e1e1; border-radius: 7px; background: #fff; color: #555; font-size: 9px; font-weight: 550; cursor: pointer; }
+.account-unlink-button:hover, .account-cancel-button:hover { background: #f5f5f5; }
+.account-delete-button { border-color: #ecd8d5; color: #a34f45; }
+.account-delete-button:hover { background: #fff8f7; }
+.account-unlink-button:disabled, .account-delete-button:disabled, .account-cancel-button:disabled { opacity: .55; cursor: wait; }
 .connection-details { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 4px; }
 .connection-details strong { font-size: 11px; font-weight: 600; }
 .connection-details small { color: #777; font-size: 10px; }
@@ -237,6 +243,8 @@ kbd { margin-left: auto; color: #898989; font-family: inherit; font-size: 10px; 
 .connect-button:hover { background: #f6f6f6; }
 .connect-button:disabled { opacity: .5; cursor: wait; }
 .connect-button.connected { border-color: #dce9de; background: #eef5ef; color: #497c55; cursor: default; }
+.connect-button.disconnect-button { border-color: #ecd8d5; color: #a34f45; }
+.connect-button.disconnect-button:hover { background: #fff8f7; }
 .install-command { max-width: 190px; overflow-wrap: anywhere; color: #666; font-size: 9px; }
 .install-command[hidden], .login-feedback[hidden] { display: none; }
 .login-feedback { max-height: 96px; overflow: auto; margin-top: 10px; padding: 9px 10px; border: 1px solid #e8e8e8; border-radius: 8px; background: #f8f8f8; color: #555; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 9px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }

@@ -27,6 +27,7 @@ const providers = {
     command: 'claude',
     statusArgs: ['auth', 'status', '--json'],
     loginArgs: ['auth', 'login', '--claudeai'],
+    logoutArgs: ['auth', 'logout'],
     installCommand: 'npm install -g @anthropic-ai/claude-code',
   },
 };
@@ -35,6 +36,7 @@ const modelAllowlist = { anthropic: new Set(['claude-sonnet-5', 'claude-opus-5',
 const loginJobs = new Map();
 const codexAccountContexts = new Map();
 const openAiStatusCache = new Map();
+const deletingCodexAccounts = new Set();
 let codexAccountsPromise;
 let codexAccountWrites = Promise.resolve();
 const locallyDisconnectedCodexAccounts = new Set();
@@ -172,6 +174,9 @@ async function createCodexAccount(name) {
 }
 
 async function getCodexAccountContext(accountId = 'default') {
+  if (deletingCodexAccounts.has(accountId)) {
+    throw Object.assign(new Error('Codex 계정을 삭제 중입니다.'), { status: 409 });
+  }
   const accounts = await getCodexAccounts();
   const account = accounts.get(accountId);
   if (!account) throw Object.assign(new Error('Codex 계정을 찾을 수 없습니다.'), { status: 404 });
@@ -243,7 +248,7 @@ async function readOpenAiProviderStatus(accountId = 'default') {
       installed: true,
       connected: false,
       disconnected: true,
-      label: 'Mosaic에서 연결 해제됨',
+      label: '로그아웃됨',
       installCommand: providers.openai.installCommand,
       models: [],
     };
@@ -389,6 +394,27 @@ async function anthropicProviderStatus() {
         : 'Claude Code CLI에 로그인한 뒤 /usage에서 플랜 사용 한도를 확인하세요.',
     },
   };
+}
+
+async function disconnectAnthropicAccount() {
+  const loginJob = loginJobs.get('anthropic');
+  if (loginJob && ['starting', 'running'].includes(loginJob.state)) {
+    throw Object.assign(new Error('Claude 로그인이 진행 중입니다. 로그인이 끝난 뒤 연결을 해제해 주세요.'), { status: 409 });
+  }
+  const status = await anthropicProviderStatus();
+  if (!status.installed) {
+    throw Object.assign(new Error('Claude Code CLI가 설치되어 있지 않습니다.'), { status: 503 });
+  }
+  if (!status.connected) return { disconnected: true };
+
+  const result = await captureCommand('anthropic', providers.anthropic.logoutArgs, 20_000);
+  if (!result.available || result.timedOut || result.code !== 0) {
+    throw Object.assign(new Error('Claude Code CLI에서 로그아웃하지 못했습니다. CLI 상태를 확인한 뒤 다시 시도해 주세요.'), { status: 502 });
+  }
+  if ((await anthropicProviderStatus()).connected) {
+    throw Object.assign(new Error('Claude Code CLI가 아직 로그인 상태입니다. 연결 상태를 새로고침해 주세요.'), { status: 502 });
+  }
+  return { disconnected: true };
 }
 
 async function allProviderStatuses() {
@@ -596,6 +622,8 @@ async function startOpenAiLogin(accountId = 'default') {
   const operation = (async () => {
     try {
       if (locallyDisconnectedCodexAccounts.has(accountId)) {
+        const client = await getCodexAppServer(context);
+        await client.request('account/logout', null, 15_000);
         locallyDisconnectedCodexAccounts.delete(accountId);
         try {
           await queueCodexAccountWrite(async () => persistCodexAccounts(await getCodexAccounts()));
@@ -604,12 +632,6 @@ async function startOpenAiLogin(accountId = 'default') {
           throw error;
         }
         invalidateOpenAiStatus(accountId);
-        const savedAuth = await readOpenAiProviderStatus(accountId);
-        if (savedAuth.connected) {
-          job.state = 'finished';
-          job.exitCode = 0;
-          return { state: job.state, authUrl: null, connected: true };
-        }
       }
       const client = await getCodexAppServer(context);
       const result = await client.request('account/login/start', {
@@ -671,23 +693,87 @@ async function cancelOpenAiLogin(accountId) {
 }
 
 async function disconnectCodexAccount(accountId) {
-  const context = await getCodexAccountContext(accountId);
-  if (context.activeTurns.size || context.pendingChatRequests.size) {
-    throw Object.assign(new Error('Codex 응답이 진행 중입니다. 완료하거나 중지한 뒤 연결을 해제해 주세요.'), { status: 409 });
-  }
-  if (context.loginJob && ['starting', 'running'].includes(context.loginJob.state)) {
-    throw Object.assign(new Error('로그인이 진행 중입니다. 먼저 로그인 취소를 실행해 주세요.'), { status: 409 });
-  }
-  locallyDisconnectedCodexAccounts.add(accountId);
-  invalidateOpenAiStatus(accountId);
-  try {
-    await queueCodexAccountWrite(async () => persistCodexAccounts(await getCodexAccounts()));
-  } catch (error) {
-    locallyDisconnectedCodexAccounts.delete(accountId);
+  return queueCodexAccountWrite(async () => {
+    const context = await getCodexAccountContext(accountId);
+    if (context.activeTurns.size || context.pendingChatRequests.size) {
+      throw Object.assign(new Error('Codex 응답이 진행 중입니다. 완료하거나 중지한 뒤 연결을 해제해 주세요.'), { status: 409 });
+    }
+    if (context.loginJob && ['starting', 'running'].includes(context.loginJob.state)) {
+      throw Object.assign(new Error('로그인이 진행 중입니다. 먼저 로그인 취소를 실행해 주세요.'), { status: 409 });
+    }
+    const client = await getCodexAppServer(context);
+    await client.request('account/logout', null, 15_000);
+    locallyDisconnectedCodexAccounts.add(accountId);
     invalidateOpenAiStatus(accountId);
-    throw error;
+    try {
+      await persistCodexAccounts(await getCodexAccounts());
+    } catch (error) {
+      locallyDisconnectedCodexAccounts.delete(accountId);
+      invalidateOpenAiStatus(accountId);
+      throw error;
+    }
+    return { disconnected: true, accountId };
+  });
+}
+
+async function deleteCodexAccount(accountId) {
+  if (accountId === 'default') {
+    throw Object.assign(new Error('기본 Codex 계정은 목록에서 삭제할 수 없습니다. 연결 해제를 사용해 주세요.'), { status: 400 });
   }
-  return { disconnected: true, accountId };
+  if (!/^[0-9a-f-]{36}$/i.test(accountId)) {
+    throw Object.assign(new Error('삭제할 Codex 계정 식별자가 올바르지 않습니다.'), { status: 400 });
+  }
+
+  return queueCodexAccountWrite(async () => {
+    const accounts = await getCodexAccounts();
+    const account = accounts.get(accountId);
+    if (!account || account.isDefault) {
+      throw Object.assign(new Error('삭제할 추가 Codex 계정을 찾을 수 없습니다.'), { status: 404 });
+    }
+    const context = await getCodexAccountContext(accountId);
+    deletingCodexAccounts.add(accountId);
+    try {
+      if (context.activeTurns.size || context.pendingChatRequests.size) {
+        throw Object.assign(new Error('Codex 응답이 진행 중입니다. 완료하거나 중지한 뒤 계정을 삭제해 주세요.'), { status: 409 });
+      }
+      const loginJob = context.loginJob;
+      if (loginJob && ['starting', 'running'].includes(loginJob.state)) {
+        loginJob.cancelRequested = true;
+        if (context.loginPromise) await context.loginPromise.catch(() => {});
+        await cancelOpenAiLoginJob(context, loginJob);
+      }
+
+      if (context.client?.ready) await context.client.request('account/logout', null, 15_000);
+      context.client?.stop();
+      context.client = null;
+      context.clientPromise = null;
+
+      const sandboxDir = await context.sandboxDirPromise?.catch(() => null);
+      accounts.delete(accountId);
+      locallyDisconnectedCodexAccounts.delete(accountId);
+      try {
+        await persistCodexAccounts(accounts);
+      } catch (error) {
+        accounts.set(accountId, account);
+        locallyDisconnectedCodexAccounts.add(accountId);
+        throw error;
+      }
+      try {
+        await rm(join(codexAccountsDir, accountId), { recursive: true, force: true });
+      } catch (error) {
+        accounts.set(accountId, account);
+        locallyDisconnectedCodexAccounts.add(accountId);
+        await persistCodexAccounts(accounts).catch(() => {});
+        throw error;
+      }
+      codexAccountContexts.delete(accountId);
+      invalidateOpenAiStatus(accountId);
+      if (sandboxDir) await rm(sandboxDir, { recursive: true, force: true }).catch(() => {});
+      return { deleted: true, accountId };
+    } finally {
+      deletingCodexAccounts.delete(accountId);
+    }
+  });
 }
 
 function isAllowedChatGptAuthUrl(value) {
@@ -1089,8 +1175,11 @@ async function relayChat(req, res) {
       : '';
     if (provider === 'openai') {
       reservedContext = await getCodexAccountContext(codexAccountId);
+      if (deletingCodexAccounts.has(codexAccountId)) {
+        return json(res, 409, { error: 'Codex 계정을 삭제 중입니다. 잠시 후 다시 시도해 주세요.' });
+      }
       if (locallyDisconnectedCodexAccounts.has(codexAccountId)) {
-        return json(res, 401, { error: 'Mosaic에서 연결 해제된 Codex 계정입니다. 다시 연결해 주세요.' });
+        return json(res, 401, { error: '로그아웃된 Codex 계정입니다. 다시 로그인해 주세요.' });
       }
       reservation = Symbol('codex-chat-request');
       reservedContext.pendingChatRequests.add(reservation);
@@ -1207,6 +1296,21 @@ const server = createServer(async (req, res) => {
       return json(res, 200, result);
     } catch (error) {
       return json(res, error.status || 502, { error: error.message || 'Codex 계정 상태를 변경하지 못했습니다.' });
+    }
+  }
+  const codexAccountDeleteMatch = url.pathname.match(/^\/api\/codex\/accounts\/([0-9a-f-]{36})$/i);
+  if (req.method === 'DELETE' && codexAccountDeleteMatch) {
+    try {
+      return json(res, 200, await deleteCodexAccount(codexAccountDeleteMatch[1]));
+    } catch (error) {
+      return json(res, error.status || 502, { error: error.message || 'Codex 계정을 삭제하지 못했습니다.' });
+    }
+  }
+  if (req.method === 'POST' && url.pathname === '/api/disconnect/anthropic') {
+    try {
+      return json(res, 200, await disconnectAnthropicAccount());
+    } catch (error) {
+      return json(res, error.status || 502, { error: error.message || 'Claude 연결을 해제하지 못했습니다.' });
     }
   }
   const connectMatch = url.pathname.match(/^\/api\/connect\/(openai|anthropic)$/);

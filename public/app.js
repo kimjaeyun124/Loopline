@@ -45,6 +45,8 @@ const state = {
   controller: null,
   codexAccounts: [],
   activeCodexAccountId: 'default',
+  busyCodexAccountIds: new Set(),
+  busyClaudeDisconnect: false,
 };
 state.activeId = [...state.conversations].sort((a, b) => b.updatedAt - a.updatedAt)[0]?.id || null;
 
@@ -304,8 +306,15 @@ function renderCodexAccounts() {
     const selected = account.id === state.activeCodexAccountId;
     const job = account.loginJob;
     const waiting = job?.state === 'starting' || job?.state === 'running';
+    const busy = state.busyCodexAccountIds.has(account.id);
     const loginLabel = waiting ? '로그인 중' : account.installed ? '로그인' : 'CLI 설치 필요';
     const accountHint = [account.accountEmail, account.planType || (!account.accountEmail ? account.label : '')].filter(Boolean).join(' · ') || 'Codex 계정';
+    const accountActions = account.connected
+      ? `<button class="account-use-button" type="button" data-use-codex-account="${escapeHtml(account.id)}"${selected || busy ? ' disabled' : ''}>${selected ? '선택됨' : '사용'}</button><button class="account-unlink-button" type="button" data-disconnect-codex-account="${escapeHtml(account.id)}"${busy ? ' disabled' : ''}>${busy ? '처리 중…' : '연결 해제'}</button>`
+      : waiting
+        ? `<button class="account-cancel-button" type="button" data-cancel-codex-login="${escapeHtml(account.id)}"${busy ? ' disabled' : ''}>로그인 취소</button>`
+        : `<button class="connect-button" type="button" data-connect-codex-account="${escapeHtml(account.id)}"${!account.installed || busy ? ' disabled' : ''}>${account.disconnected ? '다시 연결' : loginLabel}</button>${!account.disconnected ? `<button class="account-unlink-button" type="button" data-disconnect-codex-account="${escapeHtml(account.id)}"${busy ? ' disabled' : ''}>연결 해제</button>` : ''}`;
+    const deleteAction = account.isDefault ? '' : `<button class="account-delete-button" type="button" data-delete-codex-account="${escapeHtml(account.id)}"${busy ? ' disabled' : ''}>삭제</button>`;
     return `<article class="codex-account-card${selected ? ' active' : ''}">
       <span class="connection-logo openai-logo">◉</span>
       <div class="connection-details"><div class="codex-account-title"><strong>${escapeHtml(account.name)}</strong>${selected ? '<span class="active-account-badge">사용 중</span>' : ''}</div>
@@ -313,12 +322,8 @@ function renderCodexAccounts() {
         <small class="usage-status">${escapeHtml(codexUsageText(account))}</small>
         ${!account.installed && account.installCommand ? `<code class="install-command">${escapeHtml(account.installCommand)}</code>` : ''}
       </div>
-      <div class="connection-actions"><span class="connection-status${account.connected ? ' ready' : ''}">${account.connected ? '연결됨' : waiting ? '인증 중' : account.disconnected ? 'Mosaic 연결 해제됨' : '로그인 필요'}</span>
-        ${account.connected
-          ? `<div class="account-button-group"><button class="account-use-button" type="button" data-use-codex-account="${escapeHtml(account.id)}"${selected ? ' disabled' : ''}>${selected ? '선택됨' : '사용'}</button><button class="account-unlink-button" type="button" data-disconnect-codex-account="${escapeHtml(account.id)}">연결 해제</button></div>`
-          : waiting
-            ? `<button class="account-cancel-button" type="button" data-cancel-codex-login="${escapeHtml(account.id)}">로그인 취소</button>`
-            : `<div class="account-button-group"><button class="connect-button" type="button" data-connect-codex-account="${escapeHtml(account.id)}"${!account.installed ? ' disabled' : ''}>${account.disconnected ? '다시 연결' : loginLabel}</button>${!account.disconnected ? `<button class="account-unlink-button" type="button" data-disconnect-codex-account="${escapeHtml(account.id)}">연결 해제</button>` : ''}</div>`}
+      <div class="connection-actions"><span class="connection-status${account.connected ? ' ready' : ''}">${account.connected ? '연결됨' : waiting ? '인증 중' : account.disconnected ? '로그아웃됨' : '로그인 필요'}</span>
+        <div class="account-button-group">${accountActions}${deleteAction}</div>
       </div>
     </article>`;
   }).join('');
@@ -411,9 +416,11 @@ function updateConnectionControls() {
   document.querySelector('#anthropicStatus').textContent = anthropic.label || '상태 확인 실패';
   document.querySelector('#anthropicStatus').classList.toggle('ready', anthropic.connected === true);
   const claudeButton = document.querySelector('#connectClaude');
-  claudeButton.textContent = anthropic.connected ? '연결됨' : claudeJob?.state === 'running' || claudeJob?.state === 'starting' ? '진행 중' : anthropic.installed ? '로그인' : '설치 필요';
-  claudeButton.disabled = anthropic.connected === true || anthropic.installed !== true || claudeJob?.state === 'running' || claudeJob?.state === 'starting';
-  claudeButton.classList.toggle('connected', anthropic.connected === true);
+  const claudeLoginRunning = claudeJob?.state === 'running' || claudeJob?.state === 'starting';
+  claudeButton.textContent = state.busyClaudeDisconnect ? '해제 중…' : anthropic.connected ? '연결 해제' : claudeLoginRunning ? '진행 중' : anthropic.installed ? '로그인' : '설치 필요';
+  claudeButton.disabled = state.busyClaudeDisconnect || anthropic.installed !== true || claudeLoginRunning;
+  claudeButton.classList.remove('connected');
+  claudeButton.classList.toggle('disconnect-button', anthropic.connected === true);
   document.querySelector('#anthropicInstall').textContent = anthropic.installCommand || '';
   document.querySelector('#anthropicInstall').hidden = anthropic.installed !== false || !anthropic.installCommand;
   document.querySelector('#anthropicUsage').textContent = anthropic.usageSummary?.message || (anthropic.connected
@@ -595,25 +602,74 @@ async function updateCodexAccountLink(accountId, action) {
   if (!account) return;
   if (action === 'disconnect') {
     const impact = account.isDefault
-      ? '기본 계정이 Mosaic 안에서만 사용되지 않게 됩니다. 공유 중인 ~/.codex 인증, Codex CLI 로그인과 원본 기록은 변경하지 않습니다.'
-      : '이 앱에서만 사용되지 않게 됩니다. 계정별 프로필 폴더, 인증 상태와 원본 기록은 보존합니다.';
-    if (!window.confirm(`${account.name}을 Mosaic에서 연결 해제할까요?\n\n${impact}\n\n이 작업은 로그아웃하거나 데이터를 삭제하지 않습니다.`)) return;
+      ? '기본 계정은 ~/.codex를 Codex CLI와 공유합니다. 로그아웃하면 이 앱과 Codex CLI 양쪽에서 다시 로그인해야 합니다.'
+      : 'Codex app-server에서 로그아웃합니다. 이 계정 항목과 Codex 대화 기록은 남기며, 다시 로그인해 사용할 수 있습니다.';
+    if (!window.confirm(`${account.name}을 연결 해제할까요?\n\n${impact}`)) return;
+  } else if (action === 'delete') {
+    if (account.isDefault) return;
+    const impact = '계정 인증 정보와 이 Mosaic 계정 전용 Codex 프로필·세션 기록을 삭제합니다. Mosaic 대화 본문은 남지만 Codex 세션 연결을 끊고, 다음 응답은 남은 계정에서 대화 내용으로 이어집니다.';
+    if (!window.confirm(`${account.name}을 계정 목록에서 삭제할까요?\n\n${impact}`)) return;
   }
-  const label = action === 'cancel' ? '로그인 취소' : '연결 해제';
+  if (state.busyCodexAccountIds.has(accountId)) return;
+  state.busyCodexAccountIds.add(accountId);
+  renderCodexAccounts();
+  const label = action === 'cancel' ? '로그인 취소' : action === 'delete' ? '계정 삭제' : '연결 해제';
   try {
-    const response = await fetch(`/api/codex/accounts/${encodeURIComponent(accountId)}/${action}`, { method: 'POST' });
+    const response = action === 'delete'
+      ? await fetch(`/api/codex/accounts/${encodeURIComponent(accountId)}`, { method: 'DELETE' })
+      : await fetch(`/api/codex/accounts/${encodeURIComponent(accountId)}/${action}`, { method: 'POST' });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || `${label}에 실패했습니다.`);
-    if (action === 'disconnect' && accountId === state.activeCodexAccountId) {
+    if (action === 'delete') {
+      const replacement = state.codexAccounts.find((item) => item.id !== accountId && item.connected)
+        || state.codexAccounts.find((item) => item.id !== accountId && item.id === 'default');
+      const replacementId = replacement?.id || 'default';
+      for (const conversation of state.conversations) {
+        if (conversation.provider === 'openai' && conversation.codexAccountId === accountId) {
+          conversation.codexAccountId = replacementId;
+          conversation.codexThreadId = null;
+        }
+      }
+      state.codexAccounts = state.codexAccounts.filter((item) => item.id !== accountId);
+      if (state.activeCodexAccountId === accountId) state.activeCodexAccountId = replacementId;
+      saveConversations();
+      savePreferences();
+      showToast('Codex 계정을 삭제했습니다. Mosaic 대화 본문은 남아 있습니다.');
+    } else if (action === 'disconnect' && accountId === state.activeCodexAccountId) {
       state.activeCodexAccountId = state.codexAccounts.find((item) => item.id !== accountId && item.connected)?.id || 'default';
       savePreferences();
     }
     if (action === 'cancel') delete state.loginUrls[`openai:${accountId}`];
-    showToast(action === 'cancel' ? 'Codex OAuth 로그인 요청을 취소했습니다.' : 'Mosaic에서만 Codex 연결을 해제했습니다. 인증 및 원본 기록은 그대로 보존됩니다.');
-    await refreshStatus();
+    if (action !== 'delete') showToast(action === 'cancel' ? 'Codex OAuth 로그인 요청을 취소했습니다.' : 'Codex에서 로그아웃했습니다. 계정 항목과 대화 기록은 보존됩니다.');
   } catch (error) {
     showToast(error.message || `${label}에 실패했습니다.`);
+  } finally {
+    state.busyCodexAccountIds.delete(accountId);
+    await refreshStatus();
   }
+}
+
+async function disconnectClaudeAccount() {
+  if (state.busyClaudeDisconnect) return;
+  if (!window.confirm('Claude Code CLI에서 로그아웃할까요?\n\n이 로그아웃은 Mosaic와 터미널 등 Claude Code CLI를 사용하는 곳에 영향을 줍니다.')) return;
+  state.busyClaudeDisconnect = true;
+  updateConnectionControls();
+  try {
+    const response = await fetch('/api/disconnect/anthropic', { method: 'POST' });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || 'Claude 연결을 해제하지 못했습니다.');
+    showToast('Claude Code CLI에서 로그아웃했습니다.');
+  } catch (error) {
+    showToast(error.message || 'Claude 연결을 해제하지 못했습니다.');
+  } finally {
+    state.busyClaudeDisconnect = false;
+    await refreshStatus();
+  }
+}
+
+function toggleClaudeConnection() {
+  if (state.providers.anthropic?.connected) return disconnectClaudeAccount();
+  return connectProvider('anthropic');
 }
 
 function activeProjectInstructions() {
@@ -1219,7 +1275,7 @@ document.querySelector('#settingsButtonTop').addEventListener('click', showSetti
 document.querySelector('#closeSettings').addEventListener('click', hideSettings);
 document.querySelector('#doneSettings').addEventListener('click', hideSettings);
 document.querySelector('#refreshStatus').addEventListener('click', refreshStatus);
-document.querySelector('#connectClaude').addEventListener('click', () => connectProvider('anthropic'));
+document.querySelector('#connectClaude').addEventListener('click', toggleClaudeConnection);
 elements.addCodexAccountButton.addEventListener('click', () => connectCodexAccount());
 elements.codexAccountsList.addEventListener('click', (event) => {
   const connectButton = event.target.closest('[data-connect-codex-account]');
@@ -1233,6 +1289,8 @@ elements.codexAccountsList.addEventListener('click', (event) => {
   if (cancelButton) updateCodexAccountLink(cancelButton.dataset.cancelCodexLogin, 'cancel');
   const disconnectButton = event.target.closest('[data-disconnect-codex-account]');
   if (disconnectButton) updateCodexAccountLink(disconnectButton.dataset.disconnectCodexAccount, 'disconnect');
+  const deleteButton = event.target.closest('[data-delete-codex-account]');
+  if (deleteButton) updateCodexAccountLink(deleteButton.dataset.deleteCodexAccount, 'delete');
 });
 elements.settingsModal.addEventListener('click', (event) => { if (event.target === elements.settingsModal) hideSettings(); });
 elements.projectModal.addEventListener('click', (event) => { if (event.target === elements.projectModal) closeProjectEditor(); });

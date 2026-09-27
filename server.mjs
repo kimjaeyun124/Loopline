@@ -582,6 +582,102 @@ function findActiveCodexTurn(context, params = {}) {
   return [...context.activeTurns.values()].find((turn) => turn.turnId === turnId) || null;
 }
 
+function safeActivityText(value, maxLength = 180) {
+  return typeof value === 'string' ? value.replace(/\s+/g, ' ').trim().slice(0, maxLength) : '';
+}
+
+function activityPathName(value) {
+  const path = safeActivityText(value, 500);
+  return path.split(/[\\/]/).filter(Boolean).at(-1) || '';
+}
+
+function codexActivityItem(item) {
+  if (!item || typeof item.id !== 'string') return null;
+  const activity = { id: `codex-${item.id}`, title: '', detail: '', status: 'running' };
+  switch (item.type) {
+    case 'reasoning':
+      activity.title = '요청 분석';
+      break;
+    case 'commandExecution': {
+      activity.title = '명령 실행';
+      const actions = Array.isArray(item.commandActions) ? item.commandActions.slice(0, 2) : [];
+      activity.detail = actions.map((action) => {
+        const name = activityPathName(action.path);
+        if (action.type === 'read') return `파일 읽기${name ? ` · ${name}` : ''}`;
+        if (action.type === 'listFiles') return `파일 목록 확인${name ? ` · ${name}` : ''}`;
+        if (action.type === 'search') return `코드 검색${name ? ` · ${name}` : ''}`;
+        return '';
+      }).filter(Boolean).join(' · ');
+      break;
+    }
+    case 'fileChange': {
+      activity.title = '파일 변경';
+      const changes = Array.isArray(item.changes) ? item.changes.slice(0, 3) : [];
+      activity.detail = changes.map((change) => {
+        const name = activityPathName(change.path);
+        const kind = change.kind === 'add' ? '추가' : change.kind === 'delete' ? '삭제' : '수정';
+        return `${kind}${name ? ` · ${name}` : ''}`;
+      }).join(' · ');
+      break;
+    }
+    case 'mcpToolCall':
+      activity.title = '연결 도구 실행';
+      activity.detail = [safeActivityText(item.server, 60), safeActivityText(item.tool, 80)].filter(Boolean).join(' · ');
+      break;
+    case 'dynamicToolCall':
+      activity.title = '도구 실행';
+      activity.detail = [safeActivityText(item.namespace, 60), safeActivityText(item.tool, 100)].filter(Boolean).join(' · ');
+      break;
+    case 'collabAgentToolCall':
+      activity.title = '에이전트 협업';
+      activity.detail = `${safeActivityText(item.tool, 80)}${item.receiverThreadIds?.length ? ` · ${item.receiverThreadIds.length}개 작업` : ''}`;
+      break;
+    case 'subAgentActivity':
+      activity.title = '하위 에이전트 작업';
+      activity.detail = ({ started: '시작', interacted: '진행 중', interrupted: '중단', completed: '완료' })[item.kind] || '';
+      break;
+    case 'webSearch':
+      activity.title = '웹 검색';
+      activity.detail = safeActivityText(item.query, 180);
+      break;
+    case 'imageView':
+      activity.title = '이미지 확인';
+      activity.detail = activityPathName(item.path);
+      break;
+    case 'sleep':
+      activity.title = '잠시 대기';
+      activity.detail = Number.isFinite(item.durationMs) ? `${Math.max(0, Math.ceil(item.durationMs / 1000))}초` : '';
+      break;
+    case 'imageGeneration':
+      activity.title = '이미지 생성';
+      break;
+    case 'enteredReviewMode':
+      activity.title = '변경 사항 검토';
+      break;
+    case 'exitedReviewMode':
+      activity.title = '검토 완료';
+      break;
+    case 'contextCompaction':
+      activity.title = '대화 맥락 정리';
+      break;
+    case 'functionCallOutput':
+      activity.title = '도구 결과 수신';
+      activity.detail = safeActivityText(item.name, 100);
+      break;
+    default:
+      return null;
+  }
+  activity.detail = safeActivityText(activity.detail, 240);
+  return activity;
+}
+
+function codexActivityStatus(status, fallback = 'completed') {
+  if (status === 'inProgress') return 'running';
+  if (status === 'failed' || status === 'declined') return 'failed';
+  if (status === 'completed') return 'completed';
+  return fallback;
+}
+
 function handleCodexNotification(context, message) {
   const params = message.params || {};
   if (message.method === 'account/login/completed') {
@@ -612,7 +708,31 @@ function handleCodexNotification(context, message) {
   const eventTurnId = params.turnId || params.turn?.id;
   if (active.turnId && eventTurnId && active.turnId !== eventTurnId) return;
 
-  if (message.method === 'item/agentMessage/delta' && typeof params.delta === 'string') {
+  if (message.method === 'turn/started') {
+    sendEvent(active.res, 'activity', { id: 'codex-turn', title: 'Codex가 요청을 처리하는 중', status: 'running' });
+  } else if (message.method === 'turn/plan/updated' && Array.isArray(params.plan)) {
+    params.plan.slice(0, 24).forEach((step, index) => {
+      if (typeof step.step !== 'string' || !step.step.trim()) return;
+      sendEvent(active.res, 'activity', {
+        id: `codex-plan-${index}`,
+        title: safeActivityText(step.step, 220),
+        detail: '작업 계획',
+        status: codexActivityStatus(step.status, 'pending'),
+      });
+    });
+  } else if (message.method === 'item/started') {
+    const activity = codexActivityItem(params.item);
+    if (activity) {
+      activity.status = 'running';
+      sendEvent(active.res, 'activity', activity);
+    }
+  } else if (message.method === 'item/completed' && params.item?.type !== 'agentMessage') {
+    const activity = codexActivityItem(params.item);
+    if (activity) {
+      activity.status = codexActivityStatus(params.item.status, 'completed');
+      sendEvent(active.res, 'activity', activity);
+    }
+  } else if (message.method === 'item/agentMessage/delta' && typeof params.delta === 'string') {
     active.sentText += params.delta;
     sendEvent(active.res, 'delta', { text: params.delta });
   } else if (message.method === 'item/completed' && params.item?.type === 'agentMessage' && typeof params.item.text === 'string') {
@@ -627,6 +747,11 @@ function handleCodexNotification(context, message) {
     const error = turn.status === 'failed'
       ? turn.error?.message || 'Codex 요청을 완료하지 못했습니다.'
       : turn.status === 'interrupted' ? '응답이 중단되었습니다.' : '';
+    sendEvent(active.res, 'activity', {
+      id: 'codex-turn',
+      title: 'Codex 요청 처리',
+      status: turn.status === 'failed' ? 'failed' : turn.status === 'interrupted' ? 'stopped' : 'completed',
+    });
     finalizeCodexTurn(active, { error, rateLimited: turn.status === 'failed' && isUsageLimitError(turn.error) });
   }
 }

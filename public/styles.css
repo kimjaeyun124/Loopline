@@ -237,6 +237,25 @@ kbd { margin-left: auto; color: var(--muted); font-family: inherit; font-size: 1
 .worked-for-label { font-variant-numeric: tabular-nums; }
 .worked-for-live { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11px; }
 .worked-for-live i { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 1.3s infinite ease-in-out; }
+.assistant-activity { margin: 0 0 16px; color: var(--secondary); }
+.assistant-activity > summary { display: flex; min-height: 36px; align-items: center; gap: 8px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 9px; color: var(--secondary); font-size: 12px; list-style: none; cursor: pointer; }
+.assistant-activity > summary::-webkit-details-marker { display: none; }
+.assistant-activity > summary::after { width: 7px; height: 7px; margin: -4px 2px 0 auto; transform: rotate(45deg); border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; content: ""; }
+.assistant-activity[open] > summary::after { margin-top: 4px; transform: rotate(225deg); }
+.assistant-activity > summary > small { color: var(--muted); font-size: 10px; }
+.activity-live { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: 10px; }
+.activity-live i { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 1.3s infinite ease-in-out; }
+.assistant-activity-list { display: flex; flex-direction: column; gap: 0; margin: 0; padding: 8px 10px 4px 15px; list-style: none; }
+.assistant-activity-list li { position: relative; display: grid; grid-template-columns: 10px minmax(0, 1fr); gap: 8px; min-height: 38px; padding: 2px 0 9px; }
+.assistant-activity-list li:not(:last-child)::before { position: absolute; top: 10px; bottom: -1px; left: 3px; width: 1px; background: var(--line); content: ""; }
+.activity-marker { z-index: 1; width: 7px; height: 7px; margin-top: 4px; border: 1px solid var(--line-strong); border-radius: 50%; background: var(--canvas); }
+.activity-running .activity-marker { border-color: var(--accent); background: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent); animation: pulse 1.3s infinite ease-in-out; }
+.activity-completed .activity-marker { border-color: var(--accent); background: var(--accent); }
+.activity-failed .activity-marker { border-color: var(--danger); background: var(--danger); }
+.assistant-activity-list li > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 3px 10px; min-width: 0; }
+.assistant-activity-list strong { overflow: hidden; color: var(--secondary); font-size: 11px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.assistant-activity-list small { grid-column: 1 / -1; overflow: hidden; color: var(--muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.activity-state { color: var(--muted); font-size: 9px; white-space: nowrap; }
 .assistant-result { min-width: 0; }
 .assistant-result-label { margin: 0 0 5px; color: var(--secondary); font-size: 11px; font-weight: 550; line-height: 1.5; }
 .user-message-group { display: flex; width: fit-content; max-width: 78%; min-width: 0; flex-direction: column; align-items: flex-end; }
@@ -324,7 +343,7 @@ kbd { margin-left: auto; color: var(--muted); font-family: inherit; font-size: 1
 .send-button:hover { background: var(--accent-hover); }
 .send-button:disabled { opacity: .45; cursor: not-allowed; }
 .send-icon { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.queue-icon { display: none; width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+.send-button .queue-icon { display: none; width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
 .stop-icon { display: none; width: 10px; height: 10px; border-radius: 2px; background: currentColor; }
 .send-button.busy .send-icon { display: none; }
 .send-button.busy .stop-icon { display: block; }

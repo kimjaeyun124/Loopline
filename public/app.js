@@ -175,6 +175,25 @@ function loadConversations() {
             if (message.role === 'assistant' && Number.isFinite(message.workedForMs) && message.workedForMs >= 0) {
               normalized.workedForMs = Math.floor(message.workedForMs);
             }
+            if (message.role === 'assistant' && Array.isArray(message.activities)) {
+              normalized.activities = message.activities.slice(-60).flatMap((activity) => {
+                if (!activity || typeof activity.id !== 'string' || typeof activity.title !== 'string') return [];
+                const status = ['pending', 'running', 'completed', 'failed', 'stopped'].includes(activity.status)
+                  ? activity.status
+                  : 'completed';
+                return [{
+                  id: activity.id.slice(0, 120),
+                  title: activity.title.slice(0, 220),
+                  detail: typeof activity.detail === 'string' ? activity.detail.slice(0, 240) : '',
+                  status,
+                }];
+              });
+              const responseActivityIndex = normalized.activities.findIndex((activity) => activity.id === 'response');
+              if (responseActivityIndex >= 0 && responseActivityIndex !== normalized.activities.length - 1) {
+                normalized.activities.push(normalized.activities.splice(responseActivityIndex, 1)[0]);
+              }
+              if (typeof message.activityExpanded === 'boolean') normalized.activityExpanded = message.activityExpanded;
+            }
             if (message.role === 'user' && message.queued === true) {
               normalized.queued = true;
               const options = message.queueOptions && typeof message.queueOptions === 'object' ? message.queueOptions : {};
@@ -459,9 +478,15 @@ function renderMessages() {
     if (assistant) {
       const hasWorkedFor = message.pending || Number.isFinite(message.workedForMs);
       const elapsedMs = message.pending ? Date.now() - (message.startedAt || Date.now()) : message.workedForMs;
+      const activityItems = Array.isArray(message.activities) ? message.activities : [];
+      const activityMarkup = activityItems.length ? `<details class="assistant-activity" data-activity-message-id="${escapeHtml(message.id || '')}"${message.activityExpanded === true || (message.activityExpanded !== false && message.pending) ? ' open' : ''}>
+        <summary><span>작업 과정</span><small>${activityItems.length}단계</small>${message.pending ? '<span class="activity-live"><i aria-hidden="true"></i>진행 중</span>' : ''}</summary>
+        <ol class="assistant-activity-list">${activityItems.map((activity) => `<li class="activity-${escapeHtml(activity.status)}"><span class="activity-marker" aria-hidden="true"></span><div><strong>${escapeHtml(activity.title)}</strong>${activity.detail ? `<small>${escapeHtml(activity.detail)}</small>` : ''}<span class="activity-state">${activityStatusLabel(activity.status)}</span></div></li>`).join('')}</ol>
+      </details>` : '';
       return `<article class="message assistant${errorClass}" data-message-id="${escapeHtml(message.id || '')}">
         <div class="assistant-response">
           ${hasWorkedFor ? `<div class="worked-for-row"><span class="worked-for-label" data-worked-for="${escapeHtml(message.id || '')}">${formatWorkedFor(elapsedMs)}</span>${message.pending ? '<span class="worked-for-live"><i aria-hidden="true"></i>진행 중</span>' : ''}</div>` : ''}
+          ${activityMarkup}
           <section class="assistant-result" aria-label="${message.pending ? '응답' : '결과'}">
             <div class="assistant-result-label">${message.pending ? '응답' : '결과'}</div>
             <div class="message-content markdown-content">${content}${message.pending && message.content ? '<span class="typing-dots" aria-label="응답 생성 중"><i></i><i></i><i></i></span>' : ''}</div>
@@ -478,6 +503,36 @@ function renderMessages() {
     </article>`;
   }).join('');
   elements.chatScroll.scrollTop = elements.chatScroll.scrollHeight;
+}
+
+function activityStatusLabel(status) {
+  return ({ pending: '대기', running: '진행 중', completed: '완료', failed: '실패', stopped: '중지' })[status] || '완료';
+}
+
+function updateAssistantActivity(message, activity) {
+  if (!message || !activity || typeof activity.id !== 'string' || typeof activity.title !== 'string') return;
+  const status = ['pending', 'running', 'completed', 'failed', 'stopped'].includes(activity.status)
+    ? activity.status
+    : 'completed';
+  const next = {
+    id: activity.id.slice(0, 120),
+    title: activity.title.replace(/\s+/g, ' ').trim().slice(0, 220),
+    detail: typeof activity.detail === 'string' ? activity.detail.replace(/\s+/g, ' ').trim().slice(0, 240) : '',
+    status,
+  };
+  if (!next.id || !next.title) return;
+  if (!Array.isArray(message.activities)) message.activities = [];
+  const index = message.activities.findIndex((item) => item.id === next.id);
+  if (index >= 0) {
+    message.activities[index] = next;
+    if (next.id === 'response') message.activities.push(message.activities.splice(index, 1)[0]);
+  }
+  else message.activities.push(next);
+  if (message.activities.length > 60) message.activities.splice(0, message.activities.length - 60);
+}
+
+function updateResponseActivity(message, status, title, detail = '') {
+  updateAssistantActivity(message, { id: 'response', status, title, detail });
 }
 
 function formatWorkedFor(milliseconds) {
@@ -1666,6 +1721,7 @@ async function streamResponse(response, assistantMessage, conversation) {
       const parsed = parseSseBlock(buffer.slice(0, separator));
       buffer = buffer.slice(separator + 2);
       if (!parsed) continue;
+      if (parsed.event === 'activity') updateAssistantActivity(assistantMessage, parsed.data);
       if (parsed.event === 'account' && typeof parsed.data.id === 'string') {
         conversation.codexAccountId = parsed.data.id;
         state.activeCodexAccountId = parsed.data.id;
@@ -1687,12 +1743,21 @@ async function streamResponse(response, assistantMessage, conversation) {
         savePreferences();
         saveConversations();
       }
-      if (parsed.event === 'delta') assistantMessage.content += parsed.data.text || '';
+      if (parsed.event === 'delta') {
+        if (assistantMessage.activities?.find((item) => item.id === 'response')?.title === '응답 생성 중') {
+          updateResponseActivity(assistantMessage, 'running', '응답 작성 중', '응답 내용을 실시간으로 받고 있습니다.');
+        }
+        assistantMessage.content += parsed.data.text || '';
+      }
       if (parsed.event === 'error') {
         assistantMessage.content = `오류: ${parsed.data.error || '응답 생성에 실패했습니다.'}`;
         assistantMessage.error = true;
+        updateResponseActivity(assistantMessage, 'failed', '응답 실패', parsed.data.error || '응답 생성에 실패했습니다.');
       }
-      if (parsed.event === 'done') sawDone = true;
+      if (parsed.event === 'done') {
+        sawDone = true;
+        updateResponseActivity(assistantMessage, 'completed', '응답 완료', '최종 결과를 표시했습니다.');
+      }
       renderMessages();
     }
     if (done) break;
@@ -1846,7 +1911,13 @@ async function sendMessage(value, queuedMessageId = null) {
   } else {
     conversation.messages.push({ role: 'user', content: message, id: crypto.randomUUID() });
   }
-  const assistantMessage = { role: 'assistant', content: '', id: crypto.randomUUID(), pending: true, startedAt: Date.now() };
+  const assistantMessage = {
+    role: 'assistant', content: '', id: crypto.randomUUID(), pending: true, startedAt: Date.now(),
+    activities: [
+      { id: 'request', title: '요청 전송', detail: '선택한 모델로 요청을 보냈습니다.', status: 'completed' },
+      { id: 'response', title: '응답 생성 중', detail: '모델의 첫 응답을 기다리고 있습니다.', status: 'running' },
+    ],
+  };
   conversation.messages.push(assistantMessage);
   conversation.updatedAt = Date.now();
   saveConversations();
@@ -1896,6 +1967,8 @@ async function sendMessage(value, queuedMessageId = null) {
     finishAssistantWork(assistantMessage);
     assistantMessage.pending = false;
     assistantMessage.error = error.name !== 'AbortError';
+    updateResponseActivity(assistantMessage, error.name === 'AbortError' ? 'stopped' : 'failed', error.name === 'AbortError' ? '응답 중지' : '응답 실패', error.name === 'AbortError' ? '' : error.message || '서버에 연결할 수 없습니다.');
+    assistantMessage.activityExpanded = true;
     assistantMessage.content = error.name === 'AbortError'
       ? (assistantMessage.content || '응답을 중지했습니다.')
       : `오류: ${error.message || '서버에 연결할 수 없습니다.'}`;
@@ -2262,6 +2335,14 @@ document.addEventListener('click', (event) => {
   }
 });
 elements.copyLastResponseButton.addEventListener('click', () => { void copyLastResponse(); });
+elements.messages.addEventListener('toggle', (event) => {
+  const details = event.target.closest('.assistant-activity');
+  if (!details) return;
+  const message = activeConversation()?.messages.find((item) => item.id === details.dataset.activityMessageId);
+  if (!message || message.activityExpanded === details.open) return;
+  message.activityExpanded = details.open;
+  saveConversations();
+}, true);
 elements.messages.addEventListener('click', (event) => {
   const cancelQueued = event.target.closest('[data-cancel-queued]');
   if (cancelQueued) {

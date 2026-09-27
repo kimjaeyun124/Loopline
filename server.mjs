@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { CodexAppServer } from './codex-app-server.mjs';
 import { ApiConnections } from './api-connections.mjs';
 import { ConversationHistory } from './conversation-history.mjs';
+import { accountActivity, localActivity } from './usage-activity.mjs';
 import { modelEffortCapability } from './public/model-capabilities.mjs';
 
 const root = dirname(fileURLToPath(import.meta.url));
@@ -1282,6 +1283,7 @@ async function serveFile(res, pathname) {
     '/chatgpt-ui.js': ['chatgpt-ui.js', 'text/javascript; charset=utf-8'],
     '/model-visibility-ui.js': ['model-visibility-ui.js', 'text/javascript; charset=utf-8'],
     '/account-menu-ui.js': ['account-menu-ui.js', 'text/javascript; charset=utf-8'],
+    '/usage-activity-ui.js': ['usage-activity-ui.js', 'text/javascript; charset=utf-8'],
     '/model-capabilities.mjs': ['model-capabilities.mjs', 'text/javascript; charset=utf-8'],
   };
   const entry = files[pathname];
@@ -1304,6 +1306,29 @@ async function serveFile(res, pathname) {
 const server = createServer(async (req, res) => {
   if (!allowedOrigin(req)) return json(res, 403, { error: '허용되지 않은 요청 출처입니다.' });
   const url = new URL(req.url, 'http://' + (req.headers.host || '127.0.0.1'));
+
+  if (req.method === 'GET' && ['/api/usage/activity', '/api/usage/insights'].includes(url.pathname)) {
+    const controller = new AbortController();
+    const cancel = () => { if (!res.writableEnded) controller.abort(); };
+    res.once('close', cancel);
+    try {
+      const accountId = url.searchParams.get('accountId') || 'default';
+      const context = await getCodexAccountContext(accountId);
+      const status = await openAiProviderStatus(accountId);
+      if (!status.connected) return json(res, 401, { error: 'Codex 계정을 연결한 뒤 통계를 확인해 주세요.' });
+      const result = url.pathname.endsWith('/insights')
+        ? await localActivity(context.account.home, { includeCli: url.searchParams.get('includeCli') === 'true', signal: controller.signal })
+        : accountActivity(await (await getCodexAppServer(context)).request('account/usage/read', {}));
+      if (!res.destroyed) return json(res, 200, { accountId, ...result });
+    } catch (error) {
+      if (!res.destroyed) return json(res, error.status || 502, {
+        error: error.status ? error.message : url.pathname.endsWith('/insights')
+          ? '로컬 활동 기록을 읽지 못했습니다. 기록 접근 권한을 확인하고 다시 시도해 주세요.'
+          : '계정 통계를 불러오지 못했습니다. Codex CLI 버전과 로그인 상태를 확인한 뒤 다시 시도해 주세요.',
+      });
+    } finally { res.off('close', cancel); }
+    return;
+  }
 
   if (req.method === 'POST' && ['/api/history/list', '/api/history/read'].includes(url.pathname)) {
     try {

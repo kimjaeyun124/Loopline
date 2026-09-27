@@ -5,6 +5,7 @@ import { createHistoryImportUI } from './history-import-ui.js';
 import { createChatGptUI } from './chatgpt-ui.js';
 import { createModelVisibilityUI } from './model-visibility-ui.js';
 import { createAccountMenuUI } from './account-menu-ui.js';
+import { createUsageActivityUI } from './usage-activity-ui.js';
 import { modelEffortCapability } from './model-capabilities.mjs';
 
 const PROVIDERS = {
@@ -118,6 +119,11 @@ const accountMenuUI = createAccountMenuUI({
   formatAccountName: codexAccountDisplayName,
   formatWindow: formatUsageWindow,
   formatReset: formatUsageReset,
+});
+const usageActivityUI = createUsageActivityUI({
+  getAccounts: () => state.codexAccounts,
+  getActiveAccountId: () => state.activeCodexAccountId,
+  formatAccountName: codexAccountDisplayName,
 });
 const modelVisibilityUI = createModelVisibilityUI({
   getModels: modelCatalog,
@@ -638,6 +644,7 @@ function render() {
     updatedAt: state.statusUpdatedAt,
     error: state.statusError,
   });
+  usageActivityUI.update();
   document.querySelector('#connectionSummary').textContent = connectionSummary();
   const conversation = activeConversation();
   const activeProject = project(conversation?.projectId || state.activeProjectId);
@@ -1576,9 +1583,10 @@ function selectSettingsTab(tab) {
   });
   document.querySelectorAll('[data-settings-panel]').forEach((panel) => { panel.hidden = panel.dataset.settingsPanel !== name; });
   document.querySelector('#refreshStatus').hidden = ['history', 'appearance'].includes(name);
-  document.querySelector('#refreshStatus').textContent = name === 'usage' ? '사용 한도 새로고침' : '연결 상태 새로고침';
+  document.querySelector('#refreshStatus').textContent = name === 'usage' ? '사용량 새로고침' : '연결 상태 새로고침';
   if (name === 'models') modelVisibilityUI.render();
-  if (name === 'usage') accountMenuUI.renderUsage();
+  if (name === 'usage') { accountMenuUI.renderUsage(); usageActivityUI.show(); }
+  else usageActivityUI.hide();
 }
 
 let settingsReturnFocus = null;
@@ -1634,6 +1642,7 @@ function selectConversation(conversation) {
 function hideSettings() {
   const wasOpen = !elements.settingsModal.hidden;
   elements.settingsModal.hidden = true;
+  usageActivityUI.hide();
   clearInterval(statusPollTimer);
   statusPollTimer = null;
   if (wasOpen && settingsReturnFocus?.isConnected && settingsReturnFocus.getClientRects().length) settingsReturnFocus.focus();
@@ -1715,7 +1724,10 @@ document.querySelector('#settingsButtonTop').addEventListener('click', showSetti
 document.querySelector('#composerConnections').addEventListener('click', () => showSettings(state.provider === 'api' ? 'agents' : 'accounts'));
 document.querySelector('#closeSettings').addEventListener('click', hideSettings);
 document.querySelector('#doneSettings').addEventListener('click', hideSettings);
-document.querySelector('#refreshStatus').addEventListener('click', refreshStatus);
+document.querySelector('#refreshStatus').addEventListener('click', () => {
+  void refreshStatus();
+  if (!document.querySelector('#usagePanel').hidden) usageActivityUI.refresh();
+});
 document.querySelector('#connectClaude').addEventListener('click', toggleClaudeConnection);
 document.querySelector('#connectionDetails').addEventListener('click', () => showSettings(state.provider === 'api' ? 'agents' : 'accounts'));
 document.querySelector('#openHistoryImport').addEventListener('click', () => {

@@ -242,9 +242,23 @@
         </div>
         <div class="settings-content">
         <div id="usagePanel" role="tabpanel" aria-labelledby="usageTab" data-settings-panel="usage" hidden>
-          <div class="settings-panel-heading"><h3>Usage</h3><p>계정별 남은 사용 한도와 초기화 시간을 확인하세요.</p></div>
-          <p class="usage-status-summary" id="usageStatus">사용 한도를 불러오는 중…</p>
-          <div class="usage-accounts" id="usageAccounts"></div>
+          <div class="settings-panel-heading usage-activity-heading"><div><h3>Usage</h3><p>토큰 활동과 사용 패턴을 한눈에 확인하세요.</p></div><label class="activity-account"><span>Codex 계정</span><select id="usageActivityAccount" aria-label="활동 통계를 볼 Codex 계정"><option value="">연결 확인 중…</option></select></label></div>
+          <section id="usageAccountActivity" aria-label="Codex 계정 활동">
+            <p class="activity-status" id="usageActivityStatus" role="status">계정 활동을 불러오는 중…</p>
+            <dl class="activity-metrics" id="usageActivityMetrics"></dl>
+            <div class="activity-chart-heading"><h4>토큰 활동</h4><div class="activity-modes" id="usageActivityModes" role="group" aria-label="토큰 활동 표시 방식"><button type="button" data-activity-mode="daily" aria-pressed="true">일별</button><button type="button" data-activity-mode="weekly" aria-pressed="false">주별</button><button type="button" data-activity-mode="cumulative" aria-pressed="false">누적</button></div></div>
+            <p class="activity-range" id="usageActivityRange">최근 1년</p>
+            <div class="activity-chart-scroll"><div id="usageActivityChart"></div></div>
+            <div class="activity-chart-footer"><p id="usageChartDetail" role="status"></p><div class="activity-legend" id="usageActivityLegend" aria-label="색이 진할수록 토큰 사용량이 많습니다."><span>적음</span><i class="activity-level-0"></i><i class="activity-level-1"></i><i class="activity-level-2"></i><i class="activity-level-3"></i><i class="activity-level-4"></i><span>많음</span></div></div>
+          </section>
+          <section class="activity-local" id="usageLocalActivity" aria-label="로컬 활동 내역">
+            <div class="activity-chart-heading"><h4>활동 내역</h4><label class="activity-cli-filter"><input type="checkbox" id="usageIncludeCli" />CLI 기록 포함</label></div>
+            <p class="activity-status" id="usageInsightsStatus" role="status">이 Mac의 Codex 기록 기준</p>
+            <div class="activity-insight-columns"><dl class="activity-insights" id="usageActivityInsights"></dl><section class="activity-plugins"><h5>자주 사용한 스킬·플러그인</h5><div id="usageActivityPlugins"></div></section></div>
+            <p class="activity-note">Fast와 추론 비율은 설정이 기록된 응답 기준입니다. 스킬은 응답별 열람 횟수, 플러그인은 기록된 호출 횟수를 집계합니다. 계정 전체 통계와 범위가 다를 수 있습니다.</p>
+            <p class="activity-note usage-low" id="usageInsightsWarnings" hidden></p>
+          </section>
+          <details class="usage-limits"><summary>계정별 남은 사용 한도</summary><p class="usage-status-summary" id="usageStatus">사용 한도를 불러오는 중…</p><div class="usage-accounts" id="usageAccounts"></div></details>
         </div>
         <div id="modelsPanel" role="tabpanel" aria-labelledby="modelsTab" data-settings-panel="models" hidden>
           <div class="settings-panel-heading"><h3>모델 표시</h3><p>모델 선택 목록에 표시할 모델을 켜 주세요.</p></div>

@@ -20,7 +20,7 @@ export function createAccountMenuUI({ onOpen, onUsage, onSettings, formatAccount
   function profile() {
     const account = context.accounts.find((item) => item.id === context.accountId);
     if (context.provider === 'openai' && account?.connected) {
-      return { name: formatAccountName(account), detail: `Codex${account.planType ? ` · ${account.planType}` : ''}`, account };
+      return { name: account.accountName || account.name || formatAccountName(account), detail: `Codex${account.planType ? ` · ${account.planType}` : ''}`, account };
     }
     if (context.provider === 'anthropic') {
       return { name: 'Claude Code', detail: context.claude.connected ? '구독 계정 연결됨' : '로그인 필요' };

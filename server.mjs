@@ -250,6 +250,24 @@ function invalidateOpenAiStatus(accountId) {
   openAiStatusCache.delete(accountId);
 }
 
+async function codexProfileName(context, account) {
+  try {
+    const stored = JSON.parse(await readFile(join(context.account.home, 'auth.json'), 'utf8'));
+    const token = stored?.tokens?.id_token;
+    if (typeof token !== 'string') return null;
+    const parts = token.split('.');
+    if (parts.length !== 3 || parts[1].length > 64 * 1024) return null;
+    const profile = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+    // This claim is only a display label; app-server remains the authority for login status.
+    if (typeof account.email !== 'string' || typeof profile.email !== 'string'
+      || account.email.toLowerCase() !== profile.email.toLowerCase()) return null;
+    return typeof profile.name === 'string' ? profile.name.trim().slice(0, 80) || null : null;
+  } catch {
+    // Credentials stored outside auth.json may not expose a local profile name.
+    return null;
+  }
+}
+
 async function readOpenAiProviderStatus(accountId = 'default') {
   if (locallyDisconnectedCodexAccounts.has(accountId)) {
     return {
@@ -320,6 +338,7 @@ async function readOpenAiProviderStatus(accountId = 'default') {
     installCommand: providers.openai.installCommand,
     planType: account?.planType || null,
     accountEmail: typeof account?.email === 'string' ? account.email : null,
+    accountName: connected ? await codexProfileName(context, account) : null,
     usageSummary: connected ? {
       source: 'codex-app-server',
       available: windows.length > 0,

@@ -952,7 +952,7 @@ async function ensureCodexThread(context, requestedId, model) {
         model,
         cwd,
         approvalPolicy: 'never',
-        sandbox: 'readOnly',
+        sandbox: 'read-only',
       });
       context.loadedThreads.add(requestedId);
     }
@@ -963,7 +963,7 @@ async function ensureCodexThread(context, requestedId, model) {
     model,
     cwd,
     approvalPolicy: 'never',
-    sandbox: 'readOnly',
+    sandbox: 'read-only',
     serviceName: 'mosaic_desk',
   });
   const id = result.thread?.id;
@@ -1101,13 +1101,10 @@ async function runCodexTurnAttempt(context, model, messages, requestedThreadId, 
       input: [{ type: 'text', text }],
       cwd: thread.cwd,
       approvalPolicy: 'never',
+      // thread/start uses kebab-case SandboxMode strings; turn/start uses tagged SandboxPolicy variants.
       sandboxPolicy: {
         type: 'readOnly',
-        access: {
-          type: 'restricted',
-          includePlatformDefaults: true,
-          readableRoots: [thread.cwd],
-        },
+        networkAccess: false,
       },
       model,
       ...(requestedEffort ? { effort: requestedEffort } : {}),

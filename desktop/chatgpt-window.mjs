@@ -6,6 +6,21 @@ const PAGE_HOSTS = new Set([
   'chatgpt.com', 'chat.openai.com', 'auth.openai.com', 'auth0.openai.com',
   'accounts.google.com', 'appleid.apple.com', 'login.live.com', 'login.microsoftonline.com',
 ]);
+// Read presentation only in an isolated world; the page receives no bridge or edits.
+const PAGE_THEME_SCRIPT = String.raw`(() => {
+  if (location.origin !== 'https://chatgpt.com') return null;
+  const scheme = getComputedStyle(document.documentElement).colorScheme.trim();
+  if (scheme === 'light' || scheme === 'dark') return scheme;
+  for (const element of [document.body, document.documentElement]) {
+    if (!element) continue;
+    const color = getComputedStyle(element).backgroundColor;
+    if (!color.startsWith('rgb')) continue;
+    const channels = color.match(/[\d.]+/g)?.map(Number);
+    if (!channels || ![3, 4].includes(channels.length) || (channels.length === 4 && channels[3] < 0.99)) continue;
+    return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722 < 128 ? 'dark' : 'light';
+  }
+  return null;
+})()`;
 
 function httpsUrl(value) {
   try {
@@ -26,6 +41,10 @@ export function createChatGptView(owner, onState) {
   let loadFailed = false;
   let configured = false;
   let showingExternalPrompt = false;
+  let pageTheme = null;
+  let themeTimer = null;
+  let readingTheme = false;
+  let themeRevision = 0;
   const popups = new Set();
   const mediaGrants = new Set();
 
@@ -38,13 +57,44 @@ export function createChatGptView(owner, onState) {
       canGoBack: Boolean(alive && contents.navigationHistory.canGoBack()),
       canGoForward: Boolean(alive && contents.navigationHistory.canGoForward()),
       error: loadFailed,
+      theme: pageTheme,
     };
   }
 
   function publishState() { onState(getState()); }
 
   function updateBackground() {
-    if (view && !view.webContents.isDestroyed()) view.setBackgroundColor(nativeTheme.shouldUseDarkColors ? '#101010' : '#ffffff');
+    const dark = pageTheme ? pageTheme === 'dark' : nativeTheme.shouldUseDarkColors;
+    if (view && !view.webContents.isDestroyed()) view.setBackgroundColor(dark ? '#101010' : '#ffffff');
+  }
+
+  async function readPageTheme() {
+    const contents = view?.webContents;
+    if (readingTheme || !visible || loadFailed || owner.isDestroyed() || !contents || contents.isDestroyed() || contents.isLoading()) return;
+    const revision = themeRevision;
+    const url = contents.getURL();
+    if (httpsUrl(url)?.origin !== 'https://chatgpt.com') return;
+    readingTheme = true;
+    try {
+      const result = await contents.executeJavaScriptInIsolatedWorld(1001, [{ code: PAGE_THEME_SCRIPT }]);
+      if (!visible || owner.isDestroyed() || contents.isDestroyed() || view?.webContents !== contents || revision !== themeRevision || contents.getURL() !== url) return;
+      const theme = ['light', 'dark'].includes(result) ? result : null;
+      if (theme === pageTheme) return;
+      pageTheme = theme;
+      updateBackground();
+      publishState();
+    } catch { /* Keep the last appearance while the remote document is changing. */ }
+    finally { readingTheme = false; }
+  }
+
+  function watchPageTheme() {
+    clearInterval(themeTimer);
+    themeTimer = null;
+    if (!visible) return;
+    void readPageTheme();
+    // Check only while shown, including theme changes made inside ChatGPT settings.
+    themeTimer = setInterval(() => { void readPageTheme(); }, 1500);
+    themeTimer.unref();
   }
 
   function applyLayout() {
@@ -54,7 +104,7 @@ export function createChatGptView(owner, onState) {
       const zoom = owner.webContents.getZoomFactor();
       const x = Math.min(width, Math.max(0, Math.round(requestedBounds.x * zoom)));
       const y = Math.min(height, Math.max(0, Math.round(requestedBounds.y * zoom)));
-      // The host fills the area below the toolbar and to the right of the sidebar.
+      // The remote page fills the window below the compact host toolbar.
       view.setBounds({ x, y, width: Math.max(0, width - x), height: Math.max(0, height - y) });
     }
     view.setVisible(visible && !loadFailed && Boolean(requestedBounds));
@@ -121,7 +171,13 @@ export function createChatGptView(owner, onState) {
   function configureContents(contents, popupWindow = null) {
     const updateTitle = () => {
       if (popupWindow && !popupWindow.isDestroyed()) popupWindow.setTitle(`ChatGPT · Loopline — ${httpsUrl(contents.getURL())?.hostname || '불러오는 중'}`);
-      if (!popupWindow) publishState();
+      if (!popupWindow) {
+        if (httpsUrl(contents.getURL())?.origin !== 'https://chatgpt.com') {
+          pageTheme = null;
+          updateBackground();
+        }
+        publishState();
+      }
     };
     contents.on('page-title-updated', (event) => { event.preventDefault(); updateTitle(); });
     contents.on('did-navigate', updateTitle);
@@ -169,11 +225,12 @@ export function createChatGptView(owner, onState) {
     const contents = view.webContents;
     configureContents(contents);
     contents.on('did-start-loading', () => {
+      themeRevision += 1;
       loadFailed = false;
       applyLayout();
       publishState();
     });
-    contents.on('did-stop-loading', publishState);
+    contents.on('did-stop-loading', () => { publishState(); void readPageTheme(); });
     contents.on('did-fail-load', (_event, code, _description, _url, isMainFrame) => {
       if (!isMainFrame || code === -3) return;
       loadFailed = true;
@@ -201,11 +258,13 @@ export function createChatGptView(owner, onState) {
     const changed = visible !== layout.visible;
     visible = layout.visible;
     applyLayout();
+    if (changed) watchPageTheme();
     if (changed && !visible) owner.webContents.focus();
   }
 
   function hide() {
     visible = false;
+    watchPageTheme();
     applyLayout();
   }
 
@@ -220,6 +279,9 @@ export function createChatGptView(owner, onState) {
   }
 
   function dispose() {
+    visible = false;
+    themeRevision += 1;
+    watchPageTheme();
     nativeTheme.removeListener('updated', updateBackground);
     owner.removeListener('resize', applyLayout);
     for (const popup of popups) if (!popup.isDestroyed()) popup.destroy();

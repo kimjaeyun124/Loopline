@@ -42,6 +42,7 @@ export function createChatGptUI({ beforeOpen, onWorkspace }) {
   function open() {
     beforeOpen();
     active = true;
+    document.body.classList.add('chatgpt-active');
     workspace.hidden = true;
     panel.hidden = false;
     sidebarLink.setAttribute('aria-current', 'page');
@@ -52,6 +53,7 @@ export function createChatGptUI({ beforeOpen, onWorkspace }) {
   function showWorkspace() {
     if (!active) return;
     active = false;
+    document.body.classList.remove('chatgpt-active');
     panel.hidden = true;
     workspace.hidden = false;
     sidebarLink.removeAttribute('aria-current');
@@ -61,8 +63,11 @@ export function createChatGptUI({ beforeOpen, onWorkspace }) {
 
   function renderState(state) {
     if (!state) return;
+    if (['light', 'dark'].includes(state.theme)) panel.dataset.webTheme = state.theme;
+    else delete panel.dataset.webTheme;
     hostname.textContent = state.hostname || 'chatgpt.com';
-    status.textContent = state.error ? '연결 실패' : state.loading ? '불러오는 중' : '공식 웹';
+    status.textContent = state.error ? '연결 실패' : state.loading ? '불러오는 중' : '';
+    status.hidden = !state.error && !state.loading;
     status.classList.toggle('is-loading', state.loading && !state.error);
     status.classList.toggle('is-error', state.error);
     backButton.disabled = !state.canGoBack;

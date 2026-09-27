@@ -32,6 +32,9 @@
           <summary><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.4 6.6L21 12l-6.6 2.4L12 21l-2.4-6.6L3 12l6.6-2.4z"/></svg><span>에이전트</span><svg class="disclosure-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg><button class="project-add-button" id="addAgentSidebar" type="button" title="API 에이전트 추가" aria-label="API 에이전트 추가">＋</button></summary>
           <div class="agent-list" id="agentList"></div>
         </details>
+        <button class="search-chat-button history-import-button" id="openHistoryImport" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M4 16v4h16v-4"/></svg><span>대화 가져오기</span>
+        </button>
         <section class="projects-panel" aria-label="프로젝트">
           <div class="projects-heading"><span>프로젝트</span><div class="project-heading-actions"><button class="project-import-button" id="importProjectButton" type="button" aria-label="ChatGPT 또는 Claude 프로젝트 가져오기" title="ChatGPT 또는 Claude에서 가져오기">↓</button><button class="project-add-button" id="addProjectButton" type="button" aria-label="프로젝트 만들기" title="프로젝트 만들기">＋</button></div></div>
           <input id="projectImportFile" type="file" accept=".zip,.json,application/zip,application/json" hidden />
@@ -121,6 +124,27 @@
       </section>
     </div>
 
+    <div class="modal-backdrop" id="historyImportModal" hidden>
+      <section class="settings-modal history-import-modal" role="dialog" aria-modal="true" aria-labelledby="historyImportTitle">
+        <div class="modal-header"><div><p class="eyebrow">History</p><h2 id="historyImportTitle">기존 대화 가져오기</h2></div><button class="icon-button close-modal" id="closeHistoryImport" type="button" aria-label="대화 가져오기 닫기">×</button></div>
+        <p class="modal-description">원하는 대화만 골라 Mosaic에서 이어가세요. 선택한 시점의 텍스트를 복사하며, 원본과 자동 동기화하지 않습니다.</p>
+        <div class="history-source-controls">
+          <label class="project-field"><span>대화 출처</span><select id="historyProvider"><option value="openai">Codex</option><option value="anthropic">Claude Code</option></select></label>
+          <label class="project-field" id="historyAccountField"><span>Codex 계정</span><select id="historyAccount"></select></label>
+          <label class="project-field"><span>가져올 프로젝트</span><select id="historyProject"></select></label>
+        </div>
+        <div class="history-filters"><span>앱·IDE 기본 표시</span><label><input type="checkbox" id="historyIncludeCli" /> CLI 대화 포함</label><label><input type="checkbox" id="historyIncludeUnknown" /> 출처 불명 포함</label><label id="historyArchivedLabel"><input type="checkbox" id="historyArchived" /> 보관된 대화</label></div>
+        <form class="history-search" id="historySearchForm"><input id="historySearch" type="search" placeholder="대화 제목 검색" aria-label="가져올 대화 검색" maxlength="120" /><button class="secondary-button" type="submit">검색</button><button class="secondary-button" id="refreshHistory" type="button">새로고침</button></form>
+        <p class="history-notice" id="historyNotice" role="status"></p>
+        <div class="history-selection-bar"><label><input id="historySelectAll" type="checkbox" /> 현재 목록 선택</label><span id="historySelectionCount" aria-live="polite">0개 선택</span></div>
+        <div class="history-list" id="historyList" aria-label="가져올 수 있는 대화"></div>
+        <button class="secondary-button history-more" id="historyLoadMore" type="button" hidden>더 불러오기</button>
+        <section class="history-preview" id="historyPreview" hidden aria-label="대화 미리보기"><h3 id="historyPreviewTitle"></h3><p class="history-notice">사용자와 AI의 텍스트만 가져옵니다. 도구 실행 기록·첨부 파일은 제외됩니다.</p><div id="historyPreviewMessages"></div></section>
+        <p class="import-error" id="historyImportError" role="alert" hidden></p>
+        <div class="history-import-actions"><button class="secondary-button" id="historyImportFile" type="button">내보내기 파일 선택</button><span></span><button class="secondary-button" id="cancelHistoryImport" type="button">취소</button><button class="primary-button" id="commitHistoryImport" type="button" disabled>선택한 대화 가져오기</button></div>
+      </section>
+    </div>
+
     <div class="modal-backdrop" id="projectModal" hidden>
       <section class="project-modal" role="dialog" aria-modal="true" aria-labelledby="projectModalTitle">
         <div class="modal-header"><div><p class="eyebrow">Projects</p><h2 id="projectModalTitle">프로젝트 만들기</h2></div><button class="icon-button close-modal" id="closeProjectModal" type="button" aria-label="닫기">×</button></div>
@@ -138,6 +162,11 @@
         <label class="project-field"><span>가져올 서비스</span><select id="projectImportProvider"><option value="openai">ChatGPT</option><option value="anthropic">Claude</option></select></label>
         <label class="project-field"><span>가져오기 프로젝트 이름</span><input id="projectImportName" type="text" maxlength="60" /></label>
         <div class="import-summary" id="projectImportSummary" role="status"></div>
+        <div id="exportConversationPicker" hidden>
+          <label class="project-field"><span>가져올 대화 선택</span><input id="exportConversationSearch" type="search" placeholder="대화 제목 검색" /></label>
+          <div class="history-selection-bar"><label><input id="exportSelectAll" type="checkbox" /> 검색 결과 선택</label><span id="exportSelectionCount" aria-live="polite">0개 선택</span></div>
+          <div class="export-conversation-list" id="exportConversationList"></div>
+        </div>
         <p class="import-warning">원본 내보내기에 프로젝트 정보가 없으면 가져온 대화는 하나의 Mosaic 프로젝트로 묶입니다. 첨부 파일은 가져오지 않습니다. ZIP은 256MB, 개별 JSON은 64MB까지 지원합니다.</p>
         <p class="import-error" id="projectImportError" role="alert" hidden></p>
         <div class="project-modal-actions"><span></span><button class="secondary-button" id="cancelProjectImport" type="button">취소</button><button class="primary-button" id="commitProjectImport" type="button">가져오기</button></div>

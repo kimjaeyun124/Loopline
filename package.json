@@ -33,6 +33,10 @@
         "to": "app-server/api-connections.mjs"
       },
       {
+        "from": "conversation-history.mjs",
+        "to": "app-server/conversation-history.mjs"
+      },
+      {
         "from": "public",
         "to": "app-server/public"
       }

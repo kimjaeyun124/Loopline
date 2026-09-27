@@ -7,6 +7,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CodexAppServer } from './codex-app-server.mjs';
 import { ApiConnections } from './api-connections.mjs';
+import { ConversationHistory } from './conversation-history.mjs';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const publicDir = join(root, 'public');
@@ -17,6 +18,9 @@ const defaultCodexHome = resolve(process.env.CODEX_HOME || join(homedir(), '.cod
 const port = Number(process.env.PORT || 4173);
 const host = process.env.HOST || '127.0.0.1';
 const apiConnections = new ApiConnections(userDataDir);
+const conversationHistory = new ConversationHistory({
+  getCodexClient: async (accountId) => getCodexAppServer(await getCodexAccountContext(accountId)),
+});
 
 const providers = {
   openai: {
@@ -1245,6 +1249,7 @@ async function serveFile(res, pathname) {
     '/app.js': ['app.js', 'text/javascript; charset=utf-8'],
     '/export-importer.js': ['export-importer.js', 'text/javascript; charset=utf-8'],
     '/api-connections-ui.js': ['api-connections-ui.js', 'text/javascript; charset=utf-8'],
+    '/history-import-ui.js': ['history-import-ui.js', 'text/javascript; charset=utf-8'],
   };
   const entry = files[pathname];
   if (!entry) return json(res, 404, { error: '페이지를 찾을 수 없습니다.' });
@@ -1266,6 +1271,19 @@ async function serveFile(res, pathname) {
 const server = createServer(async (req, res) => {
   if (!allowedOrigin(req)) return json(res, 403, { error: '허용되지 않은 요청 출처입니다.' });
   const url = new URL(req.url, 'http://' + (req.headers.host || '127.0.0.1'));
+
+  if (req.method === 'POST' && ['/api/history/list', '/api/history/read'].includes(url.pathname)) {
+    try {
+      if (!req.headers['content-type']?.startsWith('application/json')) return json(res, 415, { error: 'JSON 요청이 필요합니다.' });
+      const input = await readJson(req);
+      const result = url.pathname.endsWith('/list')
+        ? await conversationHistory.list(input)
+        : await conversationHistory.read(input);
+      return json(res, 200, result);
+    } catch (error) {
+      return json(res, error.status || 502, { error: error.status ? error.message : '기존 대화를 읽지 못했습니다. CLI 설치 상태와 기록 접근 권한을 확인한 뒤 다시 시도해 주세요.' });
+    }
+  }
 
   if (req.method === 'GET' && url.pathname === '/api/status') {
     try {

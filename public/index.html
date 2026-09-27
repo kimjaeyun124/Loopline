@@ -33,9 +33,6 @@
           <summary><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#agents"></use></svg><span>에이전트</span><svg class="ui-icon disclosure-chevron" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#chevron-right"></use></svg><button class="project-add-button" id="addAgentSidebar" type="button" title="API 에이전트 추가" aria-label="API 에이전트 추가"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#plus"></use></svg></button></summary>
           <div class="agent-list" id="agentList"></div>
         </details>
-        <button class="search-chat-button history-import-button" id="openHistoryImport" type="button">
-          <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#import"></use></svg><span>대화 가져오기</span>
-        </button>
         <section class="projects-panel" aria-label="프로젝트">
           <div class="projects-heading"><span>프로젝트</span><div class="project-heading-actions"><button class="project-import-button" id="importProjectButton" type="button" aria-label="ChatGPT 또는 Claude 프로젝트 가져오기" title="ChatGPT 또는 Claude에서 가져오기"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#import"></use></svg></button><button class="project-add-button" id="addProjectButton" type="button" aria-label="프로젝트 만들기" title="프로젝트 만들기"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#plus"></use></svg></button></div></div>
           <input id="projectImportFile" type="file" accept=".zip,.json,application/zip,application/json" hidden />
@@ -195,11 +192,17 @@
     </div>
 
     <div class="modal-backdrop" id="settingsModal" hidden>
-      <section class="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
-        <div class="modal-header"><div><p class="eyebrow">Loopline</p><h2 id="settingsTitle">에이전트 및 연결</h2></div><button class="icon-button close-modal" id="closeSettings" aria-label="닫기"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#close"></use></svg></button></div>
-        <div class="settings-tabs" role="tablist" aria-label="연결 종류"><button type="button" id="accountsTab" role="tab" aria-controls="accountsPanel" aria-selected="true" data-settings-tab="accounts">구독 계정</button><button type="button" id="agentsTab" role="tab" aria-controls="agentsPanel" aria-selected="false" data-settings-tab="agents">API 에이전트 <span id="apiConnectionCount">0</span></button></div>
+      <section class="settings-modal settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+        <div class="modal-header"><div><h2 id="settingsTitle">설정</h2><p class="settings-subtitle">계정과 모델, 대화 기록을 관리하세요.</p></div><button class="icon-button close-modal" id="closeSettings" type="button" aria-label="설정 닫기"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#close"></use></svg></button></div>
+        <div class="settings-layout">
+        <div class="settings-tabs" role="tablist" aria-label="설정 메뉴" aria-orientation="vertical">
+          <button type="button" id="accountsTab" role="tab" aria-controls="accountsPanel" aria-selected="true" data-settings-tab="accounts"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#user"></use></svg><span>구독 계정</span></button>
+          <button type="button" id="agentsTab" role="tab" aria-controls="agentsPanel" aria-selected="false" tabindex="-1" data-settings-tab="agents"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#plug"></use></svg><span>API 에이전트</span><span id="apiConnectionCount">0</span></button>
+          <button type="button" id="historyTab" role="tab" aria-controls="historyPanel" aria-selected="false" tabindex="-1" data-settings-tab="history"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#import"></use></svg><span>대화 가져오기</span></button>
+        </div>
+        <div class="settings-content">
         <div id="accountsPanel" role="tabpanel" aria-labelledby="accountsTab" data-settings-panel="accounts">
-        <p class="modal-description">Codex와 Claude 계정을 연결하세요. 연결한 계정의 모델을 하나의 목록에서 선택할 수 있습니다.</p>
+        <div class="settings-panel-heading"><h3>구독 계정</h3><p>Codex와 Claude를 연결하고 사용 한도를 확인하세요.</p></div>
         <div class="codex-account-section">
           <div class="codex-account-heading"><div><strong>Codex 계정</strong><small>계정별 로그인과 사용 한도를 관리합니다.</small></div><button class="add-account-button" id="addCodexAccount" type="button"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#plus"></use></svg><span>계정 추가</span></button></div>
           <div class="codex-account-list" id="codexAccountsList"></div>
@@ -219,7 +222,26 @@
           <div id="apiConnectionsList" class="api-connections-list"></div>
           <p class="settings-footnote" id="apiKeyStorageInfo"></p>
         </div>
-        <div class="modal-actions"><button class="secondary-button" id="refreshStatus">연결 상태 새로고침</button><button class="primary-button" id="doneSettings">완료</button></div>
+        <div id="historyPanel" role="tabpanel" aria-labelledby="historyTab" data-settings-panel="history" hidden>
+          <div class="settings-panel-heading"><h3>대화 가져오기</h3><p>이전 대화를 골라 Loopline에서 이어가세요.</p></div>
+          <div class="settings-import-list">
+            <button class="settings-import-card" id="openHistoryImport" type="button">
+              <span class="settings-import-icon" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 24 24"><use href="/icons.svg#chat"></use></svg></span>
+              <span class="settings-import-copy"><strong>Codex · Claude Code</strong><span>이 Mac에 저장된 대화에서 선택</span><small>대화 미리보기 · CLI 기록 필터</small></span>
+              <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#chevron-right"></use></svg>
+            </button>
+            <button class="settings-import-card" id="settingsImportFile" type="button">
+              <span class="settings-import-icon" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 24 24"><use href="/icons.svg#folder"></use></svg></span>
+              <span class="settings-import-copy"><strong>ChatGPT · Claude</strong><span>내보내기 파일에서 대화와 프로젝트 선택</span><small>ZIP · JSON 파일</small></span>
+              <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#chevron-right"></use></svg>
+            </button>
+          </div>
+          <div class="settings-import-note"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#check"></use></svg><p>선택한 대화만 가져옵니다. Codex·Claude Code의 CLI 기록은 기본적으로 제외되며, 필요할 때 포함할 수 있습니다.</p></div>
+          <p class="settings-footnote">가져온 대화는 복사본으로 저장됩니다. 원본과 자동 동기화하지 않습니다.</p>
+        </div>
+        </div>
+        </div>
+        <div class="modal-actions settings-footer"><button class="secondary-button" id="refreshStatus" type="button">연결 상태 새로고침</button><button class="primary-button" id="doneSettings" type="button">완료</button></div>
       </section>
     </div>
 

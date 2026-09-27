@@ -325,11 +325,44 @@ kbd { margin-left: auto; color: var(--muted); font-family: inherit; font-size: 1
 .notice-box strong { font-size: 10px; }
 .notice-box p { margin: 5px 0 0; color: var(--secondary); font-size: 10px; line-height: 1.6; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 19px; }
-.settings-tabs { display: flex; gap: 24px; margin-top: 24px; border-bottom: 1px solid var(--line); }
-.settings-tabs > button { position: relative; padding: 0 2px 12px; border: 0; background: none; color: var(--muted); font-size: 13px; cursor: pointer; }
-.settings-tabs > button[aria-selected="true"] { color: var(--ink); font-weight: 550; }
-.settings-tabs > button[aria-selected="true"]::after { content: ''; position: absolute; bottom: -1px; left: 0; right: 0; height: 2px; background: var(--ink); }
-#apiConnectionCount { margin-left: 4px; padding: 2px 5px; border-radius: 5px; background: var(--sidebar-hover); color: var(--muted); font-size: 10px; }
+.settings-dialog { display: flex; width: min(100%, 880px); height: min(660px, calc(100dvh - 64px)); flex-direction: column; overflow: hidden; padding: 0; border-radius: 20px; }
+.settings-dialog > .modal-header { flex-shrink: 0; align-items: center; padding: 22px 26px; border-bottom: 1px solid var(--line); }
+.settings-dialog .close-modal { margin: 0; }
+.settings-subtitle { margin: 6px 0 0; color: var(--muted); font-size: 12px; }
+.settings-layout { display: grid; min-height: 0; flex: 1; grid-template-columns: 184px minmax(0, 1fr); }
+.settings-tabs { display: flex; flex-direction: column; gap: 5px; padding: 16px 10px; border-right: 1px solid var(--line); background: var(--sidebar); }
+.settings-tabs > button { display: flex; min-height: 40px; align-items: center; gap: 9px; padding: 9px 11px; border: 1px solid transparent; border-radius: 9px; background: transparent; color: var(--secondary); text-align: left; font-size: 12px; cursor: pointer; }
+.settings-tabs > button:hover { background: var(--sidebar-hover); }
+.settings-tabs > button[aria-selected="true"] { border-color: var(--line); background: var(--canvas); color: var(--ink); font-weight: 600; box-shadow: 0 1px 3px #16191c05; }
+.settings-tabs > button:focus-visible, .settings-import-card:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+#apiConnectionCount { margin-left: auto; padding: 2px 5px; border-radius: 5px; background: var(--soft); color: var(--muted); font-size: 10px; }
+.settings-content { min-width: 0; overflow: auto; padding: 26px; overscroll-behavior: contain; }
+.settings-panel-heading { margin-bottom: 22px; }
+.settings-panel-heading h3 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -.025em; }
+.settings-panel-heading p { margin: 8px 0 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.settings-dialog .codex-account-section { margin: 0; padding: 14px; border: 1px solid var(--line); border-radius: 12px; }
+.settings-dialog .codex-account-heading { padding: 0 0 12px; }
+.settings-dialog .codex-account-card { padding: 14px 0; }
+.settings-dialog .codex-account-card:last-child { padding-bottom: 0; }
+.settings-dialog .codex-account-card.active { background: transparent; }
+.settings-dialog .connection-row { margin-top: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 12px; }
+.settings-dialog .api-section-heading { margin: 0 0 22px; }
+.settings-dialog .api-section-heading h3 { font-size: 17px; font-weight: 600; letter-spacing: -.025em; }
+.settings-dialog .api-section-heading p { font-size: 12px; }
+.settings-dialog .notice-box { border-color: transparent; }
+.settings-import-list { display: flex; flex-direction: column; gap: 12px; }
+.settings-import-card { display: flex; width: 100%; align-items: center; gap: 14px; padding: 18px; border: 1px solid var(--line); border-radius: 13px; background: var(--canvas); text-align: left; cursor: pointer; transition: border-color .15s ease, background .15s ease; }
+.settings-import-card:hover { border-color: var(--line-strong); background: var(--sidebar); }
+.settings-import-icon { display: grid; width: 42px; height: 42px; flex: 0 0 42px; place-items: center; border: 1px solid var(--line); border-radius: 12px; background: var(--soft); color: var(--secondary); }
+.settings-import-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 6px; }
+.settings-import-copy strong { color: var(--ink); font-size: 14px; font-weight: 600; }
+.settings-import-copy > span { color: var(--secondary); font-size: 12px; line-height: 1.5; }
+.settings-import-copy small { margin-top: 2px; color: var(--muted); font-size: 10px; }
+.settings-import-card > .ui-icon { color: var(--muted); }
+.settings-import-note { display: flex; align-items: flex-start; gap: 9px; margin-top: 18px; padding: 13px 14px; border-radius: 10px; background: var(--soft); color: var(--secondary); }
+.settings-import-note p { margin: 0; font-size: 11px; line-height: 1.7; }
+.settings-footer { flex-shrink: 0; margin: 0; padding: 16px 24px; border-top: 1px solid var(--line); }
+.settings-footer #refreshStatus { margin-right: auto; }
 .settings-footnote { margin: 18px 0 0; color: var(--muted); font-size: 11px; line-height: 1.7; }
 .inline-account-form { display: flex; gap: 8px; padding: 12px 0; }
 .inline-account-form input { min-width: 0; flex: 1; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 12px; }
@@ -411,6 +444,22 @@ kbd { margin-left: auto; color: var(--muted); font-family: inherit; font-size: 1
   .modal-actions { justify-content: stretch; }
   .modal-actions button { flex: 1; }
   .search-backdrop { padding: 10vh 12px 12px; }
+}
+
+@media (max-width: 680px) {
+  .settings-dialog { padding: 0; }
+  .settings-dialog > .modal-header { padding: 18px; }
+  .settings-layout { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .settings-tabs { flex-direction: row; gap: 4px; padding: 10px; border-right: 0; border-bottom: 1px solid var(--line); }
+  .settings-tabs > button { justify-content: center; min-width: 0; flex: 1; gap: 6px; padding: 8px 5px; font-size: 11px; }
+  .settings-tabs > button > span { white-space: nowrap; }
+  .settings-tabs .ui-icon, #apiConnectionCount { display: none; }
+  .settings-content { padding: 20px 16px; }
+  .settings-import-card { gap: 10px; padding: 14px 12px; }
+  .settings-import-icon { width: 34px; height: 34px; flex-basis: 34px; border-radius: 10px; }
+  .settings-import-copy strong { font-size: 13px; }
+  .settings-import-copy > span { font-size: 11px; }
+  .settings-footer { padding: 14px 16px; }
 }
 
 .history-import-modal { width: min(100%, 850px); }

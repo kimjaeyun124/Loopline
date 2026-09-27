@@ -1,6 +1,6 @@
 const escape = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
 
-export function createHistoryImportUI({ getAccounts, getProjects, isImported, onImport, onFileImport, isBusy, showToast }) {
+export function createHistoryImportUI({ getAccounts, getProjects, isImported, onImport, onFileImport, onClose, isBusy, showToast }) {
   const element = (id) => document.getElementById(id);
   const modal = element('historyImportModal');
   let items = [];
@@ -125,6 +125,7 @@ export function createHistoryImportUI({ getAccounts, getProjects, isImported, on
     previews.clear(); items = []; selected.clear();
     element('historyList').replaceChildren();
     element('historyPreviewMessages').replaceChildren();
+    onClose?.();
     returnFocus?.focus();
   }
 
@@ -166,7 +167,7 @@ export function createHistoryImportUI({ getAccounts, getProjects, isImported, on
   }
 
   function open() {
-    if (isBusy()) { showToast('응답이 끝난 뒤 대화를 가져와 주세요.'); return; }
+    if (isBusy()) { showToast('응답이 끝난 뒤 대화를 가져와 주세요.'); return false; }
     returnFocus = document.activeElement;
     const accounts = getAccounts();
     element('historyAccount').innerHTML = (accounts.length ? accounts : [{ id: 'default', name: '로컬 Codex 계정' }])
@@ -179,9 +180,9 @@ export function createHistoryImportUI({ getAccounts, getProjects, isImported, on
     modal.hidden = false;
     element('historyProvider').focus();
     void load();
+    return true;
   }
 
-  element('openHistoryImport').addEventListener('click', open);
   element('closeHistoryImport').addEventListener('click', close);
   element('cancelHistoryImport').addEventListener('click', close);
   element('commitHistoryImport').addEventListener('click', commit);

@@ -104,12 +104,14 @@ const elements = {
   toast: document.querySelector('#toast'),
 };
 const apiConnectionsUI = createApiConnectionsUI({ onChange: refreshApiConnections, showToast });
-createHistoryImportUI({
+let projectImportReturnsToSettings = false;
+const historyImportUI = createHistoryImportUI({
   getAccounts: () => state.codexAccounts.map((account) => ({ ...account, displayName: codexAccountDisplayName(account) })),
   getProjects: () => state.projects,
   isImported: historyAlreadyImported,
   onImport: commitHistoryImport,
   onFileImport: () => elements.projectImportFile.click(),
+  onClose: () => showSettings('history'),
   isBusy: () => state.busy,
   showToast,
 });
@@ -1011,6 +1013,8 @@ async function selectProjectImportFile(file) {
     elements.projectImportSummary.textContent = `${file.name} · 프로젝트 ${importedProjectCount.toLocaleString()}개 · 대화 ${conversationCount.toLocaleString()}개 · JSON ${parsed.sourceFileCount.toLocaleString()}개`;
     elements.projectImportError.hidden = true;
     elements.projectImportError.textContent = '';
+    projectImportReturnsToSettings = !elements.settingsModal.hidden;
+    if (projectImportReturnsToSettings) hideSettings();
     elements.projectImportModal.hidden = false;
     elements.projectImportName.focus();
   } catch (error) {
@@ -1023,11 +1027,17 @@ async function selectProjectImportFile(file) {
 }
 
 function closeProjectImport() {
+  const returnToSettings = projectImportReturnsToSettings && !elements.projectImportModal.hidden;
+  projectImportReturnsToSettings = false;
   elements.projectImportModal.hidden = true;
   elements.projectImportError.hidden = true;
   elements.projectImportError.textContent = '';
   state.pendingProjectImport = null;
   document.querySelector('#exportConversationList').replaceChildren();
+  if (returnToSettings) {
+    showSettings('history');
+    document.querySelector('#settingsImportFile').focus();
+  }
 }
 
 function visibleExportConversations() {
@@ -1436,13 +1446,14 @@ function resizeInput() {
 }
 
 function selectSettingsTab(tab) {
-  const name = tab === 'agents' ? 'agents' : 'accounts';
+  const name = ['accounts', 'agents', 'history'].includes(tab) ? tab : 'accounts';
   document.querySelectorAll('[data-settings-tab]').forEach((button) => {
     const selected = button.dataset.settingsTab === name;
     button.setAttribute('aria-selected', String(selected));
     button.tabIndex = selected ? 0 : -1;
   });
   document.querySelectorAll('[data-settings-panel]').forEach((panel) => { panel.hidden = panel.dataset.settingsPanel !== name; });
+  document.querySelector('#refreshStatus').hidden = name === 'history';
 }
 
 function showSettings(tab = 'accounts') {
@@ -1551,12 +1562,25 @@ document.querySelector('#doneSettings').addEventListener('click', hideSettings);
 document.querySelector('#refreshStatus').addEventListener('click', refreshStatus);
 document.querySelector('#connectClaude').addEventListener('click', toggleClaudeConnection);
 document.querySelector('#connectionDetails').addEventListener('click', () => showSettings(state.provider === 'api' ? 'agents' : 'accounts'));
+document.querySelector('#openHistoryImport').addEventListener('click', () => {
+  if (historyImportUI.open()) hideSettings();
+});
+document.querySelector('#settingsImportFile').addEventListener('click', () => elements.projectImportFile.click());
+const compactSettings = window.matchMedia('(max-width: 680px)');
+function updateSettingsTabOrientation() {
+  document.querySelector('.settings-tabs').setAttribute('aria-orientation', compactSettings.matches ? 'horizontal' : 'vertical');
+}
+compactSettings.addEventListener('change', updateSettingsTabOrientation);
+updateSettingsTabOrientation();
 document.querySelectorAll('[data-settings-tab]').forEach((button) => {
   button.addEventListener('click', () => selectSettingsTab(button.dataset.settingsTab));
   button.addEventListener('keydown', (event) => {
-    if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+    if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
     event.preventDefault();
-    const next = document.querySelector(`[data-settings-tab="${button.dataset.settingsTab === 'accounts' ? 'agents' : 'accounts'}"]`);
+    const tabs = [...document.querySelectorAll('[data-settings-tab]')];
+    const direction = ['ArrowLeft', 'ArrowUp'].includes(event.key) ? -1 : 1;
+    const index = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (tabs.indexOf(button) + direction + tabs.length) % tabs.length;
+    const next = tabs[index];
     next.click();
     next.focus();
   });
@@ -1600,6 +1624,13 @@ elements.codexAccountsList.addEventListener('click', (event) => {
   if (deleteButton) updateCodexAccountLink(deleteButton.dataset.deleteCodexAccount, 'delete');
 });
 elements.settingsModal.addEventListener('click', (event) => { if (event.target === elements.settingsModal) hideSettings(); });
+elements.settingsModal.addEventListener('keydown', (event) => {
+  if (event.key !== 'Tab') return;
+  const controls = [...elements.settingsModal.querySelectorAll('button, input, select, a[href]')].filter((node) => !node.disabled && node.tabIndex >= 0 && node.getClientRects().length);
+  const first = controls[0]; const last = controls.at(-1);
+  if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+  else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+});
 elements.projectModal.addEventListener('click', (event) => { if (event.target === elements.projectModal) closeProjectEditor(); });
 elements.projectMoveModal.addEventListener('click', (event) => { if (event.target === elements.projectMoveModal) closeProjectMove(); });
 elements.projectImportModal.addEventListener('click', (event) => { if (event.target === elements.projectImportModal) closeProjectImport(); });

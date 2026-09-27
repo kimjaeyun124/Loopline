@@ -19,14 +19,14 @@ API 연결은 편집·모델 새로고침·연결 해제·삭제가 가능합니
 
 ## 기존 대화 선택 가져오기
 
-1. 사이드바의 **대화 가져오기**를 누르고 **Codex** 또는 **Claude Code**를 선택합니다. Codex는 가져올 로컬 계정도 선택할 수 있습니다.
+1. **설정 및 연결 → 대화 가져오기 → Codex · Claude Code**를 열고 대화 출처를 선택합니다. Codex는 가져올 로컬 계정도 선택할 수 있습니다.
 2. 기본 목록은 앱·IDE 기록을 표시합니다. **CLI 대화 포함**, **출처 불명 포함**을 각각 켜서 필요한 기록만 추가하고, Codex의 보관된 기록도 따로 조회할 수 있습니다. 필터를 바꾸면 기존 선택은 해제됩니다.
 3. 제목으로 검색하고 대화 제목을 눌러 본문을 미리 봅니다. 원하는 항목을 체크한 뒤 **선택한 대화 가져오기**를 누릅니다. 프로젝트를 지정하거나 ‘프로젝트 미지정’으로 저장할 수 있습니다.
 4. 가져온 대화를 열고 모델 선택기로 Codex·Claude·API 모델 중 원하는 모델을 골라 이어갑니다. 이미 가져온 대화는 중복 저장하지 않습니다.
 
 가져오기는 선택 시점의 사용자·AI 텍스트를 Loopline에 복사하는 방식입니다. 원본 대화와 양방향 동기화하지 않으며, 가져온 대화를 삭제해도 원본 기록은 삭제되지 않습니다. 도구 실행 결과, 내부 추론, 첨부 파일은 가져오지 않습니다. 전체 텍스트는 로컬에 보관하고, 이어지는 응답에는 최근 최대 60개 메시지를 요청 크기 한도 안에서 전달합니다. 문맥을 줄이면 화면에 안내합니다.
 
-Codex는 공식 [app-server의 thread/list·thread/read](https://learn.chatgpt.com/docs/app-server)를 사용하며 서버가 기록한 source와 originator로 출처를 구분합니다. Claude Code는 공식 [로컬 transcript 저장 경로](https://code.claude.com/docs/en/claude-directory)의 `~/.claude/projects/*/*.jsonl`을 읽습니다. `CLAUDE_CONFIG_DIR`가 설정되어 있으면 해당 폴더를 사용합니다. entrypoint가 없는 기록은 ‘출처 불명’으로 분류합니다. 다른 컴퓨터나 클라우드에만 저장된 대화는 이 목록에 나타나지 않습니다. Claude의 클라우드 대화와 ChatGPT 대화는 **내보내기 파일 선택**에서 ZIP/JSON을 연 뒤 가져올 대화를 체크하세요.
+Codex는 공식 [app-server의 thread/list·thread/read](https://learn.chatgpt.com/docs/app-server)를 사용하며 서버가 기록한 source와 originator로 출처를 구분합니다. Claude Code는 공식 [로컬 transcript 저장 경로](https://code.claude.com/docs/en/claude-directory)의 `~/.claude/projects/*/*.jsonl`을 읽습니다. `CLAUDE_CONFIG_DIR`가 설정되어 있으면 해당 폴더를 사용합니다. entrypoint가 없는 기록은 ‘출처 불명’으로 분류합니다. 다른 컴퓨터나 클라우드에만 저장된 대화는 이 목록에 나타나지 않습니다. Claude의 클라우드 대화와 ChatGPT 대화는 **설정 및 연결 → 대화 가져오기 → ChatGPT · Claude**에서 ZIP/JSON을 연 뒤 가져올 대화를 체크하세요. Codex·Claude Code의 대화 선택 창에서도 **내보내기 파일 선택**을 사용할 수 있습니다.
 
 Claude 로컬 파일은 64MB까지 읽으며 목록은 최대 5,000개 파일을 탐색합니다. 읽기 실패와 목록 제한은 화면에 표시합니다. 가져올 텍스트와 기존 저장 데이터가 앱의 로컬 저장 한도를 넘으면 저장하지 않고 선택 개수를 줄이도록 안내합니다.
 

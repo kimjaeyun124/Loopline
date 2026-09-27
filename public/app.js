@@ -7,6 +7,7 @@ import { createModelVisibilityUI } from './model-visibility-ui.js';
 import { createAccountMenuUI } from './account-menu-ui.js';
 import { createUsageActivityUI } from './usage-activity-ui.js';
 import { modelEffortCapability } from './model-capabilities.mjs';
+import { renderMarkdown } from './markdown.js';
 
 const PROVIDERS = {
   openai: {
@@ -422,10 +423,10 @@ function renderMessages() {
     const errorClass = message.error ? ' error' : '';
     const content = message.pending && !message.content
       ? '<span class="typing-dots" aria-label="응답 생성 중"><i></i><i></i><i></i></span>'
-      : escapeHtml(message.content);
+      : assistant ? renderMarkdown(message.content, { copyDisabled: message.pending }) : escapeHtml(message.content);
     return `<article class="message ${assistant ? 'assistant' : 'user'}${errorClass}" data-message-id="${escapeHtml(message.id || '')}">
       ${assistant ? `<span class="assistant-mark" aria-hidden="true">${icon('brand')}</span>` : ''}
-      <div class="message-content">${content}${message.pending && message.content ? '<span class="typing-dots" aria-label="응답 생성 중"><i></i><i></i><i></i></span>' : ''}</div>
+      <div class="message-content${assistant ? ' markdown-content' : ''}">${content}${message.pending && message.content ? '<span class="typing-dots" aria-label="응답 생성 중"><i></i><i></i><i></i></span>' : ''}</div>
     </article>`;
   }).join('');
   elements.chatScroll.scrollTop = elements.chatScroll.scrollHeight;
@@ -1390,6 +1391,19 @@ async function copyLastResponse() {
   elements.conversationActions.open = false;
 }
 
+async function copyCodeBlock(button) {
+  const code = button.closest('.code-block')?.querySelector('pre code')?.textContent;
+  if (typeof code !== 'string') return;
+  try {
+    await navigator.clipboard.writeText(code);
+    button.textContent = '복사됨';
+    showToast('코드 블록을 복사했습니다.');
+    setTimeout(() => { if (button.isConnected) button.textContent = '복사'; }, 1400);
+  } catch {
+    showToast('코드를 복사하지 못했습니다. 클립보드 권한을 확인해 주세요.');
+  }
+}
+
 function exportConversationMarkdown() {
   const conversation = activeConversation();
   if (!conversation?.messages.length || conversation.messages.some((message) => message.pending)) return;
@@ -2029,6 +2043,10 @@ document.addEventListener('click', (event) => {
   }
 });
 elements.copyLastResponseButton.addEventListener('click', () => { void copyLastResponse(); });
+elements.messages.addEventListener('click', (event) => {
+  const button = event.target.closest('.copy-code-button');
+  if (button) void copyCodeBlock(button);
+});
 elements.exportConversationButton.addEventListener('click', exportConversationMarkdown);
 elements.fastModeToggle.addEventListener('click', toggleFastMode);
 elements.composerReasoningEffortSelect.addEventListener('change', (event) => setReasoningEffort(event.target.value));

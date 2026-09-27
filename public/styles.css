@@ -235,7 +235,27 @@ kbd { margin-left: auto; color: var(--muted); font-family: inherit; font-size: 1
 .message-content { max-width: 100%; color: var(--ink); font-size: 16px; line-height: 1.8; overflow-wrap: anywhere; white-space: pre-wrap; }
 .message.user .message-content { max-width: 78%; padding: 12px 20px; border-radius: 24px; background: var(--soft); }
 .assistant-mark { display: none; }
-.message.assistant .message-content { padding-top: 1px; }
+.message.assistant .message-content { padding-top: 1px; white-space: normal; }
+.markdown-content > :first-child { margin-top: 0; }
+.markdown-content > :last-child { margin-bottom: 0; }
+.markdown-content p { margin: 0 0 14px; }
+.markdown-content h1, .markdown-content h2, .markdown-content h3, .markdown-content h4, .markdown-content h5, .markdown-content h6 { margin: 20px 0 8px; color: var(--ink); line-height: 1.4; }
+.markdown-content h1 { font-size: 1.45em; }
+.markdown-content h2 { font-size: 1.28em; }
+.markdown-content h3 { font-size: 1.14em; }
+.markdown-content ul, .markdown-content ol { margin: 0 0 14px; padding-left: 24px; }
+.markdown-content li + li { margin-top: 4px; }
+.markdown-content blockquote { margin: 12px 0; padding: 2px 0 2px 14px; border-left: 3px solid var(--line-strong); color: var(--secondary); }
+.markdown-content hr { margin: 18px 0; border: 0; border-top: 1px solid var(--line); }
+.markdown-content a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+.inline-code { padding: 2px 5px; border: 1px solid var(--line); border-radius: 5px; background: var(--soft); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .88em; }
+.code-block { margin: 16px 0; overflow: hidden; border: 1px solid var(--line); border-radius: 12px; background: var(--sidebar); }
+.code-block-header { display: flex; min-height: 36px; align-items: center; justify-content: space-between; gap: 12px; padding: 5px 9px 5px 13px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 11px; }
+.copy-code-button { min-width: 54px; padding: 5px 9px; border: 1px solid var(--line); border-radius: 7px; background: var(--canvas); color: var(--secondary); font-size: 11px; cursor: pointer; }
+.copy-code-button:hover { border-color: var(--line-strong); background: var(--sidebar-hover); color: var(--ink); }
+.copy-code-button:disabled { opacity: .6; cursor: wait; }
+.code-block pre { max-width: 100%; margin: 0; overflow-x: auto; padding: 14px 16px; white-space: pre; }
+.code-block pre code { color: var(--ink); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; line-height: 1.65; }
 .message.error .message-content { color: var(--danger); }
 .message-meta { margin-top: 8px; color: var(--muted); font-size: 10px; }
 .typing-dots { display: inline-flex; gap: 4px; padding: 7px 0; }

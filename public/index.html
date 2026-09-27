@@ -227,7 +227,6 @@
       <form class="project-modal agent-editor" id="apiConnectionForm" role="dialog" aria-modal="true" aria-labelledby="apiConnectionTitle">
         <div class="modal-header"><div><p class="eyebrow">API Connection</p><h2 id="apiConnectionTitle">에이전트 추가</h2></div><button class="icon-button close-modal" id="closeApiConnection" type="button" aria-label="닫기"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#close"></use></svg></button></div>
         <p class="modal-description">원하는 API를 연결하세요. 모델 목록을 확인한 뒤 바로 선택할 수 있습니다.</p>
-        <label class="project-field"><span>빠른 설정</span><select id="apiPreset"><option value="deepseek">DeepSeek</option><option value="openai">OpenAI API</option><option value="custom">직접 입력 · OpenAI 호환 API</option></select></label>
         <label class="project-field"><span>에이전트 이름</span><input id="apiConnectionName" type="text" maxlength="60" required placeholder="예: 나의 DeepSeek" autocomplete="off" /></label>
         <label class="project-field"><span>API 기본 주소</span><input id="apiBaseUrl" type="url" required placeholder="https://api.example.com/v1" autocomplete="off" spellcheck="false" /><small>서비스의 OpenAI 호환 주소를 입력하세요. /models는 자동으로 붙습니다.</small></label>
         <label class="project-field"><span>API 키 <small id="apiKeyHint"></small></span><input id="apiKey" type="password" maxlength="8192" autocomplete="off" spellcheck="false" placeholder="API 키 입력" /></label>

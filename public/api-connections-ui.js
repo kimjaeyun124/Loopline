@@ -1,10 +1,5 @@
 import { icon } from './icons.js';
 
-const PRESETS = {
-  deepseek: { name: 'DeepSeek', baseUrl: 'https://api.deepseek.com' },
-  openai: { name: 'OpenAI API', baseUrl: 'https://api.openai.com/v1' },
-  custom: { name: '', baseUrl: '' },
-};
 const escape = (value) => String(value).replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
 
 export function createApiConnectionsUI({ onChange, showToast }) {
@@ -47,17 +42,15 @@ export function createApiConnectionsUI({ onChange, showToast }) {
     form.reset();
     element('apiConnectionError').hidden = true;
     element('apiConnectionTitle').textContent = connection ? '에이전트 편집' : '에이전트 추가';
-    element('apiPreset').value = connection ? 'custom' : 'deepseek';
-    element('apiPreset').disabled = Boolean(connection);
-    element('apiConnectionName').value = connection?.name || PRESETS.deepseek.name;
-    element('apiBaseUrl').value = connection?.baseUrl || PRESETS.deepseek.baseUrl;
+    element('apiConnectionName').value = connection?.name || '';
+    element('apiBaseUrl').value = connection?.baseUrl || '';
     element('apiKey').required = !connection?.connected;
     element('apiKeyHint').textContent = connection?.connected ? '변경할 때만 입력' : '';
     element('apiKey').placeholder = connection?.connected ? '기존 키 유지 · 새 주소에는 새 키 필요' : 'API 키 입력';
     element('saveApiConnection').textContent = connection ? '저장 및 모델 새로고침' : '연결 및 모델 가져오기';
     element('apiEditorStorageInfo').textContent = storageInfo();
     modal.hidden = false;
-    requestAnimationFrame(() => element(connection ? 'apiConnectionName' : 'apiKey').focus());
+    requestAnimationFrame(() => element('apiConnectionName').focus());
   }
 
   function closeEditor() {
@@ -118,17 +111,9 @@ export function createApiConnectionsUI({ onChange, showToast }) {
     } finally {
       saving = false;
       form.querySelectorAll('input, select, button').forEach((item) => { item.disabled = false; });
-      element('apiPreset').disabled = Boolean(editingId);
       element('saveApiConnection').textContent = editingId ? '저장 및 모델 새로고침' : '연결 및 모델 가져오기';
       if (connected) closeEditor();
     }
-  });
-  element('apiPreset').addEventListener('change', (event) => {
-    const preset = PRESETS[event.target.value];
-    element('apiConnectionName').value = preset.name;
-    element('apiBaseUrl').value = preset.baseUrl;
-    element('apiKey').value = '';
-    element(preset.name ? 'apiKey' : 'apiConnectionName').focus();
   });
   element('addApiConnection').addEventListener('click', () => openEditor());
   element('closeApiConnection').addEventListener('click', closeEditor);

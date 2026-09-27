@@ -96,6 +96,7 @@ const elements = {
   composerForm: document.querySelector('#composerForm'),
   messageInput: document.querySelector('#messageInput'),
   sendButton: document.querySelector('#sendButton'),
+  stopResponseButton: document.querySelector('#stopResponseButton'),
   providerSelectButton: document.querySelector('#providerSelectButton'),
   modelSelectButton: document.querySelector('#modelSelectButton'),
   modelMenu: document.querySelector('#modelMenu'),
@@ -173,6 +174,18 @@ function loadConversations() {
             if (typeof message.id === 'string') normalized.id = message.id.slice(0, 120);
             if (message.role === 'assistant' && Number.isFinite(message.workedForMs) && message.workedForMs >= 0) {
               normalized.workedForMs = Math.floor(message.workedForMs);
+            }
+            if (message.role === 'user' && message.queued === true) {
+              normalized.queued = true;
+              const options = message.queueOptions && typeof message.queueOptions === 'object' ? message.queueOptions : {};
+              normalized.queueOptions = {
+                provider: Object.hasOwn(PROVIDERS, options.provider) ? options.provider : '',
+                model: typeof options.model === 'string' ? options.model.slice(0, 160) : '',
+                connectionId: typeof options.connectionId === 'string' ? options.connectionId.slice(0, 160) : null,
+                codexAccountId: typeof options.codexAccountId === 'string' ? options.codexAccountId.slice(0, 120) : null,
+                reasoningEffort: ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'].includes(options.reasoningEffort) ? options.reasoningEffort : '',
+                fastMode: options.fastMode === true,
+              };
             }
             return normalized;
           });
@@ -430,6 +443,7 @@ function renderMessages() {
     return;
   }
 
+  const queuedMessages = messages.filter((message) => message.role === 'user' && message.queued);
   elements.messages.innerHTML = messages.map((message, index) => {
     const assistant = message.role === 'assistant';
     const errorClass = message.error ? ' error' : '';
@@ -438,6 +452,10 @@ function renderMessages() {
       : assistant ? renderMarkdown(message.content, { copyDisabled: message.pending }) : escapeHtml(message.content);
     const copyLabel = assistant ? '답변' : '질문';
     const copyButton = `<button class="message-copy-button" type="button" data-copy-message-index="${index}" aria-label="${copyLabel} 복사" title="${copyLabel} 복사">${icon('copy')}<span>복사</span></button>`;
+    const queuePosition = message.queued ? queuedMessages.findIndex((item) => item.id === message.id) + 1 : 0;
+    const queueControls = message.queued
+      ? `<span class="queue-status">대기열 ${Math.max(queuePosition, 1)}</span>${queuePosition === 1 && !state.busy ? '<button class="queue-retry-button" type="button" data-retry-queue="true">다시 시도</button>' : ''}<button class="queue-cancel-button" type="button" data-cancel-queued="${escapeHtml(message.id || '')}" aria-label="대기 메시지 취소">취소</button>`
+      : '';
     if (assistant) {
       const hasWorkedFor = message.pending || Number.isFinite(message.workedForMs);
       const elapsedMs = message.pending ? Date.now() - (message.startedAt || Date.now()) : message.workedForMs;
@@ -455,7 +473,7 @@ function renderMessages() {
     return `<article class="message user${errorClass}" data-message-id="${escapeHtml(message.id || '')}">
       <div class="user-message-group">
         <div class="message-content">${content}</div>
-        <div class="message-actions">${copyButton}</div>
+        <div class="message-actions">${queueControls}${copyButton}</div>
       </div>
     </article>`;
   }).join('');
@@ -734,6 +752,18 @@ function renderAgentList() {
   document.querySelector('#agentList').innerHTML = agents.map((agent) => `<button class="agent-sidebar-row" type="button" data-agent-tab="${agent.tab}" title="${escapeHtml(agent.name)} · ${escapeHtml(agent.detail)}"><span class="agent-mark" aria-hidden="true">${agent.mark}</span><span class="agent-name">${escapeHtml(agent.name)}</span><span class="agent-detail">${escapeHtml(agent.detail)}</span><span class="agent-status${agent.connected ? ' connected' : ''}" aria-label="${agent.connected ? '연결됨' : '연결 필요'}"></span></button>`).join('');
 }
 
+function renderSendButtonState(selectedConnected) {
+  const hasDraft = elements.messageInput.value.trim().length > 0;
+  const queueing = state.busy && hasDraft;
+  const stopping = state.busy && !hasDraft;
+  elements.sendButton.disabled = state.busy ? false : !selectedConnected;
+  elements.sendButton.classList.toggle('busy', stopping);
+  elements.sendButton.classList.toggle('queueing', queueing);
+  elements.sendButton.setAttribute('aria-label', queueing ? '대기열에 추가' : stopping ? '응답 중지' : '메시지 보내기');
+  elements.sendButton.title = queueing ? '대기열에 추가' : stopping ? '응답 중지' : selectedConnected ? '메시지 보내기' : '먼저 연결과 모델을 선택하세요.';
+  elements.stopResponseButton.hidden = !queueing;
+}
+
 function renderModelSelect() {
   const selected = modelCatalog().find((model) => modelKey(model) === selectedModelKey());
   const provider = providerCatalog().find(isSelectedProvider);
@@ -752,8 +782,7 @@ function renderModelSelect() {
   document.querySelector('#providerDot').classList.toggle('connected', provider?.connected === true);
   renderReasoningSelect(reasoning, selected?.connected === true);
   if (!elements.modelMenu.hidden) renderModelOptions();
-  elements.sendButton.disabled = !state.busy && !selected?.connected;
-  elements.sendButton.title = state.busy ? '응답 중지' : selected?.connected ? '메시지 보내기' : '먼저 연결과 모델을 선택하세요.';
+  renderSendButtonState(selected?.connected === true);
   elements.fastModeToggle.hidden = state.provider !== 'openai' || !state.model;
   elements.fastModeToggle.disabled = !selected?.connected || !reasoning.fastAvailable || state.busy;
   elements.fastModeToggle.classList.toggle('active', reasoning.fastEnabled);
@@ -1679,9 +1708,107 @@ async function streamResponse(response, assistantMessage, conversation) {
   render();
 }
 
-async function sendMessage(value) {
+function enqueueMessage(value) {
+  const message = value.trim();
+  if (!message) return;
+  const conversation = activeConversation();
+  if (!conversation) {
+    showToast('대기열에 추가할 대화를 먼저 열어 주세요.');
+    return;
+  }
+  if (!state.provider || !state.model) {
+    showToast('대기열에 넣을 연결과 모델을 먼저 선택해 주세요.');
+    openModelMenu(state.provider ? 'models' : 'providers');
+    return;
+  }
+  if (!state.busy && !modelCatalog().find((model) => modelKey(model) === selectedModelKey())?.connected) {
+    showToast('대기열에 넣을 연결을 확인해 주세요.');
+    showSettings(state.provider === 'api' ? 'agents' : 'accounts');
+    return;
+  }
+
+  const reasoning = reasoningSettings();
+  conversation.messages.push({
+    role: 'user',
+    content: message,
+    id: crypto.randomUUID(),
+    queued: true,
+    queueOptions: {
+      provider: state.provider,
+      model: state.model,
+      connectionId: state.provider === 'api' ? state.activeConnectionId : null,
+      codexAccountId: state.provider === 'openai' ? state.activeCodexAccountId : null,
+      reasoningEffort: reasoning.selectedEffort || '',
+      fastMode: reasoning.fastEnabled,
+    },
+  });
+  conversation.updatedAt = Date.now();
+  elements.messageInput.value = '';
+  resizeInput();
+  saveConversations();
+  render();
+  const queueLength = conversation.messages.filter((item) => item.role === 'user' && item.queued).length;
+  showToast(`대기열 ${queueLength}번째에 추가했습니다.`);
+}
+
+function removeQueuedMessage(messageId) {
+  const conversation = activeConversation();
+  const index = conversation?.messages.findIndex((message) => message.id === messageId && message.role === 'user' && message.queued) ?? -1;
+  if (index < 0) return;
+  conversation.messages.splice(index, 1);
+  conversation.updatedAt = Date.now();
+  saveConversations();
+  render();
+  showToast('대기열에서 메시지를 제거했습니다.');
+}
+
+function startNextQueuedMessage(conversation = activeConversation()) {
+  if (state.busy || !conversation) return;
+  const queuedMessage = conversation.messages.find((message) => message.role === 'user' && message.queued);
+  const options = queuedMessage?.queueOptions;
+  if (!queuedMessage) return;
+  if (!options || !Object.hasOwn(PROVIDERS, options.provider) || !options.model) {
+    showToast('대기 중인 메시지의 연결 정보를 확인할 수 없습니다. 대기 항목을 확인해 주세요.');
+    return;
+  }
+
+  state.activeId = conversation.id;
+  state.activeProjectId = project(conversation.projectId) ? conversation.projectId : null;
+  state.provider = options.provider;
+  state.model = options.model;
+  state.activeConnectionId = options.provider === 'api' ? options.connectionId : null;
+  if (options.provider === 'openai') state.activeCodexAccountId = options.codexAccountId || 'default';
+  state.fastMode = options.provider === 'openai' && options.fastMode === true;
+  const effortKey = reasoningPreferenceKey();
+  if (['low', 'medium', 'high', 'xhigh', 'max', 'ultra'].includes(options.reasoningEffort)) {
+    state.reasoningEfforts[effortKey] = options.reasoningEffort;
+  } else {
+    delete state.reasoningEfforts[effortKey];
+  }
+  const selected = modelCatalog().find((model) => modelKey(model) === selectedModelKey());
+  savePreferences();
+  render();
+  if (!selected?.connected) {
+    showToast('대기 중인 메시지를 보내려면 저장된 모델 연결을 확인해 주세요.');
+    return;
+  }
+  void sendMessage(queuedMessage.content, queuedMessage.id);
+}
+
+function resumeSavedQueue() {
+  const conversation = state.conversations
+    .filter((item) => item.messages.some((message) => message.role === 'user' && message.queued))
+    .sort((a, b) => b.updatedAt - a.updatedAt)[0];
+  if (conversation) startNextQueuedMessage(conversation);
+}
+
+async function sendMessage(value, queuedMessageId = null) {
   const message = value.trim();
   if (!message || state.busy) return;
+  if (!queuedMessageId && activeConversation()?.messages.some((item) => item.role === 'user' && item.queued)) {
+    enqueueMessage(message);
+    return;
+  }
   if (!state.provider || !state.model) {
     showToast('사용할 연결과 세부 모델을 선택해 주세요.');
     openModelMenu(state.provider ? 'models' : 'providers');
@@ -1696,9 +1823,14 @@ async function sendMessage(value) {
   const reasoning = reasoningSettings();
   let conversation = activeConversation();
   if (!conversation) {
+    if (queuedMessageId) return;
     createConversation();
     conversation = activeConversation();
   }
+  const queuedMessage = queuedMessageId
+    ? conversation.messages.find((item) => item.id === queuedMessageId && item.role === 'user' && item.queued)
+    : null;
+  if (queuedMessageId && !queuedMessage) return;
   if (conversation.provider !== state.provider && state.provider === 'openai') conversation.codexThreadId = null;
   conversation.provider = state.provider;
   conversation.model = state.model;
@@ -1708,7 +1840,12 @@ async function sendMessage(value) {
     conversation.codexAccountId = state.activeCodexAccountId;
   }
   updateConversationTitle(conversation, message);
-  conversation.messages.push({ role: 'user', content: message, id: crypto.randomUUID() });
+  if (queuedMessage) {
+    queuedMessage.queued = false;
+    delete queuedMessage.queueOptions;
+  } else {
+    conversation.messages.push({ role: 'user', content: message, id: crypto.randomUUID() });
+  }
   const assistantMessage = { role: 'assistant', content: '', id: crypto.randomUUID(), pending: true, startedAt: Date.now() };
   conversation.messages.push(assistantMessage);
   conversation.updatedAt = Date.now();
@@ -1721,18 +1858,16 @@ async function sendMessage(value) {
   state.controller = new AbortController();
   closeModelMenu();
   renderModelSelect();
-  elements.sendButton.disabled = false;
-  elements.sendButton.classList.add('busy');
-  elements.sendButton.setAttribute('aria-label', '응답 중지');
   startWorkedForTimer(assistantMessage);
 
-  const allMessages = conversation.messages.filter((item) => !item.pending);
+  const allMessages = conversation.messages.filter((item) => !item.pending && !item.queued);
   const messages = allMessages.slice(-60).map(({ role, content }) => ({ role, content: content.slice(0, 40_000) }));
   while (messages.length > 1 && new Blob([JSON.stringify(messages)]).size > 850_000) messages.shift();
   if (messages.length < allMessages.length || allMessages.some((item) => item.content.length > 40_000)) {
     showToast(`전체 기록은 보관하며, 이번 응답에는 최근 ${messages.length}개 메시지를 길이 한도 안에서 전달합니다.`);
   }
   const projectInstructions = activeProjectInstructions();
+  let shouldContinueQueue = false;
   try {
     const response = await fetch('/api/chat', {
       method: 'POST',
@@ -1755,7 +1890,9 @@ async function sendMessage(value) {
       throw new Error(data.error || `요청에 실패했습니다 (${response.status}).`);
     }
     await streamResponse(response, assistantMessage, conversation);
+    shouldContinueQueue = !assistantMessage.error;
   } catch (error) {
+    shouldContinueQueue = false;
     finishAssistantWork(assistantMessage);
     assistantMessage.pending = false;
     assistantMessage.error = error.name !== 'AbortError';
@@ -1768,10 +1905,10 @@ async function sendMessage(value) {
   } finally {
     state.busy = false;
     state.controller = null;
-    elements.sendButton.classList.remove('busy');
-    elements.sendButton.setAttribute('aria-label', '메시지 보내기');
-    elements.sendButton.disabled = false;
-    renderModelSelect();
+    render();
+    if (shouldContinueQueue && conversation.messages.some((item) => item.role === 'user' && item.queued)) {
+      queueMicrotask(() => startNextQueuedMessage(conversation));
+    }
   }
 }
 
@@ -2126,6 +2263,15 @@ document.addEventListener('click', (event) => {
 });
 elements.copyLastResponseButton.addEventListener('click', () => { void copyLastResponse(); });
 elements.messages.addEventListener('click', (event) => {
+  const cancelQueued = event.target.closest('[data-cancel-queued]');
+  if (cancelQueued) {
+    removeQueuedMessage(cancelQueued.dataset.cancelQueued);
+    return;
+  }
+  if (event.target.closest('[data-retry-queue]')) {
+    startNextQueuedMessage(activeConversation());
+    return;
+  }
   const button = event.target.closest('.copy-code-button, .message-copy-button');
   if (!button) return;
   if (button.matches('.copy-code-button')) void copyCodeBlock(button);
@@ -2134,26 +2280,36 @@ elements.messages.addEventListener('click', (event) => {
 elements.exportConversationButton.addEventListener('click', exportConversationMarkdown);
 elements.fastModeToggle.addEventListener('click', toggleFastMode);
 elements.composerReasoningEffortSelect.addEventListener('change', (event) => setReasoningEffort(event.target.value));
+elements.stopResponseButton.addEventListener('click', () => state.controller?.abort());
 window.addEventListener('resize', () => { closeModelMenu(); updateSidebarControls(); });
 elements.composerForm.addEventListener('submit', (event) => {
   event.preventDefault();
   if (state.busy) {
-    state.controller?.abort();
+    if (elements.messageInput.value.trim()) enqueueMessage(elements.messageInput.value);
+    else state.controller?.abort();
     return;
   }
   sendMessage(elements.messageInput.value);
 });
-elements.messageInput.addEventListener('input', resizeInput);
+elements.messageInput.addEventListener('input', () => {
+  resizeInput();
+  renderSendButtonState(modelCatalog().find((model) => modelKey(model) === selectedModelKey())?.connected === true);
+});
 elements.messageInput.addEventListener('keydown', (event) => {
   if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
     event.preventDefault();
-    if (!state.busy) sendMessage(elements.messageInput.value);
+    if (state.busy || activeConversation()?.messages.some((item) => item.role === 'user' && item.queued)) {
+      enqueueMessage(elements.messageInput.value);
+    } else {
+      sendMessage(elements.messageInput.value);
+    }
   }
 });
 document.querySelectorAll('.suggestion').forEach((button) => {
   button.addEventListener('click', () => {
     elements.messageInput.value = button.dataset.prompt;
     resizeInput();
+    renderSendButtonState(modelCatalog().find((model) => modelKey(model) === selectedModelKey())?.connected === true);
     elements.messageInput.focus();
   });
 });
@@ -2168,4 +2324,4 @@ if (!state.provider && activeConversation()?.provider) {
 }
 updateSidebarControls();
 render();
-refreshStatus();
+void refreshStatus().then(resumeSavedQueue);

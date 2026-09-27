@@ -266,7 +266,10 @@ kbd { margin-left: auto; color: var(--muted); font-family: inherit; font-size: 1
 .code-block pre code { color: var(--ink); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; line-height: 1.65; }
 .message.error .message-content { color: var(--danger); }
 .message-actions { display: flex; min-height: 27px; align-items: center; margin-top: 4px; }
-.message.user .message-actions { justify-content: flex-end; }
+.message.user .message-actions { justify-content: flex-end; gap: 5px; }
+.queue-status { margin-right: 2px; color: var(--muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+.queue-retry-button, .queue-cancel-button { min-height: 25px; padding: 0 7px; border: 1px solid var(--line); border-radius: 7px; background: var(--canvas); color: var(--secondary); font-size: 10px; cursor: pointer; }
+.queue-retry-button:hover, .queue-cancel-button:hover { background: var(--soft); color: var(--ink); }
 .message-copy-button { display: inline-flex; min-height: 26px; align-items: center; gap: 6px; padding: 0 7px; transform: translateY(-2px); border: 1px solid var(--line); border-radius: 7px; background: var(--canvas); color: var(--muted); font-size: 11px; opacity: 0; pointer-events: none; cursor: pointer; transition: opacity .14s ease, transform .14s ease, background .14s ease, color .14s ease; }
 .message-copy-button .ui-icon { width: 14px; height: 14px; }
 .message-copy-button:hover { background: var(--soft); color: var(--ink); }
@@ -285,6 +288,10 @@ kbd { margin-left: auto; color: var(--muted); font-family: inherit; font-size: 1
 .composer textarea { display: block; width: 100%; min-height: 60px; max-height: 170px; resize: none; padding: 2px 0 8px; border: 0; outline: 0; background: transparent; color: var(--ink); font-size: 16px; line-height: 1.6; }
 .composer textarea::placeholder { color: var(--muted); }
 .composer-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 31px; }
+.composer-submit-actions { display: inline-flex; flex-shrink: 0; align-items: center; gap: 7px; }
+.stop-response-button { display: grid; width: 30px; height: 30px; flex: 0 0 30px; place-items: center; padding: 0; border: 1px solid var(--line-strong); border-radius: 50%; background: transparent; color: var(--secondary); cursor: pointer; }
+.stop-response-button:hover { background: var(--sidebar-hover); color: var(--ink); }
+.stop-response-button .stop-icon { display: block; width: 9px; height: 9px; }
 .composer-left { display: flex; flex: 1; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 0; }
 .composer-tools { display: inline-flex; height: 32px; align-items: center; gap: 6px; padding: 5px 8px; border: 1px solid transparent; border-radius: 9px; background: transparent; color: var(--secondary); font-size: 12px; cursor: pointer; }
 .composer-tools:hover { background: var(--sidebar-hover); }
@@ -317,9 +324,12 @@ kbd { margin-left: auto; color: var(--muted); font-family: inherit; font-size: 1
 .send-button:hover { background: var(--accent-hover); }
 .send-button:disabled { opacity: .45; cursor: not-allowed; }
 .send-icon { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.queue-icon { display: none; width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
 .stop-icon { display: none; width: 10px; height: 10px; border-radius: 2px; background: currentColor; }
 .send-button.busy .send-icon { display: none; }
 .send-button.busy .stop-icon { display: block; }
+.send-button.queueing .send-icon, .send-button.queueing .stop-icon { display: none; }
+.send-button.queueing .queue-icon { display: block; }
 .connection-logo { display: grid; width: 36px; height: 36px; flex: 0 0 36px; place-items: center; border: 1px solid var(--line); border-radius: 11px; background: var(--canvas); color: var(--secondary); font-size: 16px; }
 .connection-logo.claude-logo { background: var(--soft); color: var(--secondary); }
 .disclaimer { margin: 11px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; text-align: center; }

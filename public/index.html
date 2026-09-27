@@ -116,10 +116,14 @@
                   <select id="composerReasoningEffortSelect" aria-label="추론 강도"></select>
                 </div>
               </div>
-              <button class="send-button" id="sendButton" type="submit" aria-label="메시지 보내기">
-                <svg class="ui-icon send-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#arrow-up"></use></svg>
-                <span class="stop-icon" aria-hidden="true"></span>
-              </button>
+              <div class="composer-submit-actions">
+                <button class="stop-response-button" id="stopResponseButton" type="button" aria-label="응답 중지" title="현재 응답 중지" hidden><span class="stop-icon" aria-hidden="true"></span></button>
+                <button class="send-button" id="sendButton" type="submit" aria-label="메시지 보내기">
+                  <svg class="ui-icon send-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#arrow-up"></use></svg>
+                  <svg class="ui-icon queue-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#plus"></use></svg>
+                  <span class="stop-icon" aria-hidden="true"></span>
+                </button>
+              </div>
             </div>
           </form>
           <div class="suggestions">

@@ -191,10 +191,10 @@ function activeConversation() {
 }
 
 function createConversation() {
-  if (state.busy) { showToast('응답을 중지하거나 완료한 뒤 새 작업을 시작해 주세요.'); return; }
+  if (state.busy) { showToast('응답을 중지하거나 완료한 뒤 새 채팅을 시작해 주세요.'); return; }
   const conversation = {
     id: crypto.randomUUID(),
-    title: '새 작업',
+    title: '새 채팅',
     provider: state.provider,
     model: state.model,
     connectionId: state.provider === 'api' ? state.activeConnectionId : null,
@@ -236,16 +236,16 @@ function project(projectId) {
 function renderProjectList() {
   const rows = [`
     <div class="project-row${state.activeProjectId === null ? ' active' : ''}">
-      <button class="project-select-button" type="button" data-select-project="all"><span class="project-icon">⌂</span><span>모든 대화</span></button>
+      <button class="project-select-button" type="button" data-select-project="all"><span class="project-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a8 8 0 0 1-8 8H5l-3 2v-10a9 9 0 0 1 18 0Z"/></svg></span><span>모든 채팅</span></button>
     </div>`, ...state.projects.map((item) => `
     <div class="project-row${item.id === state.activeProjectId ? ' active' : ''}">
-      <button class="project-select-button" type="button" data-select-project="${escapeHtml(item.id)}"><span class="project-icon" title="${item.importSource === 'anthropic' ? 'Claude에서 가져옴' : item.importSource === 'openai' ? 'ChatGPT에서 가져옴' : 'Mosaic 프로젝트'}">${item.importSource === 'anthropic' ? '✳' : item.importSource === 'openai' ? '◉' : '▧'}</span><span class="project-name">${escapeHtml(item.name)}</span><span class="project-count">${state.conversations.filter((conversation) => conversation.projectId === item.id).length}</span></button>
+      <button class="project-select-button" type="button" data-select-project="${escapeHtml(item.id)}"><span class="project-icon" title="${item.importSource === 'anthropic' ? 'Claude에서 가져옴' : item.importSource === 'openai' ? 'ChatGPT에서 가져옴' : 'Mosaic 프로젝트'}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7V5a1 1 0 0 1 1-1h5l3 3h8a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></svg></span><span class="project-name">${escapeHtml(item.name)}</span><span class="project-count">${state.conversations.filter((conversation) => conversation.projectId === item.id).length}</span></button>
       <button class="project-edit-button" type="button" data-edit-project="${escapeHtml(item.id)}" aria-label="${escapeHtml(item.name)} 프로젝트 편집" title="프로젝트 편집">•••</button>
     </div>`)];
   elements.projectList.innerHTML = rows.join('');
   const conversation = activeConversation();
   const projectBar = elements.conversationProjectBar;
-  projectBar.hidden = !conversation;
+  projectBar.hidden = !conversation || (!conversation.messages.length && !conversation.projectId);
   elements.conversationProjectLabel.textContent = conversation?.projectId
     ? `프로젝트: ${project(conversation.projectId)?.name || '알 수 없는 프로젝트'}`
     : '프로젝트 미지정';
@@ -457,7 +457,7 @@ function render() {
   const activeProject = project(conversation?.projectId || state.activeProjectId);
   document.querySelector('#modeLabel').textContent = conversation?.messages.length
     ? conversation.title
-    : activeProject ? `${activeProject.name} · 새 작업` : '새 작업';
+    : activeProject ? `${activeProject.name} · 새 채팅` : '새 채팅';
   if (!elements.searchModal.hidden) renderSearchResults();
 }
 
@@ -1376,6 +1376,7 @@ document.querySelector('#sidebarToggle').addEventListener('click', () => element
 document.querySelector('#mobileMenu').addEventListener('click', () => elements.sidebar.classList.toggle(innerWidth > 760 ? 'collapsed' : 'mobile-open'));
 document.querySelector('#settingsButton').addEventListener('click', showSettings);
 document.querySelector('#settingsButtonTop').addEventListener('click', showSettings);
+document.querySelector('#composerConnections').addEventListener('click', () => showSettings(state.provider === 'api' ? 'agents' : 'accounts'));
 document.querySelector('#closeSettings').addEventListener('click', hideSettings);
 document.querySelector('#doneSettings').addEventListener('click', hideSettings);
 document.querySelector('#refreshStatus').addEventListener('click', refreshStatus);
@@ -1395,7 +1396,10 @@ function openNewApiConnection() {
   showSettings('agents');
   apiConnectionsUI.openEditor();
 }
-document.querySelector('#addAgentSidebar').addEventListener('click', openNewApiConnection);
+document.querySelector('#addAgentSidebar').addEventListener('click', (event) => {
+  event.preventDefault();
+  openNewApiConnection();
+});
 document.querySelector('#addAgentFromModels').addEventListener('click', openNewApiConnection);
 document.querySelector('#agentList').addEventListener('click', (event) => {
   const button = event.target.closest('[data-agent-tab]');

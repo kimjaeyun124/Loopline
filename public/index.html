@@ -22,22 +22,22 @@
           </button>
         </div>
         <button class="new-chat-button" id="newChatButton">
-          <span class="plus-icon">＋</span><span>새 작업</span><kbd>⌘ N</kbd>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6M15.5 4.5l4 4M10 14l1-4L18.5 2.5a1.4 1.4 0 0 1 2 2L13 12z"/></svg><span>새 채팅</span><kbd>⌘ N</kbd>
         </button>
         <button class="search-chat-button" id="searchChatButton" type="button">
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.3"/><path d="m15.5 15.5 4.2 4.2"/></svg>
-          <span>작업 검색</span><kbd>⌘ K</kbd>
+          <span>채팅 검색</span><kbd>⌘ K</kbd>
         </button>
-        <section class="agents-panel" aria-label="연결한 에이전트">
-          <div class="projects-heading"><span>에이전트</span><button class="project-add-button" id="addAgentSidebar" type="button" title="API 에이전트 추가" aria-label="API 에이전트 추가">＋</button></div>
+        <details class="agents-panel">
+          <summary><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.4 6.6L21 12l-6.6 2.4L12 21l-2.4-6.6L3 12l6.6-2.4z"/></svg><span>에이전트</span><svg class="disclosure-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg><button class="project-add-button" id="addAgentSidebar" type="button" title="API 에이전트 추가" aria-label="API 에이전트 추가">＋</button></summary>
           <div class="agent-list" id="agentList"></div>
-        </section>
+        </details>
         <section class="projects-panel" aria-label="프로젝트">
           <div class="projects-heading"><span>프로젝트</span><div class="project-heading-actions"><button class="project-import-button" id="importProjectButton" type="button" aria-label="ChatGPT 또는 Claude 프로젝트 가져오기" title="ChatGPT 또는 Claude에서 가져오기">↓</button><button class="project-add-button" id="addProjectButton" type="button" aria-label="프로젝트 만들기" title="프로젝트 만들기">＋</button></div></div>
           <input id="projectImportFile" type="file" accept=".zip,.json,application/zip,application/json" hidden />
           <nav class="project-list" id="projectList" aria-label="프로젝트 목록"></nav>
         </section>
-        <div class="sidebar-label">최근 작업</div>
+        <div class="sidebar-label">최근 채팅</div>
         <nav class="conversation-list" id="conversationList" aria-label="대화 목록"></nav>
         <div class="sidebar-bottom">
           <button class="account-card" id="settingsButton">
@@ -50,11 +50,16 @@
 
       <main class="main-panel">
         <header class="topbar">
-          <button class="mobile-menu icon-button" id="mobileMenu" aria-label="대화 목록 열기">☰</button>
-          <div class="mode-label"><span class="workspace-breadcrumb">Mosaic Desk <span>/</span></span><span id="modeLabel">새 작업</span></div>
+          <div class="topbar-leading">
+            <button class="mobile-menu icon-button" id="mobileMenu" aria-label="대화 목록 열기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.75A1.75 1.75 0 0 1 5.75 4h12.5A1.75 1.75 0 0 1 20 5.75v12.5A1.75 1.75 0 0 1 18.25 20H5.75A1.75 1.75 0 0 1 4 18.25zM9 4v16" /></svg></button>
+            <button class="select-button model-picker-button" type="button" id="modelSelectButton" aria-label="모델 선택" aria-haspopup="dialog" aria-expanded="false" aria-controls="modelMenu">
+              <span id="selectedModelLabel">모델 선택</span><svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+          </div>
+          <div class="mode-label" id="modeLabel">새 채팅</div>
           <div class="topbar-actions">
             <button class="icon-button" id="settingsButtonTop" title="연결 설정" aria-label="연결 설정">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.25a3.75 3.75 0 1 0 0 7.5 3.75 3.75 0 0 0 0-7.5Z"/><path d="m19.4 15 .05.04a1.7 1.7 0 1 1-2.4 2.4l-.04-.05a1.7 1.7 0 0 0-2.9 1.2v.15a1.7 1.7 0 1 1-3.4 0v-.08a1.7 1.7 0 0 0-2.9-1.2l-.05.05a1.7 1.7 0 1 1-2.4-2.4l.05-.04a1.7 1.7 0 0 0-1.2-2.9h-.15a1.7 1.7 0 1 1 0-3.4h.08a1.7 1.7 0 0 0 1.2-2.9l-.05-.05a1.7 1.7 0 1 1 2.4-2.4l.04.05a1.7 1.7 0 0 0 2.9-1.2v-.15a1.7 1.7 0 1 1 3.4 0v.08a1.7 1.7 0 0 0 2.9 1.2l.05-.05a1.7 1.7 0 1 1 2.4 2.4l-.05.04a1.7 1.7 0 0 0 1.2 2.9h.15a1.7 1.7 0 1 1 0 3.4h-.08a1.7 1.7 0 0 0-1.2 2.9Z"/></svg>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>
             </button>
           <button class="provider-pill" id="connectionDetails" type="button" title="사용 중인 연결 관리"><span class="provider-dot" id="providerDot"></span><span id="providerPillText">연결 확인 중</span></button>
           </div>
@@ -62,9 +67,7 @@
 
         <section class="chat-scroll" id="chatScroll">
           <div class="welcome" id="welcome">
-            <div class="welcome-mark" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
-            <h1>어디서부터 시작할까요?</h1>
-            <p>아이디어부터 다음 작업까지, 원하는 모델과 함께.</p>
+            <h1>무엇을 도와드릴까요?</h1>
           </div>
           <div class="messages" id="messages" aria-live="polite"></div>
         </section>
@@ -76,12 +79,10 @@
 
         <footer class="composer-wrap">
           <form class="composer" id="composerForm">
-            <textarea id="messageInput" rows="2" placeholder="만들고 싶은 것, 해결할 문제를 알려주세요…" aria-label="메시지 입력"></textarea>
+            <textarea id="messageInput" rows="1" placeholder="무엇이든 물어보세요" aria-label="메시지 입력"></textarea>
             <div class="composer-toolbar">
               <div class="composer-left">
-                <button class="select-button model-picker-button" type="button" id="modelSelectButton" aria-label="모델 선택" aria-haspopup="dialog" aria-expanded="false" aria-controls="modelMenu">
-                  <span id="selectedModelLabel">모델 선택</span><span class="chevron" aria-hidden="true">⌄</span>
-                </button>
+                <button class="composer-tools" id="composerConnections" type="button" title="계정 및 API 연결 관리"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9m4 0h3M4 17h3m4 0h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg><span>연결</span></button>
                 <button class="fast-mode-toggle" id="fastModeToggle" type="button" aria-pressed="false" title="낮은 추론 단계로 빠르게 응답합니다. 모델이 지원하면 Fast 서비스 티어도 요청합니다."><span class="fast-mode-icon" aria-hidden="true">ϟ</span><span>Fast</span></button>
               </div>
               <button class="send-button" id="sendButton" type="submit" aria-label="메시지 보내기">
@@ -89,20 +90,20 @@
                 <span class="stop-icon" aria-hidden="true"></span>
               </button>
             </div>
-            <div class="model-menu" id="modelMenu" role="dialog" aria-label="모델 선택" hidden>
-              <div class="model-menu-heading"><strong>모델 선택</strong><button class="icon-button" type="button" id="closeModelMenu" aria-label="모델 목록 닫기">×</button></div>
-              <input id="modelSearch" type="search" placeholder="모델 검색…" aria-label="모델 검색" autocomplete="off" />
-              <div class="model-options" id="modelOptions" role="listbox" aria-label="사용 가능한 모델"></div>
-              <button class="model-menu-add" id="addAgentFromModels" type="button">＋ API 에이전트 연결</button>
-            </div>
           </form>
           <div class="suggestions">
-            <button class="suggestion" type="button" data-prompt="이 코드의 구조와 개선할 부분을 함께 살펴봐줘."><span class="suggestion-icon">⌘</span><span><strong>코드 살펴보기</strong><small>구조를 이해하고 개선하기</small></span><span class="suggestion-arrow">↗</span></button>
-            <button class="suggestion" type="button" data-prompt="아이디어를 실행할 수 있는 단계별 계획으로 정리해줘."><span class="suggestion-icon">↗</span><span><strong>계획 세우기</strong><small>아이디어를 다음 단계로</small></span><span class="suggestion-arrow">↗</span></button>
-            <button class="suggestion" type="button" data-prompt="이 주제를 조사하고 핵심 내용을 정리해줘."><span class="suggestion-icon">✳</span><span><strong>함께 알아보기</strong><small>궁금한 내용을 깊이 있게</small></span><span class="suggestion-arrow">↗</span></button>
+            <button class="suggestion" type="button" data-prompt="이 코드의 구조와 개선할 부분을 함께 살펴봐줘."><svg class="suggestion-icon code-suggestion" viewBox="0 0 24 24" aria-hidden="true"><path d="m8 7-5 5 5 5m8-10 5 5-5 5m-3-12-2 14"/></svg><span>코딩 도움</span></button>
+            <button class="suggestion" type="button" data-prompt="이 글을 더 명확하고 자연스럽게 다듬어줘."><svg class="suggestion-icon writing-suggestion" viewBox="0 0 24 24" aria-hidden="true"><path d="m14 5 5 5M4 20l5-1L21 7a1.4 1.4 0 0 0 0-2l-2-2a1.4 1.4 0 0 0-2 0L5 15z"/></svg><span>글 다듬기</span></button>
+            <button class="suggestion" type="button" data-prompt="아이디어를 실행할 수 있는 단계별 계획으로 정리해줘."><svg class="suggestion-icon plan-suggestion" viewBox="0 0 24 24" aria-hidden="true"><path d="m4 6 1.5 1.5L8 5m3 1h9M4 12h3m4 0h9M4 18h3m4 0h13"/></svg><span>계획 세우기</span></button>
           </div>
-          <p class="disclaimer"><span>로컬 작업 공간</span><span>↵ 보내기 · ⇧ ↵ 줄바꿈</span></p>
+          <p class="disclaimer">AI는 실수를 할 수 있습니다. 중요한 정보는 다시 확인하세요.</p>
         </footer>
+        <div class="model-menu" id="modelMenu" role="dialog" aria-label="모델 선택" hidden>
+          <div class="model-menu-heading"><strong>모델 선택</strong><button class="icon-button" type="button" id="closeModelMenu" aria-label="모델 목록 닫기">×</button></div>
+          <input id="modelSearch" type="search" placeholder="모델 검색…" aria-label="모델 검색" autocomplete="off" />
+          <div class="model-options" id="modelOptions" role="listbox" aria-label="사용 가능한 모델"></div>
+          <button class="model-menu-add" id="addAgentFromModels" type="button">＋ API 에이전트 연결</button>
+        </div>
       </main>
     </div>
 

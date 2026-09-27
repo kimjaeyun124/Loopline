@@ -65,6 +65,8 @@ state.activeId = [...state.conversations].sort((a, b) => b.updatedAt - a.updated
 
 const elements = {
   sidebar: document.querySelector('#sidebar'),
+  sidebarToggle: document.querySelector('#sidebarToggle'),
+  mobileMenu: document.querySelector('#mobileMenu'),
   conversationList: document.querySelector('#conversationList'),
   projectList: document.querySelector('#projectList'),
   projectModal: document.querySelector('#projectModal'),
@@ -1560,9 +1562,33 @@ function hideSettings() {
   if (wasOpen && settingsReturnFocus?.isConnected && settingsReturnFocus.getClientRects().length) settingsReturnFocus.focus();
 }
 
+function updateSidebarControls() {
+  const mobile = innerWidth <= 760;
+  const expanded = mobile ? elements.sidebar.classList.contains('mobile-open') : !elements.sidebar.classList.contains('collapsed');
+  const label = mobile ? '사이드바 닫기' : expanded ? '사이드바 접기' : '사이드바 펼치기';
+  elements.sidebarToggle.title = label;
+  elements.sidebarToggle.setAttribute('aria-label', label);
+  elements.sidebarToggle.setAttribute('aria-expanded', String(expanded));
+  elements.mobileMenu.setAttribute('aria-expanded', String(expanded));
+  elements.mobileMenu.title = expanded ? '사이드바 닫기' : '사이드바 열기';
+  elements.mobileMenu.setAttribute('aria-label', elements.mobileMenu.title);
+  elements.sidebar.inert = mobile && !expanded;
+}
+
+function toggleSidebar() {
+  accountMenuUI.close();
+  const mobile = innerWidth <= 760;
+  elements.sidebar.classList.toggle(mobile ? 'mobile-open' : 'collapsed');
+  updateSidebarControls();
+  if (mobile) (elements.sidebar.classList.contains('mobile-open') ? elements.sidebarToggle : elements.mobileMenu).focus();
+}
+
 function closeMobileSidebar() {
   accountMenuUI.close();
+  const restoreFocus = innerWidth <= 760 && elements.sidebar.contains(document.activeElement);
   elements.sidebar.classList.remove('mobile-open');
+  updateSidebarControls();
+  if (restoreFocus) elements.mobileMenu.focus();
 }
 
 document.querySelector('#newChatButton').addEventListener('click', createConversation);
@@ -1606,8 +1632,8 @@ document.querySelector('#saveProjectMove').addEventListener('click', moveConvers
 document.querySelector('#cancelProjectMove').addEventListener('click', closeProjectMove);
 document.querySelector('#closeProjectMoveModal').addEventListener('click', closeProjectMove);
 document.querySelector('#searchChatButton').addEventListener('click', showSearch);
-document.querySelector('#sidebarToggle').addEventListener('click', () => elements.sidebar.classList.toggle('collapsed'));
-document.querySelector('#mobileMenu').addEventListener('click', () => elements.sidebar.classList.toggle(innerWidth > 760 ? 'collapsed' : 'mobile-open'));
+elements.sidebarToggle.addEventListener('click', toggleSidebar);
+elements.mobileMenu.addEventListener('click', toggleSidebar);
 document.querySelector('#settingsButtonTop').addEventListener('click', showSettings);
 document.querySelector('#composerConnections').addEventListener('click', () => showSettings(state.provider === 'api' ? 'agents' : 'accounts'));
 document.querySelector('#closeSettings').addEventListener('click', hideSettings);
@@ -1799,7 +1825,7 @@ document.addEventListener('click', (event) => {
 elements.fastModeToggle.addEventListener('click', toggleFastMode);
 elements.reasoningEffortSelect.addEventListener('change', (event) => setReasoningEffort(event.target.value));
 elements.composerReasoningEffortSelect.addEventListener('change', (event) => setReasoningEffort(event.target.value));
-window.addEventListener('resize', () => closeModelMenu());
+window.addEventListener('resize', () => { closeModelMenu(); updateSidebarControls(); });
 elements.composerForm.addEventListener('submit', (event) => {
   event.preventDefault();
   if (state.busy) {
@@ -1824,5 +1850,6 @@ document.querySelectorAll('.suggestion').forEach((button) => {
 });
 
 loadPreferences();
+updateSidebarControls();
 render();
 refreshStatus();

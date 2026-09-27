@@ -222,7 +222,7 @@ async function createMainWindow(url) {
     minWidth: 900,
     minHeight: 620,
     show: false,
-    backgroundColor: nativeTheme.shouldUseDarkColors ? '#101010' : '#ffffff',
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#212121' : '#ffffff',
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 18, y: 18 },
     webPreferences: {
@@ -253,7 +253,7 @@ async function createMainWindow(url) {
   };
   const browserHandler = (event) => { if (trustedSender(event)) void view.openInBrowser().catch(() => {}); };
   const updateBackground = () => {
-    if (!window.isDestroyed()) window.setBackgroundColor(nativeTheme.shouldUseDarkColors ? '#101010' : '#ffffff');
+    if (!window.isDestroyed()) window.setBackgroundColor(nativeTheme.shouldUseDarkColors ? '#212121' : '#ffffff');
   };
   const appearanceHandler = (event, theme) => {
     if (!trustedSender(event) || !['system', 'light', 'dark'].includes(theme)) return;

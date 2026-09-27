@@ -11,7 +11,25 @@
     <script type="module" src="/app.js"></script>
   </head>
   <body>
-    <div class="window-drag-region" aria-hidden="true"></div>
+    <header class="app-header" id="appHeader">
+      <nav class="workspace-switcher" aria-label="작업 화면">
+        <button class="workspace-tab" id="chatGptWorkspace" type="button" aria-pressed="true" title="Loopline 작업 공간"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#brand"></use></svg><span>작업 공간</span></button>
+        <a class="workspace-tab chatgpt-link" id="chatGptOpen" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer" title="ChatGPT 열기"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#chat"></use></svg><span>ChatGPT</span></a>
+      </nav>
+      <div class="app-header-actions">
+        <div class="web-chat-controls" id="webChatControls" hidden>
+          <span class="chatgpt-location" id="chatGptHostname">chatgpt.com</span>
+          <span class="chatgpt-status" id="chatGptStatus" role="status" hidden></span>
+          <div class="chatgpt-navigation" role="group" aria-label="웹 대화 탐색">
+            <button class="icon-button" id="chatGptBack" type="button" title="뒤로" aria-label="뒤로" disabled><svg class="ui-icon chatgpt-back-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#chevron-right"></use></svg></button>
+            <button class="icon-button" id="chatGptForward" type="button" title="앞으로" aria-label="앞으로" disabled><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#chevron-right"></use></svg></button>
+            <button class="icon-button" id="chatGptReload" type="button" title="새로고침" aria-label="새로고침"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#reload"></use></svg></button>
+            <button class="icon-button" id="chatGptBrowser" type="button" title="브라우저에서 열기" aria-label="브라우저에서 열기"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#external"></use></svg></button>
+          </div>
+        </div>
+        <button class="icon-button" id="settingsButtonTop" type="button" title="설정" aria-label="설정"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#settings"></use></svg></button>
+      </div>
+    </header>
     <div class="app-shell">
       <aside class="sidebar" id="sidebar">
         <div class="sidebar-top">
@@ -30,9 +48,6 @@
           <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#search"></use></svg>
           <span>작업 검색</span><kbd>⌘ K</kbd>
         </button>
-        <a class="search-chat-button chatgpt-link" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer" title="ChatGPT 열기" aria-label="ChatGPT 열기">
-          <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#chat"></use></svg><span>ChatGPT</span>
-        </a>
         <details class="agents-panel">
           <summary><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#agents"></use></svg><span>에이전트</span><svg class="ui-icon disclosure-chevron" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#chevron-right"></use></svg><button class="project-add-button" id="addAgentSidebar" type="button" title="API 에이전트 추가" aria-label="API 에이전트 추가"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#plus"></use></svg></button></summary>
           <div class="agent-list" id="agentList"></div>
@@ -63,17 +78,14 @@
           </div>
           <div class="mode-label" id="modeLabel">새 작업</div>
           <div class="topbar-actions">
-            <button class="icon-button" id="settingsButtonTop" title="연결 설정" aria-label="연결 설정">
-              <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#more"></use></svg>
-            </button>
           <button class="provider-pill" id="connectionDetails" type="button" title="사용 중인 연결 관리"><span class="provider-dot" id="providerDot"></span><span id="providerPillText">연결 확인 중</span></button>
           </div>
         </header>
 
         <section class="chat-scroll" id="chatScroll">
           <div class="welcome" id="welcome">
-            <h1>어떤 작업을 개선할까요?</h1>
-            <p class="loop-guide" aria-label="작업 흐름: 목표 설정, 실행, 검토, 개선"><span>목표 설정</span><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#chevron-right"></use></svg><span>실행</span><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#chevron-right"></use></svg><span>검토</span><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#chevron-right"></use></svg><span>개선</span></p>
+            <h1>어떤 작업을 시작할까요?</h1>
+            <p class="loop-guide">목표부터 다음 개선까지, 하나의 대화에서.</p>
           </div>
           <div class="messages" id="messages" aria-live="polite"></div>
         </section>
@@ -85,7 +97,7 @@
 
         <footer class="composer-wrap">
           <form class="composer" id="composerForm">
-            <textarea id="messageInput" rows="1" placeholder="목표, 작업 내용 또는 이전 결과를 입력하세요" aria-label="메시지 입력"></textarea>
+            <textarea id="messageInput" rows="1" placeholder="작업이나 아이디어를 이야기해 주세요" aria-label="메시지 입력"></textarea>
             <div class="composer-toolbar">
               <div class="composer-left">
                 <button class="composer-tools" id="composerConnections" type="button" title="계정 및 API 연결 관리"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#sliders"></use></svg><span>연결</span></button>
@@ -126,24 +138,12 @@
         </div>
       </main>
       <section class="chatgpt-panel" id="chatGptPanel" aria-label="ChatGPT" hidden>
-        <header class="chatgpt-toolbar">
-          <button class="chatgpt-workspace-button" id="chatGptWorkspace" type="button" title="Loopline 작업 공간으로 돌아가기" aria-label="Loopline 작업 공간으로 돌아가기">
-            <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#brand"></use></svg><span>Loopline</span>
-          </button>
-          <div class="chatgpt-navigation" role="group" aria-label="ChatGPT 페이지 탐색">
-            <button class="icon-button" id="chatGptBack" type="button" title="뒤로" aria-label="ChatGPT 뒤로" disabled><svg class="ui-icon chatgpt-back-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#chevron-right"></use></svg></button>
-            <button class="icon-button" id="chatGptForward" type="button" title="앞으로" aria-label="ChatGPT 앞으로" disabled><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#chevron-right"></use></svg></button>
-            <button class="icon-button" id="chatGptReload" type="button" title="새로고침" aria-label="ChatGPT 새로고침"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M19.4 12a7.5 7.5 0 1 0-1.9 5"/></svg></button>
-          </div>
-          <div class="chatgpt-location"><span id="chatGptHostname">chatgpt.com</span></div>
-          <span class="chatgpt-status" id="chatGptStatus" role="status" hidden></span>
-          <button class="icon-button" id="chatGptBrowser" type="button" title="브라우저에서 열기" aria-label="ChatGPT를 브라우저에서 열기"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6m0-6L10 14M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg></button>
-        </header>
         <div class="chatgpt-viewport" id="chatGptViewport">
           <div class="chatgpt-placeholder" id="chatGptPlaceholder" role="status">
             <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#chat"></use></svg>
             <strong id="chatGptPlaceholderTitle">ChatGPT를 불러오는 중</strong>
             <p id="chatGptPlaceholderDetail">잠시만 기다려 주세요.</p>
+            <div class="web-chat-recovery" id="webChatRecovery" hidden><button class="secondary-button" id="retryWebChat" type="button">다시 시도</button><button class="primary-button" id="openWebChatBrowser" type="button">브라우저에서 열기</button></div>
           </div>
         </div>
       </section>

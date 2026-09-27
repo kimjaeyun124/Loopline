@@ -10,16 +10,17 @@ const PAGE_HOSTS = new Set([
 const PAGE_THEME_SCRIPT = String.raw`(() => {
   if (location.origin !== 'https://chatgpt.com') return null;
   const scheme = getComputedStyle(document.documentElement).colorScheme.trim();
-  if (scheme === 'light' || scheme === 'dark') return scheme;
   for (const element of [document.body, document.documentElement]) {
     if (!element) continue;
     const color = getComputedStyle(element).backgroundColor;
     if (!color.startsWith('rgb')) continue;
     const channels = color.match(/[\d.]+/g)?.map(Number);
     if (!channels || ![3, 4].includes(channels.length) || (channels.length === 4 && channels[3] < 0.99)) continue;
-    return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722 < 128 ? 'dark' : 'light';
+    const background = '#' + channels.slice(0, 3).map((channel) => Math.max(0, Math.min(255, Math.round(channel))).toString(16).padStart(2, '0')).join('');
+    const theme = channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722 < 128 ? 'dark' : 'light';
+    return { theme, background };
   }
-  return null;
+  return { theme: ['light', 'dark'].includes(scheme) ? scheme : null, background: null };
 })()`;
 
 function httpsUrl(value) {
@@ -42,6 +43,7 @@ export function createChatGptView(owner, onState) {
   let configured = false;
   let showingExternalPrompt = false;
   let pageTheme = null;
+  let pageBackground = null;
   let themeTimer = null;
   let readingTheme = false;
   let themeRevision = 0;
@@ -58,6 +60,7 @@ export function createChatGptView(owner, onState) {
       canGoForward: Boolean(alive && contents.navigationHistory.canGoForward()),
       error: loadFailed,
       theme: pageTheme,
+      background: pageBackground,
     };
   }
 
@@ -65,7 +68,7 @@ export function createChatGptView(owner, onState) {
 
   function updateBackground() {
     const dark = pageTheme ? pageTheme === 'dark' : nativeTheme.shouldUseDarkColors;
-    if (view && !view.webContents.isDestroyed()) view.setBackgroundColor(dark ? '#101010' : '#ffffff');
+    if (view && !view.webContents.isDestroyed()) view.setBackgroundColor(pageBackground || (dark ? '#212121' : '#ffffff'));
   }
 
   async function readPageTheme() {
@@ -78,9 +81,11 @@ export function createChatGptView(owner, onState) {
     try {
       const result = await contents.executeJavaScriptInIsolatedWorld(1001, [{ code: PAGE_THEME_SCRIPT }]);
       if (!visible || owner.isDestroyed() || contents.isDestroyed() || view?.webContents !== contents || revision !== themeRevision || contents.getURL() !== url) return;
-      const theme = ['light', 'dark'].includes(result) ? result : null;
-      if (theme === pageTheme) return;
+      const theme = ['light', 'dark'].includes(result?.theme) ? result.theme : null;
+      const background = /^#[0-9a-f]{6}$/i.test(result?.background || '') ? result.background : null;
+      if (theme === pageTheme && background === pageBackground) return;
       pageTheme = theme;
+      pageBackground = background;
       updateBackground();
       publishState();
     } catch { /* Keep the last appearance while the remote document is changing. */ }
@@ -174,6 +179,7 @@ export function createChatGptView(owner, onState) {
       if (!popupWindow) {
         if (httpsUrl(contents.getURL())?.origin !== 'https://chatgpt.com') {
           pageTheme = null;
+          pageBackground = null;
           updateBackground();
         }
         publishState();

@@ -5,7 +5,9 @@ export function createChatGptUI({ beforeOpen, onWorkspace }) {
   const workspace = document.querySelector('.main-panel');
   const panel = document.querySelector('#chatGptPanel');
   const viewport = document.querySelector('#chatGptViewport');
-  const sidebarLink = document.querySelector('.sidebar .chatgpt-link');
+  const serviceLink = document.querySelector('#chatGptOpen');
+  const header = document.querySelector('#appHeader');
+  const controls = document.querySelector('#webChatControls');
   const returnButton = document.querySelector('#chatGptWorkspace');
   const status = document.querySelector('#chatGptStatus');
   const hostname = document.querySelector('#chatGptHostname');
@@ -19,6 +21,7 @@ export function createChatGptUI({ beforeOpen, onWorkspace }) {
   let active = false;
   let pendingFrame = 0;
   let previousLayout = '';
+  let currentState = null;
 
   function syncLayout() {
     pendingFrame = 0;
@@ -45,8 +48,11 @@ export function createChatGptUI({ beforeOpen, onWorkspace }) {
     document.body.classList.add('chatgpt-active');
     workspace.hidden = true;
     panel.hidden = false;
-    sidebarLink.setAttribute('aria-current', 'page');
-    returnButton.focus();
+    controls.hidden = false;
+    serviceLink.setAttribute('aria-current', 'page');
+    returnButton.setAttribute('aria-pressed', 'false');
+    serviceLink.focus();
+    renderState(currentState);
     syncLayout();
   }
 
@@ -56,15 +62,24 @@ export function createChatGptUI({ beforeOpen, onWorkspace }) {
     document.body.classList.remove('chatgpt-active');
     panel.hidden = true;
     workspace.hidden = false;
-    sidebarLink.removeAttribute('aria-current');
+    controls.hidden = true;
+    serviceLink.removeAttribute('aria-current');
+    returnButton.setAttribute('aria-pressed', 'true');
+    delete header.dataset.webTheme;
+    header.style.removeProperty('--web-background');
     syncLayout();
     onWorkspace();
   }
 
   function renderState(state) {
-    if (!state) return;
-    if (['light', 'dark'].includes(state.theme)) panel.dataset.webTheme = state.theme;
-    else delete panel.dataset.webTheme;
+    currentState = state;
+    if (!state || !active) return;
+    for (const element of [header, panel]) {
+      if (['light', 'dark'].includes(state.theme)) element.dataset.webTheme = state.theme;
+      else delete element.dataset.webTheme;
+      if (/^#[0-9a-f]{6}$/i.test(state.background || '')) element.style.setProperty('--web-background', state.background);
+      else element.style.removeProperty('--web-background');
+    }
     hostname.textContent = state.hostname || 'chatgpt.com';
     status.textContent = state.error ? '연결 실패' : state.loading ? '불러오는 중' : '';
     status.hidden = !state.error && !state.loading;
@@ -78,6 +93,7 @@ export function createChatGptUI({ beforeOpen, onWorkspace }) {
     placeholderDetail.textContent = state.error
       ? '연결 상태를 확인한 뒤 새로고침하거나 브라우저에서 열어 주세요.'
       : '잠시만 기다려 주세요.';
+    document.querySelector('#webChatRecovery').hidden = !state.error;
   }
 
   document.querySelectorAll('.chatgpt-link').forEach((link) => {
@@ -88,6 +104,8 @@ export function createChatGptUI({ beforeOpen, onWorkspace }) {
   forwardButton.addEventListener('click', () => bridge.navigate('forward'));
   reloadButton.addEventListener('click', () => bridge.navigate('reload'));
   document.querySelector('#chatGptBrowser').addEventListener('click', () => bridge.openInBrowser());
+  document.querySelector('#openWebChatBrowser').addEventListener('click', () => bridge.openInBrowser());
+  document.querySelector('#retryWebChat').addEventListener('click', () => bridge.navigate('reload'));
 
   const resizeObserver = new ResizeObserver(scheduleLayout);
   resizeObserver.observe(viewport);

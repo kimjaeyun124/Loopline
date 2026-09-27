@@ -1290,6 +1290,7 @@ async function serveFile(res, pathname) {
     '/styles.css': ['styles.css', 'text/css; charset=utf-8'],
     '/theme.js': ['theme.js', 'text/javascript; charset=utf-8'],
     '/app.js': ['app.js', 'text/javascript; charset=utf-8'],
+    '/markdown.js': ['markdown.js', 'text/javascript; charset=utf-8'],
     '/icons.js': ['icons.js', 'text/javascript; charset=utf-8'],
     '/icons.svg': ['icons.svg', 'image/svg+xml'],
     '/loopline-icon.svg': ['loopline-icon.svg', 'image/svg+xml'],

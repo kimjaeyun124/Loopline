@@ -4,6 +4,7 @@ import { createApiConnectionsUI } from './api-connections-ui.js';
 import { createHistoryImportUI } from './history-import-ui.js';
 import { createChatGptUI } from './chatgpt-ui.js';
 import { createModelVisibilityUI } from './model-visibility-ui.js';
+import { createAccountMenuUI } from './account-menu-ui.js';
 
 const PROVIDERS = {
   openai: {
@@ -57,6 +58,8 @@ const state = {
   activeCodexAccountId: 'default',
   busyCodexAccountIds: new Set(),
   busyClaudeDisconnect: false,
+  statusUpdatedAt: null,
+  statusError: false,
 };
 state.activeId = [...state.conversations].sort((a, b) => b.updatedAt - a.updatedAt)[0]?.id || null;
 
@@ -106,6 +109,14 @@ const elements = {
   toast: document.querySelector('#toast'),
 };
 const apiConnectionsUI = createApiConnectionsUI({ onChange: refreshApiConnections, showToast });
+const accountMenuUI = createAccountMenuUI({
+  onOpen: () => { closeModelMenu(); void refreshStatus(); },
+  onUsage: () => showSettings('usage'),
+  onSettings: () => showSettings(),
+  formatAccountName: codexAccountDisplayName,
+  formatWindow: formatUsageWindow,
+  formatReset: formatUsageReset,
+});
 const modelVisibilityUI = createModelVisibilityUI({
   getModels: modelCatalog,
   getModelKey: modelKey,
@@ -129,7 +140,7 @@ if (new URLSearchParams(location.search).get('desktop') === '1') {
   document.querySelector('.brand').href = '/?desktop=1';
 }
 const chatGptUI = createChatGptUI({
-  beforeOpen: () => { hideSettings(); hideSearch(); closeModelMenu(); },
+  beforeOpen: () => { accountMenuUI.close(); hideSettings(); hideSearch(); closeModelMenu(); },
   onWorkspace: () => elements.messageInput.focus(),
 });
 
@@ -581,6 +592,16 @@ function render() {
   renderAgentList();
   renderModelSelect();
   modelVisibilityUI.render();
+  accountMenuUI.update({
+    provider: state.provider,
+    accountId: state.activeCodexAccountId,
+    accounts: state.codexAccounts,
+    claude: state.providers.anthropic || {},
+    connectionId: state.activeConnectionId,
+    connections: state.apiConnections,
+    updatedAt: state.statusUpdatedAt,
+    error: state.statusError,
+  });
   document.querySelector('#connectionSummary').textContent = connectionSummary();
   const conversation = activeConversation();
   const activeProject = project(conversation?.projectId || state.activeProjectId);
@@ -719,7 +740,10 @@ async function refreshStatus() {
       savePreferences();
     }
     savePreferences();
+    state.statusUpdatedAt = Date.now();
+    state.statusError = false;
   } catch {
+    state.statusError = true;
     state.providers = {
       openai: { installed: false, connected: false, label: '서버 연결 실패' },
       anthropic: { installed: false, connected: false, label: '서버 연결 실패' },
@@ -1465,7 +1489,7 @@ function resizeInput() {
 }
 
 function selectSettingsTab(tab) {
-  const name = ['accounts', 'agents', 'models', 'history', 'appearance'].includes(tab) ? tab : 'accounts';
+  const name = ['usage', 'accounts', 'agents', 'models', 'history', 'appearance'].includes(tab) ? tab : 'accounts';
   document.querySelectorAll('[data-settings-tab]').forEach((button) => {
     const selected = button.dataset.settingsTab === name;
     button.setAttribute('aria-selected', String(selected));
@@ -1473,10 +1497,15 @@ function selectSettingsTab(tab) {
   });
   document.querySelectorAll('[data-settings-panel]').forEach((panel) => { panel.hidden = panel.dataset.settingsPanel !== name; });
   document.querySelector('#refreshStatus').hidden = ['history', 'appearance'].includes(name);
+  document.querySelector('#refreshStatus').textContent = name === 'usage' ? '사용 한도 새로고침' : '연결 상태 새로고침';
   if (name === 'models') modelVisibilityUI.render();
+  if (name === 'usage') accountMenuUI.renderUsage();
 }
 
+let settingsReturnFocus = null;
 function showSettings(tab = 'accounts') {
+  if (elements.settingsModal.hidden) settingsReturnFocus = document.activeElement;
+  accountMenuUI.close();
   closeModelMenu();
   selectSettingsTab(tab);
   elements.settingsModal.hidden = false;
@@ -1486,6 +1515,7 @@ function showSettings(tab = 'accounts') {
 }
 
 function showSearch() {
+  accountMenuUI.close();
   elements.searchModal.hidden = false;
   elements.searchInput.value = '';
   renderSearchResults();
@@ -1523,12 +1553,15 @@ function selectConversation(conversation) {
 }
 
 function hideSettings() {
+  const wasOpen = !elements.settingsModal.hidden;
   elements.settingsModal.hidden = true;
   clearInterval(statusPollTimer);
   statusPollTimer = null;
+  if (wasOpen && settingsReturnFocus?.isConnected && settingsReturnFocus.getClientRects().length) settingsReturnFocus.focus();
 }
 
 function closeMobileSidebar() {
+  accountMenuUI.close();
   elements.sidebar.classList.remove('mobile-open');
 }
 
@@ -1575,7 +1608,6 @@ document.querySelector('#closeProjectMoveModal').addEventListener('click', close
 document.querySelector('#searchChatButton').addEventListener('click', showSearch);
 document.querySelector('#sidebarToggle').addEventListener('click', () => elements.sidebar.classList.toggle('collapsed'));
 document.querySelector('#mobileMenu').addEventListener('click', () => elements.sidebar.classList.toggle(innerWidth > 760 ? 'collapsed' : 'mobile-open'));
-document.querySelector('#settingsButton').addEventListener('click', showSettings);
 document.querySelector('#settingsButtonTop').addEventListener('click', showSettings);
 document.querySelector('#composerConnections').addEventListener('click', () => showSettings(state.provider === 'api' ? 'agents' : 'accounts'));
 document.querySelector('#closeSettings').addEventListener('click', hideSettings);

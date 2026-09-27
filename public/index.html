@@ -45,9 +45,9 @@
         <div class="sidebar-label">최근 작업</div>
         <nav class="conversation-list" id="conversationList" aria-label="대화 목록"></nav>
         <div class="sidebar-bottom">
-          <button class="account-card" id="settingsButton">
+          <button class="account-card" id="settingsButton" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="accountMenu" aria-label="계정 메뉴">
             <span class="avatar" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#user"></use></svg></span>
-            <span class="account-copy"><strong>설정 및 연결</strong><small id="connectionSummary">연결 상태 확인 중</small></span>
+            <span class="account-copy"><strong id="accountDisplayName">계정 및 설정</strong><small id="connectionSummary">연결 상태 확인 중</small></span>
             <span class="more-icon" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#more"></use></svg></span>
           </button>
         </div>
@@ -149,6 +149,13 @@
       </section>
     </div>
 
+    <div class="account-menu" id="accountMenu" role="menu" aria-label="계정 메뉴" hidden>
+      <div class="account-menu-profile" role="presentation"><span class="account-menu-avatar" id="accountMenuAvatar" aria-hidden="true">LO</span><div><strong id="accountMenuName">Loopline</strong><small id="accountMenuDetail">계정을 연결해 주세요.</small></div></div>
+      <div class="account-menu-divider" role="separator"></div>
+      <button class="account-menu-item" id="accountUsage" type="button" role="menuitem" tabindex="-1"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#gauge"></use></svg><span>Usage</span><small id="accountUsageHint">확인 중</small></button>
+      <button class="account-menu-item" id="accountSettings" type="button" role="menuitem" tabindex="-1"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#settings"></use></svg><span>Settings</span><svg class="ui-icon account-menu-chevron" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#chevron-right"></use></svg></button>
+    </div>
+
     <div class="search-backdrop" id="searchModal" hidden>
       <section class="search-dialog" role="dialog" aria-modal="true" aria-labelledby="searchTitle">
         <label class="search-field" for="searchInput">
@@ -225,6 +232,7 @@
         <div class="modal-header"><div><h2 id="settingsTitle">설정</h2><p class="settings-subtitle">계정과 모델, 대화 기록, 화면을 관리하세요.</p></div><button class="icon-button close-modal" id="closeSettings" type="button" aria-label="설정 닫기"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#close"></use></svg></button></div>
         <div class="settings-layout">
         <div class="settings-tabs" role="tablist" aria-label="설정 메뉴" aria-orientation="vertical">
+          <button type="button" id="usageTab" role="tab" aria-controls="usagePanel" aria-selected="false" tabindex="-1" data-settings-tab="usage"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#gauge"></use></svg><span>Usage</span></button>
           <button type="button" id="accountsTab" role="tab" aria-controls="accountsPanel" aria-selected="true" data-settings-tab="accounts"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#user"></use></svg><span>구독 계정</span></button>
           <button type="button" id="agentsTab" role="tab" aria-controls="agentsPanel" aria-selected="false" tabindex="-1" data-settings-tab="agents"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#plug"></use></svg><span>API 에이전트</span><span id="apiConnectionCount">0</span></button>
           <button type="button" id="modelsTab" role="tab" aria-controls="modelsPanel" aria-selected="false" tabindex="-1" data-settings-tab="models"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#sliders"></use></svg><span>모델 표시</span></button>
@@ -232,6 +240,11 @@
           <button type="button" id="appearanceTab" role="tab" aria-controls="appearancePanel" aria-selected="false" tabindex="-1" data-settings-tab="appearance"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#moon"></use></svg><span>화면</span></button>
         </div>
         <div class="settings-content">
+        <div id="usagePanel" role="tabpanel" aria-labelledby="usageTab" data-settings-panel="usage" hidden>
+          <div class="settings-panel-heading"><h3>Usage</h3><p>계정별 남은 사용 한도와 초기화 시간을 확인하세요.</p></div>
+          <p class="usage-status-summary" id="usageStatus">사용 한도를 불러오는 중…</p>
+          <div class="usage-accounts" id="usageAccounts"></div>
+        </div>
         <div id="modelsPanel" role="tabpanel" aria-labelledby="modelsTab" data-settings-panel="models" hidden>
           <div class="settings-panel-heading"><h3>모델 표시</h3><p>모델 선택 목록에 표시할 모델을 켜 주세요.</p></div>
           <label class="model-visibility-search"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#search"></use></svg><input id="modelVisibilitySearch" type="search" aria-label="표시 설정에서 모델 검색" placeholder="모델 또는 연결 이름 검색" autocomplete="off" /></label>

@@ -150,11 +150,26 @@ kbd { margin-left: auto; color: var(--muted); font-family: inherit; font-size: 1
 .sidebar-bottom { margin-top: auto; padding-top: 10px; border-top: 1px solid var(--line); }
 .account-card { display: flex; align-items: center; gap: 9px; width: 100%; padding: 8px; border: 0; border-radius: 8px; background: transparent; text-align: left; cursor: pointer; }
 .account-card:hover { background: var(--sidebar-hover); }
+.account-card[aria-expanded="true"] { background: var(--selected); }
 .avatar { display: grid; flex: 0 0 32px; width: 32px; height: 32px; place-items: center; border: 1px solid var(--line); border-radius: 10px; background: var(--canvas); color: var(--secondary); }
 .account-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 2px; }
-.account-copy strong { font-size: 12px; font-weight: 550; }
+.account-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 550; }
 .account-copy small { overflow: hidden; color: var(--muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .more-icon { display: inline-flex; color: var(--muted); }
+.account-menu { position: fixed; z-index: 9; width: min(300px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow: auto; padding: 6px; border: 1px solid var(--line-strong); border-radius: 15px; background: var(--canvas); box-shadow: 0 14px 45px #0003; }
+.account-menu-profile { display: flex; align-items: center; gap: 10px; padding: 12px 10px; border-radius: 10px; background: var(--soft); }
+.account-menu-avatar { display: grid; width: 34px; height: 34px; flex: 0 0 34px; place-items: center; border-radius: 50%; background: var(--green-soft); color: var(--green); font-size: 11px; font-weight: 600; }
+.account-menu-profile > div { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
+.account-menu-profile strong { overflow: hidden; color: var(--ink); font-size: 13px; font-weight: 550; text-overflow: ellipsis; white-space: nowrap; }
+.account-menu-profile small { color: var(--muted); font-size: 11px; }
+.account-menu-divider { height: 1px; margin: 6px 8px; background: var(--line); }
+.account-menu-item { display: flex; width: 100%; min-height: 40px; align-items: center; gap: 10px; padding: 9px 10px; border: 0; border-radius: 9px; background: transparent; color: var(--ink); text-align: left; cursor: pointer; }
+.account-menu-item:hover, .account-menu-item:focus-visible { background: var(--soft); }
+.account-menu-item:focus-visible { outline-offset: -2px; }
+.account-menu-item > .ui-icon { width: 18px; height: 18px; flex-shrink: 0; color: var(--secondary); }
+.account-menu-item > span { flex: 1; font-size: 13px; }
+.account-menu-item > small { flex-shrink: 0; color: var(--muted); font-size: 11px; }
+.account-menu-item > .account-menu-chevron { width: 13px; height: 13px; color: var(--muted); }
 .agents-panel { margin-top: 2px; flex-shrink: 0; }
 .agents-panel summary { display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 8px 0 10px; border-radius: 9px; color: var(--ink); font-size: 13px; list-style: none; cursor: pointer; }
 .agents-panel summary::-webkit-details-marker { display: none; }
@@ -404,6 +419,25 @@ kbd { margin-left: auto; color: var(--muted); font-family: inherit; font-size: 1
 .settings-panel-heading { margin-bottom: 22px; }
 .settings-panel-heading h3 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -.025em; }
 .settings-panel-heading p { margin: 8px 0 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.usage-status-summary { margin: -8px 0 18px; color: var(--muted); font-size: 11px; line-height: 1.6; }
+.usage-accounts { display: flex; flex-direction: column; gap: 12px; }
+.usage-account-card { padding: 17px; border: 1px solid var(--line); border-radius: 12px; }
+.usage-account-heading { display: flex; align-items: center; gap: 10px; }
+.usage-provider-icon { display: grid; flex: 0 0 34px; width: 34px; height: 34px; place-items: center; border-radius: 9px; background: var(--soft); color: var(--secondary); }
+.usage-provider-icon > .ui-icon { width: 18px; height: 18px; }
+.usage-account-heading > div { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 5px; }
+.usage-account-heading strong { overflow-wrap: anywhere; color: var(--ink); font-size: 13px; font-weight: 550; }
+.usage-account-heading small { color: var(--muted); font-size: 11px; }
+.usage-window { margin-top: 20px; }
+.usage-window-heading { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; color: var(--secondary); font-size: 12px; }
+.usage-window-heading strong { color: var(--ink); font-weight: 550; }
+.usage-meter { height: 6px; overflow: hidden; margin: 10px 0 8px; border-radius: 6px; background: var(--selected); }
+.usage-meter > span { display: block; height: 100%; border-radius: inherit; background: var(--ink); }
+.usage-meter.usage-low > span { background: var(--danger); }
+.usage-low, .usage-window-heading .usage-low { color: var(--danger); }
+.usage-window > small { color: var(--muted); font-size: 10px; }
+.usage-description { margin: 14px 0 0; color: var(--secondary); font-size: 12px; line-height: 1.7; }
+.usage-command { display: inline-block; margin-top: 10px; padding: 6px 9px; border: 1px solid var(--line); border-radius: 6px; background: var(--soft); color: var(--ink); font-size: 12px; }
 .model-visibility-search { display: flex; align-items: center; gap: 9px; padding: 0 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--sidebar); color: var(--muted); }
 .model-visibility-search:focus-within { outline: 2px solid var(--focus); outline-offset: 2px; }
 .model-visibility-search > .ui-icon { flex-shrink: 0; width: 16px; height: 16px; }

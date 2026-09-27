@@ -199,11 +199,19 @@ kbd { margin-left: auto; color: var(--muted); font-family: inherit; font-size: 1
 .main-panel.empty .disclaimer { position: absolute; right: 20px; bottom: 14px; left: 20px; margin: 0; }
 .model-picker-button { max-width: min(340px, 36vw); gap: 7px; padding: 8px 10px; color: var(--secondary); font-size: 18px; font-weight: 550; letter-spacing: -.02em; }
 .model-picker-button .chevron { width: 17px; height: 17px; flex-shrink: 0; fill: none; stroke: var(--muted); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.reasoning-badge { flex-shrink: 0; padding: 3px 6px; border-radius: 5px; background: var(--soft); color: var(--secondary); font-size: 11px; font-weight: 500; letter-spacing: 0; }
 .model-menu { position: fixed; z-index: 8; display: flex; flex-direction: column; width: min(360px, calc(100vw - 32px)); max-height: 420px; padding: 8px; border: 1px solid var(--line); border-radius: 16px; background: var(--canvas); box-shadow: 0 12px 45px #00000020; }
 .model-menu-heading { display: flex; justify-content: space-between; align-items: center; padding-left: 10px; font-size: 12px; }
 .model-menu-heading .icon-button { width: 28px; height: 28px; font-size: 20px; }
 #modelSearch { flex-shrink: 0; margin: 4px 3px 8px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 8px; background: var(--sidebar); color: var(--ink); font-size: 12px; }
 .model-options { min-height: 0; overflow: auto; }
+.reasoning-control { flex-shrink: 0; margin-top: 6px; padding: 12px 10px 5px; border-top: 1px solid var(--line); }
+.reasoning-control-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.reasoning-control label { flex-shrink: 0; font-size: 12px; font-weight: 550; }
+.reasoning-control select { min-width: 0; max-width: 210px; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; background: var(--sidebar); color: var(--ink); font-size: 12px; cursor: pointer; }
+.reasoning-control select:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.reasoning-control select:disabled { color: var(--muted); cursor: not-allowed; }
+.reasoning-control p { margin: 8px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
 .model-option { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; padding: 10px; border: 0; border-radius: 8px; background: transparent; text-align: left; cursor: pointer; }
 .model-option:hover, .model-option:focus-visible { background: var(--soft); }
 .model-option.selected { background: var(--selected); }

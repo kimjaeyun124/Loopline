@@ -56,7 +56,7 @@
           <div class="topbar-leading">
             <button class="mobile-menu icon-button" id="mobileMenu" aria-label="대화 목록 열기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.75A1.75 1.75 0 0 1 5.75 4h12.5A1.75 1.75 0 0 1 20 5.75v12.5A1.75 1.75 0 0 1 18.25 20H5.75A1.75 1.75 0 0 1 4 18.25zM9 4v16" /></svg></button>
             <button class="select-button model-picker-button" type="button" id="modelSelectButton" aria-label="모델 선택" aria-haspopup="dialog" aria-expanded="false" aria-controls="modelMenu">
-              <span id="selectedModelLabel">모델 선택</span><svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+              <span id="selectedModelLabel">모델 선택</span><span class="reasoning-badge" id="selectedReasoningLabel" hidden></span><svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
             </button>
           </div>
           <div class="mode-label" id="modeLabel">새 채팅</div>
@@ -105,6 +105,13 @@
           <div class="model-menu-heading"><strong>모델 선택</strong><button class="icon-button" type="button" id="closeModelMenu" aria-label="모델 목록 닫기">×</button></div>
           <input id="modelSearch" type="search" placeholder="모델 검색…" aria-label="모델 검색" autocomplete="off" />
           <div class="model-options" id="modelOptions" role="listbox" aria-label="사용 가능한 모델"></div>
+          <div class="reasoning-control" id="reasoningControl" hidden>
+            <div class="reasoning-control-row">
+              <label for="reasoningEffortSelect">추론 강도</label>
+              <select id="reasoningEffortSelect" aria-describedby="reasoningEffortHint"></select>
+            </div>
+            <p id="reasoningEffortHint">선택한 강도는 다음 메시지부터 적용됩니다.</p>
+          </div>
           <button class="model-menu-add" id="addAgentFromModels" type="button">＋ API 에이전트 연결</button>
         </div>
       </main>

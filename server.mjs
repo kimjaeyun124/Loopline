@@ -955,7 +955,12 @@ function hasCodexUsageLimit(status) {
   return limits.some((window) => window.remainingPercent <= 0);
 }
 
-async function codexTurnCandidates(requestedAccountId, model) {
+function supportsCodexEffort(modelInfo, reasoningEffort) {
+  return Boolean(modelInfo && (!reasoningEffort || modelInfo.supportedReasoningEfforts
+    ?.some((item) => item.reasoningEffort === reasoningEffort)));
+}
+
+async function codexTurnCandidates(requestedAccountId, model, reasoningEffort) {
   const accounts = await getCodexAccounts();
   const selected = accounts.get(requestedAccountId);
   if (!selected) throw Object.assign(new Error('Codex 계정을 찾을 수 없습니다.'), { status: 404 });
@@ -968,10 +973,13 @@ async function codexTurnCandidates(requestedAccountId, model) {
   if (!selectedStatus.models?.some((item) => item.id === model)) {
     throw Object.assign(new Error('선택한 계정에서 이 Codex 모델을 사용할 수 없습니다.'), { status: 400 });
   }
+  if (!supportsCodexEffort(selectedStatus.models.find((item) => item.id === model), reasoningEffort)) {
+    throw Object.assign(new Error('선택한 계정의 모델이 이 추론 강도를 지원하지 않습니다. 모델 선택 메뉴에서 다시 선택해 주세요.'), { status: 400 });
+  }
 
   const alternatives = ordered.slice(1).filter((account) => {
     const status = statuses.get(account.id);
-    return status?.connected && status.models?.some((item) => item.id === model) && !hasCodexUsageLimit(status);
+    return status?.connected && supportsCodexEffort(status.models?.find((item) => item.id === model), reasoningEffort) && !hasCodexUsageLimit(status);
   });
   if (hasCodexUsageLimit(selectedStatus) && alternatives.length) {
     return alternatives.map((account) => ({ account, status: statuses.get(account.id) }));
@@ -982,30 +990,33 @@ async function codexTurnCandidates(requestedAccountId, model) {
   return candidates;
 }
 
-async function codexFallbackCandidates(excludedAccountIds, model) {
+async function codexFallbackCandidates(excludedAccountIds, model, reasoningEffort) {
   const accounts = await getCodexAccounts();
   const remaining = [...accounts.values()].filter((account) => !excludedAccountIds.has(account.id));
   for (const account of remaining) invalidateOpenAiStatus(account.id);
   const statuses = await Promise.all(remaining.map((account) => openAiProviderStatus(account.id)));
   return remaining.flatMap((account, index) => {
     const status = statuses[index];
-    return status?.connected && status.models?.some((item) => item.id === model) && !hasCodexUsageLimit(status)
+    return status?.connected && supportsCodexEffort(status.models?.find((item) => item.id === model), reasoningEffort) && !hasCodexUsageLimit(status)
       ? [{ account, status }]
       : [];
   });
 }
 
-async function runCodexTurnAttempt(context, model, messages, requestedThreadId, res, projectInstructions, fastMode, accountStatus) {
+async function runCodexTurnAttempt(context, model, messages, requestedThreadId, res, projectInstructions, fastMode, accountStatus, reasoningEffort) {
   const client = await getCodexAppServer(context);
   const modelInfo = accountStatus.models?.find((item) => item.id === model);
   const supportedEfforts = modelInfo?.supportedReasoningEfforts
     ?.map((item) => item.reasoningEffort)
-    .filter((effort) => typeof effort === 'string') || [];
-  const requestedEffort = fastMode && supportedEfforts.includes('low')
+    .filter((effort) => typeof effort === 'string' && effort.trim()) || [];
+  if (!supportsCodexEffort(modelInfo, reasoningEffort)) {
+    return { error: '선택한 모델이 이 추론 강도를 지원하지 않습니다. 모델 선택 메뉴에서 다시 선택해 주세요.' };
+  }
+  const requestedEffort = reasoningEffort || (fastMode && supportedEfforts.includes('low')
     ? 'low'
     : supportedEfforts.includes(modelInfo?.defaultReasoningEffort)
       ? modelInfo.defaultReasoningEffort
-      : supportedEfforts[0];
+      : supportedEfforts[0]);
   const fastServiceTier = fastMode
     ? modelInfo?.serviceTiers?.find((tier) => /fast|priority/i.test(`${tier.id} ${tier.name}`))
     : null;
@@ -1095,10 +1106,10 @@ async function runCodexTurnAttempt(context, model, messages, requestedThreadId, 
   return completion;
 }
 
-async function runCodexTurn(requestedAccountId, model, messages, requestedThreadId, res, projectInstructions = '', fastMode = false) {
+async function runCodexTurn(requestedAccountId, model, messages, requestedThreadId, res, projectInstructions = '', fastMode = false, reasoningEffort = null) {
   let candidates;
   try {
-    candidates = await codexTurnCandidates(requestedAccountId, model);
+    candidates = await codexTurnCandidates(requestedAccountId, model, reasoningEffort);
   } catch (error) {
     sendEvent(res, 'error', { error: error.message || 'Codex 계정을 확인하지 못했습니다.' });
     res.end();
@@ -1112,7 +1123,7 @@ async function runCodexTurn(requestedAccountId, model, messages, requestedThread
     const context = await getCodexAccountContext(account.id);
     if (locallyDisconnectedCodexAccounts.has(account.id)) {
       attempted.add(account.id);
-      candidates = await codexFallbackCandidates(attempted, model);
+      candidates = await codexFallbackCandidates(attempted, model, reasoningEffort);
       retrying = candidates.length > 0;
       continue;
     }
@@ -1125,18 +1136,18 @@ async function runCodexTurn(requestedAccountId, model, messages, requestedThread
     context.pendingChatRequests.add(reservation);
     let result;
     try {
-      result = await runCodexTurnAttempt(context, model, messages, threadId, res, projectInstructions, fastMode, accountStatus);
+      result = await runCodexTurnAttempt(context, model, messages, threadId, res, projectInstructions, fastMode, accountStatus, reasoningEffort);
     } finally {
       context.pendingChatRequests.delete(reservation);
     }
     if (result?.rateLimited && !result.cancelled && !res.destroyed) {
       attempted.add(account.id);
-      candidates = await codexFallbackCandidates(attempted, model);
+      candidates = await codexFallbackCandidates(attempted, model, reasoningEffort);
       if (candidates.length) {
         retrying = true;
         continue;
       }
-      sendEvent(res, 'error', { error: '선택한 Codex 계정의 사용 한도가 소진되었고, 한도가 남은 다른 연결 계정이 없습니다.' });
+      sendEvent(res, 'error', { error: '선택한 Codex 계정의 사용 한도가 소진되었고, 같은 모델과 추론 강도를 지원하면서 한도가 남은 다른 연결 계정이 없습니다.' });
       if (!res.writableEnded) res.end();
       return;
     }
@@ -1166,6 +1177,10 @@ async function relayChat(req, res) {
     }
     if (provider === 'openai' && body.codexThreadId && !validCodexThreadId(body.codexThreadId)) {
       return json(res, 400, { error: 'Codex 대화 식별자가 올바르지 않습니다.' });
+    }
+    if (provider === 'openai' && body.reasoningEffort != null
+      && (typeof body.reasoningEffort !== 'string' || !body.reasoningEffort.trim())) {
+      return json(res, 400, { error: '추론 강도 형식이 올바르지 않습니다.' });
     }
     if (!Array.isArray(body.messages) || body.messages.length === 0 || body.messages.length > 60) {
       return json(res, 400, { error: '대화 메시지 형식이 올바르지 않습니다.' });
@@ -1218,6 +1233,9 @@ async function relayChat(req, res) {
     if (provider === 'openai' && !status.models.some((item) => item.id === model)) {
       return json(res, 400, { error: '사용 가능한 Codex 모델 목록을 불러오지 못했습니다. 연결 상태를 새로고침해 주세요.' });
     }
+    if (provider === 'openai' && !supportsCodexEffort(status.models.find((item) => item.id === model), body.reasoningEffort)) {
+      return json(res, 400, { error: '선택한 모델이 이 추론 강도를 지원하지 않습니다. 모델 선택 메뉴에서 다시 선택해 주세요.' });
+    }
 
     res.writeHead(200, {
       'Content-Type': 'text/event-stream; charset=utf-8',
@@ -1226,7 +1244,7 @@ async function relayChat(req, res) {
       'X-Accel-Buffering': 'no',
       'X-Content-Type-Options': 'nosniff',
     });
-    if (provider === 'openai') await runCodexTurn(codexAccountId, model, messages, body.codexThreadId, res, projectInstructions, body.fastMode === true);
+    if (provider === 'openai') await runCodexTurn(codexAccountId, model, messages, body.codexThreadId, res, projectInstructions, body.fastMode === true, body.reasoningEffort);
     else await runClaudeCli(model, conversationPrompt(messages, projectInstructions), res);
   } catch (error) {
     if (res.destroyed) return;

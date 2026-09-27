@@ -41,6 +41,7 @@ const state = {
   apiConnections: [],
   keyStorage: 'session',
   fastMode: false,
+  reasoningEffort: null,
   providers: {
     openai: { installed: false, connected: false, label: '상태 확인 중' },
     anthropic: { installed: false, connected: false, label: '상태 확인 중' },
@@ -85,6 +86,10 @@ const elements = {
   modelMenu: document.querySelector('#modelMenu'),
   modelSearch: document.querySelector('#modelSearch'),
   modelOptions: document.querySelector('#modelOptions'),
+  reasoningControl: document.querySelector('#reasoningControl'),
+  reasoningEffortSelect: document.querySelector('#reasoningEffortSelect'),
+  reasoningEffortHint: document.querySelector('#reasoningEffortHint'),
+  selectedReasoningLabel: document.querySelector('#selectedReasoningLabel'),
   fastModeToggle: document.querySelector('#fastModeToggle'),
   codexAccountsList: document.querySelector('#codexAccountsList'),
   addCodexAccountButton: document.querySelector('#addCodexAccount'),
@@ -219,6 +224,7 @@ function loadPreferences() {
     if (typeof preferences.codexAccountId === 'string') state.activeCodexAccountId = preferences.codexAccountId;
     if (typeof preferences.activeProjectId === 'string') state.activeProjectId = preferences.activeProjectId;
     if (typeof preferences.fastMode === 'boolean') state.fastMode = preferences.fastMode;
+    if (typeof preferences.reasoningEffort === 'string' && preferences.reasoningEffort.trim()) state.reasoningEffort = preferences.reasoningEffort;
     if (typeof preferences.model === 'string') state.model = preferences.model;
     if (typeof preferences.connectionId === 'string') state.activeConnectionId = preferences.connectionId;
   } catch {
@@ -234,6 +240,7 @@ function savePreferences() {
     codexAccountId: state.activeCodexAccountId,
     activeProjectId: state.activeProjectId,
     fastMode: state.fastMode,
+    reasoningEffort: state.reasoningEffort,
   }));
 }
 
@@ -431,6 +438,48 @@ function selectedModelKey() {
   return modelKey({ provider: state.provider, connectionId: state.provider === 'api' ? state.activeConnectionId : null, id: state.model });
 }
 
+function reasoningEffortLabel(effort) {
+  if (effort === 'xhigh') return 'XHigh';
+  return effort ? effort[0].toUpperCase() + effort.slice(1) : '자동';
+}
+
+function codexReasoningSettings() {
+  const model = modelsForProvider('openai').find((item) => item.id === state.model);
+  const efforts = [...new Set((model?.supportedReasoningEfforts || [])
+    .map((item) => item.reasoningEffort)
+    .filter((effort) => typeof effort === 'string' && effort.trim()))];
+  const unsupported = state.reasoningEffort !== null && !efforts.includes(state.reasoningEffort);
+  const fastTierAvailable = (model?.serviceTiers || []).some((tier) => /fast|priority/i.test(`${tier.id} ${tier.name}`));
+  // A selected effort takes precedence over the legacy Fast shortcut to Low.
+  const fastAvailable = !unsupported && (fastTierAvailable
+    || ((!state.reasoningEffort || state.reasoningEffort === 'low') && efforts.includes('low')));
+  const fastEnabled = state.fastMode && fastAvailable;
+  const defaultEffort = efforts.includes(model?.defaultReasoningEffort) ? model.defaultReasoningEffort : efforts[0];
+  const effectiveEffort = unsupported ? null : state.reasoningEffort
+    || (fastEnabled && efforts.includes('low') ? 'low' : defaultEffort);
+  return { efforts, unsupported, fastTierAvailable, fastAvailable, fastEnabled, defaultEffort, effectiveEffort };
+}
+
+function renderReasoningSelect(settings, connected) {
+  elements.reasoningControl.hidden = state.provider !== 'openai';
+  elements.selectedReasoningLabel.hidden = state.provider !== 'openai' || !settings.effectiveEffort;
+  elements.selectedReasoningLabel.textContent = reasoningEffortLabel(settings.effectiveEffort);
+  const automaticEffort = settings.fastEnabled && settings.efforts.includes('low') ? 'low' : settings.defaultEffort;
+  const automaticLabel = automaticEffort ? `자동 · ${reasoningEffortLabel(automaticEffort)}` : '자동';
+  elements.reasoningEffortSelect.innerHTML = `<option value="">${escapeHtml(automaticLabel)}</option>`
+    + settings.efforts.map((effort) => `<option value="${escapeHtml(effort)}">${escapeHtml(reasoningEffortLabel(effort))}</option>`).join('')
+    + (settings.unsupported ? `<option value="${escapeHtml(state.reasoningEffort)}" disabled>${escapeHtml(reasoningEffortLabel(state.reasoningEffort))} · 지원 안 함</option>` : '');
+  elements.reasoningEffortSelect.value = state.reasoningEffort || '';
+  elements.reasoningEffortSelect.disabled = !connected || !settings.efforts.length || state.busy;
+  elements.reasoningEffortHint.textContent = !settings.efforts.length
+    ? '모델 연결 후 지원하는 추론 강도를 선택할 수 있습니다.'
+    : settings.unsupported
+      ? '현재 모델이 지원하는 추론 강도를 다시 선택해 주세요.'
+      : !state.reasoningEffort && settings.fastEnabled && settings.effectiveEffort === 'low'
+        ? '자동 선택에서는 Fast 모드에 맞춰 Low가 적용됩니다.'
+        : '선택한 강도는 다음 메시지부터 적용됩니다.';
+}
+
 function renderModelOptions() {
   const query = elements.modelSearch.value.trim().toLocaleLowerCase();
   const models = modelCatalog().filter((model) => `${model.label} ${model.id} ${model.source}`.toLocaleLowerCase().includes(query));
@@ -469,28 +518,26 @@ function renderAgentList() {
 }
 
 function renderModelSelect() {
-  const models = modelsForProvider();
   const selected = modelCatalog().find((model) => modelKey(model) === selectedModelKey());
+  const reasoning = codexReasoningSettings();
   document.querySelector('#selectedModelLabel').textContent = selected?.label || state.model || '모델 선택';
   elements.modelSelectButton.disabled = state.busy;
   elements.modelSelectButton.title = selected ? `${selected.label} · ${selected.source}` : '사용 가능한 모델을 선택하세요.';
+  elements.modelSelectButton.setAttribute('aria-label', `모델 선택${selected ? ` · ${selected.label}` : ''}${state.provider === 'openai' && reasoning.effectiveEffort ? ` · 추론 강도 ${reasoningEffortLabel(reasoning.effectiveEffort)}` : ''}`);
   const codexAccount = state.provider === 'openai' ? activeCodexAccount() : null;
   document.querySelector('#providerPillText').textContent = codexAccount ? codexAccountDisplayName(codexAccount) : selected?.source || '연결 필요';
   document.querySelector('#providerDot').classList.toggle('connected', selected?.connected === true);
+  renderReasoningSelect(reasoning, selected?.connected === true);
   if (!elements.modelMenu.hidden) renderModelOptions();
-  const fastEfforts = models.find((model) => model.id === state.model)?.supportedReasoningEfforts || [];
-  const fastAvailable = fastEfforts.some((item) => item.reasoningEffort === 'low');
   elements.fastModeToggle.hidden = state.provider !== 'openai';
-  elements.fastModeToggle.disabled = !fastAvailable || state.busy;
-  elements.fastModeToggle.classList.toggle('active', state.fastMode && fastAvailable);
-  elements.fastModeToggle.setAttribute('aria-pressed', String(state.fastMode && fastAvailable));
-  const fastTierAvailable = (models.find((model) => model.id === state.model)?.serviceTiers || [])
-    .some((tier) => /fast|priority/i.test(`${tier.id} ${tier.name}`));
-  elements.fastModeToggle.title = fastAvailable
-    ? fastTierAvailable
-      ? '낮은 추론 단계와 이 모델이 광고한 Fast 서비스 티어를 요청합니다.'
-      : '낮은 추론 단계로 빠르게 응답합니다. 이 모델은 별도 Fast 서비스 티어를 광고하지 않습니다.'
-    : '선택한 모델이 빠른 추론 단계를 제공하지 않습니다.';
+  elements.fastModeToggle.disabled = !selected?.connected || !reasoning.fastAvailable || state.busy;
+  elements.fastModeToggle.classList.toggle('active', reasoning.fastEnabled);
+  elements.fastModeToggle.setAttribute('aria-pressed', String(reasoning.fastEnabled));
+  elements.fastModeToggle.title = reasoning.fastAvailable
+    ? reasoning.fastTierAvailable
+      ? 'Fast 서비스 티어를 요청합니다. 직접 선택한 추론 강도를 유지하며, 자동 선택에서는 Low를 우선 적용합니다.'
+      : 'Low 추론 강도로 빠르게 응답합니다. 별도 Fast 서비스 티어는 제공되지 않습니다.'
+    : '이 모델에서 Fast를 사용하려면 지원하는 Low 또는 자동 추론 강도를 선택해 주세요.';
 }
 
 function render() {
@@ -1174,10 +1221,18 @@ function toggleFastMode() {
   savePreferences();
   renderModelSelect();
   if (state.fastMode) {
-    const model = modelsForProvider().find((item) => item.id === state.model);
-    const serviceTierAvailable = (model?.serviceTiers || []).some((tier) => /fast|priority/i.test(`${tier.id} ${tier.name}`));
-    showToast(serviceTierAvailable ? 'Fast 응답과 모델 우선순위 티어를 요청합니다.' : 'Fast 응답을 켰습니다. 이 모델에는 낮은 추론 단계가 적용됩니다.');
+    const reasoning = codexReasoningSettings();
+    showToast(reasoning.fastTierAvailable ? `Fast 서비스 티어를 요청합니다. 추론 강도: ${reasoningEffortLabel(reasoning.effectiveEffort)}` : 'Fast 응답을 켰습니다. Low 추론 강도가 적용됩니다.');
   }
+}
+
+function setReasoningEffort(value) {
+  if (state.busy || state.provider !== 'openai') return;
+  if (value && !codexReasoningSettings().efforts.includes(value)) return;
+  state.reasoningEffort = value || null;
+  if (!codexReasoningSettings().fastAvailable) state.fastMode = false;
+  savePreferences();
+  renderModelSelect();
 }
 
 function setCodexAccount(accountId) {
@@ -1284,6 +1339,11 @@ async function sendMessage(value) {
     showSettings(state.provider === 'api' ? 'agents' : 'accounts');
     return;
   }
+  const reasoning = codexReasoningSettings();
+  if (state.provider === 'openai' && reasoning.unsupported) {
+    showToast('모델 선택 메뉴에서 현재 모델이 지원하는 추론 강도를 선택해 주세요.');
+    return;
+  }
   let conversation = activeConversation();
   if (!conversation) {
     createConversation();
@@ -1330,7 +1390,7 @@ async function sendMessage(value) {
         provider: state.provider,
         model: state.model,
         ...(state.provider === 'api' ? { connectionId: conversation.connectionId } : {}),
-        ...(state.provider === 'openai' ? { fastMode: state.fastMode } : {}),
+        ...(state.provider === 'openai' ? { fastMode: reasoning.fastEnabled, reasoningEffort: state.reasoningEffort } : {}),
         ...(state.provider === 'openai' ? { codexAccountId: conversation.codexAccountId || 'default' } : {}),
         ...(projectInstructions ? { projectInstructions } : {}),
         messages,
@@ -1621,6 +1681,7 @@ elements.modelOptions.addEventListener('click', (event) => {
 });
 document.querySelector('#closeModelMenu').addEventListener('click', () => closeModelMenu(true));
 elements.modelMenu.addEventListener('keydown', (event) => {
+  if (event.target === elements.reasoningEffortSelect) return;
   if (event.key === 'Enter' && event.target === elements.modelSearch) {
     event.preventDefault();
     const first = elements.modelOptions.querySelector('button:not(:disabled)');
@@ -1643,6 +1704,7 @@ document.addEventListener('click', (event) => {
   }
 });
 elements.fastModeToggle.addEventListener('click', toggleFastMode);
+elements.reasoningEffortSelect.addEventListener('change', (event) => setReasoningEffort(event.target.value));
 window.addEventListener('resize', () => closeModelMenu());
 elements.composerForm.addEventListener('submit', (event) => {
   event.preventDefault();

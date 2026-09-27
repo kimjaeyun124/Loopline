@@ -6,6 +6,7 @@
     <meta name="theme-color" content="#ffffff" />
     <title>Loopline</title>
     <link rel="icon" type="image/svg+xml" href="/loopline-icon.svg" />
+    <script src="/theme.js"></script>
     <link rel="stylesheet" href="/styles.css" />
     <script type="module" src="/app.js"></script>
   </head>
@@ -218,14 +219,39 @@
 
     <div class="modal-backdrop" id="settingsModal" hidden>
       <section class="settings-modal settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
-        <div class="modal-header"><div><h2 id="settingsTitle">설정</h2><p class="settings-subtitle">계정과 모델, 대화 기록을 관리하세요.</p></div><button class="icon-button close-modal" id="closeSettings" type="button" aria-label="설정 닫기"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#close"></use></svg></button></div>
+        <div class="modal-header"><div><h2 id="settingsTitle">설정</h2><p class="settings-subtitle">계정과 모델, 대화 기록, 화면을 관리하세요.</p></div><button class="icon-button close-modal" id="closeSettings" type="button" aria-label="설정 닫기"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#close"></use></svg></button></div>
         <div class="settings-layout">
         <div class="settings-tabs" role="tablist" aria-label="설정 메뉴" aria-orientation="vertical">
           <button type="button" id="accountsTab" role="tab" aria-controls="accountsPanel" aria-selected="true" data-settings-tab="accounts"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#user"></use></svg><span>구독 계정</span></button>
           <button type="button" id="agentsTab" role="tab" aria-controls="agentsPanel" aria-selected="false" tabindex="-1" data-settings-tab="agents"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#plug"></use></svg><span>API 에이전트</span><span id="apiConnectionCount">0</span></button>
           <button type="button" id="historyTab" role="tab" aria-controls="historyPanel" aria-selected="false" tabindex="-1" data-settings-tab="history"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#import"></use></svg><span>대화 가져오기</span></button>
+          <button type="button" id="appearanceTab" role="tab" aria-controls="appearancePanel" aria-selected="false" tabindex="-1" data-settings-tab="appearance"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#moon"></use></svg><span>화면</span></button>
         </div>
         <div class="settings-content">
+        <div id="appearancePanel" role="tabpanel" aria-labelledby="appearanceTab" data-settings-panel="appearance" hidden>
+          <div class="settings-panel-heading"><h3>화면</h3><p>앱 전체에 사용할 테마를 선택하세요.</p></div>
+          <fieldset class="theme-options">
+            <legend>테마</legend>
+            <label class="theme-option">
+              <input type="radio" name="appearanceTheme" value="light" />
+              <span class="theme-preview theme-preview-light" aria-hidden="true"><span class="theme-preview-sidebar"><i></i><i></i><i></i></span><span class="theme-preview-content"><i></i><i></i><span class="theme-preview-composer"></span></span></span>
+              <span class="theme-option-label"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#sun"></use></svg><span>라이트</span><svg class="ui-icon theme-option-check" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#check"></use></svg></span>
+            </label>
+            <label class="theme-option">
+              <input type="radio" name="appearanceTheme" value="dark" />
+              <span class="theme-preview theme-preview-dark" aria-hidden="true"><span class="theme-preview-sidebar"><i></i><i></i><i></i></span><span class="theme-preview-content"><i></i><i></i><span class="theme-preview-composer"></span></span></span>
+              <span class="theme-option-label"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#moon"></use></svg><span>다크</span><svg class="ui-icon theme-option-check" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#check"></use></svg></span>
+            </label>
+            <label class="theme-option">
+              <input type="radio" name="appearanceTheme" value="system" />
+              <span class="theme-preview theme-preview-system" aria-hidden="true"><span class="theme-preview-sidebar"><i></i><i></i><i></i></span><span class="theme-preview-content"><i></i><i></i><span class="theme-preview-composer"></span></span></span>
+              <span class="theme-option-label"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#monitor"></use></svg><span>시스템</span><svg class="ui-icon theme-option-check" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#check"></use></svg></span>
+            </label>
+          </fieldset>
+          <p class="appearance-status" id="appearanceStatus" role="status"></p>
+          <p class="settings-footnote">시스템을 선택하면 기기의 화면 모드에 맞춰 자동으로 변경됩니다. 선택한 테마는 다음 실행에도 유지됩니다.</p>
+          <div class="appearance-web-note"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#chat"></use></svg><p>앱 안의 ChatGPT도 함께 전환하려면 ChatGPT의 화면 설정을 <strong>시스템</strong>으로 선택하세요.</p></div>
+        </div>
         <div id="accountsPanel" role="tabpanel" aria-labelledby="accountsTab" data-settings-panel="accounts">
         <div class="settings-panel-heading"><h3>구독 계정</h3><p>Codex와 Claude를 연결하고 사용 한도를 확인하세요.</p></div>
         <div class="connection-row chatgpt-connection">

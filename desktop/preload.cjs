@@ -7,6 +7,10 @@ function subscribe(channel, callback) {
 }
 
 // Keep the bridge specific to the local shell. Never expose ipcRenderer to websites.
+contextBridge.exposeInMainWorld('looplineAppearance', {
+  setTheme: (theme) => ipcRenderer.send('loopline:appearance', theme),
+});
+
 contextBridge.exposeInMainWorld('looplineChatGpt', {
   setLayout: (layout) => ipcRenderer.send('loopline-chatgpt:layout', layout),
   navigate: (action) => ipcRenderer.send('loopline-chatgpt:navigate', action),

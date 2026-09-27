@@ -4,6 +4,12 @@
 
 ChatGPT Desktop처럼 채팅을 중심으로 화면을 구성한 macOS 데스크톱 앱입니다. ChatGPT 계정으로 로그인한 Codex app-server, Claude Code CLI, API로 연결한 에이전트의 모델을 하나의 목록에서 선택합니다. 여러 Codex 계정을 연결하고 계정별 남은 사용량을 확인할 수 있으며, Codex 사용 한도 소진 시 남은 계정으로 요청을 다시 시도합니다. 대화 내용은 앱 창의 `localStorage`에 저장되고, Codex 대화는 연결된 계정의 Codex thread 기록에도 저장됩니다. 공식 OpenAI 또는 Anthropic 앱은 아닙니다.
 
+## 화면 테마
+
+**설정 및 연결 → 화면**에서 라이트·다크·시스템을 선택합니다. 기본값인 시스템은 macOS 또는 브라우저의 화면 모드를 따르며, 설정을 바꾸면 대화창·사이드바·입력창·모델 목록·설정과 팝업에 바로 반영됩니다. 선택은 이 앱 또는 브라우저의 로컬 저장소에 보관되어 다음 실행에도 유지됩니다.
+
+macOS 앱에서는 네이티브 메뉴와 창에도 선택한 테마를 적용하고, 내부 웹 화면에 같은 색상 모드를 전달합니다. ChatGPT 웹에서 라이트·다크를 따로 지정한 경우 웹 설정이 우선합니다. 함께 전환하려면 ChatGPT의 화면 설정을 **시스템**으로 선택하세요.
+
 ## ChatGPT 사용
 
 사이드바의 **ChatGPT** 또는 **설정 및 연결 → 구독 계정 → ChatGPT → 열기**를 선택합니다. macOS 앱에서는 Loopline 메인 창 안에 ChatGPT가 표시되고, 웹 개발 화면에서는 새 브라우저 탭으로 열립니다. [ChatGPT 공식 웹](https://learn.chatgpt.com/docs/web)에 직접 로그인한 뒤 해당 계정에서 제공하는 모델·대화·프로젝트를 사용합니다. API 키를 입력할 필요가 없습니다.
@@ -79,6 +85,7 @@ OpenAI 연결은 Codex app-server의 ChatGPT OAuth 흐름을 사용합니다. ap
 ## 포함된 기능
 
 - ChatGPT Desktop 스타일의 채팅 화면·접을 수 있는 에이전트 목록·macOS 통합 타이틀바
+- 라이트·다크·시스템 테마 선택, 설정 저장 및 앱 전체 색상 적용
 - 메인 창 안의 ChatGPT 공식 웹, 작업 공간 전환, 독립 로그인 세션 및 브라우저에서 열기
 - Codex·Claude·API 모델을 통합한 검색 가능한 모델 선택기
 - DeepSeek·OpenAI·사용자 지정 OpenAI 호환 API 에이전트 추가 및 모델 자동 조회

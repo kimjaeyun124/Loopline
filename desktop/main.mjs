@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, safeStorage, shell, utilityProcess } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, safeStorage, shell, utilityProcess } from 'electron';
 import { mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { delimiter, dirname, join, resolve } from 'node:path';
@@ -222,7 +222,7 @@ async function createMainWindow(url) {
     minWidth: 900,
     minHeight: 620,
     show: false,
-    backgroundColor: '#ffffff',
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#101010' : '#ffffff',
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 18, y: 18 },
     webPreferences: {
@@ -252,6 +252,16 @@ async function createMainWindow(url) {
     if (trustedSender(event) && ['back', 'forward', 'reload'].includes(action)) view.navigate(action);
   };
   const browserHandler = (event) => { if (trustedSender(event)) void view.openInBrowser().catch(() => {}); };
+  const updateBackground = () => {
+    if (!window.isDestroyed()) window.setBackgroundColor(nativeTheme.shouldUseDarkColors ? '#101010' : '#ffffff');
+  };
+  const appearanceHandler = (event, theme) => {
+    if (!trustedSender(event) || !['system', 'light', 'dark'].includes(theme)) return;
+    if (nativeTheme.themeSource !== theme) nativeTheme.themeSource = theme;
+    updateBackground();
+  };
+  nativeTheme.on('updated', updateBackground);
+  ipcMain.on('loopline:appearance', appearanceHandler);
   ipcMain.on('loopline-chatgpt:layout', layoutHandler);
   ipcMain.on('loopline-chatgpt:navigate', navigateHandler);
   ipcMain.on('loopline-chatgpt:browser', browserHandler);
@@ -276,6 +286,8 @@ async function createMainWindow(url) {
   mainWindow.webContents.session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
   mainWindow.once('ready-to-show', () => mainWindow?.show());
   mainWindow.on('closed', () => {
+    nativeTheme.removeListener('updated', updateBackground);
+    ipcMain.removeListener('loopline:appearance', appearanceHandler);
     ipcMain.removeListener('loopline-chatgpt:layout', layoutHandler);
     ipcMain.removeListener('loopline-chatgpt:navigate', navigateHandler);
     ipcMain.removeListener('loopline-chatgpt:browser', browserHandler);

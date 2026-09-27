@@ -1,4 +1,4 @@
-import { BrowserWindow, WebContentsView, dialog, session, shell } from 'electron';
+import { BrowserWindow, WebContentsView, dialog, nativeTheme, session, shell } from 'electron';
 
 export const CHATGPT_URL = 'https://chatgpt.com/';
 const PARTITION = 'persist:loopline-chatgpt';
@@ -42,6 +42,10 @@ export function createChatGptView(owner, onState) {
   }
 
   function publishState() { onState(getState()); }
+
+  function updateBackground() {
+    if (view && !view.webContents.isDestroyed()) view.setBackgroundColor(nativeTheme.shouldUseDarkColors ? '#101010' : '#ffffff');
+  }
 
   function applyLayout() {
     if (!view || view.webContents.isDestroyed() || owner.isDestroyed()) return;
@@ -160,7 +164,7 @@ export function createChatGptView(owner, onState) {
     if (view) owner.contentView.removeChildView(view);
     view = new WebContentsView({ webPreferences: preferences() });
     view.setVisible(false);
-    view.setBackgroundColor('#ffffff');
+    updateBackground();
     owner.contentView.addChildView(view);
     const contents = view.webContents;
     configureContents(contents);
@@ -216,6 +220,7 @@ export function createChatGptView(owner, onState) {
   }
 
   function dispose() {
+    nativeTheme.removeListener('updated', updateBackground);
     owner.removeListener('resize', applyLayout);
     for (const popup of popups) if (!popup.isDestroyed()) popup.destroy();
     popups.clear(); mediaGrants.clear();
@@ -224,5 +229,6 @@ export function createChatGptView(owner, onState) {
   }
 
   owner.on('resize', applyLayout);
+  nativeTheme.on('updated', updateBackground);
   return { setLayout, hide, navigate, openInBrowser, getState, dispose };
 }

@@ -1453,14 +1453,14 @@ function resizeInput() {
 }
 
 function selectSettingsTab(tab) {
-  const name = ['accounts', 'agents', 'history'].includes(tab) ? tab : 'accounts';
+  const name = ['accounts', 'agents', 'history', 'appearance'].includes(tab) ? tab : 'accounts';
   document.querySelectorAll('[data-settings-tab]').forEach((button) => {
     const selected = button.dataset.settingsTab === name;
     button.setAttribute('aria-selected', String(selected));
     button.tabIndex = selected ? 0 : -1;
   });
   document.querySelectorAll('[data-settings-panel]').forEach((panel) => { panel.hidden = panel.dataset.settingsPanel !== name; });
-  document.querySelector('#refreshStatus').hidden = name === 'history';
+  document.querySelector('#refreshStatus').hidden = ['history', 'appearance'].includes(name);
 }
 
 function showSettings(tab = 'accounts') {

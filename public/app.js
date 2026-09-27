@@ -5,6 +5,7 @@ import { createHistoryImportUI } from './history-import-ui.js';
 import { createChatGptUI } from './chatgpt-ui.js';
 import { createModelVisibilityUI } from './model-visibility-ui.js';
 import { createAccountMenuUI } from './account-menu-ui.js';
+import { modelEffortCapability } from './model-capabilities.mjs';
 
 const PROVIDERS = {
   openai: {
@@ -45,7 +46,7 @@ const state = {
   apiConnections: [],
   keyStorage: 'session',
   fastMode: false,
-  reasoningEffort: null,
+  reasoningEfforts: {},
   providers: {
     openai: { installed: false, connected: false, label: '상태 확인 중' },
     anthropic: { installed: false, connected: false, label: '상태 확인 중' },
@@ -258,9 +259,26 @@ function loadPreferences() {
     if (typeof preferences.codexAccountId === 'string') state.activeCodexAccountId = preferences.codexAccountId;
     if (typeof preferences.activeProjectId === 'string') state.activeProjectId = preferences.activeProjectId;
     if (typeof preferences.fastMode === 'boolean') state.fastMode = preferences.fastMode;
-    if (typeof preferences.reasoningEffort === 'string' && preferences.reasoningEffort.trim()) state.reasoningEffort = preferences.reasoningEffort;
     if (typeof preferences.model === 'string') state.model = preferences.model;
     if (typeof preferences.connectionId === 'string') state.activeConnectionId = preferences.connectionId;
+    if (preferences.reasoningEfforts && typeof preferences.reasoningEfforts === 'object' && !Array.isArray(preferences.reasoningEfforts)) {
+      for (const [key, effort] of Object.entries(preferences.reasoningEfforts).slice(0, 500)) {
+        if (typeof effort !== 'string' || !['low', 'medium', 'high', 'xhigh', 'max', 'ultra'].includes(effort)) continue;
+        try {
+          const selection = JSON.parse(key);
+          if (Array.isArray(selection) && selection.length === 4
+            && ['openai', 'anthropic', 'api'].includes(selection[0])
+            && selection.every((part) => typeof part === 'string')) {
+            state.reasoningEfforts[key] = effort;
+          }
+        } catch { /* Ignore malformed saved model preferences. */ }
+      }
+    }
+    // Migrate the earlier single-model preference without changing the selected value.
+    if (preferences.provider === 'openai' && typeof preferences.reasoningEffort === 'string' && preferences.reasoningEffort.trim()) {
+      const key = reasoningPreferenceKey();
+      if (!Object.hasOwn(state.reasoningEfforts, key)) state.reasoningEfforts[key] = preferences.reasoningEffort;
+    }
   } catch {
     // 기본 모델 설정을 유지합니다.
   }
@@ -274,7 +292,8 @@ function savePreferences() {
     codexAccountId: state.activeCodexAccountId,
     activeProjectId: state.activeProjectId,
     fastMode: state.fastMode,
-    reasoningEffort: state.reasoningEffort,
+    reasoningEffort: reasoningSettings().selectedEffort,
+    reasoningEfforts: state.reasoningEfforts,
   }));
 }
 
@@ -477,48 +496,66 @@ function selectedModelKey() {
   return modelKey({ provider: state.provider, connectionId: state.provider === 'api' ? state.activeConnectionId : null, id: state.model });
 }
 
+function reasoningPreferenceKey() {
+  return JSON.stringify([
+    state.provider,
+    state.provider === 'openai' ? state.activeCodexAccountId : '',
+    state.provider === 'api' ? state.activeConnectionId || '' : '',
+    state.model,
+  ]);
+}
+
+function selectedReasoningEffort() {
+  return state.reasoningEfforts[reasoningPreferenceKey()] || null;
+}
+
 function reasoningEffortLabel(effort) {
   if (effort === 'xhigh') return 'XHigh';
   return effort ? effort[0].toUpperCase() + effort.slice(1) : '자동';
 }
 
-function codexReasoningSettings() {
-  const model = modelsForProvider('openai').find((item) => item.id === state.model);
-  const efforts = [...new Set((model?.supportedReasoningEfforts || [])
-    .map((item) => item.reasoningEffort)
-    .filter((effort) => typeof effort === 'string' && effort.trim()))];
-  const unsupported = state.reasoningEffort !== null && !efforts.includes(state.reasoningEffort);
+function reasoningSettings() {
+  const model = state.provider === 'openai'
+    ? modelsForProvider('openai').find((item) => item.id === state.model)
+    : state.provider === 'anthropic'
+      ? modelEffortCapability('anthropic', state.model)
+      : null;
+  const efforts = state.provider === 'openai'
+    ? [...new Set((model?.supportedReasoningEfforts || [])
+      .map((item) => item.reasoningEffort)
+      .filter((effort) => typeof effort === 'string' && effort.trim()))]
+    : [...(model?.reasoningEfforts || [])];
+  const savedEffort = selectedReasoningEffort();
+  const selectedEffort = efforts.includes(savedEffort) ? savedEffort : null;
   const fastTierAvailable = (model?.serviceTiers || []).some((tier) => /fast|priority/i.test(`${tier.id} ${tier.name}`));
   // A selected effort takes precedence over the legacy Fast shortcut to Low.
-  const fastAvailable = !unsupported && (fastTierAvailable
-    || ((!state.reasoningEffort || state.reasoningEffort === 'low') && efforts.includes('low')));
-  const fastEnabled = state.fastMode && fastAvailable;
+  const fastAvailable = fastTierAvailable
+    || ((!selectedEffort || selectedEffort === 'low') && efforts.includes('low'));
+  const fastEnabled = state.provider === 'openai' && state.fastMode && fastAvailable;
   const defaultEffort = efforts.includes(model?.defaultReasoningEffort) ? model.defaultReasoningEffort : efforts[0];
-  const effectiveEffort = unsupported ? null : state.reasoningEffort
+  const effectiveEffort = selectedEffort
     || (fastEnabled && efforts.includes('low') ? 'low' : defaultEffort);
-  return { efforts, unsupported, fastTierAvailable, fastAvailable, fastEnabled, defaultEffort, effectiveEffort };
+  return { efforts, selectedEffort, fastTierAvailable, fastAvailable, fastEnabled, defaultEffort, effectiveEffort };
 }
 
 function renderReasoningSelect(settings, connected) {
-  elements.reasoningControl.hidden = state.provider !== 'openai';
-  elements.composerReasoningControl.hidden = state.provider !== 'openai';
-  elements.selectedReasoningLabel.hidden = state.provider !== 'openai' || !settings.effectiveEffort;
+  const visible = ['openai', 'anthropic'].includes(state.provider) && settings.efforts.length > 0;
+  elements.reasoningControl.hidden = !visible;
+  elements.composerReasoningControl.hidden = !visible;
+  elements.selectedReasoningLabel.hidden = !visible || !settings.effectiveEffort;
   elements.selectedReasoningLabel.textContent = reasoningEffortLabel(settings.effectiveEffort);
   const automaticEffort = settings.fastEnabled && settings.efforts.includes('low') ? 'low' : settings.defaultEffort;
   const automaticLabel = automaticEffort ? `자동 · ${reasoningEffortLabel(automaticEffort)}` : '자동';
   const options = `<option value="">${escapeHtml(automaticLabel)}</option>`
-    + settings.efforts.map((effort) => `<option value="${escapeHtml(effort)}">${escapeHtml(reasoningEffortLabel(effort))}</option>`).join('')
-    + (settings.unsupported ? `<option value="${escapeHtml(state.reasoningEffort)}" disabled>${escapeHtml(reasoningEffortLabel(state.reasoningEffort))} · 지원 안 함</option>` : '');
+    + settings.efforts.map((effort) => `<option value="${escapeHtml(effort)}">${escapeHtml(reasoningEffortLabel(effort))}</option>`).join('');
   for (const select of [elements.reasoningEffortSelect, elements.composerReasoningEffortSelect]) {
     select.innerHTML = options;
-    select.value = state.reasoningEffort || '';
-    select.disabled = !connected || !settings.efforts.length || state.busy;
+    select.value = settings.selectedEffort || '';
+    select.disabled = !connected || !visible || state.busy;
   }
   elements.reasoningEffortHint.textContent = !settings.efforts.length
-    ? '모델 연결 후 지원하는 추론 강도를 선택할 수 있습니다.'
-    : settings.unsupported
-      ? '현재 모델이 지원하는 추론 강도를 다시 선택해 주세요.'
-      : !state.reasoningEffort && settings.fastEnabled && settings.effectiveEffort === 'low'
+    ? '이 모델은 추론 강도 선택을 제공하지 않습니다.'
+    : !settings.selectedEffort && settings.fastEnabled && settings.effectiveEffort === 'low'
         ? '자동 선택에서는 Fast 모드에 맞춰 Low가 적용됩니다.'
         : '선택한 강도는 다음 메시지부터 적용됩니다.';
   elements.composerReasoningEffortSelect.title = elements.reasoningEffortHint.textContent;
@@ -566,11 +603,11 @@ function renderAgentList() {
 
 function renderModelSelect() {
   const selected = modelCatalog().find((model) => modelKey(model) === selectedModelKey());
-  const reasoning = codexReasoningSettings();
+  const reasoning = reasoningSettings();
   document.querySelector('#selectedModelLabel').textContent = selected?.label || state.model || '모델 선택';
   elements.modelSelectButton.disabled = state.busy;
   elements.modelSelectButton.title = selected ? `${selected.label} · ${selected.source}` : '사용 가능한 모델을 선택하세요.';
-  elements.modelSelectButton.setAttribute('aria-label', `모델 선택${selected ? ` · ${selected.label}` : ''}${state.provider === 'openai' && reasoning.effectiveEffort ? ` · 추론 강도 ${reasoningEffortLabel(reasoning.effectiveEffort)}` : ''}`);
+  elements.modelSelectButton.setAttribute('aria-label', `모델 선택${selected ? ` · ${selected.label}` : ''}${reasoning.effectiveEffort ? ` · 추론 강도 ${reasoningEffortLabel(reasoning.effectiveEffort)}` : ''}`);
   const codexAccount = state.provider === 'openai' ? activeCodexAccount() : null;
   document.querySelector('#providerPillText').textContent = codexAccount ? codexAccountDisplayName(codexAccount) : selected?.source || '연결 필요';
   document.querySelector('#providerDot').classList.toggle('connected', selected?.connected === true);
@@ -1320,6 +1357,7 @@ function setModel(key) {
     conversation.model = model.id;
     conversation.codexAccountId = model.provider === 'openai' ? state.activeCodexAccountId : 'default';
   }
+  if (state.provider === 'openai' && !reasoningSettings().fastAvailable) state.fastMode = false;
   savePreferences();
   saveConversations();
   render();
@@ -1332,16 +1370,19 @@ function toggleFastMode() {
   savePreferences();
   renderModelSelect();
   if (state.fastMode) {
-    const reasoning = codexReasoningSettings();
+    const reasoning = reasoningSettings();
     showToast(reasoning.fastTierAvailable ? `Fast 서비스 티어를 요청합니다. 추론 강도: ${reasoningEffortLabel(reasoning.effectiveEffort)}` : 'Fast 응답을 켰습니다. Low 추론 강도가 적용됩니다.');
   }
 }
 
 function setReasoningEffort(value) {
-  if (state.busy || state.provider !== 'openai') return;
-  if (value && !codexReasoningSettings().efforts.includes(value)) return;
-  state.reasoningEffort = value || null;
-  if (!codexReasoningSettings().fastAvailable) state.fastMode = false;
+  if (state.busy || !['openai', 'anthropic'].includes(state.provider)) return;
+  const settings = reasoningSettings();
+  if (value && !settings.efforts.includes(value)) return;
+  const key = reasoningPreferenceKey();
+  if (value) state.reasoningEfforts[key] = value;
+  else delete state.reasoningEfforts[key];
+  if (state.provider === 'openai' && !reasoningSettings().fastAvailable) state.fastMode = false;
   savePreferences();
   renderModelSelect();
 }
@@ -1366,6 +1407,7 @@ function setCodexAccount(accountId) {
       if (conversation.messages.length) showToast('계정을 바꿨습니다. 이전 대화 내용을 새 계정에 이어 전달합니다.');
     }
   }
+  if (state.provider === 'openai' && !reasoningSettings().fastAvailable) state.fastMode = false;
   savePreferences();
   saveConversations();
   render();
@@ -1450,11 +1492,7 @@ async function sendMessage(value) {
     showSettings(state.provider === 'api' ? 'agents' : 'accounts');
     return;
   }
-  const reasoning = codexReasoningSettings();
-  if (state.provider === 'openai' && reasoning.unsupported) {
-    showToast('모델 선택 메뉴에서 현재 모델이 지원하는 추론 강도를 선택해 주세요.');
-    return;
-  }
+  const reasoning = reasoningSettings();
   let conversation = activeConversation();
   if (!conversation) {
     createConversation();
@@ -1501,7 +1539,8 @@ async function sendMessage(value) {
         provider: state.provider,
         model: state.model,
         ...(state.provider === 'api' ? { connectionId: conversation.connectionId } : {}),
-        ...(state.provider === 'openai' ? { fastMode: reasoning.fastEnabled, reasoningEffort: state.reasoningEffort } : {}),
+        ...(['openai', 'anthropic'].includes(state.provider) ? { reasoningEffort: reasoning.selectedEffort } : {}),
+        ...(state.provider === 'openai' ? { fastMode: reasoning.fastEnabled } : {}),
         ...(state.provider === 'openai' ? { codexAccountId: conversation.codexAccountId || 'default' } : {}),
         ...(projectInstructions ? { projectInstructions } : {}),
         messages,

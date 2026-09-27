@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { CodexAppServer } from './codex-app-server.mjs';
 import { ApiConnections } from './api-connections.mjs';
 import { ConversationHistory } from './conversation-history.mjs';
+import { modelEffortCapability } from './public/model-capabilities.mjs';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const publicDir = join(root, 'public');
@@ -834,7 +835,7 @@ function handleClaudeJsonLine(line, res, outputState) {
   }
 }
 
-function runClaudeCli(model, prompt, res) {
+function runClaudeCli(model, prompt, res, reasoningEffort) {
   return new Promise((resolve) => {
     let child;
     let stdoutBuffer = '';
@@ -872,9 +873,11 @@ function runClaudeCli(model, prompt, res) {
 
     (async () => {
       try {
+        const env = cliEnvironment('anthropic');
+        env.CLAUDE_CODE_EFFORT_LEVEL = reasoningEffort || 'auto';
         child = spawn(providers.anthropic.command, args, {
           cwd: root,
-          env: cliEnvironment('anthropic'),
+          env,
           stdio: ['pipe', 'pipe', 'pipe'],
           windowsHide: true,
         });
@@ -1182,6 +1185,10 @@ async function relayChat(req, res) {
       && (typeof body.reasoningEffort !== 'string' || !body.reasoningEffort.trim())) {
       return json(res, 400, { error: '추론 강도 형식이 올바르지 않습니다.' });
     }
+    if (provider === 'anthropic' && body.reasoningEffort != null
+      && (typeof body.reasoningEffort !== 'string' || !modelEffortCapability('anthropic', model)?.reasoningEfforts.includes(body.reasoningEffort))) {
+      return json(res, 400, { error: '선택한 Claude 모델이 이 추론 강도를 지원하지 않습니다.' });
+    }
     if (!Array.isArray(body.messages) || body.messages.length === 0 || body.messages.length > 60) {
       return json(res, 400, { error: '대화 메시지 형식이 올바르지 않습니다.' });
     }
@@ -1245,7 +1252,7 @@ async function relayChat(req, res) {
       'X-Content-Type-Options': 'nosniff',
     });
     if (provider === 'openai') await runCodexTurn(codexAccountId, model, messages, body.codexThreadId, res, projectInstructions, body.fastMode === true, body.reasoningEffort);
-    else await runClaudeCli(model, conversationPrompt(messages, projectInstructions), res);
+    else await runClaudeCli(model, conversationPrompt(messages, projectInstructions), res, body.reasoningEffort);
   } catch (error) {
     if (res.destroyed) return;
     if (res.headersSent) {
@@ -1275,6 +1282,7 @@ async function serveFile(res, pathname) {
     '/chatgpt-ui.js': ['chatgpt-ui.js', 'text/javascript; charset=utf-8'],
     '/model-visibility-ui.js': ['model-visibility-ui.js', 'text/javascript; charset=utf-8'],
     '/account-menu-ui.js': ['account-menu-ui.js', 'text/javascript; charset=utf-8'],
+    '/model-capabilities.mjs': ['model-capabilities.mjs', 'text/javascript; charset=utf-8'],
   };
   const entry = files[pathname];
   if (!entry) return json(res, 404, { error: '페이지를 찾을 수 없습니다.' });

@@ -88,6 +88,8 @@ const elements = {
   modelOptions: document.querySelector('#modelOptions'),
   reasoningControl: document.querySelector('#reasoningControl'),
   reasoningEffortSelect: document.querySelector('#reasoningEffortSelect'),
+  composerReasoningControl: document.querySelector('#composerReasoningControl'),
+  composerReasoningEffortSelect: document.querySelector('#composerReasoningEffortSelect'),
   reasoningEffortHint: document.querySelector('#reasoningEffortHint'),
   selectedReasoningLabel: document.querySelector('#selectedReasoningLabel'),
   fastModeToggle: document.querySelector('#fastModeToggle'),
@@ -462,15 +464,19 @@ function codexReasoningSettings() {
 
 function renderReasoningSelect(settings, connected) {
   elements.reasoningControl.hidden = state.provider !== 'openai';
+  elements.composerReasoningControl.hidden = state.provider !== 'openai';
   elements.selectedReasoningLabel.hidden = state.provider !== 'openai' || !settings.effectiveEffort;
   elements.selectedReasoningLabel.textContent = reasoningEffortLabel(settings.effectiveEffort);
   const automaticEffort = settings.fastEnabled && settings.efforts.includes('low') ? 'low' : settings.defaultEffort;
   const automaticLabel = automaticEffort ? `자동 · ${reasoningEffortLabel(automaticEffort)}` : '자동';
-  elements.reasoningEffortSelect.innerHTML = `<option value="">${escapeHtml(automaticLabel)}</option>`
+  const options = `<option value="">${escapeHtml(automaticLabel)}</option>`
     + settings.efforts.map((effort) => `<option value="${escapeHtml(effort)}">${escapeHtml(reasoningEffortLabel(effort))}</option>`).join('')
     + (settings.unsupported ? `<option value="${escapeHtml(state.reasoningEffort)}" disabled>${escapeHtml(reasoningEffortLabel(state.reasoningEffort))} · 지원 안 함</option>` : '');
-  elements.reasoningEffortSelect.value = state.reasoningEffort || '';
-  elements.reasoningEffortSelect.disabled = !connected || !settings.efforts.length || state.busy;
+  for (const select of [elements.reasoningEffortSelect, elements.composerReasoningEffortSelect]) {
+    select.innerHTML = options;
+    select.value = state.reasoningEffort || '';
+    select.disabled = !connected || !settings.efforts.length || state.busy;
+  }
   elements.reasoningEffortHint.textContent = !settings.efforts.length
     ? '모델 연결 후 지원하는 추론 강도를 선택할 수 있습니다.'
     : settings.unsupported
@@ -478,6 +484,7 @@ function renderReasoningSelect(settings, connected) {
       : !state.reasoningEffort && settings.fastEnabled && settings.effectiveEffort === 'low'
         ? '자동 선택에서는 Fast 모드에 맞춰 Low가 적용됩니다.'
         : '선택한 강도는 다음 메시지부터 적용됩니다.';
+  elements.composerReasoningEffortSelect.title = elements.reasoningEffortHint.textContent;
 }
 
 function renderModelOptions() {
@@ -1705,6 +1712,7 @@ document.addEventListener('click', (event) => {
 });
 elements.fastModeToggle.addEventListener('click', toggleFastMode);
 elements.reasoningEffortSelect.addEventListener('change', (event) => setReasoningEffort(event.target.value));
+elements.composerReasoningEffortSelect.addEventListener('change', (event) => setReasoningEffort(event.target.value));
 window.addEventListener('resize', () => closeModelMenu());
 elements.composerForm.addEventListener('submit', (event) => {
   event.preventDefault();

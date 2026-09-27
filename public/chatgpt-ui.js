@@ -10,6 +10,7 @@ export function createChatGptUI({ beforeOpen, onWorkspace }) {
   const viewport = document.querySelector('#chatGptViewport');
   const header = document.querySelector('#appHeader');
   const controls = document.querySelector('#webChatControls');
+  const navigation = document.querySelector('#webChatNavigation');
   const returnButton = document.querySelector('#chatGptWorkspace');
   const status = document.querySelector('#chatGptStatus');
   const hostname = document.querySelector('#chatGptHostname');
@@ -54,6 +55,7 @@ export function createChatGptUI({ beforeOpen, onWorkspace }) {
     panel.hidden = false;
     panel.setAttribute('aria-label', `${service.name} 대화`);
     controls.hidden = false;
+    navigation.hidden = false;
     for (const item of services) {
       if (item === service) item.link.setAttribute('aria-current', 'page');
       else item.link.removeAttribute('aria-current');
@@ -71,6 +73,7 @@ export function createChatGptUI({ beforeOpen, onWorkspace }) {
     panel.hidden = true;
     workspace.hidden = false;
     controls.hidden = true;
+    navigation.hidden = true;
     services.forEach((service) => service.link.removeAttribute('aria-current'));
     returnButton.setAttribute('aria-pressed', 'true');
     delete header.dataset.webTheme;
@@ -90,6 +93,7 @@ export function createChatGptUI({ beforeOpen, onWorkspace }) {
       else element.style.removeProperty('--web-background');
     }
     hostname.textContent = state.hostname || service.hostname;
+    hostname.title = hostname.textContent;
     status.textContent = state.error ? '연결 실패' : state.loading ? '불러오는 중' : '';
     status.hidden = !state.error && !state.loading;
     status.classList.toggle('is-loading', state.loading && !state.error);

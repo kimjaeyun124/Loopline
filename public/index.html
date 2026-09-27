@@ -121,6 +121,28 @@
           <button class="model-menu-add" id="addAgentFromModels" type="button"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#plus"></use></svg><span>API 에이전트 연결</span></button>
         </div>
       </main>
+      <section class="chatgpt-panel" id="chatGptPanel" aria-label="ChatGPT" hidden>
+        <header class="chatgpt-toolbar">
+          <button class="chatgpt-workspace-button" id="chatGptWorkspace" type="button" title="Loopline 작업 공간으로 돌아가기">
+            <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#brand"></use></svg><span>작업 공간</span>
+          </button>
+          <div class="chatgpt-navigation" role="group" aria-label="ChatGPT 페이지 탐색">
+            <button class="icon-button" id="chatGptBack" type="button" title="뒤로" aria-label="ChatGPT 뒤로" disabled><svg class="ui-icon chatgpt-back-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#chevron-right"></use></svg></button>
+            <button class="icon-button" id="chatGptForward" type="button" title="앞으로" aria-label="ChatGPT 앞으로" disabled><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#chevron-right"></use></svg></button>
+            <button class="icon-button" id="chatGptReload" type="button" title="새로고침" aria-label="ChatGPT 새로고침"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M19.4 12a7.5 7.5 0 1 0-1.9 5"/></svg></button>
+          </div>
+          <div class="chatgpt-location"><strong>ChatGPT</strong><span id="chatGptHostname">chatgpt.com</span></div>
+          <span class="chatgpt-status" id="chatGptStatus" role="status">공식 웹</span>
+          <button class="icon-button" id="chatGptBrowser" type="button" title="브라우저에서 열기" aria-label="ChatGPT를 브라우저에서 열기"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6m0-6L10 14M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg></button>
+        </header>
+        <div class="chatgpt-viewport" id="chatGptViewport">
+          <div class="chatgpt-placeholder" id="chatGptPlaceholder" role="status">
+            <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#chat"></use></svg>
+            <strong id="chatGptPlaceholderTitle">ChatGPT를 불러오는 중</strong>
+            <p id="chatGptPlaceholderDetail">잠시만 기다려 주세요.</p>
+          </div>
+        </div>
+      </section>
     </div>
 
     <div class="search-backdrop" id="searchModal" hidden>

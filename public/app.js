@@ -2,6 +2,7 @@ import { icon } from './icons.js';
 import { parseProviderExport } from './export-importer.js';
 import { createApiConnectionsUI } from './api-connections-ui.js';
 import { createHistoryImportUI } from './history-import-ui.js';
+import { createChatGptUI } from './chatgpt-ui.js';
 
 const PROVIDERS = {
   openai: {
@@ -119,6 +120,10 @@ if (new URLSearchParams(location.search).get('desktop') === '1') {
   document.body.classList.add('desktop');
   document.querySelector('.brand').href = '/?desktop=1';
 }
+const chatGptUI = createChatGptUI({
+  beforeOpen: () => { hideSettings(); hideSearch(); closeModelMenu(); },
+  onWorkspace: () => elements.messageInput.focus(),
+});
 
 function loadConversations() {
   try {
@@ -254,6 +259,7 @@ function activeConversation() {
 }
 
 function createConversation() {
+  chatGptUI.showWorkspace();
   if (state.busy) { showToast('응답을 중지하거나 완료한 뒤 새 작업을 시작해 주세요.'); return; }
   const conversation = {
     id: crypto.randomUUID(),
@@ -945,6 +951,7 @@ function deleteActiveProject() {
 }
 
 function selectProject(projectId) {
+  chatGptUI.showWorkspace();
   state.activeProjectId = projectId && project(projectId) ? projectId : null;
   const nextConversation = [...state.conversations]
     .filter((conversation) => !state.activeProjectId || conversation.projectId === state.activeProjectId)
@@ -1478,6 +1485,7 @@ function hideSearch() {
 }
 
 function selectConversation(conversation) {
+  chatGptUI.showWorkspace();
   if (state.busy) {
     showToast('응답이 끝난 뒤 대화를 전환해 주세요.');
     return false;

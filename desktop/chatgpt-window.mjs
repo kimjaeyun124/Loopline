@@ -1,4 +1,4 @@
-import { BrowserWindow, dialog, session, shell } from 'electron';
+import { BrowserWindow, WebContentsView, dialog, session, shell } from 'electron';
 
 export const CHATGPT_URL = 'https://chatgpt.com/';
 const PARTITION = 'persist:loopline-chatgpt';
@@ -19,12 +19,42 @@ function allowedPage(value) {
   return Boolean(url && PAGE_HOSTS.has(url.hostname));
 }
 
-export function createChatGptWindow() {
-  let chatWindow = null;
+export function createChatGptView(owner, onState) {
+  let view = null;
+  let requestedBounds = null;
+  let visible = false;
+  let loadFailed = false;
   let configured = false;
   let showingExternalPrompt = false;
   const popups = new Set();
   const mediaGrants = new Set();
+
+  function getState() {
+    const contents = view?.webContents;
+    const alive = contents && !contents.isDestroyed();
+    return {
+      hostname: alive ? httpsUrl(contents.getURL())?.hostname || '' : '',
+      loading: Boolean(alive && contents.isLoading()),
+      canGoBack: Boolean(alive && contents.navigationHistory.canGoBack()),
+      canGoForward: Boolean(alive && contents.navigationHistory.canGoForward()),
+      error: loadFailed,
+    };
+  }
+
+  function publishState() { onState(getState()); }
+
+  function applyLayout() {
+    if (!view || view.webContents.isDestroyed() || owner.isDestroyed()) return;
+    if (requestedBounds) {
+      const [width, height] = owner.getContentSize();
+      const zoom = owner.webContents.getZoomFactor();
+      const x = Math.min(width, Math.max(0, Math.round(requestedBounds.x * zoom)));
+      const y = Math.min(height, Math.max(0, Math.round(requestedBounds.y * zoom)));
+      // The host fills the area below the toolbar and to the right of the sidebar.
+      view.setBounds({ x, y, width: Math.max(0, width - x), height: Math.max(0, height - y) });
+    }
+    view.setVisible(visible && !loadFailed && Boolean(requestedBounds));
+  }
 
   const preferences = () => ({
     partition: PARTITION,
@@ -38,10 +68,10 @@ export function createChatGptWindow() {
 
   async function openExternal(value) {
     const url = httpsUrl(value);
-    if (!url || showingExternalPrompt || !chatWindow || chatWindow.isDestroyed()) return;
+    if (!url || showingExternalPrompt || owner.isDestroyed()) return;
     showingExternalPrompt = true;
     try {
-      const result = await dialog.showMessageBox(chatWindow, {
+      const result = await dialog.showMessageBox(owner, {
         type: 'question', title: '브라우저에서 열기',
         message: `${url.hostname}을(를) 기본 브라우저에서 열까요?`,
         buttons: ['취소', '열기'], defaultId: 0, cancelId: 0,
@@ -66,12 +96,12 @@ export function createChatGptWindow() {
       if (!fromChatGpt(contents, details.requestingUrl)) { callback(false); return; }
       if (['clipboard-sanitized-write', 'fullscreen'].includes(permission)) { callback(true); return; }
       const types = permission === 'media' ? details.mediaTypes : [];
-      const owner = BrowserWindow.fromWebContents(contents);
-      if (!owner || !types?.length || types.some((type) => !['audio', 'video'].includes(type))) { callback(false); return; }
+      const permissionOwner = BrowserWindow.fromWebContents(contents) || owner;
+      if (permissionOwner.isDestroyed() || !types?.length || types.some((type) => !['audio', 'video'].includes(type))) { callback(false); return; }
       if (types.every((type) => mediaGrants.has(type))) { callback(true); return; }
       try {
         const names = types.map((type) => type === 'audio' ? '마이크' : '카메라').join('·');
-        const result = await dialog.showMessageBox(owner, {
+        const result = await dialog.showMessageBox(permissionOwner, {
           type: 'question', title: 'ChatGPT 권한 요청',
           message: `ChatGPT에서 ${names}를 사용하도록 허용할까요?`,
           detail: 'chatgpt.com에서 요청했습니다. macOS의 권한 확인이 추가로 표시될 수 있습니다.',
@@ -84,10 +114,10 @@ export function createChatGptWindow() {
     });
   }
 
-  function configureWindow(window) {
-    const contents = window.webContents;
+  function configureContents(contents, popupWindow = null) {
     const updateTitle = () => {
-      if (!window.isDestroyed()) window.setTitle(`ChatGPT · Loopline — ${httpsUrl(contents.getURL())?.hostname || '불러오는 중'}`);
+      if (popupWindow && !popupWindow.isDestroyed()) popupWindow.setTitle(`ChatGPT · Loopline — ${httpsUrl(contents.getURL())?.hostname || '불러오는 중'}`);
+      if (!popupWindow) publishState();
     };
     contents.on('page-title-updated', (event) => { event.preventDefault(); updateTitle(); });
     contents.on('did-navigate', updateTitle);
@@ -106,6 +136,7 @@ export function createChatGptWindow() {
       if (allowedPage(url) || url === 'about:blank') {
         return { action: 'allow', overrideBrowserWindowOptions: {
           title: 'ChatGPT 로그인 · Loopline', width: 620, height: 780,
+          parent: owner,
           webPreferences: preferences(),
         } };
       }
@@ -114,7 +145,7 @@ export function createChatGptWindow() {
     });
     contents.on('did-create-window', (popup) => {
       popups.add(popup);
-      configureWindow(popup);
+      configureContents(popup.webContents, popup);
       popup.on('closed', () => popups.delete(popup));
     });
   }
@@ -123,45 +154,75 @@ export function createChatGptWindow() {
     await shell.openExternal(CHATGPT_URL);
   }
 
-  function open() {
-    if (chatWindow && !chatWindow.isDestroyed()) {
-      if (chatWindow.isMinimized()) chatWindow.restore();
-      chatWindow.show(); chatWindow.focus();
-      return;
-    }
+  function ensureView() {
+    if (view && !view.webContents.isDestroyed()) return;
     configureSession();
-    const window = new BrowserWindow({
-      title: 'ChatGPT · Loopline', width: 1160, height: 820,
-      minWidth: 760, minHeight: 560, backgroundColor: '#ffffff',
-      webPreferences: preferences(),
+    if (view) owner.contentView.removeChildView(view);
+    view = new WebContentsView({ webPreferences: preferences() });
+    view.setVisible(false);
+    view.setBackgroundColor('#ffffff');
+    owner.contentView.addChildView(view);
+    const contents = view.webContents;
+    configureContents(contents);
+    contents.on('did-start-loading', () => {
+      loadFailed = false;
+      applyLayout();
+      publishState();
     });
-    chatWindow = window;
-    configureWindow(window);
-    window.on('closed', () => {
-      for (const popup of popups) if (!popup.isDestroyed()) popup.destroy();
-      popups.clear(); mediaGrants.clear(); chatWindow = null;
+    contents.on('did-stop-loading', publishState);
+    contents.on('did-fail-load', (_event, code, _description, _url, isMainFrame) => {
+      if (!isMainFrame || code === -3) return;
+      loadFailed = true;
+      applyLayout();
+      publishState();
     });
-    // This view has no preload bridge. Website login cookies stay in its own session.
-    void window.loadURL(CHATGPT_URL).catch(async (error) => {
-      if (window.isDestroyed() || error.code === 'ERR_ABORTED') return;
-      const result = await dialog.showMessageBox(window, {
-        type: 'warning', title: 'ChatGPT 연결', message: 'ChatGPT 화면을 불러오지 못했습니다.',
-        detail: '네트워크 연결을 확인해 주세요. 상단 ChatGPT 메뉴에서 다시 불러오거나 브라우저로 열 수 있습니다.',
-        buttons: ['닫기', '브라우저에서 열기'], defaultId: 0, cancelId: 0,
-      });
-      if (result.response === 1) await openInBrowser();
-    }).catch(() => {});
+    contents.on('render-process-gone', () => {
+      loadFailed = true;
+      applyLayout();
+      publishState();
+    });
+    // Only the local shell gets a preload bridge; the remote page keeps its own session.
+    void contents.loadURL(CHATGPT_URL).catch(() => {});
+  }
+
+  function setLayout(layout) {
+    if (typeof layout?.visible !== 'boolean' || owner.isDestroyed()) return;
+    if (layout.visible) {
+      const bounds = layout.bounds;
+      if (!bounds || !['x', 'y', 'width', 'height'].every((key) => Number.isFinite(bounds[key]) && bounds[key] >= 0 && bounds[key] <= 30_000)
+        || bounds.width < 1 || bounds.height < 1) return;
+      requestedBounds = bounds;
+      ensureView();
+    }
+    const changed = visible !== layout.visible;
+    visible = layout.visible;
+    applyLayout();
+    if (changed && !visible) owner.webContents.focus();
+  }
+
+  function hide() {
+    visible = false;
+    applyLayout();
   }
 
   function navigate(action) {
     const focused = BrowserWindow.getFocusedWindow();
-    const window = popups.has(focused) ? focused : chatWindow;
-    if (!window || window.isDestroyed()) return;
-    const history = window.webContents.navigationHistory;
+    const contents = popups.has(focused) ? focused.webContents : view?.webContents;
+    if (!contents || contents.isDestroyed()) return;
+    const history = contents.navigationHistory;
     if (action === 'back' && history.canGoBack()) history.goBack();
     if (action === 'forward' && history.canGoForward()) history.goForward();
-    if (action === 'reload') window.webContents.reload();
+    if (action === 'reload') contents.reload();
   }
 
-  return { open, navigate, openInBrowser };
+  function dispose() {
+    owner.removeListener('resize', applyLayout);
+    for (const popup of popups) if (!popup.isDestroyed()) popup.destroy();
+    popups.clear(); mediaGrants.clear();
+    if (view && !view.webContents.isDestroyed()) view.webContents.close();
+    view = null;
+  }
+
+  owner.on('resize', applyLayout);
+  return { setLayout, hide, navigate, openInBrowser, getState, dispose };
 }

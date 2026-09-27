@@ -1271,6 +1271,7 @@ async function serveFile(res, pathname) {
     '/export-importer.js': ['export-importer.js', 'text/javascript; charset=utf-8'],
     '/api-connections-ui.js': ['api-connections-ui.js', 'text/javascript; charset=utf-8'],
     '/history-import-ui.js': ['history-import-ui.js', 'text/javascript; charset=utf-8'],
+    '/chatgpt-ui.js': ['chatgpt-ui.js', 'text/javascript; charset=utf-8'],
   };
   const entry = files[pathname];
   if (!entry) return json(res, 404, { error: '페이지를 찾을 수 없습니다.' });

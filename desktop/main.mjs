@@ -1,9 +1,9 @@
-import { app, BrowserWindow, dialog, Menu, safeStorage, shell, utilityProcess } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, safeStorage, shell, utilityProcess } from 'electron';
 import { mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { delimiter, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { CHATGPT_URL, createChatGptWindow } from './chatgpt-window.mjs';
+import { CHATGPT_URL, createChatGptView } from './chatgpt-window.mjs';
 
 const APP_NAME = 'Loopline';
 const STORAGE_NAME = 'Mosaic Desk';
@@ -13,7 +13,7 @@ const desktopDir = dirname(fileURLToPath(import.meta.url));
 let backendProcess = null;
 let backendUrl = null;
 let mainWindow = null;
-const chatGptWindow = createChatGptWindow();
+let chatGptView = null;
 
 // Electron uses this internal name for macOS Safe Storage keys as well as user data.
 // Keep the established identity so the visual rename can read existing encrypted keys.
@@ -184,17 +184,24 @@ function installApplicationMenu() {
     {
       label: 'ChatGPT',
       submenu: [
-        { label: 'ChatGPT 열기', accelerator: 'CmdOrCtrl+Shift+G', click: () => chatGptWindow.open() },
-        { label: 'Loopline 작업 공간으로', click: () => { mainWindow?.show(); mainWindow?.focus(); } },
+        { label: 'ChatGPT 열기', accelerator: 'CmdOrCtrl+Shift+G', click: () => requestChatGptScreen('open') },
+        { label: 'Loopline 작업 공간으로', click: () => requestChatGptScreen('workspace') },
         { type: 'separator' },
-        { label: '뒤로', click: () => chatGptWindow.navigate('back') },
-        { label: '앞으로', click: () => chatGptWindow.navigate('forward') },
-        { label: '새로고침', click: () => chatGptWindow.navigate('reload') },
+        { label: '뒤로', click: () => chatGptView?.navigate('back') },
+        { label: '앞으로', click: () => chatGptView?.navigate('forward') },
+        { label: '새로고침', click: () => chatGptView?.navigate('reload') },
         { type: 'separator' },
-        { label: '브라우저에서 열기', click: () => { void chatGptWindow.openInBrowser().catch(() => {}); } },
+        { label: '브라우저에서 열기', click: () => { void chatGptView?.openInBrowser().catch(() => {}); } },
       ],
     },
   ]));
+}
+
+function requestChatGptScreen(command) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show(); mainWindow.focus();
+  mainWindow.webContents.send('loopline-chatgpt:command', command);
 }
 
 async function openAllowedExternal(rawUrl) {
@@ -219,6 +226,7 @@ async function createMainWindow(url) {
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 18, y: 18 },
     webPreferences: {
+      preload: join(desktopDir, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
@@ -227,6 +235,31 @@ async function createMainWindow(url) {
   });
 
   const appOrigin = new URL(url).origin;
+  const window = mainWindow;
+  chatGptView = createChatGptView(window, (state) => {
+    if (!window.isDestroyed() && !window.webContents.isDestroyed()) window.webContents.send('loopline-chatgpt:state', state);
+  });
+  const view = chatGptView;
+  const trustedSender = (event) => {
+    try {
+      return !window.isDestroyed() && event.sender === window.webContents
+        && event.senderFrame === window.webContents.mainFrame
+        && new URL(event.senderFrame.url).origin === appOrigin;
+    } catch { return false; }
+  };
+  const layoutHandler = (event, layout) => { if (trustedSender(event)) view.setLayout(layout); };
+  const navigateHandler = (event, action) => {
+    if (trustedSender(event) && ['back', 'forward', 'reload'].includes(action)) view.navigate(action);
+  };
+  const browserHandler = (event) => { if (trustedSender(event)) void view.openInBrowser().catch(() => {}); };
+  ipcMain.on('loopline-chatgpt:layout', layoutHandler);
+  ipcMain.on('loopline-chatgpt:navigate', navigateHandler);
+  ipcMain.on('loopline-chatgpt:browser', browserHandler);
+  ipcMain.handle('loopline-chatgpt:state', (event) => trustedSender(event) ? view.getState() : null);
+  window.webContents.on('did-start-navigation', (event) => {
+    if (event.isMainFrame && !event.isSameDocument) view.hide();
+  });
+  window.webContents.on('render-process-gone', () => view.hide());
   mainWindow.webContents.on('will-navigate', (event, destination) => {
     if (new URL(destination).origin === appOrigin) return;
     event.preventDefault();
@@ -234,7 +267,7 @@ async function createMainWindow(url) {
   });
   mainWindow.webContents.setWindowOpenHandler(({ url: destination }) => {
     if (destination === CHATGPT_URL) {
-      chatGptWindow.open();
+      requestChatGptScreen('open');
       return { action: 'deny' };
     }
     void openAllowedExternal(destination);
@@ -243,6 +276,12 @@ async function createMainWindow(url) {
   mainWindow.webContents.session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
   mainWindow.once('ready-to-show', () => mainWindow?.show());
   mainWindow.on('closed', () => {
+    ipcMain.removeListener('loopline-chatgpt:layout', layoutHandler);
+    ipcMain.removeListener('loopline-chatgpt:navigate', navigateHandler);
+    ipcMain.removeListener('loopline-chatgpt:browser', browserHandler);
+    ipcMain.removeHandler('loopline-chatgpt:state');
+    view.dispose();
+    chatGptView = null;
     mainWindow = null;
     app.quit();
   });

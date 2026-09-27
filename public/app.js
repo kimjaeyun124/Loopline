@@ -87,6 +87,9 @@ const elements = {
   chatScroll: document.querySelector('#chatScroll'),
   welcome: document.querySelector('#welcome'),
   messages: document.querySelector('#messages'),
+  conversationActions: document.querySelector('#conversationActions'),
+  copyLastResponseButton: document.querySelector('#copyLastResponse'),
+  exportConversationButton: document.querySelector('#exportConversation'),
   composerForm: document.querySelector('#composerForm'),
   messageInput: document.querySelector('#messageInput'),
   sendButton: document.querySelector('#sendButton'),
@@ -368,6 +371,10 @@ function renderMessages() {
   document.querySelector('.main-panel').classList.toggle('empty', messages.length === 0);
   elements.welcome.hidden = messages.length > 0;
   elements.messages.classList.toggle('visible', messages.length > 0);
+  const lastAssistantMessage = [...messages].reverse().find((message) => message.role === 'assistant');
+  elements.conversationActions.hidden = messages.length === 0;
+  elements.copyLastResponseButton.disabled = !lastAssistantMessage?.content || lastAssistantMessage.pending;
+  elements.exportConversationButton.disabled = !messages.length || messages.some((message) => message.pending);
   if (!messages.length) {
     elements.messages.innerHTML = '';
     return;
@@ -1258,6 +1265,47 @@ function showToast(message) {
   toastTimeout = setTimeout(() => elements.toast.classList.remove('visible'), 3800);
 }
 
+async function copyLastResponse() {
+  const conversation = activeConversation();
+  const message = [...(conversation?.messages || [])].reverse()
+    .find((item) => item.role === 'assistant' && item.content && !item.pending);
+  if (!message) return;
+  try {
+    await navigator.clipboard.writeText(message.content);
+    showToast('마지막 답변을 복사했습니다.');
+  } catch {
+    showToast('클립보드에 복사하지 못했습니다. 앱 권한을 확인해 주세요.');
+  }
+  elements.conversationActions.open = false;
+}
+
+function exportConversationMarkdown() {
+  const conversation = activeConversation();
+  if (!conversation?.messages.length || conversation.messages.some((message) => message.pending)) return;
+  const title = (conversation.title || 'Loopline 대화').replace(/[\r\n]+/g, ' ').trim();
+  const projectName = project(conversation.projectId)?.name;
+  const metadata = [
+    `- 연결: ${PROVIDERS[conversation.provider]?.label || conversation.provider || 'AI'}`,
+    `- 모델: ${conversation.model || '알 수 없음'}`,
+    ...(projectName ? [`- 프로젝트: ${projectName}`] : []),
+    `- 업데이트: ${new Date(conversation.updatedAt || Date.now()).toLocaleString('ko-KR')}`,
+  ];
+  const transcript = conversation.messages
+    .filter((message) => ['user', 'assistant'].includes(message.role) && message.content)
+    .map((message) => `## ${message.role === 'user' ? '사용자' : 'AI'}\n\n${message.content}`)
+    .join('\n\n---\n\n');
+  const contents = `# ${title}\n\n${metadata.join('\n')}\n\n---\n\n${transcript}\n`;
+  const filename = `${title.replace(/[<>:"/\\|?*\u0000-\u001F]/g, '-').replace(/[. ]+$/g, '').slice(0, 80) || 'Loopline 대화'}.md`;
+  const url = URL.createObjectURL(new Blob([contents], { type: 'text/markdown;charset=utf-8' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  elements.conversationActions.open = false;
+  showToast('대화를 Markdown 파일로 내보냈습니다.');
+}
+
 function setModel(key) {
   if (state.busy) return;
   const model = modelCatalog().find((item) => modelKey(item) === key && item.connected);
@@ -1715,6 +1763,11 @@ elements.projectModal.addEventListener('click', (event) => { if (event.target ==
 elements.projectMoveModal.addEventListener('click', (event) => { if (event.target === elements.projectMoveModal) closeProjectMove(); });
 elements.projectImportModal.addEventListener('click', (event) => { if (event.target === elements.projectImportModal) closeProjectImport(); });
 document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && elements.conversationActions.open) {
+    elements.conversationActions.open = false;
+    elements.conversationActions.querySelector('summary').focus();
+    return;
+  }
   if (!document.querySelector('#historyImportModal').hidden) return;
   if (!document.querySelector('#apiConnectionModal').hidden) return;
   if (event.key === 'Escape') {
@@ -1818,10 +1871,13 @@ elements.modelMenu.addEventListener('focusout', () => {
   requestAnimationFrame(() => { if (!elements.modelMenu.contains(document.activeElement) && document.activeElement !== elements.modelSelectButton) closeModelMenu(); });
 });
 document.addEventListener('click', (event) => {
+  if (!elements.conversationActions.contains(event.target)) elements.conversationActions.open = false;
   if (!elements.modelMenu.hidden && !elements.modelMenu.contains(event.target) && !elements.modelSelectButton.contains(event.target)) {
     closeModelMenu();
   }
 });
+elements.copyLastResponseButton.addEventListener('click', () => { void copyLastResponse(); });
+elements.exportConversationButton.addEventListener('click', exportConversationMarkdown);
 elements.fastModeToggle.addEventListener('click', toggleFastMode);
 elements.reasoningEffortSelect.addEventListener('change', (event) => setReasoningEffort(event.target.value));
 elements.composerReasoningEffortSelect.addEventListener('change', (event) => setReasoningEffort(event.target.value));

@@ -79,6 +79,13 @@
           </div>
           <div class="mode-label" id="modeLabel">새 작업</div>
           <div class="topbar-actions">
+          <details class="conversation-actions" id="conversationActions" hidden>
+            <summary class="icon-button" title="대화 도구" aria-label="대화 도구"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#more"></use></svg></summary>
+            <div class="conversation-action-menu" role="group" aria-label="대화 도구">
+              <button type="button" id="copyLastResponse"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#copy"></use></svg><span>마지막 답변 복사</span></button>
+              <button type="button" id="exportConversation"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#export"></use></svg><span>대화 내보내기 (.md)</span></button>
+            </div>
+          </details>
           <button class="provider-pill" id="connectionDetails" type="button" title="사용 중인 연결 관리"><span class="provider-dot" id="providerDot"></span><span id="providerPillText">연결 확인 중</span></button>
           </div>
         </header>

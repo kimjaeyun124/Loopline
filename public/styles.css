@@ -195,6 +195,16 @@ kbd { margin-left: auto; color: var(--muted); font-family: inherit; font-size: 1
 .mode-label { min-width: 0; max-width: 230px; overflow: hidden; color: var(--muted); font-size: 12px; font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }
 .mode-dot { width: 7px; height: 7px; flex: 0 0 7px; border-radius: 50%; background: var(--ink); }
 .topbar-actions { display: flex; flex-shrink: 0; align-items: center; gap: 6px; margin-left: auto; }
+.conversation-actions { position: relative; flex-shrink: 0; }
+.conversation-actions > summary { list-style: none; cursor: pointer; }
+.conversation-actions > summary::-webkit-details-marker { display: none; }
+.conversation-actions > summary:hover, .conversation-actions[open] > summary { background: var(--sidebar-hover); color: var(--ink); }
+.conversation-action-menu { position: absolute; z-index: 9; top: calc(100% + 7px); right: 0; display: flex; width: max-content; min-width: 205px; flex-direction: column; gap: 2px; padding: 5px; border: 1px solid var(--line); border-radius: 11px; background: var(--canvas); box-shadow: 0 10px 28px #0002; }
+.conversation-action-menu button { display: flex; min-height: 36px; align-items: center; gap: 9px; padding: 7px 9px; border: 0; border-radius: 7px; background: transparent; color: var(--ink); font-size: 12px; text-align: left; cursor: pointer; }
+.conversation-action-menu button:hover, .conversation-action-menu button:focus-visible { background: var(--soft); }
+.conversation-action-menu button:disabled { color: var(--disabled); cursor: not-allowed; }
+.conversation-action-menu .ui-icon { width: 16px; height: 16px; color: var(--secondary); }
+.conversation-action-menu button:disabled .ui-icon { color: var(--disabled); }
 .provider-pill { display: flex; max-width: 210px; align-items: center; gap: 7px; padding: 8px 10px; border: 0; border-radius: 18px; background: transparent; color: var(--muted); font-size: 11px; cursor: pointer; }
 .provider-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--disabled); }
 .provider-dot.connected { background: var(--green); }

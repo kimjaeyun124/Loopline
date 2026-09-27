@@ -158,23 +158,37 @@ function loadConversations() {
   try {
     const value = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
     if (!Array.isArray(value)) return [];
-    return value.filter((item) => item && typeof item.id === 'string' && Array.isArray(item.messages))
-      .map((item) => ({
-        id: item.id,
-        title: String(item.title || '새 대화').slice(0, 80),
-        provider: Object.hasOwn(PROVIDERS, item.provider) ? item.provider : '',
-        model: String(item.model || ''),
-        connectionId: typeof item.connectionId === 'string' ? item.connectionId : null,
-        codexThreadId: typeof item.codexThreadId === 'string' ? item.codexThreadId : null,
-        codexAccountId: typeof item.codexAccountId === 'string' ? item.codexAccountId : 'default',
-        projectId: typeof item.projectId === 'string' ? item.projectId : null,
-        importSource: ['openai', 'anthropic'].includes(item.importSource) ? item.importSource : null,
-        sourceId: typeof item.sourceId === 'string' ? item.sourceId.slice(0, 240) : null,
-        historySourceLabel: typeof item.historySourceLabel === 'string' ? item.historySourceLabel.slice(0, 80) : null,
-        updatedAt: Number(item.updatedAt) || Date.now(),
-        messages: item.messages.filter((message) => ['user', 'assistant'].includes(message?.role) && typeof message.content === 'string')
-          .map((message) => ({ role: message.role, content: message.content.slice(0, item.historySourceLabel ? 1_600_000 : 40_000) })),
-      }));
+    let titlesMigrated = false;
+    const conversations = value.filter((item) => item && typeof item.id === 'string' && Array.isArray(item.messages))
+      .map((item) => {
+        const messages = item.messages.filter((message) => ['user', 'assistant'].includes(message?.role) && typeof message.content === 'string')
+          .map((message) => ({ role: message.role, content: message.content.slice(0, item.historySourceLabel ? 1_600_000 : 40_000) }));
+        const storedTitle = String(item.title || '새 대화').slice(0, 80);
+        const firstUserMessage = messages.find((message) => message.role === 'user')?.content;
+        const title = ['새 작업', '새 대화'].includes(storedTitle) && firstUserMessage
+          ? conversationTitleFromMessage(firstUserMessage)
+          : storedTitle;
+        if (title !== storedTitle) titlesMigrated = true;
+        return {
+          id: item.id,
+          title,
+          provider: Object.hasOwn(PROVIDERS, item.provider) ? item.provider : '',
+          model: String(item.model || ''),
+          connectionId: typeof item.connectionId === 'string' ? item.connectionId : null,
+          codexThreadId: typeof item.codexThreadId === 'string' ? item.codexThreadId : null,
+          codexAccountId: typeof item.codexAccountId === 'string' ? item.codexAccountId : 'default',
+          projectId: typeof item.projectId === 'string' ? item.projectId : null,
+          importSource: ['openai', 'anthropic'].includes(item.importSource) ? item.importSource : null,
+          sourceId: typeof item.sourceId === 'string' ? item.sourceId.slice(0, 240) : null,
+          historySourceLabel: typeof item.historySourceLabel === 'string' ? item.historySourceLabel.slice(0, 80) : null,
+          updatedAt: Number(item.updatedAt) || Date.now(),
+          messages,
+        };
+      });
+    if (titlesMigrated) {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(conversations)); } catch { /* Keep the migrated titles visible for this session. */ }
+    }
+    return conversations;
   } catch {
     return [];
   }
@@ -1498,9 +1512,13 @@ function setCodexAccount(accountId) {
   if (previousId !== account.id && state.provider !== 'openai') showToast('새 Codex 대화에 사용할 계정을 바꿨습니다.');
 }
 
+function conversationTitleFromMessage(message) {
+  return message.replace(/\s+/g, ' ').trim().slice(0, 42) || '새 대화';
+}
+
 function updateConversationTitle(conversation, firstMessage) {
-  if (conversation.messages.filter((message) => message.role === 'user').length !== 1) return;
-  conversation.title = firstMessage.replace(/\s+/g, ' ').slice(0, 42) || '새 대화';
+  if (conversation.messages.some((message) => message.role === 'user')) return;
+  conversation.title = conversationTitleFromMessage(firstMessage);
 }
 
 function parseSseBlock(block) {

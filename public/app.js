@@ -501,13 +501,12 @@ function renderMessages() {
       const hasWorkedFor = message.pending || Number.isFinite(message.workedForMs);
       const elapsedMs = message.pending ? Date.now() - (message.startedAt || Date.now()) : message.workedForMs;
       const activityItems = Array.isArray(message.activities) ? message.activities : [];
-      const activityMarkup = activityItems.length ? `<details class="assistant-activity" data-activity-message-id="${escapeHtml(message.id || '')}"${message.activityExpanded === true || (message.activityExpanded !== false && message.pending) ? ' open' : ''}>
-        <summary><span>작업 과정</span><small>${activityItems.length}단계</small>${message.pending ? '<span class="activity-live"><i aria-hidden="true"></i>진행 중</span>' : ''}</summary>
-        <ol class="assistant-activity-list">${activityItems.map((activity) => `<li class="activity-${escapeHtml(activity.status)}"><span class="activity-marker" aria-hidden="true"></span><div><strong>${escapeHtml(activity.title)}</strong>${activity.detail ? `<small>${escapeHtml(activity.detail)}</small>` : ''}<span class="activity-state">${activityStatusLabel(activity.status)}</span></div></li>`).join('')}</ol>
-      </details>` : '';
+      const activityMarkup = activityItems.length ? `<details class="worked-for-details" data-activity-message-id="${escapeHtml(message.id || '')}"${message.activityExpanded === true || (message.activityExpanded !== false && message.pending) ? ' open' : ''}>
+        <summary class="worked-for-row"><span class="worked-for-label" data-worked-for="${escapeHtml(message.id || '')}">${hasWorkedFor ? formatWorkedFor(elapsedMs) : '작업 과정'}</span>${message.pending ? '<span class="worked-for-live"><i aria-hidden="true"></i>진행 중</span>' : ''}</summary>
+        <ol class="assistant-activity-list" aria-label="작업 단계">${activityItems.map((activity) => `<li class="activity-${escapeHtml(activity.status)}"><span class="activity-marker" aria-hidden="true"></span><div><span class="activity-event-label">${icon(activityIconName(activity))}<strong>${escapeHtml(activity.title)}</strong><span class="activity-state">${activityStatusLabel(activity.status)}</span></span>${activity.detail ? `<small>${escapeHtml(activity.detail)}</small>` : ''}</div></li>`).join('')}</ol>
+      </details>` : hasWorkedFor ? `<div class="worked-for-row"><span class="worked-for-label" data-worked-for="${escapeHtml(message.id || '')}">${formatWorkedFor(elapsedMs)}</span>${message.pending ? '<span class="worked-for-live"><i aria-hidden="true"></i>진행 중</span>' : ''}</div>` : '';
       return `<article class="message assistant${errorClass}" data-message-id="${escapeHtml(message.id || '')}">
         <div class="assistant-response">
-          ${hasWorkedFor ? `<div class="worked-for-row"><span class="worked-for-label" data-worked-for="${escapeHtml(message.id || '')}">${formatWorkedFor(elapsedMs)}</span>${message.pending ? '<span class="worked-for-live"><i aria-hidden="true"></i>진행 중</span>' : ''}</div>` : ''}
           ${activityMarkup}
           <section class="assistant-result" aria-label="${message.pending ? '응답' : '결과'}">
             <div class="assistant-result-label">${message.pending ? '응답' : '결과'}</div>
@@ -529,6 +528,15 @@ function renderMessages() {
 
 function activityStatusLabel(status) {
   return ({ pending: '대기', running: '진행 중', completed: '완료', failed: '실패', stopped: '중지' })[status] || '완료';
+}
+
+function activityIconName(activity) {
+  const label = `${activity.title} ${activity.detail}`;
+  if (/명령|도구 실행|실행/.test(label)) return 'terminal';
+  if (/파일|읽기|변경/.test(label)) return 'pen';
+  if (/검색/.test(label)) return 'search';
+  if (/검토|분석|계획/.test(label)) return 'reasoning';
+  return 'list';
 }
 
 function updateAssistantActivity(message, activity) {
@@ -2408,7 +2416,7 @@ document.addEventListener('click', (event) => {
 });
 elements.copyLastResponseButton.addEventListener('click', () => { void copyLastResponse(); });
 elements.messages.addEventListener('toggle', (event) => {
-  const details = event.target.closest('.assistant-activity');
+  const details = event.target.closest('.worked-for-details');
   if (!details) return;
   const message = activeConversation()?.messages.find((item) => item.id === details.dataset.activityMessageId);
   if (!message || message.activityExpanded === details.open) return;

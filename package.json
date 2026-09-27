@@ -41,6 +41,10 @@
         "to": "app-server/usage-activity.mjs"
       },
       {
+        "from": "token-usage.mjs",
+        "to": "app-server/token-usage.mjs"
+      },
+      {
         "from": "public",
         "to": "app-server/public"
       }

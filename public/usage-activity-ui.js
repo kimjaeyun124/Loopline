@@ -7,37 +7,32 @@ const exact = (value) => typeof value === 'number' && Number.isFinite(value) ? n
 const dayKey = (stamp) => new Date(stamp).toISOString().slice(0, 10);
 const effortLabel = (value) => ({ none: 'None', minimal: 'Minimal', low: 'Low', medium: 'Medium', high: 'High', xhigh: 'XHigh', max: 'Max', ultra: 'Ultra' }[value] || '—');
 
-function duration(seconds) {
-  if (typeof seconds !== 'number') return '—';
-  if (seconds < 60) return `${Math.floor(seconds)}초`;
-  const minutes = Math.floor(seconds / 60);
-  return minutes >= 60 ? `${Math.floor(minutes / 60)}시간 ${minutes % 60}분` : `${minutes}분`;
-}
-
-export function createUsageActivityUI({ getAccounts, getActiveAccountId, formatAccountName }) {
+export function createUsageActivityUI({ getAccounts, getActiveAccountId }) {
   const element = (id) => document.getElementById(id);
   const panel = element('usagePanel');
   const source = element('usageActivityAccount');
   const chart = element('usageActivityChart');
   let accountKey = '';
+  let insightsAccountKey = '';
   let selectedKey = '';
   let activity = null;
   let insights = null;
   let mode = 'daily';
   let activityController;
   let insightsController;
+  let accountsController;
 
-  function selectedAccount() { return getAccounts().find((account) => account.id === source.value && account.connected); }
   function identity(account) { return account ? JSON.stringify([account.id, account.accountEmail, account.accountName]) : ''; }
 
   function renderMetrics() {
     const data = activity?.summary || {};
+    const tokenTitle = (value) => typeof value === 'number' ? `${exact(value)} 토큰` : '토큰 수를 제공하지 않음';
     const metrics = [
-      ['누적 토큰', number(data.lifetimeTokens), `${exact(data.lifetimeTokens)} 토큰`],
+      ['누적 토큰', number(data.totalTokens), tokenTitle(data.totalTokens)],
+      ['입력 토큰', number(data.inputTokens), `${tokenTitle(data.inputTokens)} · 캐시 포함`],
+      ['출력 토큰', number(data.outputTokens), tokenTitle(data.outputTokens)],
+      ['기록된 응답', number(data.responseCount), `${exact(data.responseCount)}개 응답`],
       ['최대 일일 토큰', number(data.peakDailyTokens), `${exact(data.peakDailyTokens)} 토큰`],
-      ['최장 실행', duration(data.longestRunningTurnSec), '가장 오래 실행된 한 번의 응답'],
-      ['현재 연속', data.currentStreakDays == null ? '—' : `${data.currentStreakDays}일`, '현재 연속 사용일'],
-      ['최장 연속', data.longestStreakDays == null ? '—' : `${data.longestStreakDays}일`, '최장 연속 사용일'],
     ];
     element('usageActivityMetrics').innerHTML = metrics.map(([label, value, title]) => `<div title="${escape(title)}"><dt>${label}</dt><dd>${escape(value)}</dd></div>`).join('');
   }
@@ -114,18 +109,23 @@ export function createUsageActivityUI({ getAccounts, getActiveAccountId, formatA
     element('usageInsightsWarnings').hidden = !data?.warnings?.length;
   }
 
-  async function loadActivity(account) {
+  function activeCodexAccount() {
+    return getAccounts().find((item) => item.id === getActiveAccountId() && item.connected)
+      || getAccounts().find((item) => item.connected);
+  }
+
+  async function loadActivity(accountId) {
     activityController?.abort();
     const controller = new AbortController();
     activityController = controller;
     activity = null;
     renderMetrics();
     renderChart();
-    element('usageActivityStatus').textContent = '계정 활동을 불러오는 중…';
+    element('usageActivityStatus').textContent = '토큰 사용 기록을 불러오는 중…';
     element('usageActivityStatus').classList.remove('usage-low');
     element('usageAccountActivity').setAttribute('aria-busy', 'true');
     try {
-      const response = await fetch(`/api/usage/activity?${new URLSearchParams({ accountId: account.id })}`, { signal: controller.signal, cache: 'no-store' });
+      const response = await fetch(`/api/usage/tokens?${new URLSearchParams({ accountId })}`, { signal: controller.signal, cache: 'no-store' });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || '계정 활동을 불러오지 못했습니다.');
       if (controller.signal.aborted) return;
@@ -133,7 +133,15 @@ export function createUsageActivityUI({ getAccounts, getActiveAccountId, formatA
       renderMetrics();
       renderChart();
       const time = new Date(data.updatedAt).toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' });
-      element('usageActivityStatus').textContent = `Codex 계정 전체 활동 · ${time} 조회`;
+      const label = source.selectedOptions[0]?.textContent || '모든 AI 사용량';
+      const hasUsage = (typeof data.summary.totalTokens === 'number' && data.summary.totalTokens > 0)
+        || (typeof data.summary.responseCount === 'number' && data.summary.responseCount > 0);
+      const status = hasUsage
+        ? `${label} · ${time} 조회${data.summary.unreportedResponses ? ` · ${exact(data.summary.unreportedResponses)}개 응답은 토큰 정보 미제공` : ''}`
+        : data.summary.unreportedResponses
+          ? `${label} · ${exact(data.summary.unreportedResponses)}개 응답에서 토큰 정보를 제공받지 못했습니다.`
+          : `${label} · 아직 기록된 응답이 없습니다.`;
+      element('usageActivityStatus').textContent = [status, ...(data.sourceWarnings || [])].join(' · ');
     } catch (error) {
       if (controller.signal.aborted) return;
       element('usageActivityStatus').textContent = error.message;
@@ -170,43 +178,55 @@ export function createUsageActivityUI({ getAccounts, getActiveAccountId, formatA
   }
 
   function load(force = false) {
-    const account = selectedAccount();
+    const selectedId = source.value || 'all';
+    if (force || selectedId !== accountKey) {
+      accountKey = selectedId;
+      void loadActivity(selectedId);
+    }
+    const account = activeCodexAccount();
     const key = identity(account);
-    if (!force && key === accountKey) return;
-    accountKey = key;
-    activityController?.abort();
+    if (!force && key === insightsAccountKey) return;
+    insightsAccountKey = key;
     insightsController?.abort();
     if (!account) {
-      activity = null;
       insights = null;
-      renderMetrics(); renderChart(); renderInsights();
-      element('usageAccountActivity').setAttribute('aria-busy', 'false');
+      renderInsights();
       element('usageLocalActivity').setAttribute('aria-busy', 'false');
-      element('usageActivityStatus').textContent = 'Codex 계정을 연결하면 활동 통계를 확인할 수 있습니다.';
       element('usageInsightsStatus').textContent = '연결된 Codex 계정이 없습니다.';
       return;
     }
-    void loadActivity(account);
     void loadInsights(account);
   }
 
-  function updateAccounts(loadIfVisible = true) {
-    const accounts = getAccounts().filter((account) => account.connected);
-    const signature = JSON.stringify(accounts.map((account) => [identity(account), formatAccountName(account)]));
-    if (signature !== selectedKey) {
-      const previous = source.value;
-      source.innerHTML = accounts.length ? accounts.map((account) => `<option value="${escape(account.id)}">${escape(formatAccountName(account))}</option>`).join('') : '<option value="">연결된 Codex 계정 없음</option>';
-      source.value = accounts.some((account) => account.id === previous) ? previous
-        : accounts.find((account) => account.id === getActiveAccountId())?.id || accounts[0]?.id || '';
-      source.disabled = !accounts.length;
-      element('usageIncludeCli').disabled = !accounts.length;
-      selectedKey = signature;
+  async function updateAccounts(loadIfVisible = true) {
+    accountsController?.abort();
+    const controller = new AbortController();
+    accountsController = controller;
+    try {
+      const response = await fetch('/api/usage/tokens/accounts', { signal: controller.signal, cache: 'no-store' });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || '통계 계정을 불러오지 못했습니다.');
+      if (controller.signal.aborted) return;
+      const accounts = Array.isArray(data.accounts) ? data.accounts : [];
+      const signature = JSON.stringify(accounts.map(({ id, label }) => [id, label]));
+      if (signature !== selectedKey || !accounts.some((account) => account.id === source.value)) {
+        const previous = source.value;
+        source.innerHTML = accounts.map((account) => `<option value="${escape(account.id)}">${escape(account.label)}</option>`).join('');
+        source.value = accounts.some((account) => account.id === previous) ? previous : 'all';
+        source.disabled = accounts.length <= 1;
+        selectedKey = signature;
+      }
+      element('usageIncludeCli').disabled = !getAccounts().some((account) => account.connected);
+      if (loadIfVisible && !panel.hidden && !element('settingsModal').hidden) load();
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      element('usageActivityStatus').textContent = error.message;
+      element('usageActivityStatus').classList.add('usage-low');
     }
-    if (loadIfVisible && !panel.hidden && !element('settingsModal').hidden) load();
   }
 
   source.addEventListener('change', () => load());
-  element('usageIncludeCli').addEventListener('change', () => { const account = selectedAccount(); if (account) void loadInsights(account); });
+  element('usageIncludeCli').addEventListener('change', () => { const account = activeCodexAccount(); if (account) void loadInsights(account); });
   element('usageActivityModes').addEventListener('click', (event) => {
     const button = event.target.closest('[data-activity-mode]');
     if (!button || button.disabled) return;
@@ -232,11 +252,11 @@ export function createUsageActivityUI({ getAccounts, getActiveAccountId, formatA
   });
   renderMetrics(); renderChart(); renderInsights();
   return {
-    update: updateAccounts,
-    show() { updateAccounts(false); load(true); },
-    refresh() { updateAccounts(false); load(true); },
+    update() { if (!panel.hidden && !element('settingsModal').hidden) return updateAccounts(true); return Promise.resolve(); },
+    show() { void updateAccounts(false).then(() => load(true)); },
+    refresh() { void updateAccounts(false).then(() => load(true)); },
     hide() {
-      activityController?.abort(); insightsController?.abort();
+      activityController?.abort(); insightsController?.abort(); accountsController?.abort();
       // An interrupted view must start a new fetch when it is opened again.
       if (!activity || !insights) accountKey = '';
     },

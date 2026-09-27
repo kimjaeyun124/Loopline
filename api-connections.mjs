@@ -36,7 +36,9 @@ function remoteError(status) {
     404: 'API 경로 또는 모델을 찾지 못했습니다. 기본 주소를 확인하고 모델을 새로고침해 주세요.',
     429: 'API의 사용 한도 또는 요청 제한에 도달했습니다. 해당 서비스의 사용량을 확인해 주세요.',
   };
-  return fail(messages[status] || `API 서버가 요청을 처리하지 못했습니다 (HTTP ${status}).`, 502);
+  const error = fail(messages[status] || `API 서버가 요청을 처리하지 못했습니다 (HTTP ${status}).`, 502);
+  error.remoteStatus = status;
+  return error;
 }
 
 async function readLimitedJson(response) {
@@ -237,7 +239,7 @@ export class ApiConnections {
     });
   }
 
-  async chat(id, model, messages, { signal, onDelta }) {
+  async chat(id, model, messages, { signal, onDelta, onUsage }) {
     await this.#ready;
     await this.#writes;
     const connection = this.#find(id);
@@ -254,19 +256,32 @@ export class ApiConnections {
     };
     try {
       const key = await this.#key(connection);
-      const response = await this.#request(connection, key, 'chat/completions', {
-        method: 'POST', signal: requestSignal,
-        body: JSON.stringify({ model, messages, stream: true }),
-      });
+      let response;
+      try {
+        response = await this.#request(connection, key, 'chat/completions', {
+          method: 'POST', signal: requestSignal,
+          body: JSON.stringify({ model, messages, stream: true, stream_options: { include_usage: true } }),
+        });
+      } catch (error) {
+        // Some OpenAI-compatible services reject stream_options. Retry only their explicit
+        // HTTP 400 response so those integrations keep working without usage metadata.
+        if (error.remoteStatus !== 400) throw error;
+        response = await this.#request(connection, key, 'chat/completions', {
+          method: 'POST', signal: requestSignal,
+          body: JSON.stringify({ model, messages, stream: true }),
+        });
+      }
       if ((response.headers.get('content-type') || '').includes('application/json')) {
         const result = await readLimitedJson(response);
         append(result.choices?.[0]?.message?.content);
         if (!outputLength) throw fail('API가 텍스트 응답을 반환하지 않았습니다.', 502);
+        await onUsage?.(result.usage, connection);
         return;
       }
       let buffer = '';
       let completed = false;
       let terminal = false;
+      let reportedUsage = null;
       const decoder = new TextDecoder();
       const consume = (frame) => {
         const data = frame.split('\n').filter((line) => line.startsWith('data:')).map((line) => line.slice(5).trimStart()).join('\n').trim();
@@ -275,6 +290,7 @@ export class ApiConnections {
         let payload;
         try { payload = JSON.parse(data); } catch { throw fail('API 응답 스트림의 형식이 올바르지 않습니다.', 502); }
         if (payload.error) throw fail('API가 응답 도중 오류를 반환했습니다. 서비스 상태와 사용 한도를 확인해 주세요.', 502);
+        if (payload.usage && typeof payload.usage === 'object') reportedUsage = payload.usage;
         const choice = payload.choices?.find((item) => item.index === 0) || payload.choices?.[0];
         append(choice?.delta?.content);
         if (choice?.finish_reason) {
@@ -298,6 +314,7 @@ export class ApiConnections {
       if (!terminal && buffer.trim()) consume(buffer.replace(/\r\n/g, '\n'));
       if (!completed) throw fail('API 연결이 응답 완료 전에 끊겼습니다. 다시 시도해 주세요.', 502);
       if (!outputLength) throw fail('모델이 텍스트를 반환하지 않았습니다. Chat Completions를 지원하는 모델을 선택해 주세요.', 502);
+      await onUsage?.(reportedUsage, connection);
     } catch (error) {
       if (signal.aborted) throw signal.reason;
       if (timeout.aborted) throw fail('API 응답 시간이 초과되었습니다.', 504);

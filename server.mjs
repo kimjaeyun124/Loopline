@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { CodexAppServer } from './codex-app-server.mjs';
 import { ApiConnections } from './api-connections.mjs';
 import { ConversationHistory } from './conversation-history.mjs';
+import { TokenUsageStore } from './token-usage.mjs';
 import { accountActivity, localActivity } from './usage-activity.mjs';
 import { modelEffortCapability } from './public/model-capabilities.mjs';
 
@@ -26,6 +27,7 @@ const defaultCodexHome = resolve(process.env.CODEX_HOME || join(homedir(), '.cod
 const port = Number(process.env.PORT || 4173);
 const host = process.env.HOST || '127.0.0.1';
 const apiConnections = new ApiConnections(userDataDir);
+const tokenUsageStore = new TokenUsageStore(userDataDir);
 const conversationHistory = new ConversationHistory({
   getCodexClient: async (accountId) => getCodexAppServer(await getCodexAccountContext(accountId)),
 });
@@ -467,6 +469,177 @@ async function allCodexAccountStatuses() {
   }));
 }
 
+async function tokenUsageAccounts() {
+  const [recorded, codexAccounts, claudeStatus, apiState] = await Promise.all([
+    tokenUsageStore.accounts(),
+    getCodexAccounts(),
+    anthropicProviderStatus().catch(() => ({ connected: false })),
+    apiConnections.list(),
+  ]);
+  const accounts = new Map();
+  const add = (provider, id, name, connected) => {
+    const titles = { codex: 'Codex', claude: 'Claude Code', api: 'API' };
+    accounts.set(id, {
+      id, provider, name, connected,
+      label: `${titles[provider]} · ${name}${connected ? '' : ' · 연결 해제됨'}`,
+    });
+  };
+
+  await Promise.all([...codexAccounts.values()].map(async (account) => {
+    const status = locallyDisconnectedCodexAccounts.has(account.id)
+      ? { connected: false }
+      : await openAiProviderStatus(account.id).catch(() => ({ connected: false }));
+    add('codex', `codex:${account.id}`, account.name, status.connected === true);
+  }));
+  if (claudeStatus.connected) add('claude', 'claude:cli', 'Claude Code CLI', true);
+  for (const connection of apiState.connections) {
+    if (connection.connected) add('api', `api:${connection.id}`, connection.name, true);
+  }
+  for (const item of recorded) {
+    if (!accounts.has(item.id)) add(item.provider, item.id, item.name, false);
+  }
+
+  const order = { codex: 0, claude: 1, api: 2 };
+  return [
+    { id: 'all', provider: 'all', name: '모든 AI', connected: true, label: '모든 AI 사용량' },
+    ...[...accounts.values()].sort((a, b) => order[a.provider] - order[b.provider] || a.name.localeCompare(b.name, 'ko')),
+  ];
+}
+
+async function readCodexPlatformUsage(account) {
+  if (locallyDisconnectedCodexAccounts.has(account.id)) return { connected: false, activity: null };
+  const status = await openAiProviderStatus(account.id).catch(() => ({ connected: false }));
+  if (!status.connected) return { connected: false, activity: null };
+  try {
+    const context = await getCodexAccountContext(account.id);
+    const response = await (await getCodexAppServer(context)).request('account/usage/read', {}, 15_000);
+    return { connected: true, activity: accountActivity(response) };
+  } catch {
+    return { connected: true, activity: null };
+  }
+}
+
+function platformActivitySummary(accountId, activity) {
+  const usage = activity?.summary || {};
+  return {
+    accountId,
+    summary: {
+      totalTokens: usage.lifetimeTokens,
+      inputTokens: null,
+      outputTokens: null,
+      cachedInputTokens: null,
+      reasoningOutputTokens: null,
+      responseCount: null,
+      unreportedResponses: 0,
+      peakDailyTokens: usage.peakDailyTokens,
+    },
+    dailyUsageBuckets: activity?.dailyUsageBuckets || null,
+    updatedAt: activity?.updatedAt || Date.now(),
+  };
+}
+
+function combineTokenUsage(accountId, sources, tracked, warnings = []) {
+  let totalTokens = 0;
+  let totalKnown = true;
+  let inputTokens = 0;
+  let outputTokens = 0;
+  let cachedInputTokens = 0;
+  let reasoningOutputTokens = 0;
+  let hasPlatformCounts = false;
+  let bucketsAvailable = true;
+  const daily = new Map();
+  for (const source of sources) {
+    const summary = source.summary || {};
+    if (source.platform) hasPlatformCounts = true;
+    if (typeof summary.totalTokens === 'number') totalTokens += summary.totalTokens;
+    else totalKnown = false;
+    if (!source.platform) {
+      inputTokens += summary.inputTokens || 0;
+      outputTokens += summary.outputTokens || 0;
+      cachedInputTokens += summary.cachedInputTokens || 0;
+      reasoningOutputTokens += summary.reasoningOutputTokens || 0;
+    }
+    if (!Array.isArray(source.dailyUsageBuckets)) bucketsAvailable = false;
+    for (const bucket of source.dailyUsageBuckets || []) {
+      const current = daily.get(bucket.startDate) || { startDate: bucket.startDate, tokens: 0 };
+      current.tokens += bucket.tokens || 0;
+      daily.set(bucket.startDate, current);
+    }
+  }
+  const dailyUsageBuckets = bucketsAvailable
+    ? [...daily.values()].sort((a, b) => a.startDate.localeCompare(b.startDate))
+    : null;
+  const trackedSummary = tracked?.summary || {};
+  return {
+    accountId,
+    summary: {
+      totalTokens: totalKnown ? totalTokens : null,
+      inputTokens: hasPlatformCounts ? null : inputTokens,
+      outputTokens: hasPlatformCounts ? null : outputTokens,
+      cachedInputTokens: hasPlatformCounts ? null : cachedInputTokens,
+      reasoningOutputTokens: hasPlatformCounts ? null : reasoningOutputTokens,
+      responseCount: trackedSummary.responseCount || 0,
+      unreportedResponses: trackedSummary.unreportedResponses || 0,
+      peakDailyTokens: dailyUsageBuckets
+        ? Math.max(0, ...dailyUsageBuckets.map((item) => item.tokens))
+        : null,
+      activeDays: dailyUsageBuckets?.length ?? null,
+    },
+    dailyUsageBuckets,
+    sourceWarnings: [...new Set(warnings)],
+    updatedAt: Date.now(),
+  };
+}
+
+async function allAiTokenUsage() {
+  const accounts = await getCodexAccounts();
+  const results = await Promise.all([...accounts.values()].map(async (account) => ({
+    account,
+    ...(await readCodexPlatformUsage(account)),
+  })));
+  const platformResults = results.filter((result) => result.activity);
+  const platformAccountIds = platformResults.map((result) => `codex:${result.account.id}`);
+  const [fallbackCodex, otherProviders, allTracked] = await Promise.all([
+    tokenUsageStore.summary('all', { provider: 'codex', excludedAccountIds: platformAccountIds }),
+    tokenUsageStore.summary('all', { excludedProviders: ['codex'] }),
+    tokenUsageStore.summary('all'),
+  ]);
+  const sources = [
+    ...platformResults.map((result) => ({ ...platformActivitySummary(`codex:${result.account.id}`, result.activity), platform: true })),
+    fallbackCodex,
+    otherProviders,
+  ];
+  const warnings = [];
+  const unavailable = results.filter((result) => !result.activity);
+  if (unavailable.some((result) => locallyDisconnectedCodexAccounts.has(result.account.id))) {
+    warnings.push('연결 해제된 Codex 계정은 Loopline에서 기록한 사용량만 합산됩니다.');
+  }
+  if (unavailable.some((result) => !result.connected && !locallyDisconnectedCodexAccounts.has(result.account.id))) {
+    warnings.push('로그인되지 않은 Codex 계정의 전체 사용량은 합계에 포함되지 않습니다.');
+  }
+  if (unavailable.some((result) => result.connected)) {
+    warnings.push('Codex 계정 전체 기록 일부를 읽지 못해 해당 계정은 Loopline 기록만 합산됩니다.');
+  }
+  return combineTokenUsage('all', sources, allTracked, warnings);
+}
+
+async function tokenUsageForAccount(accountId) {
+  if (accountId === 'all') return allAiTokenUsage();
+  if (!accountId.startsWith('codex:')) return tokenUsageStore.summary(accountId);
+  const codexAccountId = accountId.slice('codex:'.length);
+  const accounts = await getCodexAccounts();
+  const account = accounts.get(codexAccountId);
+  if (!account) return tokenUsageStore.summary(accountId);
+  const result = await readCodexPlatformUsage(account);
+  if (!result.activity) {
+    const tracked = await tokenUsageStore.summary(accountId);
+    return { ...tracked, sourceWarnings: result.connected
+      ? ['Codex 계정 전체 기록을 읽지 못해 Loopline 응답 기록만 표시합니다.']
+      : ['계정 연결이 해제되어 Loopline에서 기록한 사용량만 표시합니다.'] };
+  }
+  return platformActivitySummary(accountId, result.activity);
+}
+
 function accountPublicInfo(account) {
   return {
     id: account.id,
@@ -563,6 +736,14 @@ async function readJson(req) {
 
 function sendEvent(res, event, payload) {
   if (!res.destroyed && !res.writableEnded) res.write('event: ' + event + '\ndata: ' + JSON.stringify(payload) + '\n\n');
+}
+
+async function recordTokenUsage(record) {
+  try { return await tokenUsageStore.record(record); }
+  catch (error) {
+    console.error('토큰 사용량 기록을 저장하지 못했습니다:', error.message);
+    return false;
+  }
 }
 
 function finalizeCodexTurn(active, result = {}) {
@@ -714,7 +895,11 @@ function handleCodexNotification(context, message) {
   const eventTurnId = params.turnId || params.turn?.id;
   if (active.turnId && eventTurnId && active.turnId !== eventTurnId) return;
 
-  if (message.method === 'turn/started') {
+  if (message.method === 'thread/tokenUsage/updated') {
+    if (params.tokenUsage?.last && (!active.turnId || params.turnId === active.turnId)) {
+      active.tokenUsage = params.tokenUsage.last;
+    }
+  } else if (message.method === 'turn/started') {
     sendEvent(active.res, 'activity', { id: 'codex-turn', title: 'Codex가 요청을 처리하는 중', status: 'running' });
   } else if (message.method === 'turn/plan/updated' && Array.isArray(params.plan)) {
     params.plan.slice(0, 24).forEach((step, index) => {
@@ -785,6 +970,16 @@ function handleCodexNotification(context, message) {
     const error = turn.status === 'failed'
       ? turn.error?.message || 'Codex 요청을 완료하지 못했습니다.'
       : turn.status === 'interrupted' ? '응답이 중단되었습니다.' : '';
+    if (turn.status === 'completed') {
+      void recordTokenUsage({
+        provider: 'codex',
+        accountId: `codex:${context.account.id}`,
+        accountName: context.account.name,
+        model: active.model,
+        turnId: active.turnId || turn.id,
+        usage: active.tokenUsage,
+      });
+    }
     sendEvent(active.res, 'activity', {
       id: 'codex-turn',
       title: 'Codex 요청 처리',
@@ -1011,28 +1206,37 @@ function handleClaudeJsonLine(line, res, outputState) {
   } else if (event.type === 'result') {
     if (event.is_error || event.subtype !== 'success') {
       outputState.error = event.result || 'Claude 요청을 완료하지 못했습니다.';
-    } else if (!outputState.lastText && typeof event.result === 'string') {
-      sendEvent(res, 'delta', { text: event.result });
-      outputState.lastText = event.result;
+    } else {
+      if (event.usage && typeof event.usage === 'object') {
+        outputState.usage = event.usage;
+        outputState.usageModel = typeof event.model === 'string' ? event.model : '';
+      }
+      if (!outputState.lastText && typeof event.result === 'string') {
+        sendEvent(res, 'delta', { text: event.result });
+        outputState.lastText = event.result;
+      }
     }
   }
 }
 
-function runClaudeCli(model, prompt, res, reasoningEffort) {
+function runClaudeCli(model, prompt, res, reasoningEffort, onUsage) {
   return new Promise((resolve) => {
     let child;
     let stdoutBuffer = '';
     let stderr = '';
     let timedOut = false;
     let finished = false;
-    const outputState = { lastText: '', error: '' };
+    const outputState = { lastText: '', error: '', usage: null, usageModel: '' };
     const args = ['-p', '--model', model, '--safe-mode', '--no-session-persistence', '--tools', '', '--input-format', 'stream-json', '--output-format', 'stream-json', '--include-partial-messages'];
 
-    const finish = (result) => {
+    const finish = async (result) => {
       if (finished) return;
       finished = true;
       clearTimeout(timer);
       res.removeListener('close', onResponseClose);
+      if (result.code === 0 && !timedOut && !outputState.error) {
+        await onUsage?.(outputState.usage, outputState.usageModel || model);
+      }
       if (res.destroyed) return resolve();
       if (timedOut) sendEvent(res, 'error', { error: '요청 시간이 초과되었습니다.' });
       else if (outputState.error) sendEvent(res, 'error', { error: outputState.error });
@@ -1081,18 +1285,18 @@ function runClaudeCli(model, prompt, res, reasoningEffort) {
           outputState.error = error.code === 'ENOENT'
             ? providers.anthropic.command + ' CLI를 찾을 수 없습니다. 연결 설정에서 설치 방법을 확인해 주세요.'
             : '공식 CLI를 실행하지 못했습니다.';
-          finish({ code: 1 });
+          void finish({ code: 1 });
         });
         child.once('close', (code) => {
           if (stdoutBuffer.trim()) handleClaudeJsonLine(stdoutBuffer, res, outputState);
-          finish({ code });
+          void finish({ code });
         });
 
         const input = { type: 'user', message: { role: 'user', content: [{ type: 'text', text: prompt }] } };
         child.stdin.end(JSON.stringify(input) + '\n');
       } catch (error) {
         outputState.error = error.message || 'CLI 실행 중 오류가 발생했습니다.';
-        finish({ code: 1 });
+        void finish({ code: 1 });
       }
     })();
   });
@@ -1233,6 +1437,7 @@ async function runCodexTurnAttempt(context, model, messages, requestedThreadId, 
     context,
     threadId: thread.id,
     turnId: null,
+    model,
     res,
     agentMessages: new Map(),
     finished: false,
@@ -1408,6 +1613,14 @@ async function relayChat(req, res) {
         await apiConnections.chat(body.connectionId, model, apiMessages, {
           signal: controller.signal,
           onDelta: (text) => sendEvent(res, 'delta', { text }),
+          onUsage: (usage, connection) => recordTokenUsage({
+            provider: 'api',
+            accountId: `api:${connection.id}`,
+            accountName: connection.name,
+            model,
+            turnId: randomUUID(),
+            usage,
+          }),
         });
         sendEvent(res, 'done', {});
         res.end();
@@ -1444,7 +1657,15 @@ async function relayChat(req, res) {
       'X-Content-Type-Options': 'nosniff',
     });
     if (provider === 'openai') await runCodexTurn(codexAccountId, model, messages, body.codexThreadId, res, instructions, body.fastMode === true, body.reasoningEffort);
-    else await runClaudeCli(model, conversationPrompt(messages, instructions), res, body.reasoningEffort);
+    else await runClaudeCli(model, conversationPrompt(messages, instructions), res, body.reasoningEffort,
+      (usage, usedModel) => recordTokenUsage({
+        provider: 'claude',
+        accountId: 'claude:cli',
+        accountName: 'Claude Code CLI',
+        model: usedModel,
+        turnId: randomUUID(),
+        usage,
+      }));
   } catch (error) {
     if (res.destroyed) return;
     if (res.headersSent) {
@@ -1520,6 +1741,18 @@ const server = createServer(async (req, res) => {
       });
     } finally { res.off('close', cancel); }
     return;
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/usage/tokens/accounts') {
+    try { return json(res, 200, { accounts: await tokenUsageAccounts() }); }
+    catch (error) { return json(res, 500, { error: error.message || '토큰 사용 계정을 불러오지 못했습니다.' }); }
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/usage/tokens') {
+    const accountId = url.searchParams.get('accountId') || 'all';
+    if (accountId.length > 200) return json(res, 400, { error: '통계 계정 식별자가 올바르지 않습니다.' });
+    try { return json(res, 200, await tokenUsageForAccount(accountId)); }
+    catch (error) { return json(res, 500, { error: error.message || '토큰 사용 기록을 불러오지 못했습니다.' }); }
   }
 
   if (req.method === 'POST' && ['/api/history/list', '/api/history/read'].includes(url.pathname)) {

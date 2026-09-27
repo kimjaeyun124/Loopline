@@ -119,7 +119,10 @@
             </div>
             <p id="reasoningEffortHint">선택한 강도는 다음 메시지부터 적용됩니다.</p>
           </div>
-          <button class="model-menu-add" id="addAgentFromModels" type="button"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#plus"></use></svg><span>API 에이전트 연결</span></button>
+          <div class="model-menu-footer">
+            <button class="model-menu-add" id="manageModelVisibility" type="button"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#sliders"></use></svg><span>표시 설정</span></button>
+            <button class="model-menu-add" id="addAgentFromModels" type="button"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#plus"></use></svg><span>API 에이전트 연결</span></button>
+          </div>
         </div>
       </main>
       <section class="chatgpt-panel" id="chatGptPanel" aria-label="ChatGPT" hidden>
@@ -224,10 +227,18 @@
         <div class="settings-tabs" role="tablist" aria-label="설정 메뉴" aria-orientation="vertical">
           <button type="button" id="accountsTab" role="tab" aria-controls="accountsPanel" aria-selected="true" data-settings-tab="accounts"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#user"></use></svg><span>구독 계정</span></button>
           <button type="button" id="agentsTab" role="tab" aria-controls="agentsPanel" aria-selected="false" tabindex="-1" data-settings-tab="agents"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#plug"></use></svg><span>API 에이전트</span><span id="apiConnectionCount">0</span></button>
+          <button type="button" id="modelsTab" role="tab" aria-controls="modelsPanel" aria-selected="false" tabindex="-1" data-settings-tab="models"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#sliders"></use></svg><span>모델 표시</span></button>
           <button type="button" id="historyTab" role="tab" aria-controls="historyPanel" aria-selected="false" tabindex="-1" data-settings-tab="history"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#import"></use></svg><span>대화 가져오기</span></button>
           <button type="button" id="appearanceTab" role="tab" aria-controls="appearancePanel" aria-selected="false" tabindex="-1" data-settings-tab="appearance"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#moon"></use></svg><span>화면</span></button>
         </div>
         <div class="settings-content">
+        <div id="modelsPanel" role="tabpanel" aria-labelledby="modelsTab" data-settings-panel="models" hidden>
+          <div class="settings-panel-heading"><h3>모델 표시</h3><p>모델 선택 목록에 표시할 모델을 켜 주세요.</p></div>
+          <label class="model-visibility-search"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#search"></use></svg><input id="modelVisibilitySearch" type="search" aria-label="표시 설정에서 모델 검색" placeholder="모델 또는 연결 이름 검색" autocomplete="off" /></label>
+          <div class="model-visibility-actions"><p id="modelVisibilitySummary" role="status"></p><div><button class="secondary-button" id="showAllModels" type="button">모두 표시</button><button class="secondary-button" id="hideAllModels" type="button">모두 숨기기</button></div></div>
+          <div id="modelVisibilityList"></div>
+          <p class="settings-footnote">변경 사항은 자동으로 저장됩니다. 숨겨도 현재 사용 중인 모델과 기존 대화는 유지됩니다. 새로 추가된 모델은 기본으로 표시됩니다.</p>
+        </div>
         <div id="appearancePanel" role="tabpanel" aria-labelledby="appearanceTab" data-settings-panel="appearance" hidden>
           <div class="settings-panel-heading"><h3>화면</h3><p>앱 전체에 사용할 테마를 선택하세요.</p></div>
           <fieldset class="theme-options">

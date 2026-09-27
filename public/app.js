@@ -3,6 +3,7 @@ import { parseProviderExport } from './export-importer.js';
 import { createApiConnectionsUI } from './api-connections-ui.js';
 import { createHistoryImportUI } from './history-import-ui.js';
 import { createChatGptUI } from './chatgpt-ui.js';
+import { createModelVisibilityUI } from './model-visibility-ui.js';
 
 const PROVIDERS = {
   openai: {
@@ -105,6 +106,13 @@ const elements = {
   toast: document.querySelector('#toast'),
 };
 const apiConnectionsUI = createApiConnectionsUI({ onChange: refreshApiConnections, showToast });
+const modelVisibilityUI = createModelVisibilityUI({
+  getModels: modelCatalog,
+  getModelKey: modelKey,
+  getSelectedKey: selectedModelKey,
+  onChange: () => { if (!elements.modelMenu.hidden) renderModelOptions(); },
+  showToast,
+});
 let projectImportReturnsToSettings = false;
 const historyImportUI = createHistoryImportUI({
   getAccounts: () => state.codexAccounts.map((account) => ({ ...account, displayName: codexAccountDisplayName(account) })),
@@ -498,11 +506,14 @@ function renderReasoningSelect(settings, connected) {
 
 function renderModelOptions() {
   const query = elements.modelSearch.value.trim().toLocaleLowerCase();
-  const models = modelCatalog().filter((model) => `${model.label} ${model.id} ${model.source}`.toLocaleLowerCase().includes(query));
+  const visibleModels = modelCatalog().filter(modelVisibilityUI.isVisible);
+  const models = visibleModels.filter((model) => `${model.label} ${model.id} ${model.source}`.toLocaleLowerCase().includes(query));
   elements.modelOptions.innerHTML = models.slice(0, 200).map((model) => {
     const selected = modelKey(model) === selectedModelKey();
     return `<button class="model-option${selected ? ' selected' : ''}" type="button" role="option" aria-selected="${selected}" data-model-key="${escapeHtml(modelKey(model))}"${!model.connected || state.busy ? ' disabled' : ''}><span><strong>${escapeHtml(model.label)}</strong><small>${escapeHtml(model.source)}${!model.connected ? ' · 연결 필요' : ''}</small></span><span class="model-check" aria-hidden="true">${selected ? icon('check') : ''}</span></button>`;
-  }).join('') || '<p class="model-empty">일치하는 모델이 없습니다.<br>API 에이전트를 연결하거나 검색어를 바꿔보세요.</p>';
+  }).join('') || (visibleModels.length
+    ? '<p class="model-empty">일치하는 모델이 없습니다.<br>검색어를 바꾸거나 아래 표시 설정을 확인하세요.</p>'
+    : '<p class="model-empty">표시할 모델이 없습니다.<br>아래 표시 설정에서 사용할 모델을 켜 주세요.</p>');
   if (models.length > 200) elements.modelOptions.insertAdjacentHTML('beforeend', '<p class="model-empty">더 많은 모델은 이름으로 검색하세요.</p>');
   if (!elements.modelMenu.hidden) positionModelMenu();
 }
@@ -569,6 +580,7 @@ function render() {
   renderCodexAccounts();
   renderAgentList();
   renderModelSelect();
+  modelVisibilityUI.render();
   document.querySelector('#connectionSummary').textContent = connectionSummary();
   const conversation = activeConversation();
   const activeProject = project(conversation?.projectId || state.activeProjectId);
@@ -1453,7 +1465,7 @@ function resizeInput() {
 }
 
 function selectSettingsTab(tab) {
-  const name = ['accounts', 'agents', 'history', 'appearance'].includes(tab) ? tab : 'accounts';
+  const name = ['accounts', 'agents', 'models', 'history', 'appearance'].includes(tab) ? tab : 'accounts';
   document.querySelectorAll('[data-settings-tab]').forEach((button) => {
     const selected = button.dataset.settingsTab === name;
     button.setAttribute('aria-selected', String(selected));
@@ -1461,6 +1473,7 @@ function selectSettingsTab(tab) {
   });
   document.querySelectorAll('[data-settings-panel]').forEach((panel) => { panel.hidden = panel.dataset.settingsPanel !== name; });
   document.querySelector('#refreshStatus').hidden = ['history', 'appearance'].includes(name);
+  if (name === 'models') modelVisibilityUI.render();
 }
 
 function showSettings(tab = 'accounts') {
@@ -1602,6 +1615,7 @@ document.querySelector('#addAgentSidebar').addEventListener('click', (event) => 
   openNewApiConnection();
 });
 document.querySelector('#addAgentFromModels').addEventListener('click', openNewApiConnection);
+document.querySelector('#manageModelVisibility').addEventListener('click', () => showSettings('models'));
 document.querySelector('#agentList').addEventListener('click', (event) => {
   const button = event.target.closest('[data-agent-tab]');
   if (button) showSettings(button.dataset.agentTab);

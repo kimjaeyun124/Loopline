@@ -288,6 +288,9 @@ kbd { margin-left: auto; color: var(--muted); font-family: inherit; font-size: 1
 .model-check { font-size: 13px; }
 .model-menu-add { flex-shrink: 0; margin-top: 6px; padding: 11px 9px 6px; border: 0; border-top: 1px solid var(--line); background: transparent; color: var(--secondary); font-size: 12px; text-align: left; cursor: pointer; }
 .model-menu-add:hover { color: var(--ink); }
+.model-menu-footer { display: flex; flex-shrink: 0; gap: 4px; margin-top: 6px; padding-top: 5px; border-top: 1px solid var(--line); }
+.model-menu-footer .model-menu-add { flex: 1; justify-content: center; margin: 0; padding: 9px 7px; border: 0; border-radius: 8px; }
+.model-menu-footer .model-menu-add:hover { background: var(--soft); }
 .model-empty { padding: 15px 10px; color: var(--muted); font-size: 12px; line-height: 1.7; }
 
 .search-backdrop { position: fixed; z-index: 9; inset: 0; display: grid; align-items: start; justify-items: center; padding: min(18vh, 145px) 20px 20px; background: var(--search-overlay); backdrop-filter: blur(2px); }
@@ -401,6 +404,29 @@ kbd { margin-left: auto; color: var(--muted); font-family: inherit; font-size: 1
 .settings-panel-heading { margin-bottom: 22px; }
 .settings-panel-heading h3 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -.025em; }
 .settings-panel-heading p { margin: 8px 0 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.model-visibility-search { display: flex; align-items: center; gap: 9px; padding: 0 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--sidebar); color: var(--muted); }
+.model-visibility-search:focus-within { outline: 2px solid var(--focus); outline-offset: 2px; }
+.model-visibility-search > .ui-icon { flex-shrink: 0; width: 16px; height: 16px; }
+.model-visibility-search input { width: 100%; min-width: 0; padding: 11px 0; border: 0; outline: none; background: transparent; color: var(--ink); font-size: 12px; }
+.model-visibility-search input:focus-visible { outline: none; }
+.model-visibility-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin: 14px 0 20px; }
+.model-visibility-actions p { margin: 0; color: var(--muted); font-size: 11px; }
+.model-visibility-actions > div { display: flex; flex-wrap: wrap; gap: 6px; }
+.model-visibility-actions .secondary-button { padding: 6px 9px; font-size: 11px; }
+.model-visibility-actions button:disabled { opacity: .4; }
+.model-visibility-group { min-width: 0; margin: 0 0 18px; padding: 0; border: 0; }
+.model-visibility-group legend { width: 100%; margin-bottom: 4px; padding: 0 2px 8px; border-bottom: 1px solid var(--line); color: var(--secondary); font-size: 11px; font-weight: 600; }
+.model-visibility-row { display: flex; align-items: center; gap: 14px; padding: 11px 9px; border-radius: 9px; cursor: pointer; }
+.model-visibility-row:hover { background: var(--soft); }
+.model-visibility-copy { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 5px; }
+.model-visibility-copy > span { display: flex; min-width: 0; align-items: center; gap: 8px; }
+.model-visibility-copy strong { overflow-wrap: anywhere; color: var(--ink); font-size: 12px; font-weight: 550; }
+.model-visibility-copy > small { overflow-wrap: anywhere; color: var(--muted); font-size: 10px; }
+.model-current-badge { flex-shrink: 0; padding: 2px 5px; border: 1px solid var(--line); border-radius: 5px; color: var(--muted); font-size: 9px; }
+.model-visibility-toggle { position: relative; width: 32px; height: 19px; flex: 0 0 32px; margin: 0; border: 1px solid var(--line-strong); border-radius: 20px; appearance: none; background: var(--selected); cursor: pointer; }
+.model-visibility-toggle::before { content: ''; position: absolute; top: 2px; left: 2px; width: 13px; height: 13px; border-radius: 50%; background: var(--secondary); }
+.model-visibility-toggle:checked { border-color: var(--ink); background: var(--ink); }
+.model-visibility-toggle:checked::before { transform: translateX(13px); background: var(--canvas); }
 .settings-dialog .codex-account-section { margin: 0; padding: 14px; border: 1px solid var(--line); border-radius: 12px; }
 .settings-dialog .codex-account-heading { padding: 0 0 12px; }
 .settings-dialog .codex-account-card { padding: 14px 0; }
@@ -541,7 +567,7 @@ kbd { margin-left: auto; color: var(--muted); font-family: inherit; font-size: 1
   .settings-dialog > .modal-header { padding: 18px; }
   .settings-layout { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
   .settings-tabs { flex-direction: row; gap: 4px; padding: 10px; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line); }
-  .settings-tabs > button { justify-content: center; min-width: 0; flex: 1; gap: 6px; padding: 8px 5px; font-size: 11px; }
+  .settings-tabs > button { justify-content: center; min-width: 0; flex: 0 0 auto; gap: 6px; padding: 8px 10px; font-size: 11px; }
   .settings-tabs > button > span { white-space: nowrap; }
   .settings-tabs .ui-icon, #apiConnectionCount { display: none; }
   .settings-content { padding: 20px 16px; }

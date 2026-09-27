@@ -1,14 +1,19 @@
 import { BrowserWindow, WebContentsView, dialog, nativeTheme, session, shell } from 'electron';
 
 export const CHATGPT_URL = 'https://chatgpt.com/';
-const PARTITION = 'persist:loopline-chatgpt';
-const PAGE_HOSTS = new Set([
-  'chatgpt.com', 'chat.openai.com', 'auth.openai.com', 'auth0.openai.com',
-  'accounts.google.com', 'appleid.apple.com', 'login.live.com', 'login.microsoftonline.com',
-]);
+export const GEMINI_URL = 'https://gemini.google.com/app';
+const SERVICES = {
+  chatgpt: {
+    name: 'ChatGPT', url: CHATGPT_URL, origin: 'https://chatgpt.com', partition: 'persist:loopline-chatgpt',
+    hosts: new Set(['chatgpt.com', 'chat.openai.com', 'auth.openai.com', 'auth0.openai.com', 'accounts.google.com', 'appleid.apple.com', 'login.live.com', 'login.microsoftonline.com']),
+  },
+  gemini: {
+    name: 'Gemini', url: GEMINI_URL, origin: 'https://gemini.google.com', partition: 'persist:loopline-gemini',
+    hosts: new Set(['gemini.google.com', 'accounts.google.com', 'consent.google.com']),
+  },
+};
 // Read presentation only in an isolated world; the page receives no bridge or edits.
 const PAGE_THEME_SCRIPT = String.raw`(() => {
-  if (location.origin !== 'https://chatgpt.com') return null;
   const scheme = getComputedStyle(document.documentElement).colorScheme.trim();
   for (const element of [document.body, document.documentElement]) {
     if (!element) continue;
@@ -30,12 +35,15 @@ function httpsUrl(value) {
   } catch { return null; }
 }
 
-function allowedPage(value) {
-  const url = httpsUrl(value);
-  return Boolean(url && PAGE_HOSTS.has(url.hostname));
+export function createChatGptView(owner, onState) {
+  return createWebChatView(owner, onState, SERVICES.chatgpt);
 }
 
-export function createChatGptView(owner, onState) {
+export function createGeminiView(owner, onState) {
+  return createWebChatView(owner, onState, SERVICES.gemini);
+}
+
+function createWebChatView(owner, onState, service) {
   let view = null;
   let requestedBounds = null;
   let visible = false;
@@ -49,6 +57,11 @@ export function createChatGptView(owner, onState) {
   let themeRevision = 0;
   const popups = new Set();
   const mediaGrants = new Set();
+
+  function allowedPage(value) {
+    const url = httpsUrl(value);
+    return Boolean(url && service.hosts.has(url.hostname));
+  }
 
   function getState() {
     const contents = view?.webContents;
@@ -76,10 +89,10 @@ export function createChatGptView(owner, onState) {
     if (readingTheme || !visible || loadFailed || owner.isDestroyed() || !contents || contents.isDestroyed() || contents.isLoading()) return;
     const revision = themeRevision;
     const url = contents.getURL();
-    if (httpsUrl(url)?.origin !== 'https://chatgpt.com') return;
+    if (httpsUrl(url)?.origin !== service.origin) return;
     readingTheme = true;
     try {
-      const result = await contents.executeJavaScriptInIsolatedWorld(1001, [{ code: PAGE_THEME_SCRIPT }]);
+      const result = await contents.executeJavaScriptInIsolatedWorld(1001, [{ code: `location.origin === ${JSON.stringify(service.origin)} ? ${PAGE_THEME_SCRIPT} : null` }]);
       if (!visible || owner.isDestroyed() || contents.isDestroyed() || view?.webContents !== contents || revision !== themeRevision || contents.getURL() !== url) return;
       const theme = ['light', 'dark'].includes(result?.theme) ? result.theme : null;
       const background = /^#[0-9a-f]{6}$/i.test(result?.background || '') ? result.background : null;
@@ -97,7 +110,7 @@ export function createChatGptView(owner, onState) {
     themeTimer = null;
     if (!visible) return;
     void readPageTheme();
-    // Check only while shown, including theme changes made inside ChatGPT settings.
+    // Check only while shown, including changes made in the service's appearance settings.
     themeTimer = setInterval(() => { void readPageTheme(); }, 1500);
     themeTimer.unref();
   }
@@ -116,7 +129,7 @@ export function createChatGptView(owner, onState) {
   }
 
   const preferences = () => ({
-    partition: PARTITION,
+    partition: service.partition,
     contextIsolation: true,
     nodeIntegration: false,
     sandbox: true,
@@ -142,17 +155,17 @@ export function createChatGptView(owner, onState) {
   function configureSession() {
     if (configured) return;
     configured = true;
-    const webSession = session.fromPartition(PARTITION);
-    const fromChatGpt = (contents, requestingUrl) => !contents?.isDestroyed()
-      && httpsUrl(contents?.getURL())?.origin === 'https://chatgpt.com'
-      && httpsUrl(requestingUrl)?.origin === 'https://chatgpt.com';
+    const webSession = session.fromPartition(service.partition);
+    const fromService = (contents, requestingUrl) => !contents?.isDestroyed()
+      && httpsUrl(contents?.getURL())?.origin === service.origin
+      && httpsUrl(requestingUrl)?.origin === service.origin;
     webSession.setPermissionCheckHandler((contents, permission, origin, details) => {
-      if (!fromChatGpt(contents, origin)) return false;
+      if (!fromService(contents, origin)) return false;
       if (permission === 'media') return mediaGrants.has(details.mediaType);
       return ['clipboard-sanitized-write', 'fullscreen'].includes(permission);
     });
     webSession.setPermissionRequestHandler(async (contents, permission, callback, details) => {
-      if (!fromChatGpt(contents, details.requestingUrl)) { callback(false); return; }
+      if (!fromService(contents, details.requestingUrl)) { callback(false); return; }
       if (['clipboard-sanitized-write', 'fullscreen'].includes(permission)) { callback(true); return; }
       const types = permission === 'media' ? details.mediaTypes : [];
       const permissionOwner = BrowserWindow.fromWebContents(contents) || owner;
@@ -161,9 +174,9 @@ export function createChatGptView(owner, onState) {
       try {
         const names = types.map((type) => type === 'audio' ? '마이크' : '카메라').join('·');
         const result = await dialog.showMessageBox(permissionOwner, {
-          type: 'question', title: 'ChatGPT 권한 요청',
-          message: `ChatGPT에서 ${names}를 사용하도록 허용할까요?`,
-          detail: 'chatgpt.com에서 요청했습니다. macOS의 권한 확인이 추가로 표시될 수 있습니다.',
+          type: 'question', title: `${service.name} 권한 요청`,
+          message: `${service.name}에서 ${names}를 사용하도록 허용할까요?`,
+          detail: `${new URL(service.url).hostname}에서 요청했습니다. macOS의 권한 확인이 추가로 표시될 수 있습니다.`,
           buttons: ['허용 안 함', '허용'], defaultId: 0, cancelId: 0,
         });
         const granted = result.response === 1 && !contents.isDestroyed();
@@ -175,9 +188,9 @@ export function createChatGptView(owner, onState) {
 
   function configureContents(contents, popupWindow = null) {
     const updateTitle = () => {
-      if (popupWindow && !popupWindow.isDestroyed()) popupWindow.setTitle(`ChatGPT · Loopline — ${httpsUrl(contents.getURL())?.hostname || '불러오는 중'}`);
+      if (popupWindow && !popupWindow.isDestroyed()) popupWindow.setTitle(`${service.name} · Loopline — ${httpsUrl(contents.getURL())?.hostname || '불러오는 중'}`);
       if (!popupWindow) {
-        if (httpsUrl(contents.getURL())?.origin !== 'https://chatgpt.com') {
+        if (httpsUrl(contents.getURL())?.origin !== service.origin) {
           pageTheme = null;
           pageBackground = null;
           updateBackground();
@@ -201,7 +214,7 @@ export function createChatGptView(owner, onState) {
     contents.setWindowOpenHandler(({ url }) => {
       if (allowedPage(url) || url === 'about:blank') {
         return { action: 'allow', overrideBrowserWindowOptions: {
-          title: 'ChatGPT 로그인 · Loopline', width: 620, height: 780,
+          title: `${service.name} 로그인 · Loopline`, width: 620, height: 780,
           parent: owner,
           webPreferences: preferences(),
         } };
@@ -217,7 +230,7 @@ export function createChatGptView(owner, onState) {
   }
 
   async function openInBrowser() {
-    await shell.openExternal(CHATGPT_URL);
+    await shell.openExternal(service.url);
   }
 
   function ensureView() {
@@ -249,7 +262,7 @@ export function createChatGptView(owner, onState) {
       publishState();
     });
     // Only the local shell gets a preload bridge; the remote page keeps its own session.
-    void contents.loadURL(CHATGPT_URL).catch(() => {});
+    void contents.loadURL(service.url).catch(() => {});
   }
 
   function setLayout(layout) {

@@ -92,11 +92,11 @@ button:focus-visible, select:focus-visible, textarea:focus-visible, input:focus-
 .new-chat-button, .search-chat-button { display: flex; align-items: center; gap: 10px; width: 100%; height: 38px; padding: 0 10px; border: 1px solid transparent; border-radius: 9px; background: transparent; color: var(--ink); font-size: 13px; font-weight: 400; text-align: left; cursor: pointer; }
 .new-chat-button { margin-bottom: 4px; font-weight: 500; }
 .new-chat-button:hover, .search-chat-button:hover { background: var(--sidebar-hover); }
-.chatgpt-link { text-decoration: none; }
-.connect-button.chatgpt-link { display: inline-flex; align-items: center; justify-content: center; }
-.chatgpt-link:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-.settings-dialog .chatgpt-connection { margin: 0 0 16px; }
-body.chatgpt-active .sidebar { display: none; }
+.chatgpt-link, .gemini-link { text-decoration: none; }
+.connect-button.chatgpt-link, .connect-button.gemini-link { display: inline-flex; align-items: center; justify-content: center; }
+.chatgpt-link:focus-visible, .gemini-link:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.settings-dialog .chatgpt-connection, .settings-dialog .gemini-connection { margin: 0 0 16px; }
+body.web-chat-active .sidebar { display: none; }
 .chatgpt-panel { display: flex; flex: 1; flex-direction: column; min-width: 0; min-height: 0; background: var(--web-background, var(--canvas)); color: var(--ink); }
 .chatgpt-navigation { display: flex; gap: 2px; }
 .chatgpt-back-icon { transform: rotate(180deg); }

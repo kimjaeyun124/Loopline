@@ -10,6 +10,7 @@
   <symbol id="import" viewBox="0 0 24 24"><path d="M12 3v12m-4-4 4 4 4-4M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></symbol>
   <symbol id="folder" viewBox="0 0 24 24"><path d="M4 7V5a1.5 1.5 0 0 1 1.5-1.5H9L12 7h6.5A1.5 1.5 0 0 1 20 8.5v10a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5Z"/></symbol>
   <symbol id="chat" viewBox="0 0 24 24"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H8l-4 2V11.5a8 8 0 0 1 16 0Z"/></symbol>
+  <symbol id="sparkles" viewBox="0 0 24 24"><path d="M12 3c1.5 5 4 7.5 9 9-5 1.5-7.5 4-9 9-1.5-5-4-7.5-9-9 5-1.5 7.5-4 9-9Z"/></symbol>
   <symbol id="more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
   <symbol id="sliders" viewBox="0 0 24 24"><path d="M4 7h8m5 0h3M4 17h3m5 0h8"/><circle cx="14.5" cy="7" r="2.5"/><circle cx="9.5" cy="17" r="2.5"/></symbol>
   <symbol id="bolt" viewBox="0 0 24 24"><path d="m13 3-8 11h6l-1 7 9-12h-6Z"/></symbol>

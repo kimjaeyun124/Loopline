@@ -3,7 +3,7 @@ import { mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { delimiter, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { CHATGPT_URL, createChatGptView } from './chatgpt-window.mjs';
+import { CHATGPT_URL, GEMINI_URL, createChatGptView, createGeminiView } from './chatgpt-window.mjs';
 
 const APP_NAME = 'Loopline';
 const STORAGE_NAME = 'Mosaic Desk';
@@ -14,6 +14,8 @@ let backendProcess = null;
 let backendUrl = null;
 let mainWindow = null;
 let chatGptView = null;
+let geminiView = null;
+let activeWebService = 'chatgpt';
 
 // Electron uses this internal name for macOS Safe Storage keys as well as user data.
 // Keep the established identity so the visual rename can read existing encrypted keys.
@@ -182,26 +184,29 @@ function installApplicationMenu() {
       ],
     },
     {
-      label: 'ChatGPT',
+      label: '대화',
       submenu: [
-        { label: 'ChatGPT 열기', accelerator: 'CmdOrCtrl+Shift+G', click: () => requestChatGptScreen('open') },
-        { label: 'Loopline 작업 공간으로', click: () => requestChatGptScreen('workspace') },
+        { label: 'ChatGPT 열기', accelerator: 'CmdOrCtrl+Shift+G', click: () => requestWebChatScreen('chatgpt', 'open') },
+        { label: 'Gemini 열기', accelerator: 'CmdOrCtrl+Shift+M', click: () => requestWebChatScreen('gemini', 'open') },
+        { label: 'Loopline 작업 공간으로', click: () => requestWebChatScreen(activeWebService, 'workspace') },
         { type: 'separator' },
-        { label: '뒤로', click: () => chatGptView?.navigate('back') },
-        { label: '앞으로', click: () => chatGptView?.navigate('forward') },
-        { label: '새로고침', click: () => chatGptView?.navigate('reload') },
+        { label: '뒤로', click: () => activeWebView()?.navigate('back') },
+        { label: '앞으로', click: () => activeWebView()?.navigate('forward') },
+        { label: '새로고침', click: () => activeWebView()?.navigate('reload') },
         { type: 'separator' },
-        { label: '브라우저에서 열기', click: () => { void chatGptView?.openInBrowser().catch(() => {}); } },
+        { label: '브라우저에서 열기', click: () => { void activeWebView()?.openInBrowser().catch(() => {}); } },
       ],
     },
   ]));
 }
 
-function requestChatGptScreen(command) {
+function activeWebView() { return activeWebService === 'gemini' ? geminiView : chatGptView; }
+
+function requestWebChatScreen(service, command) {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   if (mainWindow.isMinimized()) mainWindow.restore();
   mainWindow.show(); mainWindow.focus();
-  mainWindow.webContents.send('loopline-chatgpt:command', command);
+  mainWindow.webContents.send(`loopline-${service}:command`, command);
 }
 
 async function openAllowedExternal(rawUrl) {
@@ -239,7 +244,11 @@ async function createMainWindow(url) {
   chatGptView = createChatGptView(window, (state) => {
     if (!window.isDestroyed() && !window.webContents.isDestroyed()) window.webContents.send('loopline-chatgpt:state', state);
   });
-  const view = chatGptView;
+  geminiView = createGeminiView(window, (state) => {
+    if (!window.isDestroyed() && !window.webContents.isDestroyed()) window.webContents.send('loopline-gemini:state', state);
+  });
+  const views = { chatgpt: chatGptView, gemini: geminiView };
+  const hideWebChats = () => Object.values(views).forEach((view) => view.hide());
   const trustedSender = (event) => {
     try {
       return !window.isDestroyed() && event.sender === window.webContents
@@ -247,11 +256,27 @@ async function createMainWindow(url) {
         && new URL(event.senderFrame.url).origin === appOrigin;
     } catch { return false; }
   };
-  const layoutHandler = (event, layout) => { if (trustedSender(event)) view.setLayout(layout); };
-  const navigateHandler = (event, action) => {
-    if (trustedSender(event) && ['back', 'forward', 'reload'].includes(action)) view.navigate(action);
-  };
-  const browserHandler = (event) => { if (trustedSender(event)) void view.openInBrowser().catch(() => {}); };
+  const webChatHandlers = [];
+  for (const [service, view] of Object.entries(views)) {
+    const channel = `loopline-${service}`;
+    const handlers = {
+      layout: (event, layout) => {
+        if (!trustedSender(event)) return;
+        if (layout?.visible === true) {
+          for (const [other, otherView] of Object.entries(views)) if (other !== service) otherView.hide();
+          activeWebService = service;
+        }
+        view.setLayout(layout);
+      },
+      navigate: (event, action) => { if (trustedSender(event) && ['back', 'forward', 'reload'].includes(action)) view.navigate(action); },
+      browser: (event) => { if (trustedSender(event)) void view.openInBrowser().catch(() => {}); },
+    };
+    for (const [action, handler] of Object.entries(handlers)) {
+      ipcMain.on(`${channel}:${action}`, handler);
+      webChatHandlers.push([`${channel}:${action}`, handler]);
+    }
+    ipcMain.handle(`${channel}:state`, (event) => trustedSender(event) ? view.getState() : null);
+  }
   const updateBackground = () => {
     if (!window.isDestroyed()) window.setBackgroundColor(nativeTheme.shouldUseDarkColors ? '#212121' : '#ffffff');
   };
@@ -262,22 +287,18 @@ async function createMainWindow(url) {
   };
   nativeTheme.on('updated', updateBackground);
   ipcMain.on('loopline:appearance', appearanceHandler);
-  ipcMain.on('loopline-chatgpt:layout', layoutHandler);
-  ipcMain.on('loopline-chatgpt:navigate', navigateHandler);
-  ipcMain.on('loopline-chatgpt:browser', browserHandler);
-  ipcMain.handle('loopline-chatgpt:state', (event) => trustedSender(event) ? view.getState() : null);
   window.webContents.on('did-start-navigation', (event) => {
-    if (event.isMainFrame && !event.isSameDocument) view.hide();
+    if (event.isMainFrame && !event.isSameDocument) hideWebChats();
   });
-  window.webContents.on('render-process-gone', () => view.hide());
+  window.webContents.on('render-process-gone', hideWebChats);
   mainWindow.webContents.on('will-navigate', (event, destination) => {
     if (new URL(destination).origin === appOrigin) return;
     event.preventDefault();
     void openAllowedExternal(destination);
   });
   mainWindow.webContents.setWindowOpenHandler(({ url: destination }) => {
-    if (destination === CHATGPT_URL) {
-      requestChatGptScreen('open');
+    if ([CHATGPT_URL, GEMINI_URL].includes(destination)) {
+      requestWebChatScreen(destination === GEMINI_URL ? 'gemini' : 'chatgpt', 'open');
       return { action: 'deny' };
     }
     void openAllowedExternal(destination);
@@ -288,12 +309,13 @@ async function createMainWindow(url) {
   mainWindow.on('closed', () => {
     nativeTheme.removeListener('updated', updateBackground);
     ipcMain.removeListener('loopline:appearance', appearanceHandler);
-    ipcMain.removeListener('loopline-chatgpt:layout', layoutHandler);
-    ipcMain.removeListener('loopline-chatgpt:navigate', navigateHandler);
-    ipcMain.removeListener('loopline-chatgpt:browser', browserHandler);
-    ipcMain.removeHandler('loopline-chatgpt:state');
-    view.dispose();
+    for (const [channel, handler] of webChatHandlers) ipcMain.removeListener(channel, handler);
+    for (const [service, view] of Object.entries(views)) {
+      ipcMain.removeHandler(`loopline-${service}:state`);
+      view.dispose();
+    }
     chatGptView = null;
+    geminiView = null;
     mainWindow = null;
     app.quit();
   });

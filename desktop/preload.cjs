@@ -11,11 +11,14 @@ contextBridge.exposeInMainWorld('looplineAppearance', {
   setTheme: (theme) => ipcRenderer.send('loopline:appearance', theme),
 });
 
-contextBridge.exposeInMainWorld('looplineChatGpt', {
-  setLayout: (layout) => ipcRenderer.send('loopline-chatgpt:layout', layout),
-  navigate: (action) => ipcRenderer.send('loopline-chatgpt:navigate', action),
-  openInBrowser: () => ipcRenderer.send('loopline-chatgpt:browser'),
-  getState: () => ipcRenderer.invoke('loopline-chatgpt:state'),
-  onState: (callback) => subscribe('loopline-chatgpt:state', callback),
-  onCommand: (callback) => subscribe('loopline-chatgpt:command', callback),
-});
+for (const [name, service] of [['looplineChatGpt', 'chatgpt'], ['looplineGemini', 'gemini']]) {
+  const channel = `loopline-${service}`;
+  contextBridge.exposeInMainWorld(name, {
+    setLayout: (layout) => ipcRenderer.send(`${channel}:layout`, layout),
+    navigate: (action) => ipcRenderer.send(`${channel}:navigate`, action),
+    openInBrowser: () => ipcRenderer.send(`${channel}:browser`),
+    getState: () => ipcRenderer.invoke(`${channel}:state`),
+    onState: (callback) => subscribe(`${channel}:state`, callback),
+    onCommand: (callback) => subscribe(`${channel}:command`, callback),
+  });
+}

@@ -427,7 +427,8 @@ kbd { margin-left: auto; color: var(--muted); font-family: inherit; font-size: 1
 .usage-account-heading > div { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 5px; }
 .usage-account-heading strong { overflow-wrap: anywhere; color: var(--ink); font-size: 13px; font-weight: 550; }
 .usage-account-heading small { color: var(--muted); font-size: 11px; }
-.usage-window { margin-top: 20px; }
+.usage-window-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 24px; margin-top: 20px; }
+.usage-window:only-child { grid-column: 1 / -1; }
 .usage-window-heading { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; color: var(--secondary); font-size: 12px; }
 .usage-window-heading strong { color: var(--ink); font-weight: 550; }
 .usage-meter { height: 6px; overflow: hidden; margin: 10px 0 8px; border-radius: 6px; background: var(--selected); }
@@ -438,6 +439,7 @@ kbd { margin-left: auto; color: var(--muted); font-family: inherit; font-size: 1
 .usage-description { margin: 14px 0 0; color: var(--secondary); font-size: 12px; line-height: 1.7; }
 .usage-command { display: inline-block; margin-top: 10px; padding: 6px 9px; border: 1px solid var(--line); border-radius: 6px; background: var(--soft); color: var(--ink); font-size: 12px; }
 .usage-activity-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
+.usage-activity-heading h4 { margin: 0; color: var(--ink); font-size: 14px; font-weight: 550; }
 .activity-account { display: flex; min-width: 0; max-width: 230px; flex-direction: column; gap: 6px; }
 .activity-account > span { color: var(--muted); font-size: 10px; }
 .activity-account select { max-width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--canvas); color: var(--ink); font: inherit; font-size: 12px; text-overflow: ellipsis; }
@@ -496,15 +498,15 @@ kbd { margin-left: auto; color: var(--muted); font-family: inherit; font-size: 1
 .activity-empty { display: grid; min-height: 80px; align-items: center; margin: 0; color: var(--muted); font-size: 11px; line-height: 1.7; }
 .activity-note { margin: 18px 0 0; color: var(--muted); font-size: 10px; line-height: 1.7; }
 .activity-note.usage-low { color: var(--danger); }
-.usage-limits { margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line); }
-.usage-limits > summary { padding: 4px 0; color: var(--secondary); font-size: 13px; cursor: pointer; }
-.usage-limits > .usage-status-summary { margin: 12px 0; }
+.usage-limits { margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid var(--line); }
+.usage-limits > .usage-status-summary { margin: 0 0 16px; }
 @media (max-width: 760px) {
   .usage-activity-heading { align-items: flex-start; flex-direction: column; }
   .activity-account { width: 100%; max-width: none; }
   .activity-insight-columns { grid-template-columns: 1fr; gap: 24px; }
 }
 @media (max-width: 480px) {
+  .usage-window-list { grid-template-columns: 1fr; }
   .activity-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 20px; }
   .activity-metrics > div:nth-child(4) { border-left: 0; }
   .activity-chart-footer { flex-direction: column-reverse; gap: 8px; }

@@ -242,7 +242,14 @@
         </div>
         <div class="settings-content">
         <div id="usagePanel" role="tabpanel" aria-labelledby="usageTab" data-settings-panel="usage" hidden>
-          <div class="settings-panel-heading usage-activity-heading"><div><h3>Usage</h3><p>토큰 활동과 사용 패턴을 한눈에 확인하세요.</p></div><label class="activity-account"><span>Codex 계정</span><select id="usageActivityAccount" aria-label="활동 통계를 볼 Codex 계정"><option value="">연결 확인 중…</option></select></label></div>
+          <div class="settings-panel-heading"><h3>Usage</h3><p>계정별 남은 한도와 토큰 활동을 확인하세요.</p></div>
+          <section class="usage-limits" aria-labelledby="usageLimitsTitle">
+            <div class="usage-activity-heading"><h4 id="usageLimitsTitle">남은 사용 한도</h4><label class="activity-account"><span>조회 계정</span><select id="usageAccountFilter" aria-label="남은 사용 한도를 볼 계정" aria-controls="usageAccounts"><option value="all">전체 계정</option></select></label></div>
+            <p class="usage-status-summary" id="usageStatus" role="status">사용 한도를 불러오는 중…</p>
+            <div class="usage-accounts" id="usageAccounts"></div>
+            <p class="activity-note">남은 한도는 기간별 비율로 표시됩니다. 정확한 잔여 토큰 수는 제공되지 않습니다.</p>
+          </section>
+          <div class="usage-activity-heading"><h4>토큰 활동 통계</h4><label class="activity-account"><span>통계 계정</span><select id="usageActivityAccount" aria-label="활동 통계를 볼 Codex 계정"><option value="">연결 확인 중…</option></select></label></div>
           <section id="usageAccountActivity" aria-label="Codex 계정 활동">
             <p class="activity-status" id="usageActivityStatus" role="status">계정 활동을 불러오는 중…</p>
             <dl class="activity-metrics" id="usageActivityMetrics"></dl>
@@ -258,7 +265,6 @@
             <p class="activity-note">Fast와 추론 비율은 설정이 기록된 응답 기준입니다. 스킬은 응답별 열람 횟수, 플러그인은 기록된 호출 횟수를 집계합니다. 계정 전체 통계와 범위가 다를 수 있습니다.</p>
             <p class="activity-note usage-low" id="usageInsightsWarnings" hidden></p>
           </section>
-          <details class="usage-limits"><summary>계정별 남은 사용 한도</summary><p class="usage-status-summary" id="usageStatus">사용 한도를 불러오는 중…</p><div class="usage-accounts" id="usageAccounts"></div></details>
         </div>
         <div id="modelsPanel" role="tabpanel" aria-labelledby="modelsTab" data-settings-panel="models" hidden>
           <div class="settings-panel-heading"><h3>모델 표시</h3><p>모델 선택 목록에 표시할 모델을 켜 주세요.</p></div>

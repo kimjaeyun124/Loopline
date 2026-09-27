@@ -14,8 +14,10 @@ export function createAccountMenuUI({ onOpen, onUsage, onSettings, formatAccount
   const menu = element('accountMenu');
   const items = [...menu.querySelectorAll('[role="menuitem"]')];
   const usagePanel = element('usagePanel');
+  const usageAccount = element('usageAccountFilter');
   let context = { accounts: [], connections: [], claude: {}, provider: 'openai' };
   let previousUsage = '';
+  let previousUsageOptions = '';
 
   function profile() {
     const account = context.accounts.find((item) => item.id === context.accountId);
@@ -55,20 +57,34 @@ export function createAccountMenuUI({ onOpen, onUsage, onSettings, formatAccount
 
   function renderUsage() {
     if (usagePanel.hidden) return;
-    const cards = context.accounts.map((account) => {
+    const codexOptions = context.accounts.map((account) => `<option value="${escape(`codex:${account.id}`)}">${escape(formatAccountName(account))}${account.connected ? '' : ' · 로그인 필요'}</option>`).join('');
+    const apiOptions = context.connections.map((connection) => `<option value="${escape(`api:${connection.id}`)}">${escape(connection.name)}</option>`).join('');
+    const options = `<option value="all">전체 계정</option>${codexOptions ? `<optgroup label="Codex">${codexOptions}</optgroup>` : ''}<optgroup label="Claude"><option value="claude">Claude Code${context.claude.connected ? '' : ' · 로그인 필요'}</option></optgroup>${apiOptions ? `<optgroup label="API 에이전트">${apiOptions}</optgroup>` : ''}`;
+    if (options !== previousUsageOptions) {
+      const selected = usageAccount.value;
+      usageAccount.innerHTML = options;
+      usageAccount.value = [...usageAccount.options].some((option) => option.value === selected) ? selected : 'all';
+      previousUsageOptions = options;
+    }
+    const selected = usageAccount.value;
+    const allAccounts = selected === 'all';
+    const accounts = context.accounts.filter((account) => allAccounts || selected === `codex:${account.id}`);
+    const cards = accounts.map((account) => {
       const name = formatAccountName(account);
       const windows = usageWindows(account);
       const active = context.provider === 'openai' && account.id === context.accountId && account.connected;
-      const usage = windows.length ? windows.map((window) => {
+      const usage = windows.length ? `<div class="usage-window-list">${windows.map((window) => {
         const label = `${window.limitName || (window.limitId === 'codex' ? 'Codex' : window.limitId)} · ${formatWindow(window.windowDurationMins, window.period)}`;
         const resets = formatReset(window.resetsAt);
         return `<div class="usage-window"><div class="usage-window-heading"><span>${escape(label)}</span><strong${window.remainingPercent <= 10 ? ' class="usage-low"' : ''}>${window.remainingPercent}% 남음</strong></div><div class="usage-meter${window.remainingPercent <= 10 ? ' usage-low' : ''}" role="meter" aria-label="${escape(`${name} · ${label} 남은 한도`)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${window.remainingPercent}"><span style="width: ${window.remainingPercent}%"></span></div><small>${resets ? `${escape(resets)} 초기화` : '초기화 시각을 확인할 수 없습니다.'}</small></div>`;
-      }).join('') : `<p class="usage-description">${account.connected ? '사용 한도를 현재 확인할 수 없습니다. 잠시 후 새로고침해 주세요.' : '로그인 후 사용 한도를 확인할 수 있습니다.'}</p>`;
+      }).join('')}</div>` : `<p class="usage-description">${account.connected ? '사용 한도를 현재 확인할 수 없습니다. 잠시 후 새로고침해 주세요.' : '로그인 후 사용 한도를 확인할 수 있습니다.'}</p>`;
       return `<article class="usage-account-card"><div class="usage-account-heading"><span class="usage-provider-icon" aria-hidden="true">${icon('terminal')}</span><div><strong>${escape(name)}</strong><small>Codex${account.planType ? ` · ${escape(account.planType)}` : ''}</small></div>${active ? '<span class="active-account-badge">사용 중</span>' : ''}</div>${usage}</article>`;
     });
-    if (!cards.length) cards.push('<p class="usage-description">Codex 계정을 연결하면 남은 사용 한도가 표시됩니다.</p>');
-    cards.push(`<article class="usage-account-card"><div class="usage-account-heading"><span class="usage-provider-icon" aria-hidden="true">${icon('asterisk')}</span><div><strong>Claude Code</strong><small>${context.claude.connected ? '구독 계정 연결됨' : '로그인 필요'}</small></div></div><p class="usage-description">${escape(context.claude.usageSummary?.message || 'Claude Code CLI에 로그인한 뒤 /usage에서 플랜 사용 한도를 확인하세요.')}</p><code class="usage-command">/usage</code></article>`);
-    for (const connection of context.connections) {
+    if (allAccounts && !context.accounts.length) cards.push('<p class="usage-description">Codex 계정을 연결하면 남은 사용 한도가 표시됩니다.</p>');
+    if (allAccounts || selected === 'claude') {
+      cards.push(`<article class="usage-account-card"><div class="usage-account-heading"><span class="usage-provider-icon" aria-hidden="true">${icon('asterisk')}</span><div><strong>Claude Code</strong><small>${context.claude.connected ? '구독 계정 연결됨' : '로그인 필요'}</small></div></div><p class="usage-description">${escape(context.claude.usageSummary?.message || 'Claude Code CLI에 로그인한 뒤 /usage에서 플랜 사용 한도를 확인하세요.')}</p><code class="usage-command">/usage</code></article>`);
+    }
+    for (const connection of context.connections.filter((item) => allAccounts || selected === `api:${item.id}`)) {
       cards.push(`<article class="usage-account-card"><div class="usage-account-heading"><span class="usage-provider-icon" aria-hidden="true">${icon('plug')}</span><div><strong>${escape(connection.name)}</strong><small>${connection.connected ? 'API 연결됨' : 'API 키 필요'}</small></div></div><p class="usage-description">API 사용량과 잔액은 연결한 서비스의 대시보드에서 확인하세요.</p></article>`);
     }
     const markup = cards.join('');
@@ -111,6 +127,7 @@ export function createAccountMenuUI({ onOpen, onUsage, onSettings, formatAccount
   });
   element('accountUsage').addEventListener('click', () => { close(true); onUsage(); });
   element('accountSettings').addEventListener('click', () => { close(true); onSettings(); });
+  usageAccount.addEventListener('change', renderUsage);
   menu.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close(true); return; }
     if (event.key === 'Tab') { close(true); return; }

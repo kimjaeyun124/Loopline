@@ -98,12 +98,8 @@ const elements = {
   modelMenu: document.querySelector('#modelMenu'),
   modelSearch: document.querySelector('#modelSearch'),
   modelOptions: document.querySelector('#modelOptions'),
-  reasoningControl: document.querySelector('#reasoningControl'),
-  reasoningEffortSelect: document.querySelector('#reasoningEffortSelect'),
   composerReasoningControl: document.querySelector('#composerReasoningControl'),
   composerReasoningEffortSelect: document.querySelector('#composerReasoningEffortSelect'),
-  reasoningEffortHint: document.querySelector('#reasoningEffortHint'),
-  selectedReasoningLabel: document.querySelector('#selectedReasoningLabel'),
   fastModeToggle: document.querySelector('#fastModeToggle'),
   codexAccountsList: document.querySelector('#codexAccountsList'),
   addCodexAccountButton: document.querySelector('#addCodexAccount'),
@@ -540,25 +536,19 @@ function reasoningSettings() {
 
 function renderReasoningSelect(settings, connected) {
   const visible = ['openai', 'anthropic'].includes(state.provider) && settings.efforts.length > 0;
-  elements.reasoningControl.hidden = !visible;
   elements.composerReasoningControl.hidden = !visible;
-  elements.selectedReasoningLabel.hidden = !visible || !settings.effectiveEffort;
-  elements.selectedReasoningLabel.textContent = reasoningEffortLabel(settings.effectiveEffort);
   const automaticEffort = settings.fastEnabled && settings.efforts.includes('low') ? 'low' : settings.defaultEffort;
   const automaticLabel = automaticEffort ? `자동 · ${reasoningEffortLabel(automaticEffort)}` : '자동';
   const options = `<option value="">${escapeHtml(automaticLabel)}</option>`
     + settings.efforts.map((effort) => `<option value="${escapeHtml(effort)}">${escapeHtml(reasoningEffortLabel(effort))}</option>`).join('');
-  for (const select of [elements.reasoningEffortSelect, elements.composerReasoningEffortSelect]) {
-    select.innerHTML = options;
-    select.value = settings.selectedEffort || '';
-    select.disabled = !connected || !visible || state.busy;
-  }
-  elements.reasoningEffortHint.textContent = !settings.efforts.length
+  elements.composerReasoningEffortSelect.innerHTML = options;
+  elements.composerReasoningEffortSelect.value = settings.selectedEffort || '';
+  elements.composerReasoningEffortSelect.disabled = !connected || !visible || state.busy;
+  elements.composerReasoningEffortSelect.title = !settings.efforts.length
     ? '이 모델은 추론 강도 선택을 제공하지 않습니다.'
     : !settings.selectedEffort && settings.fastEnabled && settings.effectiveEffort === 'low'
         ? '자동 선택에서는 Fast 모드에 맞춰 Low가 적용됩니다.'
         : '선택한 강도는 다음 메시지부터 적용됩니다.';
-  elements.composerReasoningEffortSelect.title = elements.reasoningEffortHint.textContent;
 }
 
 function renderModelOptions() {
@@ -607,7 +597,7 @@ function renderModelSelect() {
   document.querySelector('#selectedModelLabel').textContent = selected?.label || state.model || '모델 선택';
   elements.modelSelectButton.disabled = state.busy;
   elements.modelSelectButton.title = selected ? `${selected.label} · ${selected.source}` : '사용 가능한 모델을 선택하세요.';
-  elements.modelSelectButton.setAttribute('aria-label', `모델 선택${selected ? ` · ${selected.label}` : ''}${reasoning.effectiveEffort ? ` · 추론 강도 ${reasoningEffortLabel(reasoning.effectiveEffort)}` : ''}`);
+  elements.modelSelectButton.setAttribute('aria-label', `모델 선택${selected ? ` · ${selected.label}` : ''}`);
   const codexAccount = state.provider === 'openai' ? activeCodexAccount() : null;
   document.querySelector('#providerPillText').textContent = codexAccount ? codexAccountDisplayName(codexAccount) : selected?.source || '연결 필요';
   document.querySelector('#providerDot').classList.toggle('connected', selected?.connected === true);
@@ -1892,7 +1882,6 @@ elements.modelOptions.addEventListener('click', (event) => {
 });
 document.querySelector('#closeModelMenu').addEventListener('click', () => closeModelMenu(true));
 elements.modelMenu.addEventListener('keydown', (event) => {
-  if (event.target === elements.reasoningEffortSelect) return;
   if (event.key === 'Enter' && event.target === elements.modelSearch) {
     event.preventDefault();
     const first = elements.modelOptions.querySelector('button:not(:disabled)');
@@ -1918,7 +1907,6 @@ document.addEventListener('click', (event) => {
 elements.copyLastResponseButton.addEventListener('click', () => { void copyLastResponse(); });
 elements.exportConversationButton.addEventListener('click', exportConversationMarkdown);
 elements.fastModeToggle.addEventListener('click', toggleFastMode);
-elements.reasoningEffortSelect.addEventListener('change', (event) => setReasoningEffort(event.target.value));
 elements.composerReasoningEffortSelect.addEventListener('change', (event) => setReasoningEffort(event.target.value));
 window.addEventListener('resize', () => { closeModelMenu(); updateSidebarControls(); });
 elements.composerForm.addEventListener('submit', (event) => {

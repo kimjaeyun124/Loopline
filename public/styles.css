@@ -384,6 +384,9 @@ kbd { margin-left: auto; color: var(--muted); font-family: inherit; font-size: 1
 .composer.loop-engineering-active .composer-loop-secondary { grid-area: secondary; display: flex; min-width: 0; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 4px 8px; padding-top: 3px; border-top: 1px solid var(--line); }
 .composer.loop-engineering-active .composer-loop-secondary > * { min-height: 32px; }
 .composer.loop-engineering-active .composer-submit-actions { align-self: flex-end; margin-bottom: 1px; }
+.composer.loop-engineering-harness .composer-left { grid-template-columns: minmax(0, 1fr); grid-template-areas: "loop"; grid-template-rows: auto; }
+.composer.loop-engineering-harness .composer-loop-secondary { display: none; }
+.composer.loop-engineering-harness .loop-engineering-control { min-height: 36px; }
 #codexAccountSelect { max-width: 150px; }
 #codexAccountSelect[hidden] { display: none; }
 .send-button { display: grid; flex-shrink: 0; width: 36px; height: 36px; place-items: center; border: 0; border-radius: 50%; background: var(--accent); color: var(--canvas); cursor: pointer; transition: background .15s ease; }
@@ -833,6 +836,7 @@ kbd { margin-left: auto; color: var(--muted); font-family: inherit; font-size: 1
   .composer.loop-engineering-active .composer-model-picker { max-width: 100%; }
   .composer.loop-engineering-active .loop-engineering-control { flex-wrap: wrap; justify-content: flex-start; gap: 5px 8px; padding: 4px 8px; }
   .composer.loop-engineering-active .composer-loop-secondary { justify-content: flex-start; }
+  .composer.loop-engineering-harness .composer-left { grid-template-columns: minmax(0, 1fr); grid-template-areas: "loop"; grid-template-rows: auto; }
 }
 @media (max-width: 440px) {
   .theme-options { gap: 8px; }

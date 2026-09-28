@@ -9,22 +9,16 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
   let saved;
   try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { saved = {}; }
   const config = {
-    enabled: saved?.enabled !== false, workspace: typeof saved?.workspace === 'string' ? saved.workspace : '',
-    verifyCommand: typeof saved?.verifyCommand === 'string' ? saved.verifyCommand : '', autoApply: saved?.autoApply !== false,
+    enabled: saved?.enabled !== false, autoApply: saved?.autoApply !== false,
     roles: Object.fromEntries(ROLES.map(([role]) => [role, { model: typeof saved?.roles?.[role]?.model === 'string' ? saved.roles[role].model : '', effort: typeof saved?.roles?.[role]?.effort === 'string' ? saved.roles[role].effort : '' }])),
   };
   const modal = document.querySelector('#harnessModal');
   const fields = document.querySelector('#harnessRoles');
   const saveStatus = document.querySelector('#harnessSaveStatus');
   let activeRunId = null, watching = false, starting = false, stopRequested = false;
-  let projectSavePending = false;
   const save = () => {
     try {
       localStorage.setItem(KEY, JSON.stringify(config));
-      if (projectSavePending) {
-        if (saveProjects() === false) throw new Error('Project settings were not saved');
-        projectSavePending = false;
-      }
       saveStatus.textContent = '자동 저장됨 · 다음 실행부터 적용';
       return true;
     } catch {
@@ -60,11 +54,8 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
   }
   function open() {
     if (state.busy) return toast('실행이 끝난 뒤 구성을 변경해 주세요.');
-    const project = currentProject();
-    document.querySelector('#harnessWorkspace').value = project?.workspace || config.workspace;
-    document.querySelector('#harnessVerify').value = project?.verifyCommand || config.verifyCommand;
     document.querySelector('#harnessAutoApply').checked = config.autoApply;
-    renderRoles(); modal.hidden = false; document.querySelector('#harnessWorkspace').focus();
+    renderRoles(); modal.hidden = false; document.querySelector('#harnessClose').focus();
   }
   function close() { modal.hidden = true; document.querySelector('#harnessConfigure').focus(); }
   fields.addEventListener('change', (event) => {
@@ -72,24 +63,10 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
     if (event.target.dataset.harnessEffort) config.roles[event.target.dataset.harnessEffort].effort = event.target.value;
     save(); renderRoles();
   });
-  function saveWorkspaceField(key, value) {
-    config[key] = value.trim();
-    const project = currentProject();
-    // Save only the edited field so changing models cannot overwrite another project's folder.
-    if (project) { project[key] = config[key]; projectSavePending = true; }
-    save();
-  }
-  document.querySelector('#harnessWorkspace').addEventListener('input', (event) => saveWorkspaceField('workspace', event.target.value));
-  document.querySelector('#harnessVerify').addEventListener('input', (event) => saveWorkspaceField('verifyCommand', event.target.value));
   document.querySelector('#harnessAutoApply').addEventListener('change', (event) => {
     config.autoApply = event.target.checked; save();
   });
   document.querySelector('#harnessSave').addEventListener('click', () => { if (save()) close(); });
-  document.querySelector('#harnessChooseFolder').addEventListener('click', async () => {
-    if (!window.looplineWorkspace) { document.querySelector('#harnessWorkspace').focus(); return toast('웹에서는 프로젝트의 절대 경로를 입력해 주세요.'); }
-    try { const path = await window.looplineWorkspace.chooseFolder(); if (path) { document.querySelector('#harnessWorkspace').value = path; saveWorkspaceField('workspace', path); } }
-    catch { toast('폴더를 선택하지 못했습니다. 경로를 직접 입력할 수 있습니다.'); }
-  });
   document.querySelector('#harnessClose').addEventListener('click', close);
   modal.addEventListener('click', (event) => { if (event.target === modal) close(); });
   modal.addEventListener('keydown', (event) => { if (event.key === 'Escape') { event.stopPropagation(); close(); } });
@@ -127,8 +104,13 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
       ...(event.status !== 'running' && event.detail && !event.title.startsWith('파일 작업') ? { kind: 'commentary', text: `**${event.title}**\n\n${event.detail}` } : {}),
     }));
     message.error = ['failed', 'blocked', 'interrupted'].includes(run.status);
-    message.content = pending ? `Harness · ${run.round}/${run.rounds}회차 · ${run.status === 'stopping' ? '중지 중' : ({ prepare: '작업 공간 준비', planning: '계획 작성', working: '파일 작업', verifying: '검증', judging: '판정', applying: '프로젝트 반영' })[run.stage] || run.stage}`
-      : `${run.summary || '실행을 마쳤습니다.'}${run.applied ? '\n\n프로젝트에 변경을 자동 반영했습니다.' : ''}${run.workspace && run.status !== 'completed' ? `\n\n작업 공간: \`${run.workspace}\`` : ''}${run.patchAvailable ? `\n\n[변경 패치 내려받기](${location.origin}/api/harness/runs/${run.id}/patch)` : ''}`;
+    message.content = pending ? `Harness · ${run.round}/${run.rounds}회차 · ${run.status === 'stopping' ? '중지 중' : ({ prepare: '작업 공간 준비', configuring: '판정 모델이 실행 환경 구성', planning: '계획 작성', working: '파일 작업', verifying: '검증', judging: '판정', applying: '프로젝트 반영' })[run.stage] || run.stage}`
+      : `${run.summary || '실행을 마쳤습니다.'}${run.applied ? '\n\n프로젝트에 변경을 자동 반영했습니다.' : ''}${run.source ? `\n\n프로젝트: \`${run.source}\`` : ''}${run.workspace && run.status !== 'completed' ? `\n\n작업 공간: \`${run.workspace}\`` : ''}${run.patchAvailable ? `\n\n[변경 패치 내려받기](${location.origin}/api/harness/runs/${run.id}/patch)` : ''}`;
+    if (run.source) {
+      conversation.harnessWorkspace = run.source;
+      const project = getProject(conversation.projectId);
+      if (project && !project.workspace) { project.workspace = run.source; saveProjects(); }
+    }
     conversation.updatedAt = Date.now(); saveConversations(); render();
   }
   async function watch(id, message, conversation) {
@@ -166,12 +148,11 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
       roles[role] = { provider: model.provider, model: model.id, label: model.label, connectionId: model.connectionId,
         codexAccountId: state.activeCodexAccountId, reasoningEffort: resolveEffort(role, model), instructions: instructions(model.provider) };
     }
-    const workspace = project?.workspace || config.workspace, verifyCommand = project?.verifyCommand || config.verifyCommand;
-    if (!workspace || !verifyCommand) { open(); throw new Error('Harness 구성에서 작업 폴더와 검증 명령을 지정해 주세요.'); }
+    const workspace = project?.workspace || conversation.harnessWorkspace || undefined;
     starting = true; stopRequested = false;
     state.busy = true; state.loopEngineeringRunning = true; render();
     try {
-      const run = await request('/api/harness/runs', { task, roles, workspace, verifyCommand, rounds: state.loopEngineeringRounds, autoApply: config.autoApply, instructions: project ? `${project.instructions || ''}\n${project.knowledge || ''}` : '' });
+      const run = await request('/api/harness/runs', { task, roles, workspace, rounds: state.loopEngineeringRounds, autoApply: config.autoApply, instructions: project ? `${project.instructions || ''}\n${project.knowledge || ''}` : '' });
       activeRunId = run.id;
       update(run, message, conversation);
       if (stopRequested) await stop();
@@ -191,5 +172,5 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
       if (message) { await watch(message.harnessRunId, message, conversation); return; }
     }
   }
-  return { enabled: () => config.enabled, active: () => starting || Boolean(activeRunId), open, start, stop, resume };
+  return { enable: () => { config.enabled = true; document.querySelector('#loopExecutionMode').value = 'harness'; save(); }, enabled: () => config.enabled, active: () => starting || Boolean(activeRunId), open, start, stop, resume };
 }

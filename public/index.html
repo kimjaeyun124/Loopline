@@ -170,8 +170,7 @@
         <div class="modal-header"><div><p class="eyebrow">Loop Engineering</p><h2 id="harnessTitle">Harness 구성</h2></div><button class="icon-button" id="harnessClose" type="button" aria-label="Harness 구성 닫기">✕</button></div>
         <p class="harness-intro">한 번 설정하면 새 작업과 앱 재실행에도 그대로 적용됩니다. 변경 사항은 자동 저장됩니다.</p>
         <div id="harnessRoles"></div>
-        <label class="project-field"><span>프로젝트 작업 폴더</span><div class="harness-folder"><input id="harnessWorkspace" placeholder="Git 저장소의 전체 경로" aria-label="프로젝트 작업 폴더" maxlength="4096" /><button id="harnessChooseFolder" type="button" class="secondary-button">폴더 선택</button></div></label>
-        <label class="project-field"><span>검증 명령</span><input id="harnessVerify" placeholder="예: npm test" maxlength="1000" /><small>별도 작업 공간에서 실행합니다. 네트워크 없이 실행할 수 있는 명령을 지정하세요. 의존성 폴더는 자동 복사하지 않습니다.</small></label>
+        <p class="harness-intro"><strong>작업 환경 자동 구성</strong><br />연결된 프로젝트를 사용하며, 없으면 판정 모델이 이름을 정해 새 프로젝트를 만듭니다. 검증 명령은 판정 모델이 구현된 파일을 확인해 회차마다 결정합니다.</p>
         <label class="harness-auto"><input id="harnessAutoApply" type="checkbox" checked />검증과 판정을 통과하면 프로젝트에 자동 반영</label>
         <p class="harness-intro">작업을 보내면 계획 → 파일 작업 → 검증 → 판정을 자동으로 이어갑니다. 지정한 회차 안에서 승인 없이 진행하며, 중지 버튼으로 멈출 수 있습니다.</p>
         <div class="project-modal-actions"><span class="harness-intro" id="harnessSaveStatus" role="status" aria-live="polite">변경하면 자동 저장됩니다.</span><button class="primary-button" id="harnessSave" type="button">완료</button></div>

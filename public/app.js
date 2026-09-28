@@ -290,6 +290,7 @@ function loadConversations() {
           codexThreadId: typeof item.codexThreadId === 'string' ? item.codexThreadId : null,
           codexAccountId: typeof item.codexAccountId === 'string' ? item.codexAccountId : 'default',
           projectId: typeof item.projectId === 'string' ? item.projectId : null,
+          harnessWorkspace: typeof item.harnessWorkspace === 'string' ? item.harnessWorkspace.slice(0, 4096) : '',
           importSource: ['openai', 'anthropic', 'cline', 'opencode', 'ollama'].includes(item.importSource) ? item.importSource : null,
           sourceId: typeof item.sourceId === 'string' ? item.sourceId.slice(0, 240) : null,
           historySourceLabel: typeof item.historySourceLabel === 'string' ? item.historySourceLabel.slice(0, 80) : null,
@@ -946,22 +947,23 @@ function renderModelOptions() {
   document.querySelector('#manageProviderConnections').hidden = !selectingProvider;
   document.querySelector('#manageModelVisibility').hidden = selectingProvider;
   const query = elements.modelSearch.value.trim().toLocaleLowerCase();
+  const loopMatches = !query || 'loop engineering 루프 반복 실행'.includes(query);
+  const loopOption = loopMatches
+    ? `<button class="model-option loop-engineering-option${state.loopEngineeringEnabled ? ' selected' : ''}" type="button" role="option" aria-selected="${state.loopEngineeringEnabled}" data-loop-engineering="true"${state.busy ? ' disabled' : ''}><span><strong>Loop Engineering</strong><small>${harnessUI.enabled() ? '계획·구현·판정 모델로' : '선택한 모델로'} 최대 ${state.loopEngineeringRounds}회 실행</small></span><span class="model-check" aria-hidden="true">${state.loopEngineeringEnabled ? icon('check') : icon('chevron-right')}</span></button>`
+    : '';
   if (selectingProvider) {
     const providers = providerCatalog().filter((item) => item.label.toLocaleLowerCase().includes(query));
-    elements.modelOptions.innerHTML = providers.map((item) => {
-      const selected = isSelectedProvider(item);
+    const providerRows = providers.map((item) => {
+      const selected = !state.loopEngineeringEnabled && isSelectedProvider(item);
       return `<button class="model-option${selected ? ' selected' : ''}" type="button" role="option" aria-selected="${selected}" data-provider-key="${escapeHtml(providerKey(item))}"${state.busy ? ' disabled' : ''}><span><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.detail)}</small></span><span class="model-check" aria-hidden="true">${selected ? icon('check') : icon('chevron-right')}</span></button>`;
     }).join('') || '<p class="model-empty">일치하는 연결이 없습니다. 계정은 아래에서, API 에이전트는 왼쪽의 에이전트 메뉴에서 연결하세요.</p>';
+    elements.modelOptions.innerHTML = `${loopOption}${providers.length || !loopOption ? providerRows : ''}`;
     if (!elements.modelMenu.hidden) positionModelMenu();
     return;
   }
   const scopedModels = modelCatalog().filter(isSelectedProvider);
   const visibleModels = scopedModels.filter(modelVisibilityUI.isVisible);
   const models = visibleModels.filter((model) => `${model.label} ${model.id} ${model.source}`.toLocaleLowerCase().includes(query));
-  const loopMatches = !query || 'loop engineering 반복 실행'.includes(query);
-  const loopOption = loopMatches
-    ? `<button class="model-option loop-engineering-option${state.loopEngineeringEnabled ? ' selected' : ''}" type="button" role="option" aria-selected="${state.loopEngineeringEnabled}" data-loop-engineering="true"${state.busy ? ' disabled' : ''}><span><strong>Loop Engineering</strong><small>${harnessUI.enabled() ? '계획·구현·판정 모델로' : '선택한 모델로'} 최대 ${state.loopEngineeringRounds}회 실행</small></span><span class="model-check" aria-hidden="true">${state.loopEngineeringEnabled ? icon('check') : icon('chevron-right')}</span></button>`
-    : '';
   const modelRows = models.slice(0, 200).map((model) => {
     const selected = modelKey(model) === selectedModelKey();
     return `<button class="model-option${selected ? ' selected' : ''}" type="button" role="option" aria-selected="${selected}" data-model-key="${escapeHtml(modelKey(model))}"${!model.connected || state.busy ? ' disabled' : ''}><span><strong>${escapeHtml(model.label)}</strong><small>${escapeHtml(model.source)}${!model.connected ? ' · 연결 필요' : ''}</small></span><span class="model-check" aria-hidden="true">${selected ? icon('check') : ''}</span></button>`;
@@ -970,7 +972,7 @@ function renderModelOptions() {
     : scopedModels.length
       ? '<p class="model-empty">표시할 모델이 없습니다.<br>아래 표시 설정에서 사용할 모델을 켜 주세요.</p>'
       : '<p class="model-empty">모델 목록이 없습니다. 연결 설정에서 연결 상태와 모델 목록을 새로고침해 주세요.</p>');
-  elements.modelOptions.innerHTML = `${loopOption}${loopOption && !models.length && !query ? '<p class="model-empty">Loop Engineering을 사용하려면 연결된 실제 모델도 선택해 주세요.</p>' : loopOption && !models.length ? '' : modelRows}`;
+  elements.modelOptions.innerHTML = modelRows;
   if (models.length > 200) elements.modelOptions.insertAdjacentHTML('beforeend', '<p class="model-empty">더 많은 모델은 이름으로 검색하세요.</p>');
   if (!elements.modelMenu.hidden) positionModelMenu();
 }
@@ -1018,6 +1020,7 @@ function renderAgentList() {
 }
 
 function renderSendButtonState(selectedConnected) {
+  if (state.loopEngineeringEnabled && harnessUI.enabled()) selectedConnected = modelCatalog().some((model) => model.connected);
   const hasDraft = elements.messageInput.value.trim().length > 0;
   const queueing = state.busy && hasDraft;
   const stopping = state.busy && !hasDraft;
@@ -1036,10 +1039,10 @@ function renderModelSelect() {
   const selected = modelCatalog().find((model) => modelKey(model) === selectedModelKey());
   const provider = providerCatalog().find(isSelectedProvider);
   const reasoning = reasoningSettings();
-  document.querySelector('#selectedProviderLabel').textContent = provider?.label || (state.provider === 'api' ? 'API 연결' : '모델 추가');
+  document.querySelector('#selectedProviderLabel').textContent = state.loopEngineeringEnabled ? 'Loop Engineering' : provider?.label || (state.provider === 'api' ? 'API 연결' : '모델 추가');
   elements.providerSelectButton.disabled = state.busy;
-  elements.providerSelectButton.title = provider ? `${provider.label} · 연결 선택` : '사용할 연결과 모델을 추가하세요.';
-  elements.providerSelectButton.setAttribute('aria-label', provider ? `연결 선택 · ${provider.label}` : '모델 추가');
+  elements.providerSelectButton.title = state.loopEngineeringEnabled ? 'Loop Engineering · 연결 선택' : provider ? `${provider.label} · 연결 선택` : '사용할 연결과 모델을 추가하세요.';
+  elements.providerSelectButton.setAttribute('aria-label', state.loopEngineeringEnabled ? '연결 선택 · Loop Engineering' : provider ? `연결 선택 · ${provider.label}` : '모델 추가');
   document.querySelector('#selectedModelLabel').textContent = selected?.label || displayModelName(state.model) || '모델 선택';
   elements.modelSelectButton.hidden = !state.provider;
   elements.modelSelectButton.disabled = state.busy;
@@ -1984,6 +1987,8 @@ function setProvider(key) {
   const provider = providerCatalog().find((item) => providerKey(item) === key);
   if (!provider) return;
   if (!provider.connected) { showSettings(provider.provider === 'api' ? 'agents' : 'accounts'); return; }
+  state.loopEngineeringEnabled = false;
+  savePreferences();
   if (!isSelectedProvider(provider)) {
     state.provider = provider.provider;
     state.activeConnectionId = provider.connectionId || null;
@@ -3068,7 +3073,9 @@ for (const [button, mode] of [[elements.providerSelectButton, 'providers'], [ele
 elements.modelSearch.addEventListener('input', renderModelOptions);
 elements.modelOptions.addEventListener('click', (event) => {
   if (event.target.closest('[data-loop-engineering]')) {
-    setLoopEngineeringEnabled(!state.loopEngineeringEnabled);
+    harnessUI.enable();
+    setLoopEngineeringEnabled(true);
+    closeModelMenu(true);
     return;
   }
   const providerButton = event.target.closest('[data-provider-key]');

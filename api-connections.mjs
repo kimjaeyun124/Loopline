@@ -28,6 +28,10 @@ function chatModelId(connection, model) {
   return model;
 }
 
+function displayModelName(value) {
+  return typeof value === 'string' ? value.replace(/^models\//, '') : '';
+}
+
 function validateKey(value) {
   if (typeof value !== 'string' || !value.trim() || value.length > 8192 || /[\r\n\0]/.test(value)) {
     throw fail('유효한 API 키를 입력해 주세요.');
@@ -114,7 +118,11 @@ export class ApiConnections {
     const connected = Boolean(this.#keys.has(connection.id) || (this.#secrets && connection.encryptedKey));
     return {
       id: connection.id, name: connection.name, baseUrl: connection.baseUrl,
-      models: connection.models, connected, updatedAt: connection.updatedAt,
+      models: (connection.models || []).map((model) => ({
+        ...model,
+        label: displayModelName(model.label || model.id),
+        displayId: displayModelName(model.id),
+      })), connected, updatedAt: connection.updatedAt,
       label: connected ? '연결됨' : 'API 키 필요',
     };
   }

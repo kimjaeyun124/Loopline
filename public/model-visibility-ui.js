@@ -52,7 +52,7 @@ export function createModelVisibilityUI({ getModels, getModelKey, getSelectedKey
     }
     list.innerHTML = [...groups.values()].map((group) => `<fieldset class="model-visibility-group"><legend>${escape(group.name)}</legend>${group.models.map((model) => {
       const key = getModelKey(model);
-      return `<label class="model-visibility-row"><span class="model-visibility-copy"><span><strong>${escape(model.label)}</strong>${key === selectedKey ? '<small class="model-current-badge">사용 중</small>' : ''}</span><small>${escape(model.id)}${!model.connected ? ' · 연결 필요' : ''}</small></span><input class="model-visibility-toggle" type="checkbox" role="switch" data-model-key="${escape(key)}" aria-label="${escape(`${model.label} · ${model.source} 표시`)}"${isVisible(model) ? ' checked' : ''} /></label>`;
+      return `<label class="model-visibility-row"><span class="model-visibility-copy"><span><strong>${escape(model.label)}</strong>${key === selectedKey ? '<small class="model-current-badge">사용 중</small>' : ''}</span><small>${escape(model.displayId || model.id)}${!model.connected ? ' · 연결 필요' : ''}</small></span><input class="model-visibility-toggle" type="checkbox" role="switch" data-model-key="${escape(key)}" aria-label="${escape(`${model.label} · ${model.source} 표시`)}"${isVisible(model) ? ' checked' : ''} /></label>`;
     }).join('')}</fieldset>`).join('') || '<p class="model-empty">일치하는 모델이 없습니다. 검색어를 바꿔보세요.</p>';
     if (matches.length > 200) list.insertAdjacentHTML('beforeend', '<p class="model-empty">검색 결과 중 200개를 표시합니다. 이름으로 검색하면 나머지 모델도 찾을 수 있습니다.</p>');
     // Account status polling must not interrupt keyboard navigation through the switches.

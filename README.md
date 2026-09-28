@@ -1,12 +1,12 @@
 # Loopline
 
-목표 설정 → 실행 → 검토 → 개선을 이어가는 루프 엔지니어링용 AI 작업 공간입니다. Codex·Claude Code·API 모델과 대화 기록을 한곳에서 사용하며, 상단 메뉴에서 ChatGPT·Gemini 공식 웹 대화로 전환합니다. 홈의 작업 버튼은 단계에 맞는 프롬프트를 작성하며, 자동 반복 실행을 시작하지 않습니다.
+목표 설정 → 실행 → 검토 → 개선을 이어가는 루프 엔지니어링용 AI 작업 공간입니다. 원하는 Codex·Claude Code·API 연결을 직접 추가하고, ChatGPT·Gemini 공식 웹 대화도 필요한 경우에만 작업 공간에 표시합니다. 홈의 작업 버튼은 단계에 맞는 프롬프트를 작성하며, 자동 반복 실행을 시작하지 않습니다.
 
-ChatGPT Desktop처럼 채팅을 중심으로 화면을 구성한 macOS 데스크톱 앱입니다. 상단에서 Codex·Claude Code·API 에이전트 연결을 선택하고, 입력창 하단에서 해당 연결의 세부 모델을 선택합니다. 여러 Codex 계정을 연결하고 계정별 남은 사용량을 확인할 수 있으며, Codex 사용 한도 소진 시 남은 계정으로 요청을 다시 시도합니다. 대화 내용은 앱 창의 `localStorage`에 저장되고, Codex 대화는 연결된 계정의 Codex thread 기록에도 저장됩니다. OpenAI·Anthropic·Google의 공식 앱은 아닙니다.
+ChatGPT Desktop처럼 채팅을 중심으로 화면을 구성한 macOS 데스크톱 앱입니다. 새 설치에서는 AI 연결이 비어 있으며, 설정에서 필요한 서비스만 추가합니다. 상단에서 추가한 Codex·Claude Code·API 연결을 선택하고, 입력창 하단에서 해당 연결의 세부 모델을 선택합니다. 여러 Codex 계정을 연결하고 계정별 남은 사용량을 확인할 수 있으며, Codex 사용 한도 소진 시 남은 계정으로 요청을 다시 시도합니다. 대화 내용은 앱 창의 `localStorage`에 저장되고, Codex 대화는 연결된 계정의 Codex thread 기록에도 저장됩니다. OpenAI·Anthropic·Google의 공식 앱은 아닙니다.
 
 ## 연결과 모델 선택
 
-처음 사용해 저장된 선택이 없으면 상단에 **모델 추가**가 표시됩니다. 버튼을 눌러 Codex·Claude Code 또는 API 연결을 고르면, 입력창의 **모델 선택**에서 해당 연결의 세부 모델을 선택할 수 있습니다. 로그인하지 않은 연결은 계정 설정으로 안내하며, API 연결은 기존 에이전트 추가 화면에서 등록합니다. 상단에는 연결 이름만, 입력창에는 세부 모델 이름을 표시합니다.
+처음 사용해 저장된 선택이 없으면 상단에 **모델 추가**가 표시됩니다. **설정 → AI 연결 → AI 추가**에서 Codex·Claude Code·ChatGPT·Gemini·API 에이전트 중 원하는 항목을 고를 수 있습니다. Codex·Claude Code를 추가하면 해당 CLI 로그인 흐름을 시작하고, API 에이전트는 주소와 키를 입력해 모델을 가져옵니다. ChatGPT·Gemini는 공식 웹 화면을 추가한 뒤 계정으로 로그인합니다. Codex·Claude Code·ChatGPT·Gemini를 Loopline에서 삭제해도 CLI 또는 웹사이트 로그인은 유지됩니다. 연결을 고른 뒤 입력창의 **모델 선택**에서 세부 모델을 고릅니다.
 
 모델을 선택하기 전에는 메시지를 전송하지 않습니다. 다른 연결로 바꾸면 세부 모델 선택이 비워지고, 기존 입력은 유지됩니다. 저장된 선택과 기존 대화의 모델은 복원하며, 연결 상태를 새로고침해도 빈 모델을 자동 선택하지 않습니다. **표시 설정**에서 숨긴 모델은 세부 모델 목록에서도 숨겨집니다.
 
@@ -24,7 +24,7 @@ macOS 앱에서는 네이티브 메뉴와 창에도 선택한 테마를 적용�
 
 ## ChatGPT 사용
 
-상단의 **ChatGPT** 또는 **계정 메뉴 → Settings → 구독 계정 → ChatGPT → 열기**를 선택합니다. macOS 앱에서는 Loopline 메인 창 안에 ChatGPT가 표시되고, 웹 개발 화면에서는 새 브라우저 탭으로 열립니다. [ChatGPT 공식 웹](https://learn.chatgpt.com/docs/web)에 직접 로그인한 뒤 해당 계정에서 제공하는 모델·대화·프로젝트를 사용합니다. API 키를 입력할 필요가 없습니다.
+**설정 → AI 연결 → AI 추가 → ChatGPT**를 선택해 추가한 뒤, 상단의 **ChatGPT** 또는 **Settings → AI 연결 → 열기**를 선택합니다. macOS 앱에서는 Loopline 메인 창 안에 ChatGPT가 표시되고, 웹 개발 화면에서는 새 브라우저 탭으로 열립니다. [ChatGPT 공식 웹](https://learn.chatgpt.com/docs/web)에 직접 로그인한 뒤 해당 계정에서 제공하는 모델·대화·프로젝트를 사용합니다. API 키를 입력할 필요가 없습니다.
 
 내부 화면은 `chatgpt.com`을 그대로 표시합니다. Codex 로그인과 별도의 세션(`persist:loopline-chatgpt`)에 로그인 쿠키를 보관하며, 이전 ChatGPT 전용 창의 세션도 이어 사용합니다. Loopline은 로그인 비밀번호·쿠키를 읽거나 다른 계정에 복사하지 않습니다. ChatGPT 대화가 Loopline의 로컬 대화 목록에 자동으로 복사되지는 않습니다. 필요한 기록은 **설정 → 대화 가져오기**에서 내보내기 파일로 가져올 수 있습니다.
 
@@ -36,7 +36,7 @@ macOS 앱에서는 네이티브 메뉴와 창에도 선택한 테마를 적용�
 
 ## Gemini 사용
 
-상단의 **Gemini** 또는 **Settings → 구독 계정 → Gemini → 열기**를 선택합니다. macOS 앱 안에서 `gemini.google.com/app`을 열며, Google 계정으로 직접 로그인하여 대화합니다. API 키는 필요하지 않습니다. macOS **대화 → Gemini 열기** 단축키는 `⌘⇧M`입니다. 웹 개발 화면에서는 공식 사이트를 새 탭으로 엽니다.
+**설정 → AI 연결 → AI 추가 → Gemini**를 선택해 추가한 뒤, 상단의 **Gemini** 또는 **Settings → AI 연결 → 열기**를 선택합니다. macOS 앱 안에서 `gemini.google.com/app`을 열며, Google 계정으로 직접 로그인하여 대화합니다. API 키는 필요하지 않습니다. macOS **대화 → Gemini 열기** 단축키는 `⌘⇧M`입니다. 웹 개발 화면에서는 공식 사이트를 새 브라우저 탭으로 엽니다.
 
 Gemini는 `persist:loopline-gemini` 세션을 사용해 ChatGPT와 로그인 정보를 분리합니다. 화면 전환은 페이지를 숨기거나 다시 표시하므로 앱이 실행되는 동안 각 서비스의 페이지가 유지됩니다. 로그인 정보는 각 서비스의 세션에 보관하고, 대화 기록은 서비스에서 관리합니다. Gemini 사용량이나 대화가 Loopline의 Usage·로컬 대화 목록에 자동으로 합쳐지지는 않습니다.
 
@@ -106,7 +106,7 @@ npm install -g @anthropic-ai/claude-code
 npm start
 ```
 
-4. 브라우저에서 [http://127.0.0.1:4173](http://127.0.0.1:4173)을 열고, 왼쪽 아래 연결 설정에서 계정 로그인을 누릅니다.
+4. 브라우저에서 [http://127.0.0.1:4173](http://127.0.0.1:4173)을 열고, **설정 → AI 연결 → AI 추가**에서 원하는 CLI 서비스를 선택해 로그인합니다.
 
 OpenAI 연결은 Codex app-server의 ChatGPT OAuth 흐름을 사용합니다. app-server가 계정 인증과 토큰 갱신을 관리하고, 계정 상태·Codex 한도·사용 가능한 모델을 조회합니다. Claude 연결은 `claude auth login --claudeai`로 Claude 구독 로그인 절차를 시작합니다.
 
@@ -117,6 +117,7 @@ OpenAI 연결은 Codex app-server의 ChatGPT OAuth 흐름을 사용합니다. ap
 - ChatGPT Desktop 스타일의 채팅 화면·접을 수 있는 에이전트 목록·macOS 통합 타이틀바
 - 라이트·다크·시스템 테마 선택, 설정 저장 및 앱 전체 색상 적용
 - 메인 창 안의 ChatGPT·Gemini 공식 웹, 공통 전환 메뉴, 서비스별 로그인 세션 및 브라우저에서 열기
+- 새 설치에서 AI 연결을 자동 등록하지 않으며, Codex·Claude Code·ChatGPT·Gemini·API 에이전트를 각각 추가·삭제
 - Codex·Claude·API 모델을 통합한 검색 가능한 모델 선택기
 - DeepSeek·OpenAI·사용자 지정 OpenAI 호환 API 에이전트 추가 및 모델 자동 조회
 - API 에이전트 편집·모델 새로고침·연결 해제·삭제 및 API 키 암호화 보관
@@ -134,7 +135,7 @@ OpenAI 연결은 Codex app-server의 ChatGPT OAuth 흐름을 사용합니다. ap
 - Codex 대화별 읽기 전용 임시 작업 폴더와 사용자 MCP 서버 차단
 - Claude Code CLI 로그인 상태 표시와 계정 오류 안내
 
-기본 Codex 계정은 같은 컴퓨터의 Codex CLI와 인증 상태 및 thread 기록을 공유합니다. 추가 계정은 macOS의 앱 데이터 폴더 아래 계정별 `CODEX_HOME`으로 격리하며, 인증 파일을 복사하지 않습니다. 각 Codex 계정의 app-server가 제공하는 사용 한도 창의 남은 비율과 재설정 시각을 표시합니다. 사용 한도 초과가 app-server 응답에서 확인되면 남은 한도가 있는 연결 계정에서 같은 대화 내용을 새 thread로 재시도합니다. 인증 실패, 네트워크 오류, 모델 사용 불가 오류는 계정을 바꾸어 재시도하지 않습니다. Claude Code CLI는 로그인 상태를 확인하며, 플랜 사용량은 Claude Code 내부에서 `/usage`를 실행해 확인해야 합니다. Codex app-server의 프로토콜 상태와 호환성은 [공식 문서](https://learn.chatgpt.com/docs/app-server)를 확인해 주세요. Loopline에서 Codex 대화를 삭제하면 해당 계정의 app-server thread 기록도 삭제됩니다.
+Codex 기본 계정은 사용자가 Loopline에 추가한 뒤에만 같은 컴퓨터의 Codex CLI 인증 상태와 thread 기록을 사용합니다. Loopline에서 기본 연결을 삭제해도 Codex CLI 로그인은 유지됩니다. 추가 계정은 macOS의 앱 데이터 폴더 아래 계정별 `CODEX_HOME`으로 격리하며, 인증 파일을 복사하지 않습니다. 각 Codex 계정의 app-server가 제공하는 사용 한도 창의 남은 비율과 재설정 시각을 표시합니다. 사용 한도 초과가 app-server 응답에서 확인되면 남은 한도가 있는 연결 계정에서 같은 대화 내용을 새 thread로 재시도합니다. 인증 실패, 네트워크 오류, 모델 사용 불가 오류는 계정을 바꾸어 재시도하지 않습니다. Claude Code CLI는 로그인 상태를 확인하며, 플랜 사용량은 Claude Code 내부에서 `/usage`를 실행해 확인해야 합니다. Codex app-server의 프로토콜 상태와 호환성은 [공식 문서](https://learn.chatgpt.com/docs/app-server)를 확인해 주세요. Loopline에서 Codex 대화를 삭제하면 해당 계정의 app-server thread 기록도 삭제됩니다.
 
 Projects는 대화와 프로젝트 지침을 앱 창의 `localStorage`에 저장합니다. 사이드바의 아래 화살표에서 ChatGPT 또는 Claude 계정 설정의 데이터 내보내기로 받은 ZIP이나 JSON 파일을 고르면 파일을 이 Mac에서 읽고, 가져오기 전에 서비스와 자료 수를 확인합니다. 가져온 프로젝트 지침과 텍스트 자료는 이후 응답 문맥에 포함되며, 대화는 원본 서비스 ID를 사용해 반복 가져오기에서 중복을 건너뜁니다. 첨부 파일 바이너리는 가져오지 않습니다. 현재 로컬 저장 방식에 맞춰 파일은 256MB, 개별 JSON은 64MB, ZIP 안의 JSON 총량은 128MB 이하로 제한하고, 기존 대화를 포함한 앱 저장 데이터가 약 3.8MB를 넘을 것으로 예상되면 저장하지 않습니다. ChatGPT 내보내기에 원래 Projects 정보가 포함되지 않은 경우 해당 대화는 가져오기 프로젝트로 묶입니다.
 

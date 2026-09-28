@@ -21,15 +21,31 @@ export function createAccountMenuUI({ onOpen, onUsage, onSettings, formatAccount
 
   function profile() {
     const account = context.accounts.find((item) => item.id === context.accountId);
-    if (context.provider === 'openai' && account?.connected) {
-      return { name: account.accountName || account.name || formatAccountName(account), detail: `Codex${account.planType ? ` · ${account.planType}` : ''}`, account };
+    if (context.provider === 'openai' && account?.linked) {
+      return {
+        name: account.accountName || account.name || formatAccountName(account),
+        detail: account.connected ? `Codex${account.planType ? ` · ${account.planType}` : ''}` : 'Codex · 로그인 필요',
+        account,
+      };
     }
     if (context.provider === 'anthropic' && context.claude.linked) {
       return { name: 'Claude Code', detail: context.claude.connected ? '구독 계정 연결됨' : '로그인 필요' };
     }
     const connection = context.provider === 'api' && context.connections.find((item) => item.id === context.connectionId);
     if (connection) return { name: connection.name, detail: connection.connected ? 'API 연결됨' : 'API 키 필요' };
-    return { name: 'Loopline', detail: '계정을 연결해 주세요.' };
+    const connectedServices = [
+      ...(context.webServices?.chatgpt ? ['ChatGPT'] : []),
+      ...(context.webServices?.gemini ? ['Gemini'] : []),
+      ...(context.claude.linked ? ['Claude Code'] : []),
+      ...context.connections.map((item) => item.name),
+      ...context.accounts.map((item) => item.name),
+    ];
+    return { name: 'Loopline', detail: connectedServices.length ? connectedServices.join(' · ') : '연결된 AI 없음' };
+  }
+
+  function hasAnyConnection() {
+    return context.accounts.length > 0 || context.claude.linked === true || context.connections.length > 0
+      || context.webServices?.chatgpt === true || context.webServices?.gemini === true;
   }
 
   function renderProfile() {
@@ -45,12 +61,13 @@ export function createAccountMenuUI({ onOpen, onUsage, onSettings, formatAccount
     if (context.error) hint.textContent = '조회 실패';
     else if (context.provider === 'anthropic') hint.textContent = '/usage';
     else if (context.provider === 'api') hint.textContent = '별도 과금';
+    else if (current.account && !current.account.connected) hint.textContent = '로그인 필요';
     else if (current.account?.usageSummary?.rateLimitReachedType || current.account?.usageSummary?.ordinaryUsageAllowed === false) hint.textContent = '한도 도달';
     else {
       // The most restrictive Codex window determines the compact remaining allowance.
       const windows = usageWindows(current.account).filter((window) => window.limitId === 'codex');
       hint.textContent = windows.length ? `${Math.min(...windows.map((window) => window.remainingPercent))}% 남음`
-        : current.account ? '확인 불가' : context.updatedAt ? '로그인 필요' : '확인 중';
+        : current.account ? '확인 불가' : context.updatedAt ? hasAnyConnection() ? '연결됨' : 'AI 추가' : '확인 중';
       if (windows.length) hint.title = '선택한 Codex 계정의 기간별 한도 중 가장 적게 남은 비율';
     }
   }

@@ -61,9 +61,10 @@ const state = {
     claudeUsesShared: true,
   },
   providers: {
-    openai: { installed: false, connected: false, label: '상태 확인 중' },
+    openai: { installed: false, connected: false, linked: false, label: '상태 확인 중' },
     anthropic: { installed: false, connected: false, label: '상태 확인 중' },
   },
+  webServices: { chatgpt: false, gemini: false },
   loginJobs: {},
   loginUrls: {},
   busy: false,
@@ -145,7 +146,7 @@ const accountMenuUI = createAccountMenuUI({
   formatReset: formatUsageReset,
 });
 const usageActivityUI = createUsageActivityUI({
-  getAccounts: () => state.codexAccounts,
+  getAccounts: () => state.codexAccounts.filter((account) => account.linked),
   getActiveAccountId: () => state.activeCodexAccountId,
   formatAccountName: codexAccountDisplayName,
 });
@@ -679,7 +680,8 @@ function codexAccountHint(account, displayName) {
 }
 
 function renderCodexAccounts() {
-  elements.codexAccountsList.innerHTML = state.codexAccounts.map((account) => {
+  const linkedAccounts = state.codexAccounts.filter((account) => account.linked === true);
+  elements.codexAccountsList.innerHTML = linkedAccounts.map((account) => {
     const selected = account.id === state.activeCodexAccountId;
     const job = account.loginJob;
     const waiting = job?.state === 'starting' || job?.state === 'running';
@@ -688,11 +690,13 @@ function renderCodexAccounts() {
     const loginLabel = waiting ? '로그인 중' : account.installed ? '로그인' : 'CLI 설치 필요';
     const accountHint = codexAccountHint(account, displayName);
     const accountActions = account.connected
-      ? `<button class="account-use-button" type="button" data-use-codex-account="${escapeHtml(account.id)}"${selected || busy ? ' disabled' : ''}>${selected ? '선택됨' : '사용'}</button><button class="account-unlink-button" type="button" data-disconnect-codex-account="${escapeHtml(account.id)}"${busy ? ' disabled' : ''}>${busy ? '처리 중…' : '연결 해제'}</button>`
+      ? `<button class="account-use-button" type="button" data-use-codex-account="${escapeHtml(account.id)}"${selected || busy ? ' disabled' : ''}>${selected ? '선택됨' : '사용'}</button>${account.isDefault ? '' : `<button class="account-unlink-button" type="button" data-disconnect-codex-account="${escapeHtml(account.id)}"${busy ? ' disabled' : ''}>${busy ? '처리 중…' : '로그아웃'}</button>`}`
       : waiting
         ? `<button class="account-cancel-button" type="button" data-cancel-codex-login="${escapeHtml(account.id)}"${busy ? ' disabled' : ''}>로그인 취소</button>`
-        : `<button class="connect-button" type="button" data-connect-codex-account="${escapeHtml(account.id)}"${!account.installed || busy ? ' disabled' : ''}>${account.disconnected ? '다시 연결' : loginLabel}</button>${!account.disconnected ? `<button class="account-unlink-button" type="button" data-disconnect-codex-account="${escapeHtml(account.id)}"${busy ? ' disabled' : ''}>연결 해제</button>` : ''}`;
-    const deleteAction = account.isDefault ? '' : `<button class="account-delete-button" type="button" data-delete-codex-account="${escapeHtml(account.id)}"${busy ? ' disabled' : ''}>삭제</button>`;
+        : `<button class="connect-button" type="button" data-connect-codex-account="${escapeHtml(account.id)}"${!account.installed || busy ? ' disabled' : ''}>${account.disconnected ? '다시 연결' : loginLabel}</button>${!account.isDefault && !account.disconnected ? `<button class="account-unlink-button" type="button" data-disconnect-codex-account="${escapeHtml(account.id)}"${busy ? ' disabled' : ''}>로그아웃</button>` : ''}`;
+    const deleteAction = account.isDefault
+      ? `<button class="account-delete-button" type="button" data-unlink-codex-connection="${escapeHtml(account.id)}"${busy ? ' disabled' : ''}>앱에서 삭제</button>`
+      : `<button class="account-delete-button" type="button" data-delete-codex-account="${escapeHtml(account.id)}"${busy ? ' disabled' : ''}>삭제</button>`;
     return `<article class="codex-account-card${selected ? ' active' : ''}">
       <span class="connection-logo openai-logo" aria-hidden="true">${icon('terminal')}</span>
       <div class="connection-details"><div class="codex-account-title"><strong>${escapeHtml(displayName)}</strong>${selected ? '<span class="active-account-badge">사용 중</span>' : ''}</div>
@@ -711,7 +715,7 @@ function renderCodexAccounts() {
 
 function modelCatalog() {
   return [
-    ...modelsForProvider('openai').map((model) => ({ ...model, provider: 'openai', source: 'Codex', connected: activeCodexAccount()?.connected === true })),
+    ...(state.codexAccounts.some((account) => account.linked) ? modelsForProvider('openai').map((model) => ({ ...model, provider: 'openai', source: 'Codex', connected: activeCodexAccount()?.connected === true })) : []),
     ...(state.providers.anthropic?.linked ? PROVIDERS.anthropic.models.map((model) => ({ ...model, provider: 'anthropic', source: 'Claude Code', connected: state.providers.anthropic.connected === true })) : []),
     ...state.apiConnections.flatMap((connection) => connection.models.map((model) => ({ ...model, provider: 'api', connectionId: connection.id, source: connection.name, connected: connection.connected }))),
   ];
@@ -722,9 +726,10 @@ function modelKey(model) {
 }
 
 function providerCatalog() {
-  const codexCount = state.codexAccounts.filter((account) => account.connected).length;
+  const codexAccounts = state.codexAccounts.filter((account) => account.linked);
+  const codexCount = codexAccounts.filter((account) => account.connected).length;
   return [
-    { provider: 'openai', label: 'Codex', connected: activeCodexAccount()?.connected === true, detail: codexCount ? `${codexCount}개 계정 연결됨` : '계정 로그인' },
+    ...(codexAccounts.length ? [{ provider: 'openai', label: 'Codex', connected: activeCodexAccount()?.linked === true && activeCodexAccount()?.connected === true, detail: codexCount ? `${codexCount}개 계정 연결됨` : '계정 로그인' }] : []),
     ...(state.providers.anthropic?.linked ? [{ provider: 'anthropic', label: 'Claude Code', connected: state.providers.anthropic.connected === true, detail: state.providers.anthropic.connected ? '구독 계정 연결됨' : '계정 로그인' }] : []),
     ...state.apiConnections.map((connection) => ({ provider: 'api', connectionId: connection.id, label: connection.name, connected: connection.connected, detail: connection.connected ? `${connection.models.length}개 모델 · API` : 'API 키 연결 필요' })),
   ];
@@ -868,13 +873,15 @@ function openModelMenu(mode) {
 }
 
 function renderAgentList() {
-  const codexCount = state.codexAccounts.filter((account) => account.connected).length;
+  const codexCount = state.codexAccounts.filter((account) => account.linked && account.connected).length;
   const agents = [
-    { name: 'Codex', mark: icon('terminal'), connected: codexCount > 0, detail: codexCount ? `${codexCount}개 계정` : '로그인 필요', tab: 'accounts' },
+    ...(state.codexAccounts.some((account) => account.linked) ? [{ name: 'Codex', mark: icon('terminal'), connected: codexCount > 0, detail: codexCount ? `${codexCount}개 계정` : '로그인 필요', tab: 'accounts' }] : []),
     ...(state.providers.anthropic?.linked ? [{ name: 'Claude Code', mark: icon('asterisk'), connected: state.providers.anthropic.connected, detail: state.providers.anthropic.connected ? '연결됨' : '로그인 필요', tab: 'accounts' }] : []),
     ...state.apiConnections.map((connection) => ({ name: connection.name, mark: icon('plug'), connected: connection.connected, detail: connection.connected ? `${connection.models.length}개 모델` : '키 필요', tab: 'agents' })),
   ];
-  document.querySelector('#agentList').innerHTML = agents.map((agent) => `<button class="agent-sidebar-row" type="button" data-agent-tab="${agent.tab}" title="${escapeHtml(agent.name)} · ${escapeHtml(agent.detail)}"><span class="agent-mark" aria-hidden="true">${agent.mark}</span><span class="agent-name">${escapeHtml(agent.name)}</span><span class="agent-detail">${escapeHtml(agent.detail)}</span><span class="agent-status${agent.connected ? ' connected' : ''}" aria-label="${agent.connected ? '연결됨' : '연결 필요'}"></span></button>`).join('');
+  document.querySelector('#agentList').innerHTML = agents.length
+    ? agents.map((agent) => `<button class="agent-sidebar-row" type="button" data-agent-tab="${agent.tab}" title="${escapeHtml(agent.name)} · ${escapeHtml(agent.detail)}"><span class="agent-mark" aria-hidden="true">${agent.mark}</span><span class="agent-name">${escapeHtml(agent.name)}</span><span class="agent-detail">${escapeHtml(agent.detail)}</span><span class="agent-status${agent.connected ? ' connected' : ''}" aria-label="${agent.connected ? '연결됨' : '연결 필요'}"></span></button>`).join('')
+    : `<div class="agent-list-empty"><span>연결된 AI가 없습니다.</span><button type="button" data-open-ai-connections>AI 추가</button></div>`;
 }
 
 function renderSendButtonState(selectedConnected) {
@@ -936,8 +943,9 @@ function render() {
   accountMenuUI.update({
     provider: state.provider || 'openai',
     accountId: state.activeCodexAccountId,
-    accounts: state.codexAccounts,
+    accounts: state.codexAccounts.filter((account) => account.linked),
     claude: state.providers.anthropic || {},
+    webServices: state.webServices,
     connectionId: state.activeConnectionId,
     connections: state.apiConnections,
     updatedAt: state.statusUpdatedAt,
@@ -954,14 +962,16 @@ function render() {
 }
 
 function connectionSummary() {
-  const codexCount = state.codexAccounts.filter((account) => account.connected).length;
-  const claudeConnected = state.providers.anthropic?.connected === true;
+  const codexCount = state.codexAccounts.filter((account) => account.linked).length;
+  const claudeConnected = state.providers.anthropic?.linked === true;
   const parts = [];
   if (codexCount) parts.push(`Codex ${codexCount}개`);
-  if (claudeConnected) parts.push('Claude');
-  const apiCount = state.apiConnections.filter((connection) => connection.connected).length;
+  if (claudeConnected) parts.push('Claude Code');
+  if (state.webServices.chatgpt) parts.push('ChatGPT');
+  if (state.webServices.gemini) parts.push('Gemini');
+  const apiCount = state.apiConnections.length;
   if (apiCount) parts.push(`API ${apiCount}개`);
-  return parts.length ? `${parts.join(' · ')} 연결됨` : '계정 연결 필요';
+  return parts.length ? `${parts.join(' · ')} 추가됨` : '연결된 AI 없음';
 }
 
 let statusRequestInProgress = false;
@@ -986,7 +996,7 @@ function renderClaudeConnection() {
   const anthropic = state.providers.anthropic || {};
   const claudeJob = state.loginJobs.anthropic;
   if (!anthropic.linked) {
-    list.innerHTML = '<p class="provider-connection-empty">연결된 Claude Code 계정이 없습니다. ‘연결 추가’를 눌러 등록하세요.</p>';
+    list.innerHTML = '';
     return;
   }
 
@@ -1012,7 +1022,17 @@ function updateConnectionControls() {
   const messages = [];
   const anthropic = state.providers.anthropic || {};
   const claudeJob = state.loginJobs.anthropic;
-  document.querySelector('#addClaudeConnection').hidden = anthropic.linked === true;
+  const linkedCodexAccounts = state.codexAccounts.filter((account) => account.linked === true);
+  document.querySelector('#codexAccountSection').hidden = linkedCodexAccounts.length === 0;
+  document.querySelector('#claudeConnectionSection').hidden = anthropic.linked !== true;
+  document.querySelector('.chatgpt-connection').hidden = state.webServices.chatgpt !== true;
+  document.querySelector('.gemini-connection').hidden = state.webServices.gemini !== true;
+  document.querySelector('#aiConnectionEmptyState').hidden = linkedCodexAccounts.length > 0
+    || anthropic.linked === true
+    || state.webServices.chatgpt === true
+    || state.webServices.gemini === true
+    || state.apiConnections.length > 0;
+  chatGptUI.setEnabled(state.webServices);
   renderClaudeConnection();
   if (anthropic.linked && !anthropic.connected && claudeJob?.output) messages.push(`Claude 로그인 안내:\n${claudeJob.output.trim()}`);
   else if (anthropic.linked && !anthropic.connected && (claudeJob?.state === 'running' || claudeJob?.state === 'starting')) messages.push('Claude 공식 로그인 창에서 인증을 완료해 주세요.');
@@ -1081,18 +1101,31 @@ async function refreshStatus() {
     const status = await response.json();
     if (!response.ok) throw new Error(status.error || '연결 상태 조회에 실패했습니다.');
     state.providers = status.providers || state.providers;
+    state.webServices = status.providers?.webServices || { chatgpt: false, gemini: false };
     state.loginJobs = status.loginJobs || {};
     state.codexAccounts = Array.isArray(status.codexAccounts) ? status.codexAccounts : [];
     updateApiConnections(status);
+    const conversation = activeConversation();
+    const selectedCodexAccountId = conversation?.provider === 'openai'
+      ? conversation.codexAccountId || state.activeCodexAccountId
+      : state.activeCodexAccountId;
+    const selectedCodexAccount = state.codexAccounts.find((account) => account.id === selectedCodexAccountId);
     if (!state.busy && state.provider === 'anthropic' && !state.providers.anthropic?.linked) {
       state.provider = '';
       state.model = '';
       savePreferences();
     }
-    if (!state.codexAccounts.some((account) => account.id === state.activeCodexAccountId && account.connected)) {
-      state.activeCodexAccountId = state.codexAccounts.find((account) => account.id !== state.activeCodexAccountId && account.connected)?.id || 'default';
+    if (!state.busy && state.provider === 'openai' && !selectedCodexAccount?.linked) {
+      state.provider = '';
+      state.model = '';
+      savePreferences();
     }
-    const defaultModels = state.codexAccounts.find((account) => account.id === 'default')?.models;
+    const linkedCodexAccounts = state.codexAccounts.filter((account) => account.linked);
+    if (!linkedCodexAccounts.some((account) => account.id === state.activeCodexAccountId && account.connected)) {
+      state.activeCodexAccountId = linkedCodexAccounts.find((account) => account.connected)?.id
+        || linkedCodexAccounts[0]?.id || 'default';
+    }
+    const defaultModels = state.codexAccounts.find((account) => account.id === 'default' && account.linked)?.models;
     if (Array.isArray(defaultModels) && defaultModels.length) {
       PROVIDERS.openai.models = defaultModels.map((model) => ({ ...model }));
     }
@@ -1107,9 +1140,10 @@ async function refreshStatus() {
   } catch {
     state.statusError = true;
     state.providers = {
-      openai: { installed: false, connected: false, label: '서버 연결 실패' },
+      openai: { installed: false, connected: false, linked: false, label: '서버 연결 실패' },
       anthropic: { installed: false, connected: false, label: '서버 연결 실패' },
     };
+    state.webServices = { chatgpt: false, gemini: false };
   } finally {
     statusRequestInProgress = false;
   }
@@ -1161,7 +1195,7 @@ async function connectCodexAccount(accountId = null, accountName = '') {
       loginWindow?.close();
       feedback.textContent = [data.error, data.installCommand].filter(Boolean).join('\n');
       showToast(data.error || 'Codex 계정을 연결하지 못했습니다.');
-      if (data.accountId) await refreshStatus();
+      await refreshStatus();
       return;
     }
     accountId = data.accountId || accountId;
@@ -1203,7 +1237,9 @@ function addCodexAccount() {
 async function updateCodexAccountLink(accountId, action) {
   const account = state.codexAccounts.find((item) => item.id === accountId);
   if (!account) return;
-  if (action === 'disconnect') {
+  if (action === 'unlink') {
+    if (!window.confirm(`${account.name}을 Loopline 연결 목록에서 삭제할까요?\n\n이 앱에서만 숨기며 Codex CLI 로그인과 ~/.codex 인증 정보는 유지됩니다.`)) return;
+  } else if (action === 'disconnect') {
     const impact = account.isDefault
       ? '기본 계정은 ~/.codex를 Codex CLI와 공유합니다. 로그아웃하면 이 앱과 Codex CLI 양쪽에서 다시 로그인해야 합니다.'
       : 'Codex app-server에서 로그아웃합니다. 이 계정 항목과 Codex 대화 기록은 남기며, 다시 로그인해 사용할 수 있습니다.';
@@ -1216,14 +1252,23 @@ async function updateCodexAccountLink(accountId, action) {
   if (state.busyCodexAccountIds.has(accountId)) return;
   state.busyCodexAccountIds.add(accountId);
   renderCodexAccounts();
-  const label = action === 'cancel' ? '로그인 취소' : action === 'delete' ? '계정 삭제' : '연결 해제';
+  const label = action === 'cancel' ? '로그인 취소' : action === 'delete' ? '계정 삭제' : action === 'unlink' ? '앱 연결 삭제' : '로그아웃';
   try {
     const response = action === 'delete'
       ? await fetch(`/api/codex/accounts/${encodeURIComponent(accountId)}`, { method: 'DELETE' })
-      : await fetch(`/api/codex/accounts/${encodeURIComponent(accountId)}/${action}`, { method: 'POST' });
+      : action === 'unlink'
+        ? await fetch('/api/provider-connections/openai', { method: 'DELETE' })
+        : await fetch(`/api/codex/accounts/${encodeURIComponent(accountId)}/${action}`, { method: 'POST' });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || `${label}에 실패했습니다.`);
-    if (action === 'delete') {
+    if (action === 'unlink') {
+      if (state.provider === 'openai') {
+        state.provider = '';
+        state.model = '';
+        savePreferences();
+      }
+      showToast('Loopline에서 Codex 연결을 삭제했습니다. CLI 로그인은 유지됩니다.');
+    } else if (action === 'delete') {
       const replacement = state.codexAccounts.find((item) => item.id !== accountId && item.connected)
         || state.codexAccounts.find((item) => item.id !== accountId && item.id === 'default');
       const replacementId = replacement?.id || 'default';
@@ -1243,7 +1288,7 @@ async function updateCodexAccountLink(accountId, action) {
       savePreferences();
     }
     if (action === 'cancel') delete state.loginUrls[`openai:${accountId}`];
-    if (action !== 'delete') showToast(action === 'cancel' ? 'Codex OAuth 로그인 요청을 취소했습니다.' : 'Codex에서 로그아웃했습니다. 계정 항목과 대화 기록은 보존됩니다.');
+    if (!['delete', 'unlink'].includes(action)) showToast(action === 'cancel' ? 'Codex OAuth 로그인 요청을 취소했습니다.' : 'Codex에서 로그아웃했습니다. 계정 항목과 대화 기록은 보존됩니다.');
   } catch (error) {
     showToast(error.message || `${label}에 실패했습니다.`);
   } finally {
@@ -1277,14 +1322,15 @@ async function removeClaudeConnection() {
 
 function openProviderConnectionModal() {
   const modal = document.querySelector('#providerConnectionModal');
-  const status = state.providers.anthropic || {};
-  const hint = document.querySelector('#claudeConnectionHint');
-  hint.textContent = status.cliConnected
-    ? '이 Mac의 Claude Code CLI 로그인 상태를 Loopline에 등록합니다.'
-    : status.installed === false
-      ? '먼저 Claude Code CLI를 설치해야 연결할 수 있습니다.'
-      : '연결하면 Claude Code CLI 로그인을 시작합니다.';
-  document.querySelector('#connectClaudeFromModal').disabled = false;
+  const codex = state.providers.openai || {};
+  const claude = state.providers.anthropic || {};
+  document.querySelector('#codexConnectionChoice .connection-details small').textContent = codex.linked
+    ? '추가 Codex 계정을 연결합니다.'
+    : '이 Mac의 Codex CLI 계정 또는 새 로그인을 사용합니다.';
+  document.querySelector('#connectCodexFromModal').textContent = codex.linked ? '계정 추가' : '연결';
+  document.querySelector('#claudeConnectionChoice').hidden = claude.linked === true;
+  document.querySelector('#chatgptConnectionChoice').hidden = state.webServices.chatgpt === true;
+  document.querySelector('#geminiConnectionChoice').hidden = state.webServices.gemini === true;
   modal.hidden = false;
   document.querySelector('#closeProviderConnection').focus();
 }
@@ -1293,7 +1339,34 @@ function closeProviderConnectionModal(restoreFocus = false) {
   const modal = document.querySelector('#providerConnectionModal');
   if (modal.hidden) return;
   modal.hidden = true;
-  if (restoreFocus) document.querySelector('#addClaudeConnection').focus();
+  if (restoreFocus) document.querySelector('#addAiConnection').focus();
+}
+
+async function addWebService(provider) {
+  closeProviderConnectionModal();
+  try {
+    const response = await fetch(`/api/provider-connections/${provider}`, { method: 'POST' });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || `${provider}를 추가하지 못했습니다.`);
+    await refreshStatus();
+    showToast(`${provider === 'chatgpt' ? 'ChatGPT' : 'Gemini'}를 작업 공간에 추가했습니다.`);
+  } catch (error) {
+    showToast(error.message || 'AI 연결을 추가하지 못했습니다.');
+  }
+}
+
+async function removeWebService(provider) {
+  const name = provider === 'chatgpt' ? 'ChatGPT' : 'Gemini';
+  if (!window.confirm(`${name}을 Loopline에서 삭제할까요? 웹사이트 로그인은 유지됩니다.`)) return;
+  try {
+    const response = await fetch(`/api/provider-connections/${provider}`, { method: 'DELETE' });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || `${name} 연결을 삭제하지 못했습니다.`);
+    await refreshStatus();
+    showToast(`${name}을 Loopline 연결 목록에서 삭제했습니다. 웹사이트 로그인은 유지됩니다.`);
+  } catch (error) {
+    showToast(error.message || `${name} 연결을 삭제하지 못했습니다.`);
+  }
 }
 
 function activeProjectInstructions() {
@@ -2368,7 +2441,7 @@ document.querySelector('#refreshStatus').addEventListener('click', () => {
   void refreshStatus();
   if (!document.querySelector('#usagePanel').hidden) usageActivityUI.refresh();
 });
-document.querySelector('#addClaudeConnection').addEventListener('click', openProviderConnectionModal);
+document.querySelector('#addAiConnection').addEventListener('click', openProviderConnectionModal);
 document.querySelector('#closeProviderConnection').addEventListener('click', () => closeProviderConnectionModal(true));
 document.querySelector('#cancelProviderConnection').addEventListener('click', () => closeProviderConnectionModal(true));
 document.querySelector('#providerConnectionModal').addEventListener('click', (event) => {
@@ -2388,9 +2461,24 @@ document.querySelector('#providerConnectionModal').addEventListener('keydown', (
   if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
   else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
 });
+document.querySelector('#connectCodexFromModal').addEventListener('click', () => {
+  const addingAnotherAccount = state.providers.openai?.linked === true;
+  closeProviderConnectionModal();
+  void connectCodexAccount(addingAnotherAccount ? null : 'default');
+});
 document.querySelector('#connectClaudeFromModal').addEventListener('click', () => {
   closeProviderConnectionModal();
   void connectProvider('anthropic');
+});
+document.querySelector('#addChatGptFromModal').addEventListener('click', () => void addWebService('chatgpt'));
+document.querySelector('#addGeminiFromModal').addEventListener('click', () => void addWebService('gemini'));
+document.querySelector('#addApiFromModal').addEventListener('click', () => {
+  closeProviderConnectionModal();
+  openNewApiConnection();
+});
+document.querySelector('#accountsPanel').addEventListener('click', (event) => {
+  const button = event.target.closest('[data-delete-web-service]');
+  if (button) void removeWebService(button.dataset.deleteWebService);
 });
 document.querySelector('#claudeConnectionList').addEventListener('click', (event) => {
   const button = event.target.closest('[data-claude-action]');
@@ -2443,8 +2531,16 @@ document.querySelector('#addAgentFromModels').addEventListener('click', openNewA
 document.querySelector('#manageModelVisibility').addEventListener('click', () => showSettings('models'));
 document.querySelector('#manageProviderConnections').addEventListener('click', () => showSettings('accounts'));
 document.querySelector('#agentList').addEventListener('click', (event) => {
+  if (event.target.closest('[data-open-ai-connections]')) {
+    showSettings('accounts');
+    openProviderConnectionModal();
+    return;
+  }
   const button = event.target.closest('[data-agent-tab]');
   if (button) showSettings(button.dataset.agentTab);
+});
+document.querySelector('#aiConnectionEmptyState').addEventListener('click', (event) => {
+  if (event.target.closest('[data-open-ai-connections]')) openProviderConnectionModal();
 });
 document.querySelector('#codexAccountForm').addEventListener('submit', (event) => {
   event.preventDefault();
@@ -2469,7 +2565,9 @@ elements.codexAccountsList.addEventListener('click', (event) => {
   const disconnectButton = event.target.closest('[data-disconnect-codex-account]');
   if (disconnectButton) updateCodexAccountLink(disconnectButton.dataset.disconnectCodexAccount, 'disconnect');
   const deleteButton = event.target.closest('[data-delete-codex-account]');
+  const unlinkButton = event.target.closest('[data-unlink-codex-connection]');
   if (deleteButton) updateCodexAccountLink(deleteButton.dataset.deleteCodexAccount, 'delete');
+  if (unlinkButton) updateCodexAccountLink(unlinkButton.dataset.unlinkCodexConnection, 'unlink');
 });
 elements.settingsModal.addEventListener('click', (event) => { if (event.target === elements.settingsModal) hideSettings(); });
 elements.settingsModal.addEventListener('keydown', (event) => {

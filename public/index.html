@@ -19,8 +19,8 @@
       </div>
       <nav class="workspace-switcher" aria-label="작업 화면">
         <button class="workspace-tab" id="chatGptWorkspace" type="button" aria-pressed="true" title="Loopline 작업 공간"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#brand"></use></svg><span>작업 공간</span></button>
-        <a class="workspace-tab chatgpt-link" id="chatGptOpen" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer" title="ChatGPT 열기"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#chat"></use></svg><span>ChatGPT</span></a>
-        <a class="workspace-tab gemini-link" id="geminiOpen" href="https://gemini.google.com/app" target="_blank" rel="noopener noreferrer" title="Gemini 열기"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#sparkles"></use></svg><span>Gemini</span></a>
+        <a class="workspace-tab chatgpt-link" id="chatGptOpen" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer" title="ChatGPT 열기" hidden><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#chat"></use></svg><span>ChatGPT</span></a>
+        <a class="workspace-tab gemini-link" id="geminiOpen" href="https://gemini.google.com/app" target="_blank" rel="noopener noreferrer" title="Gemini 열기" hidden><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#sparkles"></use></svg><span>Gemini</span></a>
       </nav>
       <div class="app-header-actions">
         <div class="web-chat-controls" id="webChatControls" hidden>
@@ -241,7 +241,7 @@
         <div class="settings-layout">
         <div class="settings-tabs" role="tablist" aria-label="설정 메뉴" aria-orientation="vertical">
           <button type="button" id="usageTab" role="tab" aria-controls="usagePanel" aria-selected="false" tabindex="-1" data-settings-tab="usage"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#gauge"></use></svg><span>Usage</span></button>
-          <button type="button" id="accountsTab" role="tab" aria-controls="accountsPanel" aria-selected="true" data-settings-tab="accounts"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#user"></use></svg><span>구독 계정</span></button>
+          <button type="button" id="accountsTab" role="tab" aria-controls="accountsPanel" aria-selected="true" data-settings-tab="accounts"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#user"></use></svg><span>AI 연결</span></button>
           <button type="button" id="agentsTab" role="tab" aria-controls="agentsPanel" aria-selected="false" tabindex="-1" data-settings-tab="agents"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#plug"></use></svg><span>API 에이전트</span><span id="apiConnectionCount">0</span></button>
           <button type="button" id="modelsTab" role="tab" aria-controls="modelsPanel" aria-selected="false" tabindex="-1" data-settings-tab="models"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#sliders"></use></svg><span>모델 표시</span></button>
           <button type="button" id="historyTab" role="tab" aria-controls="historyPanel" aria-selected="false" tabindex="-1" data-settings-tab="history"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#import"></use></svg><span>대화 가져오기</span></button>
@@ -322,24 +322,25 @@
           <div class="appearance-web-note"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#chat"></use></svg><p>ChatGPT와 Gemini도 함께 전환하려면 각 서비스의 화면 설정을 <strong>시스템</strong>으로 선택하세요. 웹 대화의 상단 메뉴는 해당 화면의 색상을 따릅니다.</p></div>
         </div>
         <div id="accountsPanel" role="tabpanel" aria-labelledby="accountsTab" data-settings-panel="accounts">
-        <div class="settings-panel-heading"><h3>구독 계정</h3><p>웹 대화를 열거나 Codex·Claude 계정을 연결하세요.</p></div>
-        <div class="connection-row chatgpt-connection">
+        <div class="api-section-heading"><div class="settings-panel-heading"><h3>AI 연결</h3><p>원하는 서비스를 추가한 뒤 로그인하거나 API 키를 입력하세요.</p></div><button class="primary-button" id="addAiConnection" type="button"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#plus"></use></svg><span>AI 추가</span></button></div>
+        <div class="connection-empty" id="aiConnectionEmptyState" hidden><span class="connection-empty-icon" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 24 24"><use href="/icons.svg#plug"></use></svg></span><strong>아직 연결된 AI가 없습니다</strong><p>Codex, Claude Code, ChatGPT, Gemini 또는 API 에이전트를 원하는 만큼 추가하세요.</p><button class="secondary-button" type="button" data-open-ai-connections>AI 연결 선택</button></div>
+        <div class="connection-row chatgpt-connection" hidden>
           <div class="connection-logo" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 24 24"><use href="/icons.svg#chat"></use></svg></div>
           <div class="connection-details"><strong>ChatGPT</strong><small>ChatGPT에 로그인하여 대화와 프로젝트를 사용하세요.</small></div>
-          <div class="connection-actions"><span class="connection-status">공식 웹</span><a class="connect-button chatgpt-link" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">열기</a></div>
+          <div class="connection-actions"><span class="connection-status">공식 웹</span><div class="account-button-group"><a class="connect-button chatgpt-link" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">열기</a><button class="account-delete-button" type="button" data-delete-web-service="chatgpt">삭제</button></div></div>
         </div>
-        <div class="connection-row gemini-connection">
+        <div class="connection-row gemini-connection" hidden>
           <div class="connection-logo" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 24 24"><use href="/icons.svg#sparkles"></use></svg></div>
           <div class="connection-details"><strong>Gemini</strong><small>Google 계정으로 로그인하여 Gemini와 대화하세요.</small><small>앱에서 로그인이 제한되면 브라우저에서 열 수 있습니다.</small></div>
-          <div class="connection-actions"><span class="connection-status">공식 웹</span><a class="connect-button gemini-link" href="https://gemini.google.com/app" target="_blank" rel="noopener noreferrer">열기</a></div>
+          <div class="connection-actions"><span class="connection-status">공식 웹</span><div class="account-button-group"><a class="connect-button gemini-link" href="https://gemini.google.com/app" target="_blank" rel="noopener noreferrer">열기</a><button class="account-delete-button" type="button" data-delete-web-service="gemini">삭제</button></div></div>
         </div>
-        <div class="codex-account-section">
+        <div class="codex-account-section" id="codexAccountSection" hidden>
           <div class="codex-account-heading"><div><strong>Codex 계정</strong><small>계정별 로그인과 사용 한도를 관리합니다.</small></div><button class="add-account-button" id="addCodexAccount" type="button"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#plus"></use></svg><span>계정 추가</span></button></div>
           <div class="codex-account-list" id="codexAccountsList"></div>
           <form class="inline-account-form" id="codexAccountForm" hidden><input id="codexAccountName" maxlength="60" placeholder="계정 이름 (선택 사항)" aria-label="새 Codex 계정 이름" /><button type="submit" class="primary-button">로그인</button><button type="button" id="cancelCodexAccountForm" class="secondary-button">취소</button></form>
         </div>
-        <div class="provider-connection-section">
-          <div class="provider-connection-heading"><div><strong>Claude Code</strong><small>Loopline에서 사용할 CLI 연결을 관리합니다.</small></div><button class="add-account-button" id="addClaudeConnection" type="button"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#plus"></use></svg><span>연결 추가</span></button></div>
+        <div class="provider-connection-section" id="claudeConnectionSection" hidden>
+          <div class="provider-connection-heading"><div><strong>Claude Code</strong><small>이 Mac의 Claude Code CLI 계정을 사용합니다.</small></div></div>
           <div id="claudeConnectionList" class="provider-connection-list"></div>
         </div>
         <div class="login-feedback" id="loginFeedback" hidden></div>
@@ -390,12 +391,34 @@
     <div class="modal-backdrop provider-connection-backdrop" id="providerConnectionModal" hidden>
       <section class="project-modal provider-connection-dialog" role="dialog" aria-modal="true" aria-labelledby="providerConnectionTitle">
         <div class="modal-header"><div><p class="eyebrow">연결 추가</p><h2 id="providerConnectionTitle">AI 연결 선택</h2></div><button class="icon-button close-modal" id="closeProviderConnection" type="button" aria-label="닫기"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#close"></use></svg></button></div>
-        <p class="modal-description">연결할 서비스를 선택하세요. 연결은 이 앱에서만 등록되며, 기존 CLI 로그인 상태를 바꾸지 않습니다.</p>
-        <article class="connection-row provider-connection-choice">
-          <div class="connection-logo claude-logo" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 24 24"><use href="/icons.svg#asterisk"></use></svg></div>
-          <div class="connection-details"><strong>Claude Code</strong><small>이 Mac의 Claude Code CLI 계정을 사용합니다.</small><small id="claudeConnectionHint">연결하면 모델 선택과 대화에서 사용할 수 있습니다.</small></div>
-          <button class="connect-button" id="connectClaudeFromModal" type="button">연결</button>
-        </article>
+        <p class="modal-description">원하는 AI만 추가하세요. 추가한 서비스만 작업 공간과 모델 목록에 표시됩니다.</p>
+        <div class="provider-connection-options">
+          <article class="connection-row provider-connection-choice" id="codexConnectionChoice">
+            <span class="connection-logo openai-logo" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 24 24"><use href="/icons.svg#terminal"></use></svg></span>
+            <div class="connection-details"><strong>Codex</strong><small>이 Mac에 저장된 Codex 계정 또는 새 로그인 사용</small></div>
+            <button class="connect-button" id="connectCodexFromModal" type="button">추가</button>
+          </article>
+          <article class="connection-row provider-connection-choice" id="claudeConnectionChoice">
+            <span class="connection-logo claude-logo" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 24 24"><use href="/icons.svg#asterisk"></use></svg></span>
+            <div class="connection-details"><strong>Claude Code</strong><small>이 Mac의 Claude Code CLI 계정을 사용합니다.</small></div>
+            <button class="connect-button" id="connectClaudeFromModal" type="button">추가</button>
+          </article>
+          <article class="connection-row provider-connection-choice" id="chatgptConnectionChoice">
+            <span class="connection-logo" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 24 24"><use href="/icons.svg#chat"></use></svg></span>
+            <div class="connection-details"><strong>ChatGPT</strong><small>공식 웹 화면을 작업 공간에 추가합니다.</small></div>
+            <button class="connect-button" id="addChatGptFromModal" type="button">추가</button>
+          </article>
+          <article class="connection-row provider-connection-choice" id="geminiConnectionChoice">
+            <span class="connection-logo" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 24 24"><use href="/icons.svg#sparkles"></use></svg></span>
+            <div class="connection-details"><strong>Gemini</strong><small>Google 계정으로 공식 웹 화면을 사용합니다.</small></div>
+            <button class="connect-button" id="addGeminiFromModal" type="button">추가</button>
+          </article>
+          <article class="connection-row provider-connection-choice" id="apiConnectionChoice">
+            <span class="connection-logo" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 24 24"><use href="/icons.svg#plug"></use></svg></span>
+            <div class="connection-details"><strong>API 에이전트</strong><small>DeepSeek, OpenAI 호환 서비스와 로컬 API 연결</small></div>
+            <button class="connect-button" id="addApiFromModal" type="button">설정</button>
+          </article>
+        </div>
         <div class="project-modal-actions"><span></span><button class="secondary-button" id="cancelProviderConnection" type="button">취소</button></div>
       </section>
     </div>

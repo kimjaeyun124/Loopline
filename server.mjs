@@ -57,6 +57,7 @@ const locallyDisconnectedCodexAccounts = new Set();
 let providerConnectionsPromise;
 let providerConnectionWrites = Promise.resolve();
 const linkedProviders = new Set();
+const selectableProviderConnections = new Set(['openai', 'anthropic', 'chatgpt', 'gemini']);
 
 async function getLinkedProviders() {
   if (!providerConnectionsPromise) {
@@ -71,7 +72,7 @@ async function getLinkedProviders() {
       }
       if (!Array.isArray(saved?.linkedProviders)) throw new Error('AI 연결 목록 형식이 올바르지 않습니다.');
       for (const provider of saved.linkedProviders) {
-        if (provider === 'anthropic') linkedProviders.add(provider);
+        if (selectableProviderConnections.has(provider)) linkedProviders.add(provider);
       }
       return linkedProviders;
     })();
@@ -92,7 +93,7 @@ async function persistLinkedProviders() {
 }
 
 async function setProviderLinked(provider, linked) {
-  if (provider !== 'anthropic') throw Object.assign(new Error('지원하지 않는 연결입니다.'), { status: 400 });
+  if (!selectableProviderConnections.has(provider)) throw Object.assign(new Error('지원하지 않는 연결입니다.'), { status: 400 });
   await getLinkedProviders();
   const operation = providerConnectionWrites.then(async () => {
     const wasLinked = linkedProviders.has(provider);
@@ -499,12 +500,44 @@ async function removeAnthropicConnection() {
   return { disconnected: true, cliSessionPreserved: true };
 }
 
+async function removeOpenAiConnection() {
+  const context = await getCodexAccountContext('default');
+  if (context.activeTurns.size || context.pendingChatRequests.size) {
+    throw Object.assign(new Error('Codex 응답이 진행 중입니다. 완료하거나 중지한 뒤 앱 연결을 삭제해 주세요.'), { status: 409 });
+  }
+  if (context.loginJob && ['starting', 'running'].includes(context.loginJob.state)) {
+    throw Object.assign(new Error('Codex 로그인이 진행 중입니다. 로그인이 끝난 뒤 앱 연결을 삭제해 주세요.'), { status: 409 });
+  }
+  await setProviderLinked('openai', false);
+  context.client?.stop();
+  context.client = null;
+  context.loadedThreads.clear();
+  invalidateOpenAiStatus('default');
+  return { disconnected: true, cliSessionPreserved: true };
+}
+
 async function allProviderStatuses() {
-  const [openaiEntry, anthropic, claudeLinked] = await Promise.all([
-    openAiProviderStatus('default').then((value) => ['openai', value]),
-    anthropicProviderStatus(),
+  const [openaiLinked, claudeLinked, chatgptLinked, geminiLinked] = await Promise.all([
+    isProviderLinked('openai'),
     isProviderLinked('anthropic'),
+    isProviderLinked('chatgpt'),
+    isProviderLinked('gemini'),
   ]);
+  const [openaiStatus, anthropic] = await Promise.all([
+    openaiLinked
+      ? openAiProviderStatus('default')
+      : { installed: false, connected: false, label: '앱에 연결되지 않음', models: [] },
+    claudeLinked
+      ? anthropicProviderStatus()
+      : { installed: false, connected: false, label: '앱에 연결되지 않음' },
+  ]);
+  const codexStatus = {
+    ...openaiStatus,
+    linked: openaiLinked,
+    cliConnected: openaiStatus.connected === true,
+    connected: openaiLinked && openaiStatus.connected === true,
+    label: openaiLinked ? openaiStatus.label : '앱에 연결되지 않음',
+  };
   const claudeStatus = {
     ...anthropic,
     linked: claudeLinked,
@@ -512,26 +545,44 @@ async function allProviderStatuses() {
     connected: claudeLinked && anthropic.connected === true,
     label: claudeLinked ? anthropic.label : '앱에 연결되지 않음',
   };
-  return { openai: openaiEntry[1], anthropic: claudeStatus };
+  return {
+    openai: codexStatus,
+    anthropic: claudeStatus,
+    webServices: { chatgpt: chatgptLinked, gemini: geminiLinked },
+  };
 }
 
 async function allCodexAccountStatuses() {
   const accounts = await getCodexAccounts();
+  const defaultLinked = await isProviderLinked('openai');
   return Promise.all([...accounts.values()].map(async (account) => {
-    const status = await openAiProviderStatus(account.id);
+    const linked = !account.isDefault || defaultLinked;
+    const status = linked
+      ? await openAiProviderStatus(account.id)
+      : { installed: false, connected: false, label: '앱에 연결되지 않음', models: [] };
     const context = await getCodexAccountContext(account.id);
-    return { ...accountPublicInfo(account), ...status, loginJob: publicJob(context.loginJob) };
+    return {
+      ...accountPublicInfo(account),
+      ...status,
+      linked,
+      cliConnected: status.connected === true,
+      connected: linked && status.connected === true,
+      loginJob: publicJob(context.loginJob),
+    };
   }));
 }
 
 async function tokenUsageAccounts() {
-  const [recorded, codexAccounts, claudeStatus, claudeLinked, apiState] = await Promise.all([
+  const [recorded, codexAccounts, openaiLinked, claudeLinked, apiState] = await Promise.all([
     tokenUsageStore.accounts(),
     getCodexAccounts(),
-    anthropicProviderStatus().catch(() => ({ connected: false })),
+    isProviderLinked('openai'),
     isProviderLinked('anthropic'),
     apiConnections.list(),
   ]);
+  const claudeStatus = claudeLinked
+    ? await anthropicProviderStatus().catch(() => ({ connected: false }))
+    : { connected: false };
   const accounts = new Map();
   const add = (provider, id, name, connected) => {
     const titles = { codex: 'Codex', claude: 'Claude Code', api: 'API' };
@@ -541,7 +592,7 @@ async function tokenUsageAccounts() {
     });
   };
 
-  await Promise.all([...codexAccounts.values()].map(async (account) => {
+  await Promise.all([...codexAccounts.values()].filter((account) => !account.isDefault || openaiLinked).map(async (account) => {
     const status = locallyDisconnectedCodexAccounts.has(account.id)
       ? { connected: false }
       : await openAiProviderStatus(account.id).catch(() => ({ connected: false }));
@@ -563,6 +614,7 @@ async function tokenUsageAccounts() {
 }
 
 async function readCodexPlatformUsage(account) {
+  if (account.isDefault && !await isProviderLinked('openai')) return { connected: false, activity: null };
   if (locallyDisconnectedCodexAccounts.has(account.id)) return { connected: false, activity: null };
   const status = await openAiProviderStatus(account.id).catch(() => ({ connected: false }));
   if (!status.connected) return { connected: false, activity: null };
@@ -649,7 +701,9 @@ function combineTokenUsage(accountId, sources, tracked, warnings = []) {
 
 async function allAiTokenUsage() {
   const accounts = await getCodexAccounts();
-  const results = await Promise.all([...accounts.values()].map(async (account) => ({
+  const defaultLinked = await isProviderLinked('openai');
+  const eligibleAccounts = [...accounts.values()].filter((account) => !account.isDefault || defaultLinked);
+  const results = await Promise.all(eligibleAccounts.map(async (account) => ({
     account,
     ...(await readCodexPlatformUsage(account)),
   })));
@@ -1410,9 +1464,14 @@ function supportsCodexEffort(modelInfo, reasoningEffort) {
 
 async function codexTurnCandidates(requestedAccountId, model, reasoningEffort) {
   const accounts = await getCodexAccounts();
-  const selected = accounts.get(requestedAccountId);
-  if (!selected) throw Object.assign(new Error('Codex 계정을 찾을 수 없습니다.'), { status: 404 });
-  const ordered = [selected, ...[...accounts.values()].filter((account) => account.id !== selected.id)];
+  const defaultLinked = await isProviderLinked('openai');
+  const eligibleAccounts = [...accounts.values()].filter((account) => !account.isDefault || defaultLinked);
+  const selected = eligibleAccounts.find((account) => account.id === requestedAccountId);
+  if (!selected) {
+    const exists = accounts.has(requestedAccountId);
+    throw Object.assign(new Error(exists ? 'Codex 연결을 추가한 뒤 대화를 시작해 주세요.' : 'Codex 계정을 찾을 수 없습니다.'), { status: exists ? 401 : 404 });
+  }
+  const ordered = [selected, ...eligibleAccounts.filter((account) => account.id !== selected.id)];
   const statuses = new Map();
   for (const account of ordered) statuses.set(account.id, await openAiProviderStatus(account.id));
 
@@ -1440,7 +1499,8 @@ async function codexTurnCandidates(requestedAccountId, model, reasoningEffort) {
 
 async function codexFallbackCandidates(excludedAccountIds, model, reasoningEffort) {
   const accounts = await getCodexAccounts();
-  const remaining = [...accounts.values()].filter((account) => !excludedAccountIds.has(account.id));
+  const defaultLinked = await isProviderLinked('openai');
+  const remaining = [...accounts.values()].filter((account) => (!account.isDefault || defaultLinked) && !excludedAccountIds.has(account.id));
   for (const account of remaining) invalidateOpenAiStatus(account.id);
   const statuses = await Promise.all(remaining.map((account) => openAiProviderStatus(account.id)));
   return remaining.flatMap((account, index) => {
@@ -1621,6 +1681,9 @@ async function relayChat(req, res) {
     if (provider === 'anthropic' && !await isProviderLinked('anthropic')) {
       return json(res, 401, { error: 'Claude Code가 Loopline에 연결되어 있지 않습니다. 설정에서 연결을 추가해 주세요.' });
     }
+    if (provider === 'openai' && codexAccountId === 'default' && !await isProviderLinked('openai')) {
+      return json(res, 401, { error: 'Codex가 Loopline에 연결되어 있지 않습니다. 설정에서 연결을 추가해 주세요.' });
+    }
     if (provider === 'anthropic' && !modelAllowlist.anthropic.has(model)) {
       return json(res, 400, { error: '지원하지 않는 제공자 또는 모델입니다.' });
     }
@@ -1785,6 +1848,9 @@ const server = createServer(async (req, res) => {
     res.once('close', cancel);
     try {
       const accountId = url.searchParams.get('accountId') || 'default';
+      if (accountId === 'default' && !await isProviderLinked('openai')) {
+        return json(res, 401, { error: 'Codex 연결을 추가한 뒤 통계를 확인해 주세요.' });
+      }
       const context = await getCodexAccountContext(accountId);
       const status = await openAiProviderStatus(accountId);
       if (!status.connected) return json(res, 401, { error: 'Codex 계정을 연결한 뒤 통계를 확인해 주세요.' });
@@ -1885,6 +1951,7 @@ const server = createServer(async (req, res) => {
   if (req.method === 'POST' && codexAccountConnectMatch) {
     const accountId = codexAccountConnectMatch[1];
     try {
+      if (accountId === 'default') await setProviderLinked('openai', true);
       const status = await providerStatus('openai', accountId);
       if (!status.installed) return json(res, 503, { error: 'Codex CLI가 설치되어 있지 않습니다.', installCommand: status.installCommand });
       if (status.connected) return json(res, 200, { connected: true, message: '이미 계정이 연결되어 있습니다.' });
@@ -1915,8 +1982,28 @@ const server = createServer(async (req, res) => {
       return json(res, error.status || 502, { error: error.message || 'Codex 계정을 삭제하지 못했습니다.' });
     }
   }
-  if ((req.method === 'DELETE' && url.pathname === '/api/provider-connections/anthropic')
-    || (req.method === 'POST' && url.pathname === '/api/disconnect/anthropic')) {
+  const providerConnectionMatch = url.pathname.match(/^\/api\/provider-connections\/(openai|anthropic|chatgpt|gemini)$/);
+  if (req.method === 'DELETE' && providerConnectionMatch) {
+    try {
+      const provider = providerConnectionMatch[1];
+      if (provider === 'anthropic') return json(res, 200, await removeAnthropicConnection());
+      if (provider === 'openai') return json(res, 200, await removeOpenAiConnection());
+      await setProviderLinked(provider, false);
+      return json(res, 200, { disconnected: true, siteLoginPreserved: true });
+    } catch (error) {
+      return json(res, error.status || 502, { error: error.message || '앱 연결을 삭제하지 못했습니다.' });
+    }
+  }
+  if (req.method === 'POST' && /^\/api\/provider-connections\/(chatgpt|gemini)$/.test(url.pathname)) {
+    const provider = url.pathname.split('/').at(-1);
+    try {
+      await setProviderLinked(provider, true);
+      return json(res, 200, { connected: true, provider });
+    } catch (error) {
+      return json(res, error.status || 500, { error: error.message || '웹 대화 서비스를 추가하지 못했습니다.' });
+    }
+  }
+  if (req.method === 'POST' && url.pathname === '/api/disconnect/anthropic') {
     try {
       return json(res, 200, await removeAnthropicConnection());
     } catch (error) {
@@ -1938,17 +2025,16 @@ const server = createServer(async (req, res) => {
         return json(res, error.status || 502, { error: error.message || 'Claude Code 연결을 시작하지 못했습니다.' });
       }
     }
-    const status = await providerStatus(provider);
-    if (!status.installed) return json(res, 503, { error: providers[provider].label + ' CLI가 설치되어 있지 않습니다.', installCommand: status.installCommand });
-    if (status.connected) return json(res, 200, { connected: true, message: '이미 계정이 연결되어 있습니다.' });
-    if (provider === 'openai') {
-      try {
-        const job = await startOpenAiLogin();
-        if (job.connected) return json(res, 200, { connected: true, message: '저장된 Codex 인증을 다시 사용합니다.' });
-        return json(res, 202, { state: job.state, authUrl: job.authUrl, message: 'ChatGPT 로그인 창에서 인증을 완료해 주세요.' });
-      } catch (error) {
-        return json(res, 502, { error: error.message || 'ChatGPT 로그인 절차를 시작하지 못했습니다.' });
-      }
+    try {
+      await setProviderLinked('openai', true);
+      const status = await providerStatus(provider);
+      if (!status.installed) return json(res, 503, { error: providers[provider].label + ' CLI가 설치되어 있지 않습니다.', installCommand: status.installCommand });
+      if (status.connected) return json(res, 200, { connected: true, message: '이미 계정이 연결되어 있습니다.' });
+      const job = await startOpenAiLogin();
+      if (job.connected) return json(res, 200, { connected: true, message: '저장된 Codex 인증을 다시 사용합니다.' });
+      return json(res, 202, { state: job.state, authUrl: job.authUrl, message: 'ChatGPT 로그인 창에서 인증을 완료해 주세요.' });
+    } catch (error) {
+      return json(res, error.status || 502, { error: error.message || 'Codex 연결을 시작하지 못했습니다.' });
     }
   }
   if (req.method === 'POST' && url.pathname === '/api/chat') return relayChat(req, res);
@@ -1957,6 +2043,7 @@ const server = createServer(async (req, res) => {
       const body = await readJson(req);
       if (!validCodexThreadId(body.threadId)) return json(res, 400, { error: 'Codex 대화 식별자가 올바르지 않습니다.' });
       const accountId = typeof body.codexAccountId === 'string' ? body.codexAccountId : 'default';
+      if (accountId === 'default' && !await isProviderLinked('openai')) return json(res, 401, { error: 'Codex 연결을 추가한 뒤 대화를 관리해 주세요.' });
       const context = await getCodexAccountContext(accountId);
       if (context.activeTurns.has(body.threadId)) return json(res, 409, { error: '응답이 진행 중인 Codex 대화는 삭제할 수 없습니다.' });
       const client = await getCodexAppServer(context);

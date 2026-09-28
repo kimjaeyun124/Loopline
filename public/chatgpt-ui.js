@@ -1,9 +1,24 @@
 export function createChatGptUI({ beforeOpen, onWorkspace }) {
-  const services = [
+  const serviceLinks = [
     { id: 'chatgpt', name: 'ChatGPT', hostname: 'chatgpt.com', icon: 'chat', bridge: window.looplineChatGpt, link: document.querySelector('#chatGptOpen') },
     { id: 'gemini', name: 'Gemini', hostname: 'gemini.google.com', icon: 'sparkles', bridge: window.looplineGemini, link: document.querySelector('#geminiOpen') },
-  ].filter((service) => service.bridge && service.link);
-  if (!services.length) return { showWorkspace() {} };
+  ].filter((service) => service.link);
+  const services = serviceLinks.filter((service) => service.bridge);
+  let activeService = null;
+  const setEnabled = (enabled = {}) => {
+    for (const service of serviceLinks) {
+      const visible = enabled[service.id] === true;
+      document.querySelectorAll(`.${service.id}-link`).forEach((link) => { link.hidden = !visible; });
+      if (!visible && activeService?.id === service.id) showWorkspace();
+    }
+  };
+  if (!services.length) {
+    return {
+      showWorkspace() {},
+      setEnabled,
+      openService(id) { serviceLinks.find((service) => service.id === id)?.link.click(); },
+    };
+  }
 
   const workspace = document.querySelector('.main-panel');
   const panel = document.querySelector('#chatGptPanel');
@@ -21,7 +36,6 @@ export function createChatGptUI({ beforeOpen, onWorkspace }) {
   const forwardButton = document.querySelector('#chatGptForward');
   const reloadButton = document.querySelector('#chatGptReload');
   const overlays = [...document.querySelectorAll('.modal-backdrop, .search-backdrop')];
-  let activeService = null;
   let pendingFrame = 0;
   const previousLayouts = new Map();
   const states = new Map();
@@ -148,5 +162,14 @@ export function createChatGptUI({ beforeOpen, onWorkspace }) {
     unsubscribe.forEach((stop) => stop());
   }, { once: true });
 
-  return { showWorkspace };
+  return {
+    showWorkspace,
+    setEnabled,
+    openService(id) {
+      const service = services.find((item) => item.id === id);
+      const link = serviceLinks.find((item) => item.id === id)?.link;
+      if (service) open(service);
+      else link?.click();
+    },
+  };
 }

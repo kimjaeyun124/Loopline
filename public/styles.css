@@ -70,6 +70,7 @@ button, a, input, textarea, select { -webkit-app-region: no-drag; }
 .desktop .app-header { padding-left: 96px; -webkit-app-region: drag; }
 .workspace-switcher { position: absolute; left: 50%; display: flex; align-items: center; gap: 4px; transform: translateX(-50%); }
 .workspace-tab { display: inline-flex; height: 30px; align-items: center; justify-content: center; gap: 7px; padding: 0 11px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--secondary); font-size: 12px; font-weight: 500; text-decoration: none; white-space: nowrap; cursor: pointer; }
+.workspace-tab[hidden], .connection-row[hidden], .provider-connection-section[hidden], .codex-account-section[hidden], .connection-empty[hidden] { display: none !important; }
 .workspace-tab > .ui-icon { width: 15px; height: 15px; }
 .workspace-tab:hover { background: var(--sidebar-hover); color: var(--ink); }
 .workspace-tab[aria-pressed="true"], .workspace-tab[aria-current="page"] { border-color: var(--line); background: var(--soft); color: var(--ink); font-weight: 550; }
@@ -643,9 +644,18 @@ kbd { margin-left: auto; color: var(--muted); font-family: inherit; font-size: 1
 .provider-connection-empty { padding: 13px 0 0; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; line-height: 1.6; }
 .provider-connection-backdrop { z-index: 11; }
 .provider-connection-dialog { width: min(100%, 520px); }
-.provider-connection-choice { margin: 0 0 14px; }
+.provider-connection-options { display: grid; gap: 8px; }
+.provider-connection-dialog .provider-connection-choice { margin: 0; padding: 12px; border: 1px solid var(--line); border-radius: 11px; }
 .provider-connection-choice .connection-details small + small { margin-top: 2px; }
 .provider-connection-choice .connect-button { flex: 0 0 auto; }
+.connection-empty { display: grid; justify-items: start; gap: 9px; margin: 14px 0; padding: 22px; border: 1px dashed var(--line-strong); border-radius: 12px; background: var(--sidebar); }
+.connection-empty-icon { display: grid; width: 34px; height: 34px; place-items: center; border: 1px solid var(--line); border-radius: 10px; color: var(--secondary); }
+.connection-empty-icon .ui-icon { width: 17px; height: 17px; }
+.connection-empty > strong { color: var(--ink); font-size: 13px; }
+.connection-empty > p { max-width: 420px; margin: 0; color: var(--muted); font-size: 11px; line-height: 1.6; }
+.agent-list-empty { display: grid; gap: 7px; padding: 8px 9px 10px 34px; color: var(--muted); font-size: 10px; }
+.agent-list-empty button { width: fit-content; padding: 0; border: 0; background: transparent; color: var(--ink); font-size: 10px; cursor: pointer; }
+.agent-list-empty button:hover { text-decoration: underline; }
 .settings-dialog .api-section-heading { margin: 0 0 22px; }
 .settings-dialog .api-section-heading h3 { font-size: 17px; font-weight: 600; letter-spacing: -.025em; }
 .settings-dialog .api-section-heading p { font-size: 12px; }

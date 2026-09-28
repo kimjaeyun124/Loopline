@@ -1421,7 +1421,7 @@ function validCodexThreadId(value) {
   return typeof value === 'string' && value.length <= 160 && /^[A-Za-z0-9_-]+$/.test(value);
 }
 
-async function ensureCodexThread(context, requestedId, model) {
+async function ensureCodexThread(context, requestedId, model, ephemeral = false) {
   const client = await getCodexAppServer(context);
   const cwd = await codexSandboxDir(context);
   if (requestedId && !validCodexThreadId(requestedId)) {
@@ -1449,10 +1449,12 @@ async function ensureCodexThread(context, requestedId, model) {
     sandbox: 'read-only',
     developerInstructions: codexProgressInstructions,
     serviceName: 'mosaic_desk',
+    // Harness steps are recorded in Loopline itself; keep internal model calls out of Codex history.
+    ...(ephemeral ? { ephemeral: true } : {}),
   });
   const id = result.thread?.id;
   if (!validCodexThreadId(id)) throw new Error('Codex app-server가 대화 식별자를 반환하지 않았습니다.');
-  context.loadedThreads.add(id);
+  if (!ephemeral) context.loadedThreads.add(id);
   return { id, cwd, created: true };
 }
 
@@ -1516,7 +1518,7 @@ async function codexFallbackCandidates(excludedAccountIds, model, reasoningEffor
   });
 }
 
-async function runCodexTurnAttempt(context, model, messages, requestedThreadId, res, instructions, fastMode, accountStatus, reasoningEffort) {
+async function runCodexTurnAttempt(context, model, messages, requestedThreadId, res, instructions, fastMode, accountStatus, reasoningEffort, ephemeralCodexThread = false) {
   const client = await getCodexAppServer(context);
   const modelInfo = accountStatus.models?.find((item) => item.id === model);
   const supportedEfforts = modelInfo?.supportedReasoningEfforts
@@ -1535,7 +1537,7 @@ async function runCodexTurnAttempt(context, model, messages, requestedThreadId, 
     : null;
   let thread;
   try {
-    thread = await ensureCodexThread(context, requestedThreadId, model);
+    thread = await ensureCodexThread(context, requestedThreadId, model, ephemeralCodexThread);
   } catch (error) {
     return { error: error.message || 'Codex 대화를 열지 못했습니다.', rateLimited: isUsageLimitError(error) };
   }
@@ -1617,7 +1619,7 @@ async function runCodexTurnAttempt(context, model, messages, requestedThreadId, 
   return completion;
 }
 
-async function runCodexTurn(requestedAccountId, model, messages, requestedThreadId, res, instructions = '', fastMode = false, reasoningEffort = null) {
+async function runCodexTurn(requestedAccountId, model, messages, requestedThreadId, res, instructions = '', fastMode = false, reasoningEffort = null, ephemeralCodexThread = false) {
   let candidates;
   try {
     candidates = await codexTurnCandidates(requestedAccountId, model, reasoningEffort);
@@ -1647,7 +1649,7 @@ async function runCodexTurn(requestedAccountId, model, messages, requestedThread
     context.pendingChatRequests.add(reservation);
     let result;
     try {
-      result = await runCodexTurnAttempt(context, model, messages, threadId, res, instructions, fastMode, accountStatus, reasoningEffort);
+      result = await runCodexTurnAttempt(context, model, messages, threadId, res, instructions, fastMode, accountStatus, reasoningEffort, ephemeralCodexThread);
     } finally {
       context.pendingChatRequests.delete(reservation);
     }
@@ -1672,7 +1674,7 @@ async function runCodexTurn(requestedAccountId, model, messages, requestedThread
   }
 }
 
-async function relayChat(req, res) {
+async function relayChat(req, res, internalOptions = {}) {
   let reservedContext = null;
   let reservation = null;
   try {
@@ -1786,7 +1788,7 @@ async function relayChat(req, res) {
       'X-Accel-Buffering': 'no',
       'X-Content-Type-Options': 'nosniff',
     });
-    if (provider === 'openai') await runCodexTurn(codexAccountId, model, messages, body.codexThreadId, res, instructions, body.fastMode === true, body.reasoningEffort);
+    if (provider === 'openai') await runCodexTurn(codexAccountId, model, messages, body.codexThreadId, res, instructions, body.fastMode === true, body.reasoningEffort, internalOptions.ephemeralCodexThread === true);
     else await runClaudeCli(model, conversationPrompt(messages, instructions), res, body.reasoningEffort,
       (usage, usedModel) => recordTokenUsage({
         provider: 'claude',
@@ -1854,7 +1856,7 @@ async function invokeHarnessModel(selection, prompt, instructions, signal) {
     messages: (`${instructions.length > 24000 ? `추가 프로젝트 지침:\n${instructions.slice(24000)}\n\n` : ''}${prompt}`.match(/[\s\S]{1,35000}/g) || [prompt]).map((content) => ({ role: 'user', content })),
   }))]);
   try {
-    await relayChat(request, response);
+    await relayChat(request, response, { ephemeralCodexThread: true });
     if (signal.aborted) throw signal.reason;
     if (failure || !done || !output.trim()) throw new Error(failure || '모델의 완료 응답을 받지 못했습니다.');
     return output;

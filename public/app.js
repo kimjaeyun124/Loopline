@@ -977,8 +977,19 @@ function connectionSummary() {
 let statusRequestInProgress = false;
 let statusPollTimer = null;
 
+function displayModelName(value) {
+  return typeof value === 'string' ? value.replace(/^models\//, '') : '';
+}
+
 function updateApiConnections(status) {
-  state.apiConnections = Array.isArray(status.connections) ? status.connections : [];
+  state.apiConnections = Array.isArray(status.connections) ? status.connections.map((connection) => ({
+    ...connection,
+    models: Array.isArray(connection.models) ? connection.models.map((model) => ({
+      ...model,
+      label: displayModelName(model.label || model.id),
+      displayId: displayModelName(model.id),
+    })) : [],
+  })) : [];
   state.keyStorage = status.keyStorage || 'session';
   apiConnectionsUI.update({ connections: state.apiConnections, keyStorage: state.keyStorage });
 }

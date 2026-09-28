@@ -25,7 +25,9 @@ export async function startFixture({ delay = 0 } = {}) {
     const body = JSON.parse(Buffer.concat(parts)); calls.push(body);
     const prompt = body.messages.filter((item) => item.role === 'user').map((item) => item.content).join('');
     let answer;
-    if (prompt.includes('구현 계획과 검증 기준')) answer = 'file.txt를 읽고 두 회차에 걸쳐 수정한 뒤 실제 검증 명령으로 확인합니다. / Read, revise, and verify.';
+    if (prompt.startsWith('새 프로젝트의 작업 폴더')) answer = JSON.stringify({ folderName: 'qa-project', reason: 'QA 작업 폴더 자동 생성' });
+    else if (prompt.startsWith('검증 방법을')) answer = prompt.includes('\"content\":') ? JSON.stringify({ verifyCommand: 'test \"$(cat file.txt)\" = \"updated 2\"', reason: 'file.txt의 실제 내용을 확인합니다.' }) : JSON.stringify({ operations: [{ type: 'read', path: 'file.txt' }] });
+    else if (prompt.includes('구현 계획과 검증 기준')) answer = 'file.txt를 읽고 두 회차에 걸쳐 수정한 뒤 실제 검증 명령으로 확인합니다. / Read, revise, and verify.';
     else if (prompt.startsWith('변경 결과를')) {
       const passed = prompt.includes('"code":0');
       answer = JSON.stringify({ decision: passed ? 'complete' : 'revise', summary: passed ? '검증 통과 · 두 번째 회차 완료 / Verified and completed' : '다음 회차에서 updated 2로 수정 / Revision needed', feedback: passed ? '' : 'file.txt를 updated 2로 수정하세요.' });
@@ -33,7 +35,7 @@ export async function startFixture({ delay = 0 } = {}) {
       const round = Number(prompt.match(/회차 (\d+)\//)?.[1] || 1);
       const history = prompt.split('최근 도구 결과:\n')[1] || '';
       answer = JSON.stringify(history.includes('"completed":true') ? { done: true, summary: `file.txt를 updated ${round}로 수정했습니다.` }
-        : history.includes('"content":') ? { operations: [{ type: 'write', path: 'file.txt', content: `updated ${round}\n` }] }
+        : (history.includes('"content":') || prompt.includes('도구 오류:')) ? { operations: [{ type: 'write', path: 'file.txt', content: `updated ${round}\n` }] }
           : { operations: [{ type: 'read', path: 'file.txt' }] });
     }
     const timer = setTimeout(() => {

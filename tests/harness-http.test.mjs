@@ -39,3 +39,14 @@ test('HTTP stop aborts streaming request and releases the source for a new run',
   const result = await until(async () => { const value = await f.request(`/api/harness/runs/${next.id}`); return value.finishedAt ? value : null; });
   assert.equal(result.status, 'completed', result.summary);
 });
+
+test('HTTP automatic setup creates a project and the judge reads files before each verification', async (t) => {
+  const f = await startFixture(); t.after(f.close);
+  const created = await f.request('/api/harness/runs', { ...f.input, workspace: undefined, verifyCommand: undefined });
+  const run = await until(async () => { const value = await f.request(`/api/harness/runs/${created.id}`); return value.finishedAt ? value : null; });
+  assert.equal(run.status, 'completed', run.summary);
+  assert.equal(run.round, 2); assert.equal(run.automaticVerification, true);
+  assert.equal(await readFile(join(run.source, 'file.txt'), 'utf8'), 'updated 2\n');
+  assert.equal(run.events.filter((event) => event.title.startsWith('검증 자동 구성')).length, 2);
+  assert.ok(f.calls.filter((call) => call.messages.some((message) => message.content.startsWith('검증 방법을'))).every((call) => call.model === 'jev-qa'));
+});

@@ -12,7 +12,7 @@ function setup(t, { storage = new Map(), project = null } = {}) {
       fire(name, target = this) { return this.listeners[name]?.({ target, key: 'Escape', stopPropagation() {} }); } });
     return nodes.get(id);
   };
-  let failStorage = false, failProject = false, projectSaves = 0;
+  let failStorage = false;
   for (const key of ['document', 'localStorage', 'window']) {
     const original = Object.getOwnPropertyDescriptor(globalThis, key);
     t.after(() => original ? Object.defineProperty(globalThis, key, original) : delete globalThis[key]);
@@ -23,10 +23,10 @@ function setup(t, { storage = new Map(), project = null } = {}) {
   const model = { provider: 'api', id: 'jev-test', label: 'Jev Test', source: 'QA', connected: true, reasoningEfforts: ['medium', 'high'] };
   const state = { conversations: [], activeProjectId: 'project' };
   const ui = createHarnessUI({ state, catalog: () => [model], modelKey: (item) => item.id, currentKey: () => model.id,
-    getProject: () => project, saveProjects: () => { projectSaves++; return !failProject; },
+    getProject: () => project, saveProjects() {},
     saveConversations() {}, render() {}, toast() {}, instructions() {}, onComplete() {} });
   return { ui, node, storage, saved: () => JSON.parse(storage.get(KEY)),
-    failStorage: (value) => { failStorage = value; }, failProject: (value) => { failProject = value; }, projectSaves: () => projectSaves };
+    failStorage: (value) => { failStorage = value; } };
 }
 
 test('role, effort and options save without the completion button', (t) => {
@@ -40,45 +40,24 @@ test('role, effort and options save without the completion button', (t) => {
   assert.match(s.node('#harnessSaveStatus').textContent, /자동 저장됨/);
 });
 
-test('folder and command survive closing and creating a fresh UI instance', (t) => {
+test('model settings survive a fresh UI instance without workspace inputs', (t) => {
   const s = setup(t); s.ui.open();
-  s.node('#harnessWorkspace').value = '/work/project'; s.node('#harnessWorkspace').fire('input');
-  s.node('#harnessVerify').value = 'npm test'; s.node('#harnessVerify').fire('input');
+  s.node('#harnessRoles').fire('change', { dataset: { harnessRole: 'worker' }, value: 'jev-test' });
+  s.node('#harnessRoles').fire('change', { dataset: { harnessEffort: 'worker' }, value: 'high' });
   s.node('#harnessModal').fire('keydown');
   const reloaded = setup(t, { storage: s.storage }); reloaded.ui.open();
-  assert.equal(reloaded.node('#harnessWorkspace').value, '/work/project');
-  assert.equal(reloaded.node('#harnessVerify').value, 'npm test');
-});
-
-test('native folder picker saves immediately; role changes preserve project settings', async (t) => {
-  const project = { workspace: '/project-specific', verifyCommand: 'make check' };
-  const s = setup(t, { project }); s.ui.open();
-  s.node('#harnessRoles').fire('change', { dataset: { harnessRole: 'planner' }, value: 'jev-test' });
-  assert.equal(s.projectSaves(), 0);
-  assert.equal(project.workspace, '/project-specific');
-  await s.node('#harnessChooseFolder').fire('click');
-  assert.equal(project.workspace, '/chosen/project');
-  assert.equal(project.verifyCommand, 'make check');
-  assert.equal(s.saved().workspace, '/chosen/project');
+  assert.match(reloaded.node('#harnessRoles').innerHTML, /value="high" selected/);
+  assert.deepEqual(reloaded.saved().roles.worker, { model: 'jev-test', effort: 'high' });
 });
 
 test('storage failure stays visible and completion retries before closing', (t) => {
   const s = setup(t); s.ui.open(); s.failStorage(true);
-  s.node('#harnessVerify').value = 'npm test'; s.node('#harnessVerify').fire('input');
+  s.node('#harnessRoles').fire('change', { dataset: { harnessRole: 'judge' }, value: 'jev-test' });
   assert.match(s.node('#harnessSaveStatus').textContent, /저장하지 못했습니다/);
   s.node('#harnessSave').fire('click'); assert.equal(s.node('#harnessModal').hidden, false);
   s.failStorage(false); s.node('#harnessSave').fire('click');
   assert.equal(s.node('#harnessModal').hidden, true);
-  assert.equal(s.saved().verifyCommand, 'npm test');
-});
-
-test('failed project persistence is retried even when config storage succeeds', (t) => {
-  const s = setup(t, { project: {} }); s.ui.open(); s.failProject(true);
-  s.node('#harnessVerify').value = 'make check'; s.node('#harnessVerify').fire('input');
-  assert.match(s.node('#harnessSaveStatus').textContent, /저장하지 못했습니다/);
-  s.failProject(false); s.node('#harnessSave').fire('click');
-  assert.equal(s.projectSaves(), 2);
-  assert.equal(s.node('#harnessModal').hidden, true);
+  assert.equal(s.saved().roles.judge.model, 'jev-test');
 });
 
 test('opening settings preserves saved effort when the model is temporarily unavailable', (t) => {

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, readFile, rm, symlink } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, rm, symlink, realpath } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createServer } from 'node:http';
@@ -189,4 +189,59 @@ test('repeated identical reads stop early instead of consuming every tool step',
   const run = await settled(engine, (await engine.create(f.input)).id);
   assert.equal(run.status, 'failed'); assert.match(run.summary, /같은 읽기 작업/); assert.equal(calls, 4);
   assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'original\n');
+});
+
+test('judge creates a managed project and configures verification from implemented files', async (t) => {
+  const f = await fixture(t), script = modelScript(complete);
+  let inspected = false;
+  const engine = new HarnessEngine({ directory: f.data, verify: async (_workspace, command) => {
+    assert.equal(command, 'test -f file.txt'); assert.equal(inspected, true); return pass();
+  }, invoke: async (selection, prompt, ...rest) => {
+    if (prompt.startsWith('새 프로젝트의 작업 폴더')) return JSON.stringify({ folderName: 'generated-project', reason: 'Goal-specific folder' });
+    if (prompt.startsWith('검증 방법을')) {
+      assert.equal(selection.model, 'jev-fixture');
+      if (!prompt.includes('"content":')) return JSON.stringify({ operations: [{ type: 'read', path: 'file.txt' }] });
+      inspected = true; return JSON.stringify({ verifyCommand: 'test -f file.txt', reason: 'Check output exists' });
+    }
+    return script(selection, prompt, ...rest);
+  } });
+  const run = await settled(engine, (await engine.create({ ...f.input, workspace: undefined, verifyCommand: undefined })).id);
+  assert.equal(run.status, 'completed', run.summary);
+  assert.ok(run.source.startsWith(join(await realpath(f.data), 'harness', 'projects')));
+  assert.ok(run.source.endsWith('/generated-project'));
+  assert.equal(await readFile(join(run.source, 'file.txt'), 'utf8'), 'updated 1\n');
+  assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'original\n');
+  assert.ok(run.events.some((event) => event.title.startsWith('검증 자동 구성')));
+  // Subsequent turns explicitly reuse the returned source rather than creating another project.
+  const next = await settled(engine, (await engine.create({ ...f.input, workspace: run.source, verifyCommand: undefined })).id);
+  assert.equal(next.status, 'completed', next.summary);
+  assert.equal(next.source, run.source); assert.equal(next.managedProject, false);
+});
+
+test('judge folder names cannot escape the managed project directory', async (t) => {
+  const f = await fixture(t);
+  const engine = new HarnessEngine({ directory: f.data, invoke: async () => JSON.stringify({ folderName: '../../outside' }) });
+  const run = await settled(engine, (await engine.create({ ...f.input, workspace: undefined, verifyCommand: undefined })).id);
+  assert.equal(run.status, 'failed'); assert.equal(run.source, null);
+  assert.match(run.summary, /폴더 이름/); assert.equal(engine.sources.size, 0);
+});
+
+test('verification setup cannot mutate files and never applies on configuration failure', async (t) => {
+  const f = await fixture(t), script = modelScript(complete);
+  const engine = new HarnessEngine({ directory: f.data, verify: () => assert.fail('must not verify'), invoke: (selection, prompt, ...rest) => prompt.startsWith('검증 방법을')
+    ? JSON.stringify({ operations: [{ type: 'write', path: 'file.txt', content: 'override' }] }) : script(selection, prompt, ...rest) });
+  const run = await settled(engine, (await engine.create({ ...f.input, verifyCommand: undefined })).id);
+  assert.equal(run.status, 'failed'); assert.match(run.summary, /읽기만 허용/);
+  assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'original\n');
+});
+
+test('stop during automatic project setup cancels the judge before creating a source', async (t) => {
+  const f = await fixture(t); let ready; const started = new Promise((resolve) => { ready = resolve; });
+  const engine = new HarnessEngine({ directory: f.data, invoke: (_model, _prompt, _instructions, signal) => {
+    ready(); return new Promise((_resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+  } });
+  const run = await engine.create({ ...f.input, workspace: undefined, verifyCommand: undefined });
+  await started; await engine.stop(run.id);
+  const stopped = await settled(engine, run.id);
+  assert.equal(stopped.status, 'stopped'); assert.equal(stopped.source, null); assert.equal(engine.sources.size, 0);
 });

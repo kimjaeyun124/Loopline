@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { constants as fsConstants } from 'node:fs';
-import { access, open, readdir, realpath } from 'node:fs/promises';
+import { access, open, readFile, readdir, realpath } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { basename, delimiter, dirname, join, relative, resolve, sep } from 'node:path';
 import { promisify } from 'node:util';
@@ -38,11 +38,21 @@ function codexPlainContent(content) {
     .join('\n');
 }
 
-function codexSummary(metadata, path, stat, preview) {
+function codexInjectedContext(content) {
+  return /^<(?:recommended_plugins|app-context|environment_context|permissions instructions|skills_instructions|multi_agent_role|multi_agent_mode|collaboration_mode|in-app-browser-context|image_resize_notice|send_user_message_question_reply)(?:\s|>)/i
+    .test(content.trimStart());
+}
+
+function codexSummary(metadata, path, stat, preview, threadName = '') {
   const sourceKind = codexSource(metadata);
   const localId = createHash('sha256').update(path).digest('hex');
   const sessionId = text(metadata.session_id || metadata.id, 120);
-  const title = text(metadata.title || preview || '제목 없는 Codex 대화', 160).trim();
+  const recordedTitle = [threadName, metadata.title, metadata.summary].map((candidate) => text(candidate, 160).trim())
+    .find((candidate) => candidate && !codexInjectedContext(candidate));
+  const fallbackTitle = stat.mtimeMs
+    ? `Codex 대화 · ${new Date(stat.mtimeMs).toLocaleString('ko-KR', { dateStyle: 'medium', timeStyle: 'short' })}`
+    : 'Codex 대화';
+  const title = text(recordedTitle || fallbackTitle, 160).trim();
   return {
     id: localId, provider: 'openai', accountId: 'default', sourceKind,
     sourceLabel: `Codex · ${SOURCE_LABELS[sourceKind]}`,
@@ -50,6 +60,23 @@ function codexSummary(metadata, path, stat, preview) {
     title, preview: text(preview, 240), cwd: text(metadata.cwd, 500),
     updatedAt: stat.mtimeMs || date(metadata.timestamp), model: text(metadata.model),
   };
+}
+
+async function codexSessionNames(codexHome) {
+  try {
+    const rows = (await readFile(join(codexHome, 'session_index.jsonl'), 'utf8')).split('\n');
+    const names = new Map();
+    for (const line of rows) {
+      if (!line.trim()) continue;
+      try {
+        const row = JSON.parse(line);
+        if (typeof row.id === 'string' && typeof row.thread_name === 'string' && row.thread_name.trim()) {
+          names.set(row.id, row.thread_name.trim());
+        }
+      } catch { /* A partial final index row should not block importing sessions. */ }
+    }
+    return names;
+  } catch { return new Map(); }
 }
 
 function plainContent(content) {
@@ -88,7 +115,7 @@ async function transcriptFiles(root, { maxDepth = 7, maxFiles = MAX_DISCOVERED_F
   return found;
 }
 
-async function codexMetadata(root, path) {
+async function codexMetadata(root, path, sessionNames = new Map()) {
   const { file, stat } = await openTranscript(root, path);
   try {
     const prefix = Buffer.alloc(Math.min(stat.size, CODEX_HEADER_BYTES));
@@ -101,12 +128,14 @@ async function codexMetadata(root, path) {
       try { row = JSON.parse(line); } catch { continue; }
       if (row.type === 'session_meta' && row.payload && typeof row.payload === 'object') metadata = row.payload;
       if (!preview && row.type === 'response_item' && row.payload?.type === 'message' && row.payload.role === 'user') {
-        preview = codexPlainContent(row.payload.content).trim();
+        const content = codexPlainContent(row.payload.content).trim();
+        if (content && !codexInjectedContext(content)) preview = content;
       }
       if (metadata && preview) break;
     }
     if (!metadata) return null;
-    return codexSummary(metadata, path, stat, preview);
+    const sessionId = text(metadata.session_id || metadata.id, 120);
+    return codexSummary(metadata, path, stat, preview, sessionNames.get(sessionId));
   } finally { await file.close(); }
 }
 
@@ -463,12 +492,14 @@ async function claudeMetadata(root, path) {
 
 export class ConversationHistory {
   constructor({ codexHome = process.env.CODEX_HOME || join(homedir(), '.codex'), claudeHome = process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude') } = {}) {
-    this.codexRoot = join(resolve(codexHome), 'sessions');
-    this.codexArchivedRoot = join(resolve(codexHome), 'archived_sessions');
+    this.codexHome = resolve(codexHome);
+    this.codexRoot = join(this.codexHome, 'sessions');
+    this.codexArchivedRoot = join(this.codexHome, 'archived_sessions');
     this.claudeRoot = join(resolve(claudeHome), 'projects');
     this.clineRoot = join(homedir(), '.cline', 'data', 'sessions');
     this.geminiRoot = join(homedir(), '.gemini', 'tmp');
     this.codexFiles = new Map();
+    this.codexSessionNames = new Map();
     this.claudeFiles = new Map();
     this.clineFiles = new Map();
     this.geminiFiles = new Map();
@@ -684,13 +715,15 @@ export class ConversationHistory {
     }
     if (options.provider === 'openai') {
       const root = options.archived ? this.codexArchivedRoot : this.codexRoot;
+      const sessionNames = await codexSessionNames(this.codexHome);
+      this.codexSessionNames = sessionNames;
       const paths = await transcriptFiles(root, { match: (name) => /^rollout-.*\.jsonl$/i.test(name) });
       const catalog = [];
       const files = new Map();
       let skipped = 0;
       for (const path of paths) {
         try {
-          const item = await codexMetadata(root, path);
+          const item = await codexMetadata(root, path, sessionNames);
           if (!item) continue;
           files.set(item.id, { root, path });
           if (allowed(item.sourceKind, options) && (!options.query || `${item.title} ${item.preview} ${item.cwd}`.toLocaleLowerCase().includes(options.query.toLocaleLowerCase()))) {
@@ -827,7 +860,7 @@ export class ConversationHistory {
       if (typeof input.id !== 'string' || !/^[a-f0-9]{64}$/.test(input.id)) throw fail('올바르지 않은 Codex 대화입니다.');
       const selected = this.codexFiles.get(input.id);
       if (!selected) throw fail('대화 목록을 새로고침한 뒤 다시 선택해 주세요.', 404);
-      const summary = await codexMetadata(selected.root, selected.path);
+      const summary = await codexMetadata(selected.root, selected.path, this.codexSessionNames);
       if (!summary) throw fail('Codex 대화의 기본 정보를 읽지 못했습니다.');
       if (!allowed(summary.sourceKind, options)) throw fail('이 대화의 출처를 가져오기 필터에서 먼저 선택해 주세요.');
       const { file } = await openTranscript(selected.root, selected.path);
@@ -840,6 +873,7 @@ export class ConversationHistory {
         if (role !== 'user' && role !== 'assistant') continue;
         if (role === 'assistant' && row.payload.phase && !['final_answer', 'commentary'].includes(row.payload.phase)) continue;
         const content = codexPlainContent(row.payload.content).trim();
+        if (role === 'user' && codexInjectedContext(content)) continue;
         if (content) messages.push({ role, content });
       }
       return importResult(summary, messages);

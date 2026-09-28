@@ -14,10 +14,11 @@ import { modelEffortCapability } from './public/model-capabilities.mjs';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const codexProgressInstructions = [
-  '실행이 필요한 여러 단계의 작업에서는 사용자에게 진행 상황을 간결한 한국어 문장으로 알려 주세요.',
-  '작업을 시작할 때와 중요한 단계가 바뀔 때 다음에 할 일을 한두 문장으로 말하고, 각 단계가 끝난 뒤 확인한 사실과 다음 단계를 알려 주세요.',
-  '이 진행 설명은 사용자에게 보여도 되는 상태 업데이트로 별도 commentary 메시지에 작성하고, 최종 결과와 내부 추론은 섞지 마세요.',
-  '단순 질문에는 진행 설명을 덧붙이지 말고, 같은 내용을 반복하거나 도구 호출마다 설명하지 마세요.',
+  '실행이 필요한 여러 단계의 작업에서는 중요한 단계가 바뀔 때 사용자에게 보이는 간결한 진행 안내를 별도 commentary 메시지로 작성하세요.',
+  '각 안내는 같은 사실을 담은 한국어 한 문장과 자연스러운 영어 번역 한 문장으로 구성하고, 각각 `한국어:`와 `English:`를 붙이세요.',
+  '작업 시작과 단계 전환에는 다음에 할 일을, 단계가 끝난 뒤에는 실제로 확인한 결과와 다음 단계를 설명하세요.',
+  '최종 답변과 진행 안내를 분리하세요. 내부 추론이나 비공개 분석을 공개하지 말고, 사용자에게 이해 가능한 목표·현재 상태·확인 결과만 전달하세요.',
+  '단순 질문에는 진행 안내를 덧붙이지 말고, 같은 내용을 반복하거나 도구 호출마다 설명하지 마세요. 확인되지 않은 진행 상황은 만들어내지 마세요.',
 ].join('\n');
 const publicDir = join(root, 'public');
 const userDataDir = resolve(process.env.MOSAIC_USER_DATA_DIR || join(homedir(), '.mosaic-desk'));

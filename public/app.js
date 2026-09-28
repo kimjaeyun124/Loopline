@@ -535,10 +535,10 @@ function renderMessages() {
       const elapsedMs = message.pending ? Date.now() - (message.startedAt || Date.now()) : message.workedForMs;
       const activityItems = Array.isArray(message.activities) ? message.activities : [];
       const activityMarkup = activityItems.length ? `<details class="worked-for-details" data-activity-message-id="${escapeHtml(message.id || '')}"${message.activityExpanded !== false ? ' open' : ''}>
-        <summary class="worked-for-row"><span class="worked-for-label" data-worked-for="${escapeHtml(message.id || '')}">${hasWorkedFor ? formatWorkedFor(elapsedMs) : '작업 과정'}</span>${message.pending ? '<span class="worked-for-live"><i aria-hidden="true"></i>진행 중</span>' : ''}</summary>
+        <summary class="worked-for-row"><span class="worked-for-label" data-worked-for="${escapeHtml(message.id || '')}">${hasWorkedFor ? formatWorkedFor(elapsedMs) : '작업 과정'}</span>${message.pending ? '<span class="worked-for-live"><i aria-hidden="true"></i>Running · 진행 중</span>' : ''}</summary>
         <ol class="assistant-activity-list" aria-label="작업 단계">${activityItems.map((activity) => activity.kind === 'commentary'
           ? `<li class="activity-commentary activity-${escapeHtml(activity.status)}"><div class="activity-commentary-text">${renderMarkdown(activity.text || '', { copyDisabled: true })}</div></li>`
-          : `<li class="activity-${escapeHtml(activity.status)}"><span class="activity-marker" aria-hidden="true"></span><div><span class="activity-event-label">${icon(activityIconName(activity))}<strong>${escapeHtml(activity.title)}</strong><span class="activity-state">${activityStatusLabel(activity.status)}</span></span>${activity.detail ? `<small>${escapeHtml(activity.detail)}</small>` : ''}</div></li>`).join('')}</ol>${message.activityMode === 'lifecycle' ? '<p class="activity-availability-note">이 연결은 실제 실행 단계 이벤트를 제공하지 않아 요청과 응답 상태만 표시합니다.</p>' : ''}
+          : `<li class="activity-${escapeHtml(activity.status)}"><span class="activity-marker" aria-hidden="true"></span><div><span class="activity-event-label">${icon(activityIconName(activity))}<strong>${escapeHtml(activityTitleLabel(activity))}</strong><span class="activity-state">${activityStatusLabel(activity.status)}</span></span>${activityDisplayDetail(activity) ? `<small>${escapeHtml(activityDisplayDetail(activity))}</small>` : ''}</div></li>`).join('')}</ol>${message.activityMode === 'lifecycle' ? '<p class="activity-availability-note">This connection reports request and response status only; live tool events are unavailable. · 이 연결은 요청과 응답 상태만 제공하며 실시간 도구 작업은 표시할 수 없습니다.</p>' : ''}
       </details>` : hasWorkedFor ? `<div class="worked-for-row"><span class="worked-for-label" data-worked-for="${escapeHtml(message.id || '')}">${formatWorkedFor(elapsedMs)}</span>${message.pending ? '<span class="worked-for-live"><i aria-hidden="true"></i>진행 중</span>' : ''}</div>` : '';
       return `<article class="message assistant${errorClass}" data-message-id="${escapeHtml(message.id || '')}">
         <div class="assistant-response">
@@ -561,7 +561,49 @@ function renderMessages() {
 }
 
 function activityStatusLabel(status) {
-  return ({ pending: '대기', running: '진행 중', completed: '완료', failed: '실패', stopped: '중지' })[status] || '완료';
+  return ({
+    pending: 'Pending · 대기',
+    running: 'Running · 진행 중',
+    completed: 'Completed · 완료',
+    failed: 'Failed · 실패',
+    stopped: 'Stopped · 중지',
+  })[status] || 'Completed · 완료';
+}
+
+function activityTitleLabel(activity) {
+  if (activity.id.startsWith('codex-plan-')) return 'Plan · 작업 계획';
+  const labels = {
+    '요청 전송': 'Request sent',
+    '응답 생성 중': 'Waiting for response',
+    '응답 작성 중': 'Writing response',
+    '응답 완료': 'Response complete',
+    '응답 실패': 'Response failed',
+    '응답 중지': 'Response stopped',
+    'Codex가 요청을 처리하는 중': 'Codex is working',
+    'Codex 요청 처리': 'Codex request',
+    '요청 분석': 'Analyzing request',
+    '명령 실행': ({ running: 'Running commands', completed: 'Ran commands', failed: 'Command failed', stopped: 'Command stopped' })[activity.status] || 'Commands',
+    '파일 변경': ({ running: 'Editing files', completed: 'Edited files', failed: 'File changes failed', stopped: 'File changes stopped' })[activity.status] || 'File changes',
+    '연결 도구 실행': ({ running: 'Using connected tool', completed: 'Used connected tool', failed: 'Connected tool failed', stopped: 'Connected tool stopped' })[activity.status] || 'Connected tool',
+    '도구 실행': ({ running: 'Running tool', completed: 'Ran tool', failed: 'Tool failed', stopped: 'Tool stopped' })[activity.status] || 'Tool',
+    '에이전트 협업': ({ running: 'Working with agent', completed: 'Worked with agent', failed: 'Agent collaboration failed', stopped: 'Agent collaboration stopped' })[activity.status] || 'Agent collaboration',
+    '하위 에이전트 작업': 'Sub-agent work',
+    '웹 검색': ({ running: 'Searching the web', completed: 'Searched the web', failed: 'Web search failed', stopped: 'Web search stopped' })[activity.status] || 'Web search',
+    '이미지 확인': ({ running: 'Viewing image', completed: 'Viewed image', failed: 'Image view failed', stopped: 'Image view stopped' })[activity.status] || 'Image view',
+    '잠시 대기': ({ running: 'Waiting', completed: 'Waited', failed: 'Wait failed', stopped: 'Wait stopped' })[activity.status] || 'Wait',
+    '이미지 생성': ({ running: 'Generating image', completed: 'Generated image', failed: 'Image generation failed', stopped: 'Image generation stopped' })[activity.status] || 'Image generation',
+    '변경 사항 검토': 'Reviewing changes',
+    '검토 완료': 'Review complete',
+    '대화 맥락 정리': 'Updating conversation context',
+    '도구 결과 수신': 'Received tool result',
+  };
+  const english = labels[activity.title];
+  return english ? `${english} · ${activity.title}` : activity.title;
+}
+
+function activityDisplayDetail(activity) {
+  if (activity.id.startsWith('codex-plan-')) return activity.title;
+  return activity.detail;
 }
 
 function activityIconName(activity) {

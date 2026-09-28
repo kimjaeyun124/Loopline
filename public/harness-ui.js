@@ -15,8 +15,24 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
   };
   const modal = document.querySelector('#harnessModal');
   const fields = document.querySelector('#harnessRoles');
+  const saveStatus = document.querySelector('#harnessSaveStatus');
   let activeRunId = null, watching = false, starting = false, stopRequested = false;
-  const save = () => localStorage.setItem(KEY, JSON.stringify(config));
+  let projectSavePending = false;
+  const save = () => {
+    try {
+      localStorage.setItem(KEY, JSON.stringify(config));
+      if (projectSavePending) {
+        if (saveProjects() === false) throw new Error('Project settings were not saved');
+        projectSavePending = false;
+      }
+      saveStatus.textContent = '자동 저장됨 · 다음 실행부터 적용';
+      return true;
+    } catch {
+      saveStatus.textContent = '저장하지 못했습니다. 완료를 눌러 다시 시도하세요.';
+      toast('Harness 설정을 저장하지 못했습니다. 저장 공간을 확인해 주세요.');
+      return false;
+    }
+  };
   const currentProject = () => getProject(state.conversations.find((c) => c.id === state.activeId)?.projectId || state.activeProjectId);
   const connected = () => catalog().filter((model) => model.connected);
   const efforts = (model) => model?.provider === 'openai'
@@ -38,7 +54,8 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
   function renderRoles() {
     fields.innerHTML = ROLES.map(([role, title]) => {
       const model = choose(role), supported = efforts(model);
-      return `<div class="harness-role"><label class="project-field"><span>${title}</span><select data-harness-role="${role}" aria-label="${title} 모델"><option value="">${role === 'judge' ? '자동 · Jev 연결' : '자동 · 모델 기능에 맞춰 배정'}</option>${connected().map((item) => `<option value="${escape(modelKey(item))}"${config.roles[role].model === modelKey(item) ? ' selected' : ''}>${escape(item.label)} · ${escape(item.source)}</option>`).join('')}</select></label><label class="project-field"><span>Effort</span><select data-harness-effort="${role}" aria-label="${title} 추론 강도"${!supported.length ? ' disabled' : ''}><option value="">${supported.length ? '자동' : '서비스 기본값'}</option>${supported.map((value) => `<option value="${escape(value)}"${config.roles[role].effort === value ? ' selected' : ''}>${escape(value)}</option>`).join('')}</select></label><small>${model ? `${escape(model.label)} · ${escape(resolveEffort(role, model) || '서비스 기본 추론')}` : role === 'judge' ? 'Jev를 연결하거나 사용할 판정 모델을 직접 선택하세요.' : '연결된 모델이 필요합니다.'}</small></div>`;
+      const unavailableEffort = config.roles[role].effort && !supported.includes(config.roles[role].effort);
+      return `<div class="harness-role"><label class="project-field"><span>${title}</span><select data-harness-role="${role}" aria-label="${title} 모델"><option value="">${role === 'judge' ? '자동 · Jev 연결' : '자동 · 모델 기능에 맞춰 배정'}</option>${config.roles[role].model && !model ? `<option selected value="${escape(config.roles[role].model)}">저장된 모델 · 연결 확인 필요</option>` : ''}${connected().map((item) => `<option value="${escape(modelKey(item))}"${config.roles[role].model === modelKey(item) ? ' selected' : ''}>${escape(item.label)} · ${escape(item.source)}</option>`).join('')}</select></label><label class="project-field"><span>Effort</span><select data-harness-effort="${role}" aria-label="${title} 추론 강도"${!supported.length ? ' disabled' : ''}><option value="">${supported.length ? '자동' : '서비스 기본값'}</option>${unavailableEffort ? `<option selected value="${escape(config.roles[role].effort)}">${escape(config.roles[role].effort)} · 지원 확인 필요</option>` : ''}${supported.map((value) => `<option value="${escape(value)}"${config.roles[role].effort === value ? ' selected' : ''}>${escape(value)}</option>`).join('')}</select></label><small>${model ? `${escape(model.label)} · ${escape(unavailableEffort ? '저장된 추론 강도의 지원 여부를 확인해 주세요.' : resolveEffort(role, model) || '서비스 기본 추론')}` : role === 'judge' ? 'Jev를 연결하거나 사용할 판정 모델을 직접 선택하세요.' : '연결된 모델이 필요합니다.'}</small></div>`;
     }).join('');
   }
   function open() {
@@ -47,26 +64,30 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
     document.querySelector('#harnessWorkspace').value = project?.workspace || config.workspace;
     document.querySelector('#harnessVerify').value = project?.verifyCommand || config.verifyCommand;
     document.querySelector('#harnessAutoApply').checked = config.autoApply;
-    for (const [role] of ROLES) if (!efforts(choose(role)).includes(config.roles[role].effort)) config.roles[role].effort = '';
     renderRoles(); modal.hidden = false; document.querySelector('#harnessWorkspace').focus();
   }
   function close() { modal.hidden = true; document.querySelector('#harnessConfigure').focus(); }
   fields.addEventListener('change', (event) => {
     if (event.target.dataset.harnessRole) { const role = event.target.dataset.harnessRole; config.roles[role] = { model: event.target.value, effort: '' }; }
     if (event.target.dataset.harnessEffort) config.roles[event.target.dataset.harnessEffort].effort = event.target.value;
-    renderRoles();
+    save(); renderRoles();
   });
-  document.querySelector('#harnessSave').addEventListener('click', () => {
-    config.workspace = document.querySelector('#harnessWorkspace').value.trim();
-    config.verifyCommand = document.querySelector('#harnessVerify').value.trim();
-    config.autoApply = document.querySelector('#harnessAutoApply').checked;
+  function saveWorkspaceField(key, value) {
+    config[key] = value.trim();
     const project = currentProject();
-    if (project) { project.workspace = config.workspace; project.verifyCommand = config.verifyCommand; saveProjects(); }
-    save(); close(); toast('Harness 구성을 저장했습니다.');
+    // Save only the edited field so changing models cannot overwrite another project's folder.
+    if (project) { project[key] = config[key]; projectSavePending = true; }
+    save();
+  }
+  document.querySelector('#harnessWorkspace').addEventListener('input', (event) => saveWorkspaceField('workspace', event.target.value));
+  document.querySelector('#harnessVerify').addEventListener('input', (event) => saveWorkspaceField('verifyCommand', event.target.value));
+  document.querySelector('#harnessAutoApply').addEventListener('change', (event) => {
+    config.autoApply = event.target.checked; save();
   });
+  document.querySelector('#harnessSave').addEventListener('click', () => { if (save()) close(); });
   document.querySelector('#harnessChooseFolder').addEventListener('click', async () => {
     if (!window.looplineWorkspace) { document.querySelector('#harnessWorkspace').focus(); return toast('웹에서는 프로젝트의 절대 경로를 입력해 주세요.'); }
-    try { const path = await window.looplineWorkspace.chooseFolder(); if (path) document.querySelector('#harnessWorkspace').value = path; }
+    try { const path = await window.looplineWorkspace.chooseFolder(); if (path) { document.querySelector('#harnessWorkspace').value = path; saveWorkspaceField('workspace', path); } }
     catch { toast('폴더를 선택하지 못했습니다. 경로를 직접 입력할 수 있습니다.'); }
   });
   document.querySelector('#harnessClose').addEventListener('click', close);

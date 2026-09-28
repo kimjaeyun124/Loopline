@@ -332,8 +332,10 @@ function loadProjects() {
 function saveProjects() {
   try {
     localStorage.setItem(PROJECT_STORAGE_KEY, JSON.stringify(state.projects));
+    return true;
   } catch {
     showToast('브라우저 저장 공간이 부족해 프로젝트를 저장하지 못했습니다.');
+    return false;
   }
 }
 

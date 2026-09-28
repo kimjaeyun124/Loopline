@@ -534,6 +534,7 @@ kbd { margin-left: auto; color: var(--muted); font-family: inherit; font-size: 1
 .activity-account { display: flex; min-width: 0; max-width: 230px; flex-direction: column; gap: 6px; }
 .activity-account > span { color: var(--muted); font-size: 10px; }
 .activity-account select { max-width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--canvas); color: var(--ink); font: inherit; font-size: 12px; text-overflow: ellipsis; }
+.activity-scope-note { margin: -4px 0 12px; color: var(--muted); font-size: 10px; line-height: 1.6; }
 .activity-status, .activity-range { margin: 0 0 16px; color: var(--muted); font-size: 11px; line-height: 1.6; }
 .activity-status.usage-low { color: var(--danger); }
 .activity-metrics { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); margin: 0 0 28px; padding: 17px 0; border: 1px solid var(--line); border-radius: 13px; }

@@ -499,7 +499,7 @@ async function tokenUsageAccounts() {
 
   const order = { codex: 0, claude: 1, api: 2 };
   return [
-    { id: 'all', provider: 'all', name: '모든 AI', connected: true, label: '모든 AI 사용량' },
+    { id: 'all', provider: 'all', name: '전체 계정 통합', connected: true, label: '전체 계정 통합 · 모든 AI' },
     ...[...accounts.values()].sort((a, b) => order[a.provider] - order[b.provider] || a.name.localeCompare(b.name, 'ko')),
   ];
 }

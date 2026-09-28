@@ -211,8 +211,9 @@ export function createUsageActivityUI({ getAccounts, getActiveAccountId }) {
       const signature = JSON.stringify(accounts.map(({ id, label }) => [id, label]));
       if (signature !== selectedKey || !accounts.some((account) => account.id === source.value)) {
         const previous = source.value;
+        const isInitialLoad = selectedKey === '';
         source.innerHTML = accounts.map((account) => `<option value="${escape(account.id)}">${escape(account.label)}</option>`).join('');
-        source.value = accounts.some((account) => account.id === previous) ? previous : 'all';
+        source.value = !isInitialLoad && accounts.some((account) => account.id === previous) ? previous : 'all';
         source.disabled = accounts.length <= 1;
         selectedKey = signature;
       }

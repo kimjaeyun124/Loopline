@@ -158,7 +158,6 @@ const modelVisibilityUI = createModelVisibilityUI({
 });
 let projectImportReturnsToSettings = false;
 const historyImportUI = createHistoryImportUI({
-  getAccounts: () => state.codexAccounts.map((account) => ({ ...account, displayName: codexAccountDisplayName(account) })),
   getProjects: () => state.projects,
   isImported: historyAlreadyImported,
   onImport: commitHistoryImport,
@@ -245,7 +244,7 @@ function loadConversations() {
           codexThreadId: typeof item.codexThreadId === 'string' ? item.codexThreadId : null,
           codexAccountId: typeof item.codexAccountId === 'string' ? item.codexAccountId : 'default',
           projectId: typeof item.projectId === 'string' ? item.projectId : null,
-          importSource: ['openai', 'anthropic'].includes(item.importSource) ? item.importSource : null,
+          importSource: ['openai', 'anthropic', 'cline', 'opencode', 'ollama'].includes(item.importSource) ? item.importSource : null,
           sourceId: typeof item.sourceId === 'string' ? item.sourceId.slice(0, 240) : null,
           historySourceLabel: typeof item.historySourceLabel === 'string' ? item.historySourceLabel.slice(0, 80) : null,
           updatedAt: Number(item.updatedAt) || Date.now(),
@@ -309,12 +308,17 @@ function commitHistoryImport(items, projectId) {
   for (const item of items) {
     if (historyAlreadyImported(item) || seen.has(item.sourceKey)) continue;
     seen.add(item.sourceKey);
-    const models = modelsForProvider(item.provider);
-    const model = models.some((candidate) => candidate.id === item.model) ? item.model : models[0]?.id || '';
+    const provider = ['openai', 'anthropic'].includes(item.provider)
+      ? item.provider
+      : Object.hasOwn(PROVIDERS, state.provider) ? state.provider : 'openai';
+    const models = modelsForProvider(provider);
+    const model = models.some((candidate) => candidate.id === item.model)
+      ? item.model
+      : models.some((candidate) => candidate.id === state.model) ? state.model : models[0]?.id || '';
     additions.push({
-      id: crypto.randomUUID(), title: item.title.slice(0, 80), provider: item.provider,
-      model, connectionId: null, codexThreadId: null,
-      codexAccountId: item.accountId || state.activeCodexAccountId,
+      id: crypto.randomUUID(), title: item.title.slice(0, 80), provider,
+      model, connectionId: provider === 'api' ? state.activeConnectionId : null, codexThreadId: null,
+      codexAccountId: provider === 'openai' ? (item.provider === 'openai' ? item.accountId : state.activeCodexAccountId) : 'default',
       projectId: project(projectId)?.id || null,
       importSource: item.provider, sourceId: item.sourceKey,
       historySourceLabel: item.sourceLabel, updatedAt: item.updatedAt || Date.now(),
@@ -449,7 +453,7 @@ function renderProjectList() {
       <button class="project-select-button" type="button" data-select-project="all"><span class="project-icon">${icon('chat')}</span><span>모든 작업</span></button>
     </div>`, ...state.projects.map((item) => `
     <div class="project-row${item.id === state.activeProjectId ? ' active' : ''}">
-      <button class="project-select-button" type="button" data-select-project="${escapeHtml(item.id)}"><span class="project-icon" title="${item.importSource === 'anthropic' ? 'Claude에서 가져옴' : item.importSource === 'openai' ? 'ChatGPT에서 가져옴' : 'Loopline 프로젝트'}">${icon('folder')}</span><span class="project-name">${escapeHtml(item.name)}</span><span class="project-count">${state.conversations.filter((conversation) => conversation.projectId === item.id).length}</span></button>
+      <button class="project-select-button" type="button" data-select-project="${escapeHtml(item.id)}"><span class="project-icon" title="${item.importSource === 'anthropic' ? 'Claude에서 가져옴' : item.importSource === 'openai' ? 'ChatGPT에서 가져옴' : item.importSource === 'cline' ? 'Cline에서 가져옴' : item.importSource === 'opencode' ? 'OpenCode에서 가져옴' : item.importSource === 'ollama' ? 'Ollama에서 가져옴' : 'Loopline 프로젝트'}">${icon('folder')}</span><span class="project-name">${escapeHtml(item.name)}</span><span class="project-count">${state.conversations.filter((conversation) => conversation.projectId === item.id).length}</span></button>
       <button class="project-edit-button" type="button" data-edit-project="${escapeHtml(item.id)}" aria-label="${escapeHtml(item.name)} 프로젝트 편집" title="프로젝트 편집">${icon('more')}</button>
     </div>`)];
   elements.projectList.innerHTML = rows.join('');
@@ -1413,7 +1417,7 @@ function moveConversationToProject() {
 }
 
 function importSourceName(provider) {
-  return provider === 'anthropic' ? 'Claude' : 'ChatGPT';
+  return provider === 'anthropic' ? 'Claude' : provider === 'ollama' ? 'Ollama' : 'ChatGPT';
 }
 
 async function selectProjectImportFile(file) {

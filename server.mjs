@@ -28,9 +28,7 @@ const port = Number(process.env.PORT || 4173);
 const host = process.env.HOST || '127.0.0.1';
 const apiConnections = new ApiConnections(userDataDir);
 const tokenUsageStore = new TokenUsageStore(userDataDir);
-const conversationHistory = new ConversationHistory({
-  getCodexClient: async (accountId) => getCodexAppServer(await getCodexAccountContext(accountId)),
-});
+const conversationHistory = new ConversationHistory({ codexHome: defaultCodexHome });
 
 const providers = {
   openai: {
@@ -1753,6 +1751,11 @@ const server = createServer(async (req, res) => {
     if (accountId.length > 200) return json(res, 400, { error: '통계 계정 식별자가 올바르지 않습니다.' });
     try { return json(res, 200, await tokenUsageForAccount(accountId)); }
     catch (error) { return json(res, 500, { error: error.message || '토큰 사용 기록을 불러오지 못했습니다.' }); }
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/history/sources') {
+    try { return json(res, 200, await conversationHistory.sources()); }
+    catch (error) { return json(res, error.status || 500, { error: error.message || '이 Mac의 AI 대화 기록을 찾지 못했습니다.' }); }
   }
 
   if (req.method === 'POST' && ['/api/history/list', '/api/history/read'].includes(url.pathname)) {

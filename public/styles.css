@@ -810,8 +810,9 @@ kbd { margin-left: auto; color: var(--muted); font-family: inherit; font-size: 1
 }
 
 .history-import-modal { width: min(100%, 850px); }
-.history-source-controls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.history-source-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .history-source-controls .project-field { margin-top: 0; }
+.history-source-status { margin: 11px 0 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; color: var(--muted); font-size: 11px; line-height: 1.6; }
 .history-filters { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 18px; margin: 18px 0; color: var(--secondary); font-size: 12px; }
 .history-filters > span { color: var(--muted); }
 .history-filters label, .history-selection-bar label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }

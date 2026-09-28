@@ -1,6 +1,6 @@
 const escape = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
 
-export function createHistoryImportUI({ getAccounts, getProjects, isImported, onImport, onFileImport, onClose, isBusy, showToast }) {
+export function createHistoryImportUI({ getProjects, isImported, onImport, onFileImport, onClose, isBusy, showToast }) {
   const element = (id) => document.getElementById(id);
   const modal = element('historyImportModal');
   let items = [];
@@ -17,7 +17,6 @@ export function createHistoryImportUI({ getAccounts, getProjects, isImported, on
   function options() {
     return {
       provider: element('historyProvider').value,
-      accountId: element('historyAccount').value || 'default',
       includeCli: element('historyIncludeCli').checked,
       includeUnknown: element('historyIncludeUnknown').checked,
       archived: element('historyArchived').checked,
@@ -61,6 +60,25 @@ export function createHistoryImportUI({ getAccounts, getProjects, isImported, on
     return data;
   }
 
+  async function refreshSourceStatus(signal, current) {
+    const status = element('historySourceStatus');
+    status.textContent = '설치된 프로그램의 로컬 대화 기록을 찾고 있습니다.';
+    try {
+      const response = await fetch('/api/history/sources', { signal });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || '설치된 프로그램을 확인하지 못했습니다.');
+      if (current !== revision || modal.hidden) return;
+      const sources = Array.isArray(data.sources) ? data.sources : [];
+      const available = sources.filter((source) => source.available);
+      status.textContent = [
+        available.length ? `가져올 수 있는 로컬 기록: ${available.map((source) => source.name).join(', ')}.` : '가져올 수 있는 로컬 대화를 찾지 못했습니다.',
+        ...sources.filter((source) => !source.available).map((source) => source.detail),
+      ].filter(Boolean).join(' ');
+    } catch (failure) {
+      if (failure.name !== 'AbortError' && current === revision) status.textContent = '로컬 프로그램을 확인하지 못했습니다. 서버가 실행 중인지 확인해 주세요.';
+    }
+  }
+
   async function load(append = false) {
     if (importing) return;
     controller?.abort();
@@ -77,6 +95,8 @@ export function createHistoryImportUI({ getAccounts, getProjects, isImported, on
     element('historyNotice').textContent = '목록을 불러오는 중입니다.';
     render();
     try {
+      if (!append) await refreshSourceStatus(controller.signal, current);
+      if (current !== revision || modal.hidden) return;
       const result = await request('list', { ...input, cursor: append ? cursor : null }, controller.signal);
       if (current !== revision || modal.hidden) return;
       const byId = new Map([...items, ...result.data].map((item) => [item.id, item]));
@@ -169,9 +189,6 @@ export function createHistoryImportUI({ getAccounts, getProjects, isImported, on
   function open() {
     if (isBusy()) { showToast('응답이 끝난 뒤 대화를 가져와 주세요.'); return false; }
     returnFocus = document.activeElement;
-    const accounts = getAccounts();
-    element('historyAccount').innerHTML = (accounts.length ? accounts : [{ id: 'default', name: '로컬 Codex 계정' }])
-      .map((account) => `<option value="${escape(account.id)}">${escape(account.displayName || account.email || account.name)}</option>`).join('');
     element('historyProject').innerHTML = '<option value="">프로젝트 미지정</option>' + getProjects().map((project) => `<option value="${escape(project.id)}">${escape(project.name)}</option>`).join('');
     element('historyIncludeCli').checked = false;
     element('historyIncludeUnknown').checked = false;
@@ -189,10 +206,9 @@ export function createHistoryImportUI({ getAccounts, getProjects, isImported, on
   element('historyLoadMore').addEventListener('click', () => load(true));
   element('refreshHistory').addEventListener('click', () => load());
   element('historySearchForm').addEventListener('submit', (event) => { event.preventDefault(); void load(); });
-  for (const id of ['historyProvider', 'historyAccount', 'historyIncludeCli', 'historyIncludeUnknown', 'historyArchived']) {
+  for (const id of ['historyProvider', 'historyIncludeCli', 'historyIncludeUnknown', 'historyArchived']) {
     element(id).addEventListener('change', () => {
       const isCodex = element('historyProvider').value === 'openai';
-      element('historyAccountField').hidden = !isCodex;
       element('historyArchivedLabel').hidden = !isCodex;
       void load();
     });

@@ -183,10 +183,10 @@
         <div class="modal-header"><div><p class="eyebrow">History</p><h2 id="historyImportTitle">기존 대화 가져오기</h2></div><button class="icon-button close-modal" id="closeHistoryImport" type="button" aria-label="대화 가져오기 닫기"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#close"></use></svg></button></div>
         <p class="modal-description">원하는 대화만 골라 Loopline에서 이어가세요. 선택한 시점의 텍스트를 복사하며, 원본과 자동 동기화하지 않습니다.</p>
         <div class="history-source-controls">
-          <label class="project-field"><span>대화 출처</span><select id="historyProvider"><option value="openai">Codex</option><option value="anthropic">Claude Code</option></select></label>
-          <label class="project-field" id="historyAccountField"><span>Codex 계정</span><select id="historyAccount"></select></label>
+          <label class="project-field"><span>대화 출처</span><select id="historyProvider"><option value="openai">Codex</option><option value="anthropic">Claude Code</option><option value="cline">Cline</option><option value="opencode">OpenCode</option><option value="ollama">Ollama</option></select></label>
           <label class="project-field"><span>가져올 프로젝트</span><select id="historyProject"></select></label>
         </div>
+        <p class="history-source-status" id="historySourceStatus" role="status">이 Mac에 설치된 AI 프로그램의 로컬 대화 기록을 확인합니다.</p>
         <div class="history-filters"><span>앱·IDE 기본 표시</span><label><input type="checkbox" id="historyIncludeCli" /> CLI 대화 포함</label><label><input type="checkbox" id="historyIncludeUnknown" /> 출처 불명 포함</label><label id="historyArchivedLabel"><input type="checkbox" id="historyArchived" /> 보관된 대화</label></div>
         <form class="history-search" id="historySearchForm"><input id="historySearch" type="search" placeholder="대화 제목 검색" aria-label="가져올 대화 검색" maxlength="120" /><button class="secondary-button" type="submit">검색</button><button class="secondary-button" id="refreshHistory" type="button">새로고침</button></form>
         <p class="history-notice" id="historyNotice" role="status"></p>

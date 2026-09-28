@@ -1,34 +1,53 @@
 import { createHash } from 'node:crypto';
-import { open, readdir, realpath } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { access, open, readdir, realpath } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { basename, join, relative, resolve, sep } from 'node:path';
+import { basename, dirname, join, relative, resolve, sep } from 'node:path';
+import { promisify } from 'node:util';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_FILE_BYTES = 64 * 1024 * 1024;
 const MAX_IMPORT_CHARS = 1_600_000;
+const MAX_DISCOVERED_FILES = 5000;
+const CODEX_HEADER_BYTES = 64 * 1024;
+const MAX_OLLAMA_CHATS = 5000;
+const MAX_LOCAL_SESSIONS = 5000;
+const AI_APP_NAME = /(chatgpt|claude|codex|gemini|ollama|cline|opencode|lm[ -]?studio|jan|anythingllm|perplexity|deepseek|msty|chatbox|copilot|llama)/i;
 const SOURCE_LABELS = { app: '앱', ide: 'IDE', cli: 'CLI', unknown: '출처 불명' };
+const execFileAsync = promisify(execFile);
 const fail = (message, status = 400) => Object.assign(new Error(message), { status });
 const text = (value, length = 240) => typeof value === 'string' ? value.slice(0, length) : '';
 const date = (value) => Number.isFinite(Date.parse(value)) ? Date.parse(value) : 0;
 const allowed = (kind, options) => kind === 'cli' ? options.includeCli : kind === 'unknown' ? options.includeUnknown : true;
 
-function codexSource(thread) {
-  if (['cli', 'exec'].includes(thread.source)) return 'cli';
-  if (/desktop|mosaic_desk/i.test(thread.originator || '')) return 'app';
-  if (thread.source === 'vscode') return 'ide';
+function codexSource(metadata) {
+  const originator = text(metadata.originator, 120);
+  if (['cli', 'exec'].includes(metadata.source) || /codex-tui/i.test(originator)) return 'cli';
+  if (/desktop|mosaic_desk/i.test(originator)) return 'app';
+  if (metadata.source === 'vscode' || /vscode|jetbrains/i.test(originator)) return 'ide';
   return 'unknown';
 }
 
-function codexSummary(thread, accountId) {
-  const sourceKind = codexSource(thread);
+function codexPlainContent(content) {
+  if (typeof content === 'string') return content;
+  if (!Array.isArray(content)) return '';
+  return content
+    .filter((part) => ['input_text', 'output_text', 'text'].includes(part?.type) && typeof part.text === 'string')
+    .map((part) => part.text)
+    .join('\n');
+}
+
+function codexSummary(metadata, path, stat, preview) {
+  const sourceKind = codexSource(metadata);
+  const localId = createHash('sha256').update(path).digest('hex');
+  const sessionId = text(metadata.session_id || metadata.id, 120);
+  const title = text(metadata.title || preview || '제목 없는 Codex 대화', 160).trim();
   return {
-    id: thread.id, provider: 'openai', accountId, sourceKind,
+    id: localId, provider: 'openai', accountId: 'default', sourceKind,
     sourceLabel: `Codex · ${SOURCE_LABELS[sourceKind]}`,
-    sourceKey: `codex-local:${accountId}:${thread.id}`,
-    title: text(thread.name || thread.preview || '제목 없는 대화', 160),
-    preview: text(thread.preview, 240), cwd: text(thread.cwd, 500),
-    updatedAt: Number(thread.updatedAt) * 1000 || 0,
-    model: text(thread.model),
+    sourceKey: `codex-local:${sessionId || localId}`,
+    title, preview: text(preview, 240), cwd: text(metadata.cwd, 500),
+    updatedAt: stat.mtimeMs || date(metadata.timestamp), model: text(metadata.model),
   };
 }
 
@@ -49,6 +68,209 @@ function importResult(summary, messages, warnings = []) {
 async function directoryEntries(path) {
   try { return await readdir(path, { withFileTypes: true }); }
   catch (error) { if (error.code === 'ENOENT') return []; throw error; }
+}
+
+async function transcriptFiles(root, { maxDepth = 7, maxFiles = MAX_DISCOVERED_FILES, match = () => true } = {}) {
+  const found = [];
+  const pending = [{ path: root, depth: 0 }];
+  while (pending.length && found.length < maxFiles) {
+    const current = pending.pop();
+    for (const entry of await directoryEntries(current.path)) {
+      const path = join(current.path, entry.name);
+      if (entry.isDirectory() && current.depth < maxDepth) pending.push({ path, depth: current.depth + 1 });
+      else if (entry.isFile() && match(entry.name)) {
+        found.push(path);
+        if (found.length >= maxFiles) break;
+      }
+    }
+  }
+  return found;
+}
+
+async function codexMetadata(root, path) {
+  const { file, stat } = await openTranscript(root, path);
+  try {
+    const prefix = Buffer.alloc(Math.min(stat.size, CODEX_HEADER_BYTES));
+    await file.read(prefix, 0, prefix.length, 0);
+    let metadata = null;
+    let preview = '';
+    for (const line of prefix.toString('utf8').split('\n')) {
+      if (!line.trim()) continue;
+      let row;
+      try { row = JSON.parse(line); } catch { continue; }
+      if (row.type === 'session_meta' && row.payload && typeof row.payload === 'object') metadata = row.payload;
+      if (!preview && row.type === 'response_item' && row.payload?.type === 'message' && row.payload.role === 'user') {
+        preview = codexPlainContent(row.payload.content).trim();
+      }
+      if (metadata && preview) break;
+    }
+    if (!metadata) return null;
+    return codexSummary(metadata, path, stat, preview);
+  } finally { await file.close(); }
+}
+
+async function hasTranscript(root, match, maxDepth) {
+  const files = await transcriptFiles(root, { match, maxDepth, maxFiles: 1 });
+  return files.length > 0;
+}
+
+async function pathExists(path) {
+  try { await access(path); return true; } catch { return false; }
+}
+
+function appPaths(name) {
+  return ['/Applications', join(homedir(), 'Applications')].map((directory) => join(directory, name));
+}
+
+async function installedApp(name) {
+  for (const path of appPaths(name)) if (await pathExists(path)) return path;
+  return null;
+}
+
+async function installedAiApps() {
+  const apps = [];
+  for (const directory of ['/Applications', join(homedir(), 'Applications')]) {
+    for (const entry of await directoryEntries(directory)) {
+      if (entry.isDirectory() && entry.name.endsWith('.app') && AI_APP_NAME.test(entry.name)) apps.push(join(directory, entry.name));
+    }
+  }
+  return apps;
+}
+
+async function appBundleId(path) {
+  if (!path) return '';
+  try {
+    const { stdout } = await execFileAsync('/usr/libexec/PlistBuddy', ['-c', 'Print :CFBundleIdentifier', join(path, 'Contents', 'Info.plist')], { timeout: 2000, maxBuffer: 4096 });
+    return stdout.trim();
+  } catch { return ''; }
+}
+
+function sqlText(value) {
+  return `'${String(value).replaceAll("'", "''")}'`;
+}
+
+async function ollamaDatabasePath() {
+  if (process.platform !== 'darwin') return null;
+  const root = join(homedir(), 'Library', 'Application Support', 'Ollama');
+  const database = join(root, 'db.sqlite');
+  if (!await pathExists(database)) return null;
+  try {
+    const [safeRoot, safeDatabase] = await Promise.all([realpath(root), realpath(database)]);
+    const rel = relative(safeRoot, safeDatabase);
+    if (!rel || rel.startsWith(`..${sep}`) || rel === '..') return null;
+    return safeDatabase;
+  } catch { return null; }
+}
+
+async function opencodeDatabasePath() {
+  if (process.platform !== 'darwin') return null;
+  const root = join(homedir(), '.local', 'share', 'opencode');
+  const database = join(root, 'opencode.db');
+  if (!await pathExists(database)) return null;
+  try {
+    const [safeRoot, safeDatabase] = await Promise.all([realpath(root), realpath(database)]);
+    const rel = relative(safeRoot, safeDatabase);
+    if (!rel || rel.startsWith(`..${sep}`) || rel === '..') return null;
+    return safeDatabase;
+  } catch { return null; }
+}
+
+async function readOnlySqliteQuery(database, sql) {
+  const { stdout } = await execFileAsync('/usr/bin/sqlite3', ['-readonly', '-json', database, sql], { timeout: 5000, maxBuffer: 16 * 1024 * 1024 });
+  try {
+    const rows = JSON.parse(stdout || '[]');
+    if (!Array.isArray(rows)) throw new Error('invalid response');
+    return rows;
+  } catch { throw fail('로컬 대화 DB를 읽을 수 없습니다. 해당 AI 앱을 종료한 뒤 다시 시도해 주세요.'); }
+}
+
+async function ollamaStatus() {
+  const database = await ollamaDatabasePath();
+  if (!database) return { installed: Boolean(await installedApp('Ollama.app')), available: false, detail: 'Ollama 로컬 대화 DB를 찾지 못했습니다.' };
+  try {
+    const rows = await readOnlySqliteQuery(database, "SELECT COUNT(*) AS total FROM sqlite_master WHERE type='table' AND name IN ('chats', 'messages')");
+    if (Number(rows[0]?.total) !== 2) return { installed: true, available: false, detail: 'Ollama 앱은 찾았지만 지원하는 로컬 대화 형식이 아닙니다.' };
+    const counts = await readOnlySqliteQuery(database, "SELECT COUNT(*) AS total FROM chats WHERE EXISTS (SELECT 1 FROM messages WHERE messages.chat_id = chats.id AND messages.role IN ('user', 'assistant'))");
+    const count = Number(counts[0]?.total) || 0;
+    return { installed: true, available: count > 0, detail: count ? `Ollama 로컬 대화 ${count.toLocaleString()}개를 찾았습니다.` : 'Ollama 앱은 설치되어 있지만 저장된 대화가 없습니다.' };
+  } catch {
+    return { installed: true, available: false, detail: 'Ollama 대화 DB를 읽을 수 없습니다. 파일 접근 권한을 확인해 주세요.' };
+  }
+}
+
+async function opencodeStatus() {
+  const database = await opencodeDatabasePath();
+  if (!database) return { installed: Boolean(await installedApp('OpenCode.app')), available: false, detail: 'OpenCode 로컬 세션 DB를 찾지 못했습니다.' };
+  try {
+    const schema = await readOnlySqliteQuery(database, "SELECT COUNT(*) AS total FROM sqlite_master WHERE type='table' AND name IN ('session', 'message', 'part')");
+    if (Number(schema[0]?.total) !== 3) return { installed: true, available: false, detail: 'OpenCode 앱은 찾았지만 지원하는 로컬 대화 형식이 아닙니다.' };
+    const rows = await readOnlySqliteQuery(database, "SELECT COUNT(*) AS total FROM session WHERE parent_id IS NULL");
+    const count = Number(rows[0]?.total) || 0;
+    return {
+      installed: true, available: count > 0,
+      detail: count ? `OpenCode 로컬 대화 ${count.toLocaleString()}개를 찾았습니다. CLI와 데스크톱 출처를 자동으로 구분하지 못하는 기록은 ‘출처 불명 포함’을 선택해 표시합니다.` : 'OpenCode 앱은 설치되어 있지만 저장된 대화가 없습니다.',
+    };
+  } catch {
+    return { installed: true, available: false, detail: 'OpenCode 대화 DB를 읽을 수 없습니다. 파일 접근 권한을 확인해 주세요.' };
+  }
+}
+
+function ollamaSummary(row) {
+  const id = createHash('sha256').update(`ollama:${row.id}`).digest('hex');
+  const preview = text(row.preview, 240).trim();
+  return {
+    id, provider: 'ollama', accountId: 'local', sourceKind: 'app',
+    sourceLabel: 'Ollama · 앱', sourceKey: `ollama-local:${text(row.id, 160)}`,
+    title: text(row.title, 160).trim() || preview || '제목 없는 Ollama 대화',
+    preview, updatedAt: date(row.updated_at) || date(row.created_at), model: text(row.model_name, 120),
+  };
+}
+
+function opencodeSummary(row) {
+  const id = createHash('sha256').update(`opencode:${row.id}`).digest('hex');
+  let model = '';
+  try { model = text(JSON.parse(row.model || '{}').id, 120); } catch { /* Older sessions may not have model metadata. */ }
+  const preview = text(row.preview, 240).trim();
+  return {
+    id, provider: 'opencode', accountId: 'local', sourceKind: 'unknown',
+    sourceLabel: 'OpenCode · 출처 불명', sourceKey: `opencode-local:${text(row.id, 160)}`,
+    title: text(row.title, 160).trim() || preview || '제목 없는 OpenCode 대화',
+    preview, updatedAt: Number(row.time_updated) || Number(row.time_created) || 0, model,
+  };
+}
+
+function clineTextContent(content) {
+  if (typeof content === 'string') return content;
+  if (!Array.isArray(content)) return '';
+  return content.filter((part) => part?.type === 'text' && typeof part.text === 'string').map((part) => part.text).join('\n');
+}
+
+function clineSummary(metadata, path) {
+  const source = text(metadata.source, 80).toLowerCase();
+  const sourceKind = ['cli', 'exec'].includes(source) ? 'cli'
+    : /vscode|ide/.test(source) ? 'ide'
+      : source === 'desktop' ? 'app' : 'unknown';
+  const prompt = text(metadata.prompt, 600).trim();
+  const sessionId = text(metadata.session_id, 160) || basename(path, '.json');
+  const id = createHash('sha256').update(path).digest('hex');
+  const title = text(metadata.title || prompt.split('\n')[0], 160).trim();
+  return {
+    id, provider: 'cline', accountId: 'local', sourceKind,
+    sourceLabel: `Cline · ${SOURCE_LABELS[sourceKind]}`,
+    sourceKey: `cline-local:${sessionId}`,
+    title: title || '제목 없는 Cline 대화', preview: prompt,
+    cwd: text(metadata.cwd || metadata.workspace_root, 500),
+    updatedAt: date(metadata.ended_at) || date(metadata.started_at), model: text(metadata.model, 120),
+  };
+}
+
+async function clineMetadata(root, path) {
+  const { file } = await openTranscript(root, path);
+  try {
+    const metadata = JSON.parse(await file.readFile('utf8'));
+    if (!metadata || typeof metadata !== 'object' || typeof metadata.session_id !== 'string' || typeof metadata.messages_path !== 'string') return null;
+    return clineSummary(metadata, path);
+  } finally { await file.close(); }
 }
 
 function parseLines(input, strict = false) {
@@ -109,56 +331,204 @@ async function claudeMetadata(root, path) {
 }
 
 export class ConversationHistory {
-  constructor({ getCodexClient, claudeHome = process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude') }) {
-    this.getCodexClient = getCodexClient;
+  constructor({ codexHome = process.env.CODEX_HOME || join(homedir(), '.codex'), claudeHome = process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude') } = {}) {
+    this.codexRoot = join(resolve(codexHome), 'sessions');
+    this.codexArchivedRoot = join(resolve(codexHome), 'archived_sessions');
     this.claudeRoot = join(resolve(claudeHome), 'projects');
+    this.clineRoot = join(homedir(), '.cline', 'data', 'sessions');
+    this.codexFiles = new Map();
     this.claudeFiles = new Map();
+    this.clineFiles = new Map();
+    this.openCodeSessions = new Map();
+    this.ollamaChats = new Map();
   }
 
   options(input = {}) {
-    if (!['openai', 'anthropic'].includes(input.provider)) throw fail('대화 출처를 선택해 주세요.');
-    const accountId = input.accountId || 'default';
-    if (accountId !== 'default' && !UUID.test(accountId)) throw fail('올바르지 않은 Codex 계정입니다.');
+    if (!['openai', 'anthropic', 'cline', 'opencode', 'ollama'].includes(input.provider)) throw fail('대화 출처를 선택해 주세요.');
     return {
-      provider: input.provider, accountId,
+      provider: input.provider,
       includeCli: input.includeCli === true, includeUnknown: input.includeUnknown === true,
       archived: input.archived === true, query: text(input.query, 120).trim(),
       cursor: typeof input.cursor === 'string' ? input.cursor.slice(0, 4096) : null,
     };
   }
 
+  async sources() {
+    const [codexAvailable, claudeAvailable, clineAvailable, ollama, opencode, codexApps, chatGptApp, clineApp, aiApps] = await Promise.all([
+      hasTranscript(this.codexRoot, (name) => /^rollout-.*\.jsonl$/i.test(name), 7),
+      hasTranscript(this.claudeRoot, (name) => UUID.test(basename(name, '.jsonl')) && name.endsWith('.jsonl'), 5),
+      hasTranscript(this.clineRoot, (name) => /^(?:session_)?\d{13}_[A-Za-z0-9_-]+\.json$/i.test(name), 4),
+      ollamaStatus(),
+      opencodeStatus(),
+      Promise.all(['Codex.app', 'ChatGPT.app'].map(installedApp)),
+      installedApp('ChatGPT.app'),
+      installedApp('Cline.app'),
+      installedAiApps(),
+    ]);
+    const bundleIds = await Promise.all(codexApps.map(appBundleId));
+    const codexInstalled = bundleIds.includes('com.openai.codex');
+    const chatGptBundleId = await appBundleId(chatGptApp);
+    const chatGptInstalled = ['com.openai.chat', 'com.openai.chatgpt'].includes(chatGptBundleId);
+    const sources = [
+      { provider: 'openai', name: 'Codex', installed: codexInstalled || codexAvailable, available: codexAvailable, detail: codexAvailable ? '이 Mac의 로컬 세션 기록을 찾았습니다.' : codexInstalled ? 'Codex 앱은 설치되어 있지만 가져올 로컬 대화 기록을 찾지 못했습니다.' : 'Codex 앱 또는 로컬 대화 기록을 찾지 못했습니다.' },
+      { provider: 'anthropic', name: 'Claude Code', installed: claudeAvailable, available: claudeAvailable, detail: claudeAvailable ? '이 Mac의 로컬 프로젝트 기록을 찾았습니다.' : 'Claude Code 로컬 대화 기록을 찾지 못했습니다.' },
+      { provider: 'ollama', name: 'Ollama', ...ollama },
+      { provider: 'cline', name: 'Cline', installed: Boolean(clineApp) || clineAvailable, available: clineAvailable, detail: clineAvailable ? '이 Mac의 Cline 세션 기록을 찾았습니다.' : clineApp ? 'Cline 앱은 설치되어 있지만 가져올 로컬 대화 기록을 찾지 못했습니다.' : 'Cline 앱 또는 로컬 대화 기록을 찾지 못했습니다.' },
+      { provider: 'opencode', name: 'OpenCode', ...opencode },
+    ];
+    if (chatGptInstalled) sources.push({ name: 'ChatGPT', installed: true, available: false, detail: '앱은 설치되어 있지만 로컬 대화 형식은 가져올 수 없습니다. 공식 내보내기 파일을 사용해 주세요.' });
+    const known = new Set(sources.map((source) => source.name.toLocaleLowerCase()));
+    const discovered = new Set();
+    const appRecords = await Promise.all(aiApps.map(async (appPath) => ({ appPath, bundleId: await appBundleId(appPath) })));
+    for (const { appPath, bundleId } of appRecords) {
+      let name = basename(appPath, '.app');
+      if (bundleId === 'com.openai.codex') name = 'Codex';
+      else if (name.toLowerCase() === 'claude') name = 'Claude Desktop';
+      const key = name.toLocaleLowerCase();
+      if (known.has(key) || discovered.has(key)) continue;
+      discovered.add(key);
+      sources.push({ name, installed: true, available: false, detail: `${name} 앱은 설치되어 있지만 지원하는 로컬 대화 형식은 아직 없습니다.` });
+    }
+    return { sources };
+  }
+
   async list(input) {
     const options = this.options(input);
-    if (options.provider === 'openai') {
-      const client = await this.getCodexClient(options.accountId);
-      const result = await client.request('thread/list', {
-        limit: 50, cursor: options.cursor, sortKey: 'updated_at', sortDirection: 'desc',
-        sourceKinds: ['vscode', 'appServer', ...(options.includeCli ? ['cli', 'exec'] : []), ...(options.includeUnknown ? ['unknown'] : [])],
-        modelProviders: [], archived: options.archived,
-        ...(options.query ? { searchTerm: options.query } : {}),
+    if (options.provider === 'cline') {
+      const paths = await transcriptFiles(this.clineRoot, {
+        maxDepth: 4, maxFiles: MAX_LOCAL_SESSIONS + 1,
+        match: (name) => /^(?:session_)?\d{13}_[A-Za-z0-9_-]+\.json$/i.test(name),
       });
-      const data = (result.data || []).filter((thread) => !thread.parentThreadId && !thread.ephemeral)
-        .map((thread) => codexSummary(thread, options.accountId)).filter((item) => allowed(item.sourceKind, options));
-      return { data, nextCursor: result.nextCursor || null, warnings: [] };
+      const catalog = [];
+      const files = new Map();
+      let skipped = 0;
+      for (const path of paths.slice(0, MAX_LOCAL_SESSIONS)) {
+        try {
+          const item = await clineMetadata(this.clineRoot, path);
+          if (!item) continue;
+          files.set(item.id, path);
+          if (allowed(item.sourceKind, options) && (!options.query || `${item.title} ${item.preview} ${item.cwd}`.toLocaleLowerCase().includes(options.query.toLocaleLowerCase()))) catalog.push(item);
+        } catch { skipped++; }
+      }
+      this.clineFiles = files;
+      catalog.sort((a, b) => b.updatedAt - a.updatedAt || a.id.localeCompare(b.id));
+      const offset = options.cursor && /^\d{1,6}$/.test(options.cursor) ? Number(options.cursor) : 0;
+      return {
+        data: catalog.slice(offset, offset + 50), nextCursor: offset + 50 < catalog.length ? String(offset + 50) : null,
+        warnings: [
+          'Cline 로컬 세션에서 사용자와 AI가 화면에 표시한 텍스트만 가져옵니다. thinking·도구 실행·첨부 데이터는 제외합니다.',
+          ...(paths.length > MAX_LOCAL_SESSIONS ? ['Cline 대화가 5,000개를 넘어 일부만 표시합니다.'] : []),
+          ...(skipped ? [`읽을 수 없는 Cline 대화 ${skipped}개를 제외했습니다.`] : []),
+        ],
+      };
+    }
+    if (options.provider === 'opencode') {
+      const database = await opencodeDatabasePath();
+      if (!database) throw fail('OpenCode 로컬 대화 DB를 찾지 못했습니다. OpenCode 앱을 실행한 뒤 다시 시도해 주세요.', 404);
+      const rows = await readOnlySqliteQuery(database, `
+        SELECT s.id, substr(s.title, 1, 160) AS title, s.model, s.time_created, s.time_updated,
+          (SELECT substr(json_extract(p.data, '$.text'), 1, 600)
+           FROM message m JOIN part p ON p.message_id = m.id AND p.session_id = m.session_id
+           WHERE m.session_id = s.id AND json_extract(m.data, '$.role') = 'user'
+             AND json_extract(p.data, '$.type') = 'text'
+           ORDER BY m.time_created, p.time_created LIMIT 1) AS preview
+        FROM session s WHERE s.parent_id IS NULL
+        ORDER BY s.time_updated DESC LIMIT ${MAX_LOCAL_SESSIONS + 1}`);
+      const catalog = [];
+      const sessions = new Map();
+      for (const row of rows.slice(0, MAX_LOCAL_SESSIONS)) {
+        if (typeof row.id !== 'string') continue;
+        const item = opencodeSummary(row);
+        if (!allowed(item.sourceKind, options) || options.query && !`${item.title} ${item.preview}`.toLocaleLowerCase().includes(options.query.toLocaleLowerCase())) continue;
+        catalog.push(item);
+        sessions.set(item.id, row.id);
+      }
+      this.openCodeSessions = sessions;
+      const offset = options.cursor && /^\d{1,6}$/.test(options.cursor) ? Number(options.cursor) : 0;
+      return {
+        data: catalog.slice(offset, offset + 50), nextCursor: offset + 50 < catalog.length ? String(offset + 50) : null,
+        warnings: [
+          'OpenCode 로컬 기록은 읽기 전용으로 가져옵니다. CLI와 앱 기록을 구분할 메타데이터가 없어 기본 목록에서는 숨기며, 출처 불명 포함을 선택하면 표시합니다.',
+          ...(rows.length > MAX_LOCAL_SESSIONS ? ['OpenCode 대화가 5,000개를 넘어 일부만 표시합니다.'] : []),
+        ],
+      };
+    }
+    if (options.provider === 'ollama') {
+      const database = await ollamaDatabasePath();
+      if (!database) throw fail('Ollama 로컬 대화 DB를 찾지 못했습니다. Ollama 앱을 실행한 뒤 다시 시도해 주세요.', 404);
+      const rows = await readOnlySqliteQuery(database, `
+        SELECT chats.id, substr(chats.title, 1, 160) AS title, chats.created_at,
+          COALESCE((SELECT MAX(updated_at) FROM messages WHERE chat_id = chats.id), chats.created_at) AS updated_at,
+          (SELECT substr(content, 1, 600) FROM messages WHERE chat_id = chats.id AND role = 'user' ORDER BY id LIMIT 1) AS preview,
+          (SELECT model_name FROM messages WHERE chat_id = chats.id AND role = 'assistant' ORDER BY id DESC LIMIT 1) AS model_name
+        FROM chats
+        WHERE EXISTS (SELECT 1 FROM messages WHERE chat_id = chats.id AND role IN ('user', 'assistant'))
+        ORDER BY updated_at DESC LIMIT ${MAX_OLLAMA_CHATS + 1}`);
+      const catalog = [];
+      const chats = new Map();
+      for (const row of rows.slice(0, MAX_OLLAMA_CHATS)) {
+        if (typeof row.id !== 'string') continue;
+        const item = ollamaSummary(row);
+        if (options.query && !`${item.title} ${item.preview}`.toLocaleLowerCase().includes(options.query.toLocaleLowerCase())) continue;
+        catalog.push(item);
+        chats.set(item.id, row.id);
+      }
+      this.ollamaChats = chats;
+      const offset = options.cursor && /^\d{1,6}$/.test(options.cursor) ? Number(options.cursor) : 0;
+      return {
+        data: catalog.slice(offset, offset + 50), nextCursor: offset + 50 < catalog.length ? String(offset + 50) : null,
+        warnings: [
+          '이 Mac의 Ollama 로컬 DB를 읽기 전용으로 확인합니다. 모델의 내부 thinking 정보와 도구 기록은 가져오지 않습니다.',
+          ...(rows.length > MAX_OLLAMA_CHATS ? ['Ollama 대화가 5,000개를 넘어 오래된 일부 대화는 표시하지 않습니다.'] : []),
+        ],
+      };
+    }
+    if (options.provider === 'openai') {
+      const root = options.archived ? this.codexArchivedRoot : this.codexRoot;
+      const paths = await transcriptFiles(root, { match: (name) => /^rollout-.*\.jsonl$/i.test(name) });
+      const catalog = [];
+      const files = new Map();
+      let skipped = 0;
+      for (const path of paths) {
+        try {
+          const item = await codexMetadata(root, path);
+          if (!item) continue;
+          files.set(item.id, { root, path });
+          if (allowed(item.sourceKind, options) && (!options.query || `${item.title} ${item.preview} ${item.cwd}`.toLocaleLowerCase().includes(options.query.toLocaleLowerCase()))) {
+            catalog.push(item);
+          }
+        } catch { skipped++; }
+      }
+      this.codexFiles = files;
+      catalog.sort((a, b) => b.updatedAt - a.updatedAt || a.id.localeCompare(b.id));
+      const offset = options.cursor && /^\d{1,6}$/.test(options.cursor) ? Number(options.cursor) : 0;
+      return {
+        data: catalog.slice(offset, offset + 50), nextCursor: offset + 50 < catalog.length ? String(offset + 50) : null,
+        warnings: [
+          '이 Mac의 Codex 로컬 세션 파일에서 찾은 기록입니다. 원본 파일은 변경하지 않습니다.',
+          ...(paths.length >= MAX_DISCOVERED_FILES ? ['로컬 Codex 기록이 5,000개를 넘어 일부만 표시합니다.'] : []),
+          ...(skipped ? [`읽을 수 없거나 64MB를 넘는 대화 ${skipped}개를 제외했습니다.`] : []),
+        ],
+      };
     }
     const catalog = [];
     let skipped = 0;
     let scanned = 0;
     let limited = false;
     const files = new Map();
-    outer: for (const directory of await directoryEntries(this.claudeRoot)) {
-      if (!directory.isDirectory()) continue;
-      for (const entry of await directoryEntries(join(this.claudeRoot, directory.name))) {
-        if (!entry.isFile() || !entry.name.endsWith('.jsonl') || !UUID.test(basename(entry.name, '.jsonl'))) continue;
-        if (++scanned > 5000) { limited = true; break outer; }
-        const path = join(this.claudeRoot, directory.name, entry.name);
-        try {
-          const item = await claudeMetadata(this.claudeRoot, path);
-          if (!item) continue;
-          files.set(item.id, path);
-          if (allowed(item.sourceKind, options) && (!options.query || `${item.title} ${item.cwd}`.toLocaleLowerCase().includes(options.query.toLocaleLowerCase()))) catalog.push(item);
-        } catch { skipped++; }
-      }
+    const paths = await transcriptFiles(this.claudeRoot, {
+      maxDepth: 5,
+      maxFiles: MAX_DISCOVERED_FILES + 1,
+      match: (name) => name.endsWith('.jsonl') && UUID.test(basename(name, '.jsonl')),
+    });
+    for (const path of paths) {
+      if (++scanned > MAX_DISCOVERED_FILES) { limited = true; break; }
+      try {
+        const item = await claudeMetadata(this.claudeRoot, path);
+        if (!item) continue;
+        files.set(item.id, path);
+        if (allowed(item.sourceKind, options) && (!options.query || `${item.title} ${item.cwd}`.toLocaleLowerCase().includes(options.query.toLocaleLowerCase()))) catalog.push(item);
+      } catch { skipped++; }
     }
     this.claudeFiles = files;
     catalog.sort((a, b) => b.updatedAt - a.updatedAt || a.id.localeCompare(b.id));
@@ -175,21 +545,94 @@ export class ConversationHistory {
 
   async read(input) {
     const options = this.options(input);
-    if (options.provider === 'openai') {
-      if (!UUID.test(input.id)) throw fail('올바르지 않은 Codex 대화입니다.');
-      const client = await this.getCodexClient(options.accountId);
-      const { thread } = await client.request('thread/read', { threadId: input.id, includeTurns: false });
-      if (!thread || thread.parentThreadId || typeof thread.source === 'object') throw fail('일반 사용자 대화만 가져올 수 있습니다.');
-      const summary = codexSummary(thread, options.accountId);
-      if (!allowed(summary.sourceKind, options)) throw fail('이 대화의 출처를 가져오기 필터에서 먼저 선택해 주세요.');
-      const { thread: full } = await client.request('thread/read', { threadId: input.id, includeTurns: true });
+    if (options.provider === 'cline') {
+      if (typeof input.id !== 'string' || !/^[a-f0-9]{64}$/.test(input.id)) throw fail('올바르지 않은 Cline 대화입니다.');
+      const path = this.clineFiles.get(input.id);
+      if (!path) throw fail('대화 목록을 새로고침한 뒤 다시 선택해 주세요.', 404);
+      const summary = await clineMetadata(this.clineRoot, path);
+      if (!summary || !allowed(summary.sourceKind, options)) throw fail('이 대화의 출처를 가져오기 필터에서 먼저 선택해 주세요.');
+      const messagesPath = join(dirname(path), `${basename(path, '.json')}.messages.json`);
+      const { file } = await openTranscript(this.clineRoot, messagesPath);
+      let data;
+      try { data = JSON.parse(await file.readFile('utf8')); } finally { await file.close(); }
+      const rows = Array.isArray(data) ? data : Array.isArray(data?.messages) ? data.messages : [];
+      const messages = rows
+        .filter((row) => ['user', 'assistant'].includes(row?.role))
+        .map((row) => ({ role: row.role, content: clineTextContent(row.content).trim() }))
+        .filter((row) => row.content);
+      return importResult(summary, messages);
+    }
+    if (options.provider === 'opencode') {
+      if (typeof input.id !== 'string' || !/^[a-f0-9]{64}$/.test(input.id)) throw fail('올바르지 않은 OpenCode 대화입니다.');
+      const sessionId = this.openCodeSessions.get(input.id);
+      const database = await opencodeDatabasePath();
+      if (!sessionId || !database) throw fail('대화 목록을 새로고침한 뒤 다시 선택해 주세요.', 404);
+      const rows = await readOnlySqliteQuery(database, `SELECT id, title, model, time_created, time_updated,
+        (SELECT substr(json_extract(p.data, '$.text'), 1, 600)
+         FROM message m JOIN part p ON p.message_id = m.id AND p.session_id = m.session_id
+         WHERE m.session_id = session.id AND json_extract(m.data, '$.role') = 'user'
+           AND json_extract(p.data, '$.type') = 'text'
+         ORDER BY m.time_created, p.time_created LIMIT 1) AS preview
+        FROM session WHERE id = ${sqlText(sessionId)} AND parent_id IS NULL LIMIT 1`);
+      const row = rows[0];
+      if (!row) throw fail('OpenCode 대화를 찾을 수 없습니다.', 404);
+      const size = await readOnlySqliteQuery(database, `SELECT COALESCE(SUM(length(json_extract(p.data, '$.text'))), 0) AS total
+        FROM message m JOIN part p ON p.message_id = m.id AND p.session_id = m.session_id
+        WHERE m.session_id = ${sqlText(sessionId)} AND json_extract(m.data, '$.role') IN ('user', 'assistant')
+          AND json_extract(p.data, '$.type') = 'text'`);
+      if (Number(size[0]?.total) > MAX_IMPORT_CHARS) throw fail('대화가 현재 앱의 저장 한도보다 큽니다. 더 짧은 대화를 선택해 주세요.', 413);
+      const parts = await readOnlySqliteQuery(database, `SELECT m.id AS message_id, json_extract(m.data, '$.role') AS role,
+          json_extract(p.data, '$.text') AS content
+        FROM message m JOIN part p ON p.message_id = m.id AND p.session_id = m.session_id
+        WHERE m.session_id = ${sqlText(sessionId)} AND json_extract(m.data, '$.role') IN ('user', 'assistant')
+          AND json_extract(p.data, '$.type') = 'text'
+        ORDER BY m.time_created, p.time_created, p.id`);
       const messages = [];
-      for (const turn of full.turns || []) {
-        if (turn.itemsView && turn.itemsView !== 'full') throw fail('이 Codex 버전에서 전체 대화를 읽을 수 없습니다. Codex를 업데이트한 뒤 다시 시도해 주세요.');
-        for (const item of turn.items || []) {
-          const content = item.type === 'userMessage' ? plainContent(item.content) : item.type === 'agentMessage' ? item.text : '';
-          if (typeof content === 'string' && content.trim()) messages.push({ role: item.type === 'userMessage' ? 'user' : 'assistant', content });
-        }
+      for (const part of parts) {
+        if (typeof part.content !== 'string' || !part.content) continue;
+        const previous = messages.at(-1);
+        if (previous?._id === part.message_id) previous.content += part.content;
+        else messages.push({ _id: part.message_id, role: part.role, content: part.content });
+      }
+      return importResult(opencodeSummary({ ...row, id: sessionId }), messages.map(({ role, content }) => ({ role, content: content.trim() })).filter((message) => message.content));
+    }
+    if (options.provider === 'ollama') {
+      if (typeof input.id !== 'string' || !/^[a-f0-9]{64}$/.test(input.id)) throw fail('올바르지 않은 Ollama 대화입니다.');
+      const chatId = this.ollamaChats.get(input.id);
+      const database = await ollamaDatabasePath();
+      if (!chatId || !database) throw fail('대화 목록을 새로고침한 뒤 다시 선택해 주세요.', 404);
+      const rows = await readOnlySqliteQuery(database, `SELECT substr(title, 1, 160) AS title, created_at,
+        (SELECT MAX(updated_at) FROM messages WHERE chat_id = chats.id) AS updated_at,
+        (SELECT substr(content, 1, 600) FROM messages WHERE chat_id = chats.id AND role = 'user' ORDER BY id LIMIT 1) AS preview,
+        (SELECT model_name FROM messages WHERE chat_id = chats.id AND role = 'assistant' ORDER BY id DESC LIMIT 1) AS model_name
+        FROM chats WHERE id = ${sqlText(chatId)} LIMIT 1`);
+      const row = rows[0];
+      if (!row) throw fail('Ollama 대화를 찾을 수 없습니다.', 404);
+      const size = await readOnlySqliteQuery(database, `SELECT COALESCE(SUM(length(content)), 0) AS total FROM messages WHERE chat_id = ${sqlText(chatId)} AND role IN ('user', 'assistant')`);
+      if (Number(size[0]?.total) > MAX_IMPORT_CHARS) throw fail('대화가 현재 앱의 저장 한도보다 큽니다. 더 짧은 대화를 선택해 주세요.', 413);
+      const messages = (await readOnlySqliteQuery(database, `SELECT role, content FROM messages WHERE chat_id = ${sqlText(chatId)} AND role IN ('user', 'assistant') ORDER BY id`))
+        .filter((message) => typeof message.content === 'string' && message.content.trim())
+        .map((message) => ({ role: message.role, content: message.content }));
+      return importResult(ollamaSummary({ ...row, id: chatId }), messages);
+    }
+    if (options.provider === 'openai') {
+      if (typeof input.id !== 'string' || !/^[a-f0-9]{64}$/.test(input.id)) throw fail('올바르지 않은 Codex 대화입니다.');
+      const selected = this.codexFiles.get(input.id);
+      if (!selected) throw fail('대화 목록을 새로고침한 뒤 다시 선택해 주세요.', 404);
+      const summary = await codexMetadata(selected.root, selected.path);
+      if (!summary) throw fail('Codex 대화의 기본 정보를 읽지 못했습니다.');
+      if (!allowed(summary.sourceKind, options)) throw fail('이 대화의 출처를 가져오기 필터에서 먼저 선택해 주세요.');
+      const { file } = await openTranscript(selected.root, selected.path);
+      let rows;
+      try { rows = parseLines(await file.readFile('utf8'), true); } finally { await file.close(); }
+      const messages = [];
+      for (const row of rows) {
+        if (row.type !== 'response_item' || row.payload?.type !== 'message') continue;
+        const role = row.payload.role;
+        if (role !== 'user' && role !== 'assistant') continue;
+        if (role === 'assistant' && row.payload.phase && !['final_answer', 'commentary'].includes(row.payload.phase)) continue;
+        const content = codexPlainContent(row.payload.content).trim();
+        if (content) messages.push({ role, content });
       }
       return importResult(summary, messages);
     }

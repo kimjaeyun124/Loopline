@@ -193,6 +193,14 @@ function loadConversations() {
             if (message.role === 'assistant' && Number.isFinite(message.workedForMs) && message.workedForMs >= 0) {
               normalized.workedForMs = Math.floor(message.workedForMs);
             }
+            if (message.role === 'assistant') {
+              const hasDetailedActivity = Array.isArray(message.activities)
+                && message.activities.some((activity) => activity?.kind === 'commentary'
+                  || (typeof activity?.id === 'string' && !['request', 'response'].includes(activity.id)));
+              normalized.activityMode = ['native', 'lifecycle'].includes(message.activityMode)
+                ? message.activityMode
+                : hasDetailedActivity ? 'native' : 'lifecycle';
+            }
             if (message.role === 'assistant' && Array.isArray(message.activities)) {
               normalized.activities = message.activities.slice(-60).flatMap((activity) => {
                 if (!activity || typeof activity.id !== 'string' || typeof activity.title !== 'string') return [];
@@ -523,7 +531,7 @@ function renderMessages() {
         <summary class="worked-for-row"><span class="worked-for-label" data-worked-for="${escapeHtml(message.id || '')}">${hasWorkedFor ? formatWorkedFor(elapsedMs) : '작업 과정'}</span>${message.pending ? '<span class="worked-for-live"><i aria-hidden="true"></i>진행 중</span>' : ''}</summary>
         <ol class="assistant-activity-list" aria-label="작업 단계">${activityItems.map((activity) => activity.kind === 'commentary'
           ? `<li class="activity-commentary activity-${escapeHtml(activity.status)}"><div class="activity-commentary-text">${renderMarkdown(activity.text || '', { copyDisabled: true })}</div></li>`
-          : `<li class="activity-${escapeHtml(activity.status)}"><span class="activity-marker" aria-hidden="true"></span><div><span class="activity-event-label">${icon(activityIconName(activity))}<strong>${escapeHtml(activity.title)}</strong><span class="activity-state">${activityStatusLabel(activity.status)}</span></span>${activity.detail ? `<small>${escapeHtml(activity.detail)}</small>` : ''}</div></li>`).join('')}</ol>
+          : `<li class="activity-${escapeHtml(activity.status)}"><span class="activity-marker" aria-hidden="true"></span><div><span class="activity-event-label">${icon(activityIconName(activity))}<strong>${escapeHtml(activity.title)}</strong><span class="activity-state">${activityStatusLabel(activity.status)}</span></span>${activity.detail ? `<small>${escapeHtml(activity.detail)}</small>` : ''}</div></li>`).join('')}</ol>${message.activityMode === 'lifecycle' ? '<p class="activity-availability-note">이 연결은 실제 실행 단계 이벤트를 제공하지 않아 요청과 응답 상태만 표시합니다.</p>' : ''}
       </details>` : hasWorkedFor ? `<div class="worked-for-row"><span class="worked-for-label" data-worked-for="${escapeHtml(message.id || '')}">${formatWorkedFor(elapsedMs)}</span>${message.pending ? '<span class="worked-for-live"><i aria-hidden="true"></i>진행 중</span>' : ''}</div>` : '';
       return `<article class="message assistant${errorClass}" data-message-id="${escapeHtml(message.id || '')}">
         <div class="assistant-response">
@@ -574,6 +582,7 @@ function updateAssistantActivity(message, activity) {
     } : {}),
   };
   if (!next.id || !next.title) return;
+  if (!['request', 'response'].includes(next.id)) message.activityMode = 'native';
   if (!Array.isArray(message.activities)) message.activities = [];
   const index = message.activities.findIndex((item) => item.id === next.id);
   if (index >= 0) {
@@ -616,18 +625,26 @@ function formatWorkedFor(milliseconds) {
 }
 
 function updateWorkedForLabel(message) {
+  if (!Number.isFinite(message.startedAt)) return;
+  const elapsedMs = Date.now() - message.startedAt;
   const label = [...elements.messages.querySelectorAll('[data-worked-for]')]
     .find((element) => element.dataset.workedFor === message.id);
   if (!label) return;
-  label.textContent = formatWorkedFor(Date.now() - message.startedAt);
+  label.textContent = formatWorkedFor(elapsedMs);
+}
+
+function scheduleWorkedForTick(message) {
+  if (workedForMessageId !== message.id || !message.pending || !Number.isFinite(message.startedAt)) return;
+  updateWorkedForLabel(message);
+  const elapsedMs = Math.max(0, Date.now() - message.startedAt);
+  const untilNextSecond = 1000 - (elapsedMs % 1000);
+  workedForInterval = setTimeout(() => scheduleWorkedForTick(message), Math.max(40, untilNextSecond));
 }
 
 function startWorkedForTimer(message) {
-  clearInterval(workedForInterval);
+  clearTimeout(workedForInterval);
   workedForMessageId = message.id;
-  workedForInterval = setInterval(() => {
-    if (workedForMessageId === message.id && message.pending) updateWorkedForLabel(message);
-  }, 1000);
+  scheduleWorkedForTick(message);
 }
 
 function finishAssistantWork(message) {
@@ -636,7 +653,7 @@ function finishAssistantWork(message) {
     delete message.startedAt;
   }
   if (workedForMessageId === message.id) {
-    clearInterval(workedForInterval);
+    clearTimeout(workedForInterval);
     workedForInterval = null;
     workedForMessageId = null;
   }
@@ -2163,6 +2180,7 @@ async function sendMessage(value, queuedMessageId = null) {
   }
   const assistantMessage = {
     role: 'assistant', content: '', id: crypto.randomUUID(), pending: true, startedAt: Date.now(),
+    activityMode: state.provider === 'openai' ? 'native' : 'lifecycle',
     activities: [
       { id: 'request', title: '요청 전송', detail: '선택한 모델로 요청을 보냈습니다.', status: 'completed' },
       { id: 'response', title: '응답 생성 중', detail: '모델의 첫 응답을 기다리고 있습니다.', status: 'running' },

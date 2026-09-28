@@ -439,7 +439,7 @@ function renderConversationList() {
   elements.conversationList.innerHTML = sorted.map((conversation) => `
     <div class="conversation-row${conversation.id === state.activeId ? ' active' : ''}" data-id="${escapeHtml(conversation.id)}" role="button" tabindex="0" aria-label="${escapeHtml(conversation.title)} 열기">
       <span class="conversation-provider-mark">${PROVIDERS[conversation.provider]?.mark || icon('terminal')}</span>
-      <span class="conversation-title">${escapeHtml(conversation.title)}</span>
+      <span class="conversation-title" title="${escapeHtml(conversation.title)}">${escapeHtml(conversation.title)}</span>
       <button class="delete-conversation" type="button" data-delete="${escapeHtml(conversation.id)}" aria-label="대화 삭제">${icon('trash')}</button>
     </div>`).join('');
 }
@@ -454,8 +454,8 @@ function renderProjectList() {
       <button class="project-select-button" type="button" data-select-project="all"><span class="project-icon">${icon('chat')}</span><span>모든 작업</span></button>
     </div>`, ...state.projects.map((item) => `
     <div class="project-row${item.id === state.activeProjectId ? ' active' : ''}">
-      <button class="project-select-button" type="button" data-select-project="${escapeHtml(item.id)}"><span class="project-icon" title="${item.importSource === 'anthropic' ? 'Claude에서 가져옴' : item.importSource === 'openai' ? 'ChatGPT에서 가져옴' : item.importSource === 'cline' ? 'Cline에서 가져옴' : item.importSource === 'opencode' ? 'OpenCode에서 가져옴' : item.importSource === 'ollama' ? 'Ollama에서 가져옴' : 'Loopline 프로젝트'}">${icon('folder')}</span><span class="project-name">${escapeHtml(item.name)}</span><span class="project-count">${state.conversations.filter((conversation) => conversation.projectId === item.id).length}</span></button>
-      <button class="project-edit-button" type="button" data-edit-project="${escapeHtml(item.id)}" aria-label="${escapeHtml(item.name)} 프로젝트 편집" title="프로젝트 편집">${icon('more')}</button>
+      <button class="project-select-button" type="button" data-select-project="${escapeHtml(item.id)}"><span class="project-icon" title="${item.importSource === 'anthropic' ? 'Claude에서 가져옴' : item.importSource === 'openai' ? 'ChatGPT에서 가져옴' : item.importSource === 'cline' ? 'Cline에서 가져옴' : item.importSource === 'opencode' ? 'OpenCode에서 가져옴' : item.importSource === 'ollama' ? 'Ollama에서 가져옴' : 'Loopline 프로젝트'}">${icon('folder')}</span><span class="project-name" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</span><span class="project-count">${state.conversations.filter((conversation) => conversation.projectId === item.id).length}</span></button>
+      <button class="project-edit-button" type="button" data-edit-project="${escapeHtml(item.id)}" aria-label="${escapeHtml(item.name)} 프로젝트 이름 수정" title="프로젝트 이름 수정">${icon('pen')}</button>
     </div>`)];
   elements.projectList.innerHTML = rows.join('');
   const conversation = activeConversation();

@@ -104,6 +104,11 @@ export function createHistoryImportUI({ getProjects, isImported, onImport, onFil
       cursor = result.nextCursor;
       element('historyNotice').textContent = [
         input.includeCli ? 'CLI 대화를 포함하고 있습니다.' : 'CLI 대화는 제외되어 있습니다.',
+        ...(input.provider === 'opencode'
+          ? [input.includeUnknown
+            ? 'OpenCode는 CLI와 데스크톱 기록을 구분할 수 없어 두 출처가 함께 표시됩니다.'
+            : 'OpenCode CLI 대화를 보려면 “출처 불명 포함”도 켜 주세요.']
+          : []),
         ...(result.warnings || []),
       ].join(' ');
     } catch (failure) {

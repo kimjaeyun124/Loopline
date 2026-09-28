@@ -1,8 +1,9 @@
 import { createHash } from 'node:crypto';
 import { execFile } from 'node:child_process';
+import { constants as fsConstants } from 'node:fs';
 import { access, open, readdir, realpath } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { basename, dirname, join, relative, resolve, sep } from 'node:path';
+import { basename, delimiter, dirname, join, relative, resolve, sep } from 'node:path';
 import { promisify } from 'node:util';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -127,6 +128,24 @@ async function installedApp(name) {
   return null;
 }
 
+async function installedCli(command) {
+  const directories = new Set([
+    ...(process.env.PATH || '').split(delimiter),
+    join(homedir(), '.local', 'bin'),
+    '/opt/homebrew/bin',
+    '/usr/local/bin',
+    '/usr/bin',
+    '/bin',
+  ].filter(Boolean));
+  for (const directory of directories) {
+    try {
+      await access(join(directory, command), fsConstants.X_OK);
+      return true;
+    } catch { /* Continue through the known executable search paths. */ }
+  }
+  return false;
+}
+
 async function installedAiApps() {
   const apps = [];
   for (const directory of ['/Applications', join(homedir(), 'Applications')]) {
@@ -226,6 +245,31 @@ function ollamaSummary(row) {
   };
 }
 
+function geminiPlainContent(content) {
+  if (typeof content === 'string') return content;
+  if (!Array.isArray(content)) return '';
+  return content.filter((part) => typeof part?.text === 'string').map((part) => part.text).join('\n');
+}
+
+function geminiSummary(metadata, path, stat, messages) {
+  const localId = createHash('sha256').update('gemini:' + path).digest('hex');
+  const firstUser = messages.find((message) => message.role === 'user');
+  const lastAssistant = [...messages].reverse().find((message) => message.role === 'assistant');
+  const preview = text(firstUser?.content, 240).trim();
+  const sessionId = text(metadata.sessionId, 160);
+  const title = text(metadata.summary || metadata.title || preview, 160).trim();
+  const lastTimestamp = [...messages].reverse().find((message) => message.timestamp)?.timestamp;
+  return {
+    id: localId, provider: 'gemini', accountId: 'local', sourceKind: 'cli',
+    sourceLabel: 'Gemini CLI · CLI',
+    sourceKey: 'gemini-cli:' + (sessionId || localId),
+    title: title || '제목 없는 Gemini CLI 대화', preview,
+    cwd: text(metadata.cwd, 500),
+    updatedAt: date(metadata.lastUpdated) || date(lastTimestamp) || stat.mtimeMs || 0,
+    model: text(lastAssistant?.model || metadata.model, 120),
+  };
+}
+
 function opencodeSummary(row) {
   const id = createHash('sha256').update(`opencode:${row.id}`).digest('hex');
   let model = '';
@@ -288,6 +332,93 @@ function parseLines(input, strict = false) {
   return rows;
 }
 
+function geminiSnapshot(records) {
+  const metadata = {};
+  const order = [];
+  const messages = new Map();
+  const addMessage = (record) => {
+    if (!record || !['user', 'gemini'].includes(record.type)) return;
+    const content = geminiPlainContent(record.content).trim();
+    if (!content) return;
+    const id = text(record.id, 160) || createHash('sha256')
+      .update(JSON.stringify([record.type, record.timestamp, content])).digest('hex');
+    if (!messages.has(id)) order.push(id);
+    messages.set(id, {
+      id, role: record.type === 'user' ? 'user' : 'assistant',
+      content, timestamp: text(record.timestamp, 80), model: text(record.model, 120),
+    });
+  };
+  const replaceMessages = (items) => {
+    order.length = 0;
+    messages.clear();
+    for (const item of items) addMessage(item);
+  };
+
+  for (const record of records) {
+    if (!record || typeof record !== 'object' || Array.isArray(record)) continue;
+    if (record.$set && typeof record.$set === 'object') {
+      const { messages: replacement, ...fields } = record.$set;
+      Object.assign(metadata, fields);
+      if (Array.isArray(replacement)) replaceMessages(replacement);
+      continue;
+    }
+    if (typeof record.$rewindTo === 'string') {
+      const targetIndex = order.indexOf(record.$rewindTo);
+      if (targetIndex >= 0) {
+        for (const id of order.splice(targetIndex + 1)) messages.delete(id);
+      }
+      continue;
+    }
+    if (Array.isArray(record.messages) && !['user', 'gemini'].includes(record.type)) {
+      const { messages: replacement, ...fields } = record;
+      Object.assign(metadata, fields);
+      replaceMessages(replacement);
+      continue;
+    }
+    if (['user', 'gemini'].includes(record.type)) {
+      addMessage(record);
+      continue;
+    }
+    if (record.sessionId || record.projectHash || record.startTime || record.lastUpdated || record.summary) {
+      Object.assign(metadata, record);
+      delete metadata.messages;
+    }
+  }
+  return { metadata, messages: order.map((id) => messages.get(id)).filter(Boolean) };
+}
+
+async function geminiConversation(root, path, { metadataOnly = false } = {}) {
+  const { file, stat } = await openTranscript(root, path);
+  try {
+    let records;
+    if (path.toLowerCase().endsWith('.json')) {
+      const parsed = JSON.parse(await file.readFile('utf8'));
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+      records = [parsed];
+    } else if (metadataOnly) {
+      const prefixLength = Math.min(stat.size, CODEX_HEADER_BYTES);
+      const prefix = Buffer.alloc(prefixLength);
+      await file.read(prefix, 0, prefix.length, 0);
+      records = parseLines(prefix.toString('utf8'));
+      const suffixLength = Math.min(Math.max(0, stat.size - prefixLength), CODEX_HEADER_BYTES);
+      if (suffixLength) {
+        const suffix = Buffer.alloc(suffixLength);
+        await file.read(suffix, 0, suffix.length, stat.size - suffix.length);
+        records.push(...parseLines(suffix.toString('utf8')));
+      }
+    } else {
+      records = parseLines(await file.readFile('utf8'));
+    }
+
+    const snapshot = geminiSnapshot(records);
+    if (!snapshot.messages.length && !metadataOnly) return null;
+    return {
+      summary: geminiSummary(snapshot.metadata, path, stat, snapshot.messages),
+      messages: snapshot.messages.map(({ role, content }) => ({ role, content })),
+    };
+  } finally { await file.close(); }
+}
+
 // Resolve only files discovered under the transcript directory; clients never supply paths.
 async function openTranscript(root, path) {
   const [safeRoot, safePath] = await Promise.all([realpath(root), realpath(path)]);
@@ -336,15 +467,17 @@ export class ConversationHistory {
     this.codexArchivedRoot = join(resolve(codexHome), 'archived_sessions');
     this.claudeRoot = join(resolve(claudeHome), 'projects');
     this.clineRoot = join(homedir(), '.cline', 'data', 'sessions');
+    this.geminiRoot = join(homedir(), '.gemini', 'tmp');
     this.codexFiles = new Map();
     this.claudeFiles = new Map();
     this.clineFiles = new Map();
+    this.geminiFiles = new Map();
     this.openCodeSessions = new Map();
     this.ollamaChats = new Map();
   }
 
   options(input = {}) {
-    if (!['openai', 'anthropic', 'cline', 'opencode', 'ollama'].includes(input.provider)) throw fail('대화 출처를 선택해 주세요.');
+    if (!['openai', 'anthropic', 'cline', 'gemini', 'opencode', 'ollama'].includes(input.provider)) throw fail('대화 출처를 선택해 주세요.');
     return {
       provider: input.provider,
       includeCli: input.includeCli === true, includeUnknown: input.includeUnknown === true,
@@ -354,7 +487,7 @@ export class ConversationHistory {
   }
 
   async sources() {
-    const [codexAvailable, claudeAvailable, clineAvailable, ollama, opencode, codexApps, chatGptApp, clineApp, aiApps] = await Promise.all([
+    const [codexAvailable, claudeAvailable, clineAvailable, ollama, opencode, codexApps, chatGptApp, clineApp, aiApps, geminiAvailable, cliCommands] = await Promise.all([
       hasTranscript(this.codexRoot, (name) => /^rollout-.*\.jsonl$/i.test(name), 7),
       hasTranscript(this.claudeRoot, (name) => UUID.test(basename(name, '.jsonl')) && name.endsWith('.jsonl'), 5),
       hasTranscript(this.clineRoot, (name) => /^(?:session_)?\d{13}_[A-Za-z0-9_-]+\.json$/i.test(name), 4),
@@ -364,17 +497,52 @@ export class ConversationHistory {
       installedApp('ChatGPT.app'),
       installedApp('Cline.app'),
       installedAiApps(),
+      hasTranscript(this.geminiRoot, (name) => /^session-.*\.jsonl?$/i.test(name), 2),
+      Promise.all(['codex', 'claude', 'cline', 'gemini', 'opencode', 'ollama'].map(installedCli)),
     ]);
+    const cliInstalled = Object.fromEntries(['codex', 'claude', 'cline', 'gemini', 'opencode', 'ollama'].map((name, index) => [name, cliCommands[index]]));
     const bundleIds = await Promise.all(codexApps.map(appBundleId));
     const codexInstalled = bundleIds.includes('com.openai.codex');
     const chatGptBundleId = await appBundleId(chatGptApp);
     const chatGptInstalled = ['com.openai.chat', 'com.openai.chatgpt'].includes(chatGptBundleId);
     const sources = [
-      { provider: 'openai', name: 'Codex', installed: codexInstalled || codexAvailable, available: codexAvailable, detail: codexAvailable ? '이 Mac의 로컬 세션 기록을 찾았습니다.' : codexInstalled ? 'Codex 앱은 설치되어 있지만 가져올 로컬 대화 기록을 찾지 못했습니다.' : 'Codex 앱 또는 로컬 대화 기록을 찾지 못했습니다.' },
-      { provider: 'anthropic', name: 'Claude Code', installed: claudeAvailable, available: claudeAvailable, detail: claudeAvailable ? '이 Mac의 로컬 프로젝트 기록을 찾았습니다.' : 'Claude Code 로컬 대화 기록을 찾지 못했습니다.' },
-      { provider: 'ollama', name: 'Ollama', ...ollama },
-      { provider: 'cline', name: 'Cline', installed: Boolean(clineApp) || clineAvailable, available: clineAvailable, detail: clineAvailable ? '이 Mac의 Cline 세션 기록을 찾았습니다.' : clineApp ? 'Cline 앱은 설치되어 있지만 가져올 로컬 대화 기록을 찾지 못했습니다.' : 'Cline 앱 또는 로컬 대화 기록을 찾지 못했습니다.' },
-      { provider: 'opencode', name: 'OpenCode', ...opencode },
+      {
+        provider: 'openai', name: 'Codex', installed: codexInstalled || codexAvailable || cliInstalled.codex, available: codexAvailable,
+        detail: codexAvailable ? '이 Mac의 Codex 로컬 세션 기록을 찾았습니다.'
+          : cliInstalled.codex ? 'Codex CLI는 설치되어 있지만 가져올 로컬 대화 기록을 찾지 못했습니다.'
+            : codexInstalled ? 'Codex 앱은 설치되어 있지만 가져올 로컬 대화 기록을 찾지 못했습니다.'
+              : 'Codex 앱 또는 CLI와 로컬 대화 기록을 찾지 못했습니다.',
+      },
+      {
+        provider: 'anthropic', name: 'Claude Code', installed: claudeAvailable || cliInstalled.claude, available: claudeAvailable,
+        detail: claudeAvailable ? '이 Mac의 Claude Code 로컬 프로젝트 기록을 찾았습니다.'
+          : cliInstalled.claude ? 'Claude Code CLI는 설치되어 있지만 가져올 로컬 대화 기록을 찾지 못했습니다.'
+            : 'Claude Code CLI 또는 로컬 대화 기록을 찾지 못했습니다.',
+      },
+      {
+        provider: 'ollama', name: 'Ollama', ...ollama,
+        installed: ollama.installed || cliInstalled.ollama,
+        detail: ollama.available ? ollama.detail
+          : cliInstalled.ollama ? 'Ollama CLI는 설치되어 있지만 가져올 로컬 대화 기록을 찾지 못했습니다.' : ollama.detail,
+      },
+      {
+        provider: 'cline', name: 'Cline', installed: Boolean(clineApp) || clineAvailable || cliInstalled.cline, available: clineAvailable,
+        detail: clineAvailable ? '이 Mac의 Cline 로컬 세션 기록을 찾았습니다.'
+          : clineApp || cliInstalled.cline ? 'Cline은 설치되어 있지만 가져올 로컬 대화 기록을 찾지 못했습니다.'
+            : 'Cline 앱·CLI 또는 로컬 대화 기록을 찾지 못했습니다.',
+      },
+      {
+        provider: 'opencode', name: 'OpenCode', ...opencode,
+        installed: opencode.installed || cliInstalled.opencode,
+        detail: opencode.available ? opencode.detail
+          : cliInstalled.opencode ? 'OpenCode CLI는 설치되어 있지만 가져올 로컬 대화 DB를 찾지 못했습니다.' : opencode.detail,
+      },
+      {
+        provider: 'gemini', name: 'Gemini CLI', installed: geminiAvailable || cliInstalled.gemini, available: geminiAvailable,
+        detail: geminiAvailable ? '이 Mac의 Gemini CLI 로컬 세션 기록을 찾았습니다.'
+          : cliInstalled.gemini ? 'Gemini CLI는 설치되어 있지만 가져올 로컬 대화 기록을 찾지 못했습니다.'
+            : 'Gemini CLI 또는 로컬 대화 기록을 찾지 못했습니다.',
+      },
     ];
     if (chatGptInstalled) sources.push({ name: 'ChatGPT', installed: true, available: false, detail: '앱은 설치되어 있지만 로컬 대화 형식은 가져올 수 없습니다. 공식 내보내기 파일을 사용해 주세요.' });
     const known = new Set(sources.map((source) => source.name.toLocaleLowerCase()));
@@ -422,6 +590,37 @@ export class ConversationHistory {
         ],
       };
     }
+    if (options.provider === 'gemini') {
+      const paths = await transcriptFiles(this.geminiRoot, {
+        maxDepth: 2, maxFiles: MAX_LOCAL_SESSIONS + 1,
+        match: (name) => /^session-.*\.jsonl?$/i.test(name),
+      });
+      const catalog = [];
+      const files = new Map();
+      let skipped = 0;
+      for (const path of paths.slice(0, MAX_LOCAL_SESSIONS)) {
+        try {
+          const result = await geminiConversation(this.geminiRoot, path, { metadataOnly: true });
+          if (!result) continue;
+          files.set(result.summary.id, path);
+          if (allowed(result.summary.sourceKind, options)
+            && (!options.query || (result.summary.title + ' ' + result.summary.preview).toLocaleLowerCase().includes(options.query.toLocaleLowerCase()))) {
+            catalog.push(result.summary);
+          }
+        } catch { skipped++; }
+      }
+      this.geminiFiles = files;
+      catalog.sort((a, b) => b.updatedAt - a.updatedAt || a.id.localeCompare(b.id));
+      const offset = options.cursor && /^\d{1,6}$/.test(options.cursor) ? Number(options.cursor) : 0;
+      return {
+        data: catalog.slice(offset, offset + 50), nextCursor: offset + 50 < catalog.length ? String(offset + 50) : null,
+        warnings: [
+          'Gemini CLI 기록은 읽기 전용으로 살펴보고 사용자·모델의 텍스트만 가져옵니다. 도구 호출, 생각 요약, 첨부 데이터는 제외합니다.',
+          ...(paths.length > MAX_LOCAL_SESSIONS ? ['Gemini CLI 대화가 5,000개를 넘어 일부만 표시합니다.'] : []),
+          ...(skipped ? ['읽을 수 없거나 64MB를 넘는 Gemini CLI 대화 ' + skipped.toLocaleString() + '개를 제외했습니다.'] : []),
+        ],
+      };
+    }
     if (options.provider === 'opencode') {
       const database = await opencodeDatabasePath();
       if (!database) throw fail('OpenCode 로컬 대화 DB를 찾지 못했습니다. OpenCode 앱을 실행한 뒤 다시 시도해 주세요.', 404);
@@ -448,7 +647,7 @@ export class ConversationHistory {
       return {
         data: catalog.slice(offset, offset + 50), nextCursor: offset + 50 < catalog.length ? String(offset + 50) : null,
         warnings: [
-          'OpenCode 로컬 기록은 읽기 전용으로 가져옵니다. CLI와 앱 기록을 구분할 메타데이터가 없어 기본 목록에서는 숨기며, 출처 불명 포함을 선택하면 표시합니다.',
+          'OpenCode CLI와 데스크톱은 로컬 기록을 공유하고 출처 구분 정보가 없습니다. 출처 불명 포함을 선택하면 두 출처의 대화를 함께 표시합니다.',
           ...(rows.length > MAX_LOCAL_SESSIONS ? ['OpenCode 대화가 5,000개를 넘어 일부만 표시합니다.'] : []),
         ],
       };
@@ -561,6 +760,15 @@ export class ConversationHistory {
         .map((row) => ({ role: row.role, content: clineTextContent(row.content).trim() }))
         .filter((row) => row.content);
       return importResult(summary, messages);
+    }
+    if (options.provider === 'gemini') {
+      if (typeof input.id !== 'string' || !/^[a-f0-9]{64}$/.test(input.id)) throw fail('올바르지 않은 Gemini CLI 대화입니다.');
+      const path = this.geminiFiles.get(input.id);
+      if (!path) throw fail('대화 목록을 새로고침한 뒤 다시 선택해 주세요.', 404);
+      if (!allowed('cli', options)) throw fail('CLI 대화를 포함하도록 선택한 뒤 다시 시도해 주세요.');
+      const result = await geminiConversation(this.geminiRoot, path);
+      if (!result) throw fail('가져올 수 있는 Gemini CLI 메시지가 없습니다.');
+      return importResult(result.summary, result.messages);
     }
     if (options.provider === 'opencode') {
       if (typeof input.id !== 'string' || !/^[a-f0-9]{64}$/.test(input.id)) throw fail('올바르지 않은 OpenCode 대화입니다.');

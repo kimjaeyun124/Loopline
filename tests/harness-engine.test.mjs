@@ -1,0 +1,192 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtemp, mkdir, writeFile, readFile, rm, symlink } from 'node:fs/promises';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { createServer } from 'node:http';
+import { HarnessEngine, applyWorkspaceOperations, parseHarnessJson, runCommand, verifyWorkspace } from '../harness-engine.mjs';
+
+async function fixture(t) {
+  const directory = await mkdtemp(join(tmpdir(), 'loopline-harness-test-'));
+  const source = join(directory, 'source'), data = join(directory, 'data');
+  await mkdir(source); await mkdir(data);
+  const git = async (...args) => {
+    const result = await runCommand('git', ['-c', 'core.hooksPath=/dev/null', '-c', 'commit.gpgsign=false', '-c', 'user.name=Test', '-c', 'user.email=test@localhost', ...args], { cwd: source });
+    assert.equal(result.code, 0, result.error); return result.output;
+  };
+  await git('init'); await writeFile(join(source, 'file.txt'), 'original\n');
+  await git('add', '.'); await git('commit', '-m', 'fixture');
+  t.after(async () => { await rm(directory, { recursive: true, force: true }); });
+  const selection = { provider: 'api', model: 'fixture-model', connectionId: 'fixture' };
+  return { source, data, directory, git, input: { task: 'Update file.txt', workspace: source, verifyCommand: 'test -f file.txt', rounds: 2,
+    roles: { planner: selection, worker: selection, judge: { ...selection, model: 'jev-fixture' } } } };
+}
+async function settled(engine, id) {
+  await engine.runs.get(id).execution;
+  return engine.get(id);
+}
+function modelScript(judge) {
+  let steps = 0;
+  return async (_selection, prompt) => {
+    if (prompt.includes('구현 계획과 검증 기준')) return 'Read, update, verify.';
+    if (prompt.startsWith('변경 결과를')) return JSON.stringify(await judge());
+    steps++;
+    if (steps % 3 === 1) return JSON.stringify({ operations: [{ type: 'read', path: 'file.txt' }] });
+    if (steps % 3 === 2) return JSON.stringify({ operations: [{ type: 'write', path: 'file.txt', content: `updated ${Math.ceil(steps / 3)}\n` }] });
+    return JSON.stringify({ done: true, summary: 'Updated file.txt' });
+  };
+}
+const pass = async () => ({ code: 0, output: 'PASS', error: '' });
+const complete = () => ({ decision: 'complete', summary: 'Verified', feedback: '' });
+
+test('round feedback reaches worker, dirty user files survive and accepted patch applies automatically', async (t) => {
+  const f = await fixture(t);
+  await writeFile(join(f.source, 'user-note.txt'), 'untracked user data');
+  await writeFile(join(f.source, 'file.txt'), 'user edit\n');
+  let judgments = 0;
+  const invoke = modelScript(() => ++judgments === 1 ? { decision: 'revise', summary: 'Needs another pass', feedback: 'second-pass-feedback' } : complete());
+  let receivedFeedback = false;
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (...args) => { if (args[1].includes('second-pass-feedback')) receivedFeedback = true; return invoke(...args); } });
+  const created = await engine.create(f.input);
+  const run = await settled(engine, created.id);
+  assert.equal(run.status, 'completed', run.summary); assert.equal(run.round, 2); assert.equal(run.applied, true);
+  assert.equal(receivedFeedback, true);
+  assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'updated 2\n');
+  assert.equal(await readFile(join(f.source, 'user-note.txt'), 'utf8'), 'untracked user data');
+  assert.match(await engine.patch(run.id), /user edit/);
+  assert.ok(!run.events.some((event) => event.status === 'running'));
+});
+
+test('failed verification cannot be overridden by a complete verdict', async (t) => {
+  const f = await fixture(t);
+  const engine = new HarnessEngine({ directory: f.data, invoke: modelScript(complete), verify: async () => ({ code: 1, output: '', error: 'FAIL' }) });
+  const run = await settled(engine, (await engine.create({ ...f.input, rounds: 1 })).id);
+  assert.equal(run.status, 'limit'); assert.equal(run.applied, undefined);
+  assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'original\n');
+});
+
+test('malformed judge reply fails closed and retains patch', async (t) => {
+  const f = await fixture(t), invoke = modelScript(complete);
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: (...args) => args[1].startsWith('변경 결과를') ? 'Looks good!' : invoke(...args) });
+  const run = await settled(engine, (await engine.create(f.input)).id);
+  assert.equal(run.status, 'failed'); assert.equal(run.patchAvailable, true);
+  assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'original\n');
+});
+
+test('source changes during the run are preserved without automatic overwrite', async (t) => {
+  const f = await fixture(t);
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: modelScript(async () => {
+    await writeFile(join(f.source, 'file.txt'), 'concurrent user edit\n'); return complete();
+  }) });
+  const run = await settled(engine, (await engine.create(f.input)).id);
+  assert.equal(run.status, 'failed'); assert.match(run.summary, /원본 프로젝트가 변경/);
+  assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'concurrent user edit\n');
+  assert.ok(await engine.patch(run.id));
+});
+
+test('stop cancels current model call and never starts worker or verification', async (t) => {
+  const f = await fixture(t); let started; const ready = new Promise((resolve) => { started = resolve; }); let calls = 0;
+  const engine = new HarnessEngine({ directory: f.data, verify: () => assert.fail('Unexpected verification'), invoke: (_model, _prompt, _instructions, signal) => {
+    calls++; started(); return new Promise((_resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+  } });
+  const run = await engine.create(f.input); await ready; await engine.stop(run.id);
+  const result = await settled(engine, run.id);
+  assert.equal(result.status, 'stopped'); assert.equal(calls, 1);
+  assert.ok(result.events.every((event) => event.status !== 'running'));
+  assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'original\n');
+});
+
+test('workspace tools reject traversal, git metadata and symlinks', async (t) => {
+  const f = await fixture(t);
+  await symlink(f.data, join(f.source, 'outside'));
+  for (const path of ['../escape', '/tmp/escape', '.GIT/config', 'outside/escape']) {
+    await assert.rejects(applyWorkspaceOperations(f.source, [{ type: 'write', path, content: 'bad' }]));
+  }
+  await assert.rejects(applyWorkspaceOperations(f.source, [{ type: 'edit', path: 'file.txt', oldText: 'missing', newText: 'bad' }]));
+  await applyWorkspaceOperations(f.source, [{ type: 'edit', path: 'file.txt', oldText: 'original', newText: 'updated' }]);
+  assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'updated\n');
+  assert.throws(() => parseHarnessJson('prefix {"decision":"complete"}'));
+});
+
+test('only one run per source can run at a time', async (t) => {
+  const f = await fixture(t); let started; const ready = new Promise((resolve) => { started = resolve; });
+  const engine = new HarnessEngine({ directory: f.data, invoke: (_model, _prompt, _instructions, signal) => {
+    started(); return new Promise((_resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+  } });
+  const run = await engine.create(f.input); await ready;
+  await assert.rejects(engine.create(f.input), /이미 Harness/); await engine.stop(run.id); await settled(engine, run.id);
+});
+
+test('macOS verification allows workspace writes and blocks writes outside the workspace', { skip: process.platform !== 'darwin' }, async (t) => {
+  const f = await fixture(t); const runtime = join(f.directory, 'runtime'); await mkdir(runtime);
+  const good = await verifyWorkspace(f.source, 'printf success > verified.txt && cat verified.txt', runtime, new AbortController().signal);
+  assert.equal(good.code, 0, good.error); assert.equal(good.output, 'success');
+  const bad = await verifyWorkspace(f.source, `printf bad > '${join(f.directory, 'outside.txt')}'`, runtime, new AbortController().signal);
+  assert.notEqual(bad.code, 0);
+});
+
+test('review-only mode preserves original and passes root instructions to every role', async (t) => {
+  const f = await fixture(t); await writeFile(join(f.source, 'AGENTS.md'), 'Use the project convention.');
+  const invoke = modelScript(complete); const received = [];
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: (...args) => { received.push(args[2]); return invoke(...args); } });
+  const run = await settled(engine, (await engine.create({ ...f.input, autoApply: false })).id);
+  assert.equal(run.status, 'reviewed'); assert.ok(run.patchAvailable);
+  assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'original\n');
+  assert.ok(received.every((value) => value.includes('Use the project convention.')));
+  const restored = await new HarnessEngine({ directory: f.data, invoke: () => assert.fail('Must not restart') }).get(run.id);
+  assert.equal(restored.status, 'reviewed'); assert.equal(restored.events.length, run.events.length);
+});
+
+test('restored unfinished runs are marked interrupted without restarting model calls', async (t) => {
+  const f = await fixture(t); const id = '12345678-1234-1234-1234-123456789abc';
+  await mkdir(join(f.data, 'harness'));
+  await writeFile(join(f.data, 'harness', `${id}.json`), JSON.stringify({ id, status: 'running', events: [] }));
+  const engine = new HarnessEngine({ directory: f.data, invoke: () => assert.fail('Must not restart') });
+  assert.equal((await engine.get(id)).status, 'interrupted');
+});
+
+test('snapshot and auto-apply do not invoke repository-configured external filters', async (t) => {
+  const f = await fixture(t);
+  await f.git('config', 'filter.qa.clean', 'touch filter-was-run; cat');
+  await f.git('config', 'filter.qa.smudge', 'touch filter-was-run; cat');
+  await writeFile(join(f.source, '.gitattributes'), 'file.txt filter=qa\n');
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: modelScript(complete) });
+  const run = await settled(engine, (await engine.create(f.input)).id);
+  assert.equal(run.status, 'completed', run.summary);
+  await assert.rejects(readFile(join(f.source, 'filter-was-run')), { code: 'ENOENT' });
+  await assert.rejects(readFile(join(run.workspace, 'filter-was-run')), { code: 'ENOENT' });
+});
+
+test('macOS verification blocks outside reads and local networking', { skip: process.platform !== 'darwin' }, async (t) => {
+  const f = await fixture(t); const runtime = join(f.directory, 'runtime'); await mkdir(runtime);
+  await writeFile(join(f.directory, 'private.txt'), 'fixture secret');
+  const outside = await verifyWorkspace(f.source, `cat '${join(f.directory, 'private.txt')}'`, runtime, new AbortController().signal);
+  assert.notEqual(outside.code, 0); assert.ok(!outside.output.includes('fixture secret'));
+  const server = createServer((_req, res) => res.end('reachable'));
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  t.after(() => new Promise((resolve) => { server.closeAllConnections(); server.close(resolve); }));
+  const url = `http://127.0.0.1:${server.address().port}`;
+  assert.equal(await fetch(url).then((res) => res.text()), 'reachable');
+  const network = await verifyWorkspace(f.source, `/usr/bin/curl --max-time 2 ${url}`, runtime, new AbortController().signal);
+  assert.notEqual(network.code, 0);
+  assert.match(network.error, /Operation not permitted|Couldn't connect|Failed to connect/i);
+});
+
+test('cancellation terminates a running verification command', async () => {
+  const controller = new AbortController();
+  const process = runCommand('/bin/sh', ['-c', 'sleep 30'], { signal: controller.signal });
+  const timer = setTimeout(() => controller.abort(new Error('stop verification')), 100);
+  try { await assert.rejects(process, /stop verification/); } finally { clearTimeout(timer); }
+});
+
+test('repeated identical reads stop early instead of consuming every tool step', async (t) => {
+  const f = await fixture(t); let calls = 0;
+  const engine = new HarnessEngine({ directory: f.data, invoke: async (_model, prompt) => {
+    calls++;
+    if (prompt.includes('구현 계획과 검증 기준')) return 'Read then update.';
+    return JSON.stringify({ operations: [{ type: 'read', path: 'file.txt' }] });
+  } });
+  const run = await settled(engine, (await engine.create(f.input)).id);
+  assert.equal(run.status, 'failed'); assert.match(run.summary, /같은 읽기 작업/); assert.equal(calls, 4);
+  assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'original\n');
+});

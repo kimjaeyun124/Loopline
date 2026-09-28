@@ -2469,7 +2469,8 @@ document.querySelector('#providerConnectionModal').addEventListener('keydown', (
 document.querySelector('#connectCodexFromModal').addEventListener('click', () => {
   const addingAnotherAccount = state.providers.openai?.linked === true;
   closeProviderConnectionModal();
-  void connectCodexAccount(addingAnotherAccount ? null : 'default');
+  if (addingAnotherAccount) addCodexAccount();
+  else void connectCodexAccount('default');
 });
 document.querySelector('#connectClaudeFromModal').addEventListener('click', () => {
   closeProviderConnectionModal();
@@ -2556,7 +2557,7 @@ document.querySelector('#codexAccountForm').addEventListener('submit', (event) =
   input.value = '';
 });
 document.querySelector('#cancelCodexAccountForm').addEventListener('click', () => { document.querySelector('#codexAccountForm').hidden = true; });
-elements.addCodexAccountButton.addEventListener('click', addCodexAccount);
+elements.addCodexAccountButton.addEventListener('click', openProviderConnectionModal);
 elements.codexAccountsList.addEventListener('click', (event) => {
   const connectButton = event.target.closest('[data-connect-codex-account]');
   if (connectButton) {

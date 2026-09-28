@@ -322,8 +322,8 @@
           <div class="appearance-web-note"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#chat"></use></svg><p>ChatGPT와 Gemini도 함께 전환하려면 각 서비스의 화면 설정을 <strong>시스템</strong>으로 선택하세요. 웹 대화의 상단 메뉴는 해당 화면의 색상을 따릅니다.</p></div>
         </div>
         <div id="accountsPanel" role="tabpanel" aria-labelledby="accountsTab" data-settings-panel="accounts">
-        <div class="api-section-heading"><div class="settings-panel-heading"><h3>AI 연결</h3><p>원하는 서비스를 추가한 뒤 로그인하거나 API 키를 입력하세요.</p></div><button class="primary-button" id="addAiConnection" type="button"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#plus"></use></svg><span>AI 추가</span></button></div>
-        <div class="connection-empty" id="aiConnectionEmptyState" hidden><span class="connection-empty-icon" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 24 24"><use href="/icons.svg#plug"></use></svg></span><strong>아직 연결된 AI가 없습니다</strong><p>Codex, Claude Code, ChatGPT, Gemini 또는 API 에이전트를 원하는 만큼 추가하세요.</p><button class="secondary-button" type="button" data-open-ai-connections>AI 연결 선택</button></div>
+        <div class="api-section-heading"><div class="settings-panel-heading"><h3>AI 계정 및 연결</h3><p>서비스 계정으로 로그인하거나 API 토큰을 연결하세요.</p></div><button class="primary-button" id="addAiConnection" type="button"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#plus"></use></svg><span>계정 추가</span></button></div>
+        <div class="connection-empty" id="aiConnectionEmptyState" hidden><span class="connection-empty-icon" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 24 24"><use href="/icons.svg#plug"></use></svg></span><strong>아직 연결된 AI가 없습니다</strong><p>Codex, Claude Code, ChatGPT, Gemini 또는 API 토큰 연결을 추가하세요.</p><button class="secondary-button" type="button" data-open-ai-connections>계정 추가</button></div>
         <div class="connection-row chatgpt-connection" hidden>
           <div class="connection-logo" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 24 24"><use href="/icons.svg#chat"></use></svg></div>
           <div class="connection-details"><strong>ChatGPT</strong><small>ChatGPT에 로그인하여 대화와 프로젝트를 사용하세요.</small></div>
@@ -415,8 +415,8 @@
           </article>
           <article class="connection-row provider-connection-choice" id="apiConnectionChoice">
             <span class="connection-logo" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 24 24"><use href="/icons.svg#plug"></use></svg></span>
-            <div class="connection-details"><strong>API 에이전트</strong><small>DeepSeek, OpenAI 호환 서비스와 로컬 API 연결</small></div>
-            <button class="connect-button" id="addApiFromModal" type="button">설정</button>
+            <div class="connection-details"><strong>API 토큰</strong><small>OpenAI 호환 API 주소와 토큰으로 모델 연결</small></div>
+            <button class="connect-button" id="addApiFromModal" type="button">연결</button>
           </article>
         </div>
         <div class="project-modal-actions"><span></span><button class="secondary-button" id="cancelProviderConnection" type="button">취소</button></div>

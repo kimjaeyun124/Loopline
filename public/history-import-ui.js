@@ -36,7 +36,7 @@ export function createHistoryImportUI({ getProjects, isImported, onImport, onFil
     element('historySelectAll').disabled = loading || importing || !eligible.length;
     element('historySelectionCount').textContent = `${selected.size}개 선택`;
     element('commitHistoryImport').disabled = importing || loading || selected.size === 0;
-    element('commitHistoryImport').textContent = importing ? '가져오는 중…' : `선택한 대화 가져오기${selected.size ? ` (${selected.size})` : ''}`;
+    element('commitHistoryImport').textContent = importing ? '불러오는 중…' : `선택한 대화 불러오기${selected.size ? ` (${selected.size})` : ''}`;
   }
 
   function render() {
@@ -71,7 +71,7 @@ export function createHistoryImportUI({ getProjects, isImported, onImport, onFil
       const sources = Array.isArray(data.sources) ? data.sources : [];
       const available = sources.filter((source) => source.available);
       status.textContent = [
-        available.length ? `가져올 수 있는 로컬 기록: ${available.map((source) => source.name).join(', ')}.` : '가져올 수 있는 로컬 대화를 찾지 못했습니다.',
+        available.length ? `불러올 수 있는 로컬 기록: ${available.map((source) => source.name).join(', ')}.` : '불러올 수 있는 로컬 대화를 찾지 못했습니다.',
         ...sources.filter((source) => !source.available).map((source) => source.detail),
       ].filter(Boolean).join(' ');
     } catch (failure) {
@@ -180,10 +180,10 @@ export function createHistoryImportUI({ getProjects, isImported, onImport, onFil
       const count = onImport(conversations, projectId);
       importing = false;
       close();
-      showToast(`${count}개 대화를 가져왔습니다. 모델을 바꿔 이어서 대화할 수 있습니다.`);
+      showToast(`${count}개 대화를 불러왔습니다. 모델을 바꿔 이어서 대화할 수 있습니다.`);
     } catch (failure) {
       error(failure.message || '대화를 저장하지 못했습니다.');
-      element('historyNotice').textContent = '이번 가져오기는 저장되지 않았습니다. 선택을 조정한 뒤 다시 시도하세요.';
+      element('historyNotice').textContent = '이번 불러오기는 저장되지 않았습니다. 선택을 조정한 뒤 다시 시도하세요.';
     } finally {
       importing = false;
       controls.forEach((control, index) => { control.disabled = disabledStates[index]; });

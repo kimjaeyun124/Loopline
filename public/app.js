@@ -335,7 +335,7 @@ function commitHistoryImport(items, projectId) {
   }
   // Commit one storage value before changing visible state, so a quota failure leaves the import untouched.
   try { localStorage.setItem(STORAGE_KEY, serialized); }
-  catch { throw new Error('대화를 저장할 공간이 부족합니다. 이번 가져오기는 저장되지 않았습니다.'); }
+  catch { throw new Error('대화를 저장할 공간이 부족합니다. 이번 불러오기는 저장되지 않았습니다.'); }
   state.conversations = next;
   if (additions.length) selectConversation(additions[0]);
   else render();
@@ -1550,7 +1550,7 @@ async function selectProjectImportFile(file) {
     document.querySelector('#exportConversationSearch').value = '';
     renderExportConversationPicker();
     elements.projectImportProvider.value = parsed.suggestedProvider;
-    elements.projectImportName.value = `${importSourceName(parsed.suggestedProvider)} 가져오기`.slice(0, 60);
+    elements.projectImportName.value = `${importSourceName(parsed.suggestedProvider)}에서 불러온 프로젝트`.slice(0, 60);
     const importedProjectCount = parsed.projects.length;
     const conversationCount = parsed.conversations.length;
     elements.projectImportSummary.textContent = `${file.name} · 프로젝트 ${importedProjectCount.toLocaleString()}개 · 대화 ${conversationCount.toLocaleString()}개 · JSON ${parsed.sourceFileCount.toLocaleString()}개`;
@@ -1620,7 +1620,7 @@ function commitProjectImport() {
   const provider = elements.projectImportProvider.value === 'anthropic' ? 'anthropic' : 'openai';
   const importName = elements.projectImportName.value.trim().slice(0, 60);
   if (!importName) {
-    elements.projectImportError.textContent = '가져오기 프로젝트 이름을 입력해 주세요.';
+    elements.projectImportError.textContent = '저장할 프로젝트 이름을 입력해 주세요.';
     elements.projectImportError.hidden = false;
     elements.projectImportName.focus();
     return;
@@ -1707,7 +1707,7 @@ function commitProjectImport() {
 
   if (!stagedProjects.length && !newConversations.length) {
     closeProjectImport();
-    showToast('이 내보내기의 프로젝트와 대화는 이미 가져왔습니다.');
+    showToast('이 내보내기의 프로젝트와 대화는 이미 불러왔습니다.');
     return;
   }
 
@@ -1720,7 +1720,7 @@ function commitProjectImport() {
   const estimatedBytes = otherStorageBytes
     + (JSON.stringify(nextProjects).length + JSON.stringify(nextConversations).length) * 2;
   if (estimatedBytes > 3_800_000) {
-    elements.projectImportError.textContent = '가져온 자료가 앱의 현재 로컬 저장 한도를 넘습니다. 더 작은 내보내기 파일로 나누어 가져와 주세요. 이번 가져오기는 저장되지 않았습니다.';
+    elements.projectImportError.textContent = '불러온 자료가 앱의 현재 로컬 저장 한도를 넘습니다. 더 작은 내보내기 파일로 나누어 불러와 주세요. 이번 불러오기는 저장되지 않았습니다.';
     elements.projectImportError.hidden = false;
     return;
   }
@@ -1735,7 +1735,7 @@ function commitProjectImport() {
   if (newConversations.length) selectConversation(newConversations[0]);
   else render();
   const duplicateNotice = duplicates.length ? ` · 중복 대화 ${duplicates.length.toLocaleString()}개 건너뜀` : '';
-  showToast(`${importSourceName(provider)} 가져오기 완료 · 프로젝트 ${stagedProjects.length.toLocaleString()}개 · 대화 ${newConversations.length.toLocaleString()}개${duplicateNotice}`);
+  showToast(`${importSourceName(provider)} 불러오기 완료 · 프로젝트 ${stagedProjects.length.toLocaleString()}개 · 대화 ${newConversations.length.toLocaleString()}개${duplicateNotice}`);
 }
 
 function safeChatGptAuthUrl(value) {

@@ -823,7 +823,7 @@ function renderModelOptions() {
     elements.modelOptions.innerHTML = providers.map((item) => {
       const selected = isSelectedProvider(item);
       return `<button class="model-option${selected ? ' selected' : ''}" type="button" role="option" aria-selected="${selected}" data-provider-key="${escapeHtml(providerKey(item))}"${state.busy ? ' disabled' : ''}><span><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.detail)}</small></span><span class="model-check" aria-hidden="true">${selected ? icon('check') : icon('chevron-right')}</span></button>`;
-    }).join('') || '<p class="model-empty">일치하는 연결이 없습니다. 아래에서 계정이나 API 에이전트를 연결하세요.</p>';
+    }).join('') || '<p class="model-empty">일치하는 연결이 없습니다. 계정은 아래에서, API 에이전트는 왼쪽의 에이전트 메뉴에서 연결하세요.</p>';
     if (!elements.modelMenu.hidden) positionModelMenu();
     return;
   }
@@ -2478,10 +2478,6 @@ document.querySelector('#connectClaudeFromModal').addEventListener('click', () =
 });
 document.querySelector('#addChatGptFromModal').addEventListener('click', () => void addWebService('chatgpt'));
 document.querySelector('#addGeminiFromModal').addEventListener('click', () => void addWebService('gemini'));
-document.querySelector('#addApiFromModal').addEventListener('click', () => {
-  closeProviderConnectionModal();
-  openNewApiConnection();
-});
 document.querySelector('#accountsPanel').addEventListener('click', (event) => {
   const button = event.target.closest('[data-delete-web-service]');
   if (button) void removeWebService(button.dataset.deleteWebService);
@@ -2533,7 +2529,6 @@ document.querySelector('#addAgentSidebar').addEventListener('click', (event) => 
   event.preventDefault();
   openNewApiConnection();
 });
-document.querySelector('#addAgentFromModels').addEventListener('click', openNewApiConnection);
 document.querySelector('#manageModelVisibility').addEventListener('click', () => showSettings('models'));
 document.querySelector('#manageProviderConnections').addEventListener('click', () => showSettings('accounts'));
 document.querySelector('#agentList').addEventListener('click', (event) => {

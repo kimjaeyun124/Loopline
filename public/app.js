@@ -37,6 +37,17 @@ const PROJECT_STORAGE_KEY = 'mosaic-ai.projects.v1';
 const SIDEBAR_WIDTH_DEFAULT = 248;
 const SIDEBAR_WIDTH_MIN = 208;
 const SIDEBAR_WIDTH_MAX = 440;
+
+function isUnsentNewTaskDraft(conversation) {
+  return Boolean(conversation
+    && ['새 작업', '새 대화'].includes(conversation.title)
+    && conversation.messages.length === 0
+    && !conversation.codexThreadId
+    && !conversation.importSource
+    && !conversation.sourceId
+    && !conversation.historySourceLabel);
+}
+
 const state = {
   conversations: loadConversations(),
   projects: loadProjects(),
@@ -172,7 +183,13 @@ if (new URLSearchParams(location.search).get('desktop') === '1') {
   document.querySelector('.brand').href = '/?desktop=1';
 }
 const chatGptUI = createChatGptUI({
-  beforeOpen: () => { accountMenuUI.close(); hideSettings(); hideSearch(); closeModelMenu(); },
+  beforeOpen: () => {
+    if (discardUnsentNewTaskDrafts()) render();
+    accountMenuUI.close();
+    hideSettings();
+    hideSearch();
+    closeModelMenu();
+  },
   onWorkspace: () => elements.messageInput.focus(),
 });
 
@@ -267,10 +284,11 @@ function loadConversations() {
           messages,
         };
       });
-    if (titlesMigrated) {
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(conversations)); } catch { /* Keep the migrated titles visible for this session. */ }
+    const savedConversations = conversations.filter((conversation) => !isUnsentNewTaskDraft(conversation));
+    if (titlesMigrated || savedConversations.length !== conversations.length) {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(savedConversations)); } catch { /* Keep the migrated titles visible for this session. */ }
     }
-    return conversations;
+    return savedConversations;
   } catch {
     return [];
   }
@@ -306,7 +324,7 @@ function saveProjects() {
 
 function saveConversations() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state.conversations));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state.conversations.filter((conversation) => !isUnsentNewTaskDraft(conversation))));
   } catch {
     showToast('브라우저 저장 공간이 부족해 대화를 저장하지 못했습니다.');
   }
@@ -419,9 +437,19 @@ function activeConversation() {
   return state.conversations.find((conversation) => conversation.id === state.activeId) || null;
 }
 
+function discardUnsentNewTaskDrafts(keepId = null) {
+  const conversations = state.conversations.filter((conversation) => conversation.id === keepId || !isUnsentNewTaskDraft(conversation));
+  if (conversations.length === state.conversations.length) return false;
+  state.conversations = conversations;
+  if (state.activeId && !conversations.some((conversation) => conversation.id === state.activeId)) state.activeId = null;
+  saveConversations();
+  return true;
+}
+
 function createConversation() {
   chatGptUI.showWorkspace();
   if (state.busy) { showToast('응답을 중지하거나 완료한 뒤 새 작업을 시작해 주세요.'); return; }
+  discardUnsentNewTaskDrafts();
   const conversation = {
     id: crypto.randomUUID(),
     title: '새 작업',
@@ -1549,6 +1577,7 @@ function saveProjectEditor() {
     item.knowledge = knowledge;
     item.updatedAt = now;
   } else {
+    discardUnsentNewTaskDrafts();
     const item = { id: crypto.randomUUID(), name: name.slice(0, 60), instructions, knowledge, createdAt: now, updatedAt: now };
     state.projects.unshift(item);
     state.activeProjectId = item.id;
@@ -1577,7 +1606,9 @@ function deleteActiveProject() {
 
 function selectProject(projectId) {
   chatGptUI.showWorkspace();
-  state.activeProjectId = projectId && project(projectId) ? projectId : null;
+  const nextProjectId = projectId && project(projectId) ? projectId : null;
+  if (nextProjectId !== state.activeProjectId) discardUnsentNewTaskDrafts();
+  state.activeProjectId = nextProjectId;
   const nextConversation = [...state.conversations]
     .filter((conversation) => !state.activeProjectId || conversation.projectId === state.activeProjectId)
     .sort((a, b) => b.updatedAt - a.updatedAt)[0];
@@ -2336,6 +2367,7 @@ function selectSettingsTab(tab) {
 
 let settingsReturnFocus = null;
 function showSettings(tab = 'accounts') {
+  if (discardUnsentNewTaskDrafts()) render();
   if (elements.settingsModal.hidden) settingsReturnFocus = document.activeElement;
   accountMenuUI.close();
   closeModelMenu();
@@ -2365,6 +2397,7 @@ function selectConversation(conversation) {
     showToast('응답이 끝난 뒤 대화를 전환해 주세요.');
     return false;
   }
+  discardUnsentNewTaskDrafts(conversation.id);
   state.activeId = conversation.id;
   state.activeProjectId = project(conversation.projectId) ? conversation.projectId : null;
   state.provider = conversation.provider;

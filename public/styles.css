@@ -249,6 +249,7 @@ kbd { margin-left: auto; color: var(--muted); font-family: inherit; font-size: 1
 .worked-for-details > summary::after { width: 7px; height: 7px; flex: 0 0 7px; margin: -4px 1px 0 0; transform: rotate(45deg); border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; content: ""; }
 .worked-for-details[open] > summary::after { margin-top: 4px; transform: rotate(225deg); }
 .worked-for-details > summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+.worked-for-details[open] > summary { outline: 1px solid var(--line-strong); outline-offset: 3px; border-radius: 2px; }
 .worked-for-live { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11px; }
 .worked-for-live i { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 1.3s infinite ease-in-out; }
 .assistant-activity-list { display: flex; flex-direction: column; gap: 0; margin: 0; padding: 9px 0 2px 3px; list-style: none; }

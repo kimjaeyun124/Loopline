@@ -37,6 +37,7 @@ const PROJECT_STORAGE_KEY = 'mosaic-ai.projects.v1';
 const SIDEBAR_WIDTH_DEFAULT = 248;
 const SIDEBAR_WIDTH_MIN = 208;
 const SIDEBAR_WIDTH_MAX = 440;
+const LOOP_ENGINEERING_COMPLETE_MARKER = '[[LOOP_ENGINEERING_COMPLETE]]';
 
 function isUnsentNewTaskDraft(conversation) {
   return Boolean(conversation
@@ -63,6 +64,10 @@ const state = {
   apiConnections: [],
   keyStorage: 'session',
   fastMode: false,
+  loopEngineeringEnabled: false,
+  loopEngineeringRounds: 3,
+  loopEngineeringRunning: false,
+  loopStopRequested: false,
   reasoningEfforts: {},
   agentInstructions: {
     shared: '',
@@ -128,6 +133,8 @@ const elements = {
   modelOptions: document.querySelector('#modelOptions'),
   composerReasoningControl: document.querySelector('#composerReasoningControl'),
   composerReasoningEffortSelect: document.querySelector('#composerReasoningEffortSelect'),
+  loopEngineeringControl: document.querySelector('#loopEngineeringControl'),
+  loopEngineeringRounds: document.querySelector('#loopEngineeringRounds'),
   fastModeToggle: document.querySelector('#fastModeToggle'),
   codexAccountsList: document.querySelector('#codexAccountsList'),
   addCodexAccountButton: document.querySelector('#addCodexAccount'),
@@ -385,6 +392,10 @@ function loadPreferences() {
     if (typeof preferences.codexAccountId === 'string') state.activeCodexAccountId = preferences.codexAccountId;
     if (typeof preferences.activeProjectId === 'string') state.activeProjectId = preferences.activeProjectId;
     if (typeof preferences.fastMode === 'boolean') state.fastMode = preferences.fastMode;
+    if (typeof preferences.loopEngineeringEnabled === 'boolean') state.loopEngineeringEnabled = preferences.loopEngineeringEnabled;
+    if (Number.isInteger(preferences.loopEngineeringRounds) && preferences.loopEngineeringRounds >= 2 && preferences.loopEngineeringRounds <= 10) {
+      state.loopEngineeringRounds = preferences.loopEngineeringRounds;
+    }
     if (preferences.agentInstructions && typeof preferences.agentInstructions === 'object' && !Array.isArray(preferences.agentInstructions)) {
       const saved = preferences.agentInstructions;
       if (typeof saved.shared === 'string') state.agentInstructions.shared = saved.shared.slice(0, 12_000);
@@ -427,6 +438,8 @@ function savePreferences() {
     activeProjectId: state.activeProjectId,
     sidebarWidth: state.sidebarWidth,
     fastMode: state.fastMode,
+    loopEngineeringEnabled: state.loopEngineeringEnabled,
+    loopEngineeringRounds: state.loopEngineeringRounds,
     agentInstructions: state.agentInstructions,
     reasoningEffort: reasoningSettings().selectedEffort,
     reasoningEfforts: state.reasoningEfforts,
@@ -935,7 +948,11 @@ function renderModelOptions() {
   const scopedModels = modelCatalog().filter(isSelectedProvider);
   const visibleModels = scopedModels.filter(modelVisibilityUI.isVisible);
   const models = visibleModels.filter((model) => `${model.label} ${model.id} ${model.source}`.toLocaleLowerCase().includes(query));
-  elements.modelOptions.innerHTML = models.slice(0, 200).map((model) => {
+  const loopMatches = !query || 'loop engineering 반복 실행'.includes(query);
+  const loopOption = loopMatches
+    ? `<button class="model-option loop-engineering-option${state.loopEngineeringEnabled ? ' selected' : ''}" type="button" role="option" aria-selected="${state.loopEngineeringEnabled}" data-loop-engineering="true"${state.busy ? ' disabled' : ''}><span><strong>Loop Engineering</strong><small>선택한 모델로 최대 ${state.loopEngineeringRounds}회 이어서 실행</small></span><span class="model-check" aria-hidden="true">${state.loopEngineeringEnabled ? icon('check') : icon('chevron-right')}</span></button>`
+    : '';
+  const modelRows = models.slice(0, 200).map((model) => {
     const selected = modelKey(model) === selectedModelKey();
     return `<button class="model-option${selected ? ' selected' : ''}" type="button" role="option" aria-selected="${selected}" data-model-key="${escapeHtml(modelKey(model))}"${!model.connected || state.busy ? ' disabled' : ''}><span><strong>${escapeHtml(model.label)}</strong><small>${escapeHtml(model.source)}${!model.connected ? ' · 연결 필요' : ''}</small></span><span class="model-check" aria-hidden="true">${selected ? icon('check') : ''}</span></button>`;
   }).join('') || (visibleModels.length
@@ -943,6 +960,7 @@ function renderModelOptions() {
     : scopedModels.length
       ? '<p class="model-empty">표시할 모델이 없습니다.<br>아래 표시 설정에서 사용할 모델을 켜 주세요.</p>'
       : '<p class="model-empty">모델 목록이 없습니다. 연결 설정에서 연결 상태와 모델 목록을 새로고침해 주세요.</p>');
+  elements.modelOptions.innerHTML = `${loopOption}${loopOption && !models.length && !query ? '<p class="model-empty">Loop Engineering을 사용하려면 연결된 실제 모델도 선택해 주세요.</p>' : loopOption && !models.length ? '' : modelRows}`;
   if (models.length > 200) elements.modelOptions.insertAdjacentHTML('beforeend', '<p class="model-empty">더 많은 모델은 이름으로 검색하세요.</p>');
   if (!elements.modelMenu.hidden) positionModelMenu();
 }
@@ -1000,6 +1018,8 @@ function renderSendButtonState(selectedConnected) {
   elements.sendButton.setAttribute('aria-label', queueing ? '대기열에 추가' : stopping ? '응답 중지' : '메시지 보내기');
   elements.sendButton.title = queueing ? '대기열에 추가' : stopping ? '응답 중지' : selectedConnected ? '메시지 보내기' : '먼저 연결과 모델을 선택하세요.';
   elements.stopResponseButton.hidden = !state.busy;
+  elements.stopResponseButton.title = state.loopEngineeringRunning ? 'Loop Engineering 중지' : '현재 응답 중지';
+  elements.stopResponseButton.setAttribute('aria-label', state.loopEngineeringRunning ? 'Loop Engineering 중지' : '응답 중지');
 }
 
 function renderModelSelect() {
@@ -1015,6 +1035,10 @@ function renderModelSelect() {
   elements.modelSelectButton.disabled = state.busy;
   elements.modelSelectButton.title = selected ? `${selected.label} · ${selected.source}` : '사용 가능한 모델을 선택하세요.';
   elements.modelSelectButton.setAttribute('aria-label', `세부 모델 선택${selected ? ` · ${selected.label}` : ''}`);
+  elements.loopEngineeringControl.hidden = !state.loopEngineeringEnabled;
+  elements.loopEngineeringRounds.value = String(state.loopEngineeringRounds);
+  elements.loopEngineeringRounds.disabled = state.busy;
+  if (state.loopEngineeringEnabled && selected) elements.modelSelectButton.title = `${selected.label} · ${selected.source} · Loop Engineering`;
   const codexAccount = state.provider === 'openai' ? activeCodexAccount() : null;
   document.querySelector('#providerPillText').textContent = codexAccount ? codexAccountDisplayName(codexAccount) : provider?.label || '연결 관리';
   document.querySelector('#providerDot').classList.toggle('connected', provider?.connected === true);
@@ -1987,6 +2011,14 @@ function setModel(key) {
   closeModelMenu(true);
 }
 
+function setLoopEngineeringEnabled(enabled) {
+  if (state.busy) return;
+  state.loopEngineeringEnabled = enabled === true;
+  savePreferences();
+  render();
+  renderModelOptions();
+}
+
 function toggleFastMode() {
   if (elements.fastModeToggle.disabled || state.provider !== 'openai') return;
   state.fastMode = !state.fastMode;
@@ -2222,6 +2254,215 @@ function resumeSavedQueue() {
   if (conversation) startNextQueuedMessage(conversation);
 }
 
+async function sendLoopEngineering(value, queuedMessageId = null) {
+  const message = value.trim();
+  if (!message || state.busy) return;
+  if (!state.provider || !state.model) {
+    showToast('Loop Engineering에 사용할 연결과 세부 모델을 선택해 주세요.');
+    openModelMenu(state.provider ? 'models' : 'providers');
+    return;
+  }
+  const selected = modelCatalog().find((model) => modelKey(model) === selectedModelKey());
+  if (!selected?.connected) {
+    showToast('연결된 모델을 선택하거나 에이전트를 연결해 주세요.');
+    showSettings(state.provider === 'api' ? 'agents' : 'accounts');
+    return;
+  }
+
+  let conversation = activeConversation();
+  if (!conversation) {
+    if (queuedMessageId) return;
+    createConversation();
+    conversation = activeConversation();
+  }
+  const queuedMessage = queuedMessageId
+    ? conversation.messages.find((item) => item.id === queuedMessageId && item.role === 'user' && item.queued)
+    : null;
+  if (queuedMessageId && !queuedMessage) return;
+
+  const reasoning = reasoningSettings();
+  if (conversation.provider !== state.provider && state.provider === 'openai') conversation.codexThreadId = null;
+  conversation.provider = state.provider;
+  conversation.model = state.model;
+  conversation.connectionId = state.provider === 'api' ? state.activeConnectionId : null;
+  if (state.provider === 'openai') {
+    if (conversation.codexAccountId !== state.activeCodexAccountId) conversation.codexThreadId = null;
+    conversation.codexAccountId = state.activeCodexAccountId;
+  }
+  updateConversationTitle(conversation, message);
+  let loopTaskMessageId;
+  if (queuedMessage) {
+    queuedMessage.queued = false;
+    delete queuedMessage.queueOptions;
+    loopTaskMessageId = queuedMessage.id;
+  } else {
+    const userMessage = { role: 'user', content: message, id: crypto.randomUUID() };
+    loopTaskMessageId = userMessage.id;
+    conversation.messages.push(userMessage);
+  }
+  conversation.updatedAt = Date.now();
+  saveConversations();
+
+  elements.messageInput.value = '';
+  resizeInput();
+  state.busy = true;
+  state.loopEngineeringRunning = true;
+  state.loopStopRequested = false;
+  state.controller = null;
+  closeModelMenu();
+  render();
+
+  const maxRounds = state.loopEngineeringRounds;
+  const projectInstructions = activeProjectInstructions();
+  const baseAgentInstructions = activeAgentInstructions();
+  let shouldContinueQueue = false;
+  let lastAssistantMessage = null;
+
+  try {
+    for (let round = 1; round <= maxRounds; round += 1) {
+      if (state.loopStopRequested) break;
+
+      const assistantMessage = {
+        role: 'assistant',
+        content: '',
+        id: crypto.randomUUID(),
+        pending: true,
+        startedAt: Date.now(),
+        activityMode: state.provider === 'openai' ? 'native' : 'lifecycle',
+        activityExpanded: true,
+        activities: [
+          { id: 'request', title: `Loop Engineering · ${round}/${maxRounds}`, detail: '선택한 모델로 이 회차를 진행합니다.', status: 'completed' },
+          { id: 'response', title: '응답 생성 중', detail: '모델의 응답을 기다리고 있습니다.', status: 'running' },
+        ],
+      };
+      conversation.messages.push(assistantMessage);
+      lastAssistantMessage = assistantMessage;
+      conversation.updatedAt = Date.now();
+      saveConversations();
+      render();
+      startWorkedForTimer(assistantMessage);
+
+      const allMessages = conversation.messages.filter((item) => !item.pending && !item.queued);
+      const recentMessages = allMessages.slice(-60);
+      const loopTaskMessage = allMessages.find((item) => item.id === loopTaskMessageId);
+      const messagesForTurn = recentMessages.some((item) => item.id === loopTaskMessageId) || !loopTaskMessage
+        ? recentMessages
+        : [loopTaskMessage, ...recentMessages.slice(-59)];
+      const messages = messagesForTurn.map(({ role, content }) => ({ role, content: content.slice(0, 40_000) }));
+      while (messages.length > 1 && new Blob([JSON.stringify(messages)]).size > 850_000) messages.shift();
+      if (round === 1 && (messages.length < allMessages.length || allMessages.some((item) => item.content.length > 40_000))) {
+        showToast(`전체 기록은 보관하며, 이번 응답에는 최근 ${messages.length}개 메시지를 길이 한도 안에서 전달합니다.`);
+      }
+
+      const loopInstructions = [
+        'Loop Engineering 실행 모드입니다. 사용자의 원래 요청과 앞선 회차의 응답을 바탕으로 작업을 점진적으로 완성하세요.',
+        `현재 회차: ${round}/${maxRounds}.`,
+        round === 1
+          ? '첫 회차에서는 요청을 분석하고 가능한 작업을 바로 수행한 뒤, 확인한 결과와 남은 항목을 간결하게 설명하세요.'
+          : '이번 회차에서는 현재 작업 상태와 앞선 결과를 먼저 확인하고, 부족한 부분을 실제로 개선하거나 검증하세요. 이미 완료한 작업을 반복하지 마세요.',
+        '사용 가능한 도구가 있으면 도구로 작업하고 확인하세요. 도구가 없는 모델은 파일을 수정했다고 주장하지 말고, 이 환경에서 가능한 결과와 한계를 분명히 설명하세요.',
+        `목표가 완료되고 확인까지 끝났다면 응답 마지막에 ${LOOP_ENGINEERING_COMPLETE_MARKER}를 단독으로 출력해 조기 종료를 요청하세요. 완료되지 않았다면 해당 문구를 출력하지 마세요.`,
+      ].join('\n');
+      const agentInstructions = [baseAgentInstructions, loopInstructions].filter(Boolean).join('\n\n');
+      const controller = new AbortController();
+      state.controller = controller;
+
+      try {
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            provider: state.provider,
+            model: state.model,
+            ...(state.provider === 'api' ? { connectionId: conversation.connectionId } : {}),
+            ...(['openai', 'anthropic'].includes(state.provider) ? { reasoningEffort: reasoning.selectedEffort } : {}),
+            ...(state.provider === 'openai' ? { fastMode: reasoning.fastEnabled } : {}),
+            ...(state.provider === 'openai' ? { codexAccountId: conversation.codexAccountId || 'default' } : {}),
+            ...(agentInstructions ? { agentInstructions } : {}),
+            ...(projectInstructions ? { projectInstructions } : {}),
+            messages,
+            ...(state.provider === 'openai' && conversation.codexThreadId ? { codexThreadId: conversation.codexThreadId } : {}),
+          }),
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          throw new Error(data.error || `요청에 실패했습니다 (${response.status}).`);
+        }
+        await streamResponse(response, assistantMessage, conversation);
+      } catch (error) {
+        finishAssistantWork(assistantMessage);
+        assistantMessage.pending = false;
+        const stopped = error.name === 'AbortError' || state.loopStopRequested;
+        assistantMessage.error = !stopped;
+        settleActiveAssistantActivities(assistantMessage, stopped ? 'stopped' : 'failed');
+        updateResponseActivity(
+          assistantMessage,
+          stopped ? 'stopped' : 'failed',
+          stopped ? '응답 중지' : '응답 실패',
+          stopped ? '사용자가 현재 회차를 중지했습니다.' : error.message || '서버에 연결할 수 없습니다.',
+        );
+        assistantMessage.activityExpanded = true;
+        assistantMessage.content = stopped
+          ? (assistantMessage.content || 'Loop Engineering을 중지했습니다.')
+          : `오류: ${error.message || '서버에 연결할 수 없습니다.'}`;
+        conversation.updatedAt = Date.now();
+        saveConversations();
+        render();
+      } finally {
+        if (state.controller === controller) state.controller = null;
+      }
+
+      const completedContent = assistantMessage.content.trimEnd();
+      const signaledComplete = completedContent.endsWith(LOOP_ENGINEERING_COMPLETE_MARKER);
+      if (signaledComplete) {
+        assistantMessage.content = completedContent.slice(0, -LOOP_ENGINEERING_COMPLETE_MARKER.length).trimEnd();
+      }
+      if (state.loopStopRequested) {
+        assistantMessage.error = false;
+        settleActiveAssistantActivities(assistantMessage, 'stopped');
+        updateResponseActivity(assistantMessage, 'stopped', '응답 중지', '사용자가 현재 회차를 중지했습니다.');
+        assistantMessage.content ||= 'Loop Engineering을 중지했습니다.';
+      }
+      const requestActivity = assistantMessage.activities.find((activity) => activity.id === 'request');
+      if (assistantMessage.error) {
+        requestActivity.status = 'failed';
+        requestActivity.detail = '오류가 발생해 다음 회차를 시작하지 않았습니다.';
+      } else if (state.loopStopRequested) {
+        requestActivity.status = 'stopped';
+        requestActivity.detail = '사용자가 다음 회차 실행을 중지했습니다.';
+      } else {
+        requestActivity.detail = signaledComplete
+          ? '목표가 완료되어 루프를 조기 종료했습니다.'
+          : round === maxRounds ? '설정한 최대 회차를 완료했습니다.' : '회차 결과를 확인했습니다. 다음 회차에서 이어서 개선합니다.';
+      }
+      saveConversations();
+      render();
+
+      if (assistantMessage.error || state.loopStopRequested || signaledComplete) break;
+      if (round < maxRounds) await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    shouldContinueQueue = !state.loopStopRequested && !lastAssistantMessage?.error;
+  } finally {
+    if (state.loopStopRequested && lastAssistantMessage) {
+      const requestActivity = lastAssistantMessage.activities.find((activity) => activity.id === 'request');
+      if (requestActivity?.status === 'completed') {
+        requestActivity.status = 'stopped';
+        requestActivity.detail = '사용자가 다음 회차 실행을 중지했습니다.';
+        saveConversations();
+      }
+    }
+    state.busy = false;
+    state.loopEngineeringRunning = false;
+    state.loopStopRequested = false;
+    state.controller = null;
+    render();
+    if (shouldContinueQueue && conversation.messages.some((item) => item.role === 'user' && item.queued)) {
+      queueMicrotask(() => startNextQueuedMessage(conversation));
+    }
+  }
+}
+
 async function sendMessage(value, queuedMessageId = null) {
   const message = value.trim();
   if (!message || state.busy) return;
@@ -2229,6 +2470,7 @@ async function sendMessage(value, queuedMessageId = null) {
     enqueueMessage(message);
     return;
   }
+  if (state.loopEngineeringEnabled) return sendLoopEngineering(message, queuedMessageId);
   if (!state.provider || !state.model) {
     showToast('사용할 연결과 세부 모델을 선택해 주세요.');
     openModelMenu(state.provider ? 'models' : 'providers');
@@ -2789,6 +3031,10 @@ for (const [button, mode] of [[elements.providerSelectButton, 'providers'], [ele
 }
 elements.modelSearch.addEventListener('input', renderModelOptions);
 elements.modelOptions.addEventListener('click', (event) => {
+  if (event.target.closest('[data-loop-engineering]')) {
+    setLoopEngineeringEnabled(!state.loopEngineeringEnabled);
+    return;
+  }
   const providerButton = event.target.closest('[data-provider-key]');
   if (providerButton) {
     // Keep the next menu open after replacing the clicked connection row.
@@ -2850,7 +3096,18 @@ elements.messages.addEventListener('click', (event) => {
 elements.exportConversationButton.addEventListener('click', exportConversationMarkdown);
 elements.fastModeToggle.addEventListener('click', toggleFastMode);
 elements.composerReasoningEffortSelect.addEventListener('change', (event) => setReasoningEffort(event.target.value));
-elements.stopResponseButton.addEventListener('click', () => state.controller?.abort());
+elements.stopResponseButton.addEventListener('click', () => {
+  if (state.loopEngineeringRunning) state.loopStopRequested = true;
+  state.controller?.abort();
+  if (state.loopEngineeringRunning) showToast('Loop Engineering을 중지합니다.');
+});
+elements.loopEngineeringRounds.addEventListener('change', (event) => {
+  const rounds = Number.parseInt(event.target.value, 10);
+  if (state.busy || !Number.isInteger(rounds) || rounds < 2 || rounds > 10) return;
+  state.loopEngineeringRounds = rounds;
+  savePreferences();
+  renderModelOptions();
+});
 window.addEventListener('resize', () => { closeModelMenu(); updateSidebarControls(); applySidebarWidth(); });
 elements.composerForm.addEventListener('submit', (event) => {
   event.preventDefault();

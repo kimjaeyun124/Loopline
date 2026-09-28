@@ -335,6 +335,13 @@ kbd { margin-left: auto; color: var(--muted); font-family: inherit; font-size: 1
 .composer-model-picker > .ui-icon { flex-shrink: 0; width: 16px; height: 16px; }
 .composer-model-picker > .chevron { width: 13px; height: 13px; color: var(--muted); }
 .composer-model-picker:disabled { color: var(--disabled); cursor: not-allowed; }
+.loop-engineering-control { display: inline-flex; min-height: 32px; align-items: center; gap: 5px; padding: 0 7px; border: 1px solid var(--line); border-radius: 9px; background: var(--sidebar-hover); white-space: nowrap; }
+.loop-engineering-control[hidden] { display: none; }
+.loop-engineering-badge { display: inline-flex; align-items: center; gap: 5px; color: var(--ink); font-size: 11px; font-weight: 550; }
+.loop-engineering-badge .ui-icon { width: 14px; height: 14px; }
+.loop-engineering-control label { color: var(--muted); font-size: 10px; }
+.loop-engineering-control select { max-width: 52px; min-height: 27px; padding: 4px 15px 4px 2px; color: var(--secondary); font-size: 10px; }
+.loop-engineering-control select:disabled { color: var(--disabled); cursor: not-allowed; }
 .select-button { display: inline-flex; align-items: center; gap: 6px; max-width: 280px; padding: 6px 8px; border: 0; border-radius: 8px; background: transparent; color: var(--secondary); font-size: 12px; font-weight: 500; cursor: pointer; }
 .select-button:hover { background: var(--sidebar-hover); }
 .mini-provider-mark { color: var(--secondary); font-size: 12px; }
@@ -379,6 +386,7 @@ kbd { margin-left: auto; color: var(--muted); font-family: inherit; font-size: 1
 .model-option { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; padding: 10px; border: 0; border-radius: 8px; background: transparent; text-align: left; cursor: pointer; }
 .model-option:hover, .model-option:focus-visible { background: var(--soft); }
 .model-option.selected { background: var(--soft); }
+.model-option.loop-engineering-option { margin-bottom: 5px; border-bottom: 1px solid var(--line); border-radius: 8px 8px 0 0; }
 .model-option:disabled { opacity: .45; cursor: not-allowed; }
 .model-option > span:first-child { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 3px; }
 .model-option strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 550; }

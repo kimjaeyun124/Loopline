@@ -21,6 +21,13 @@ function normalizeBaseUrl(value) {
   return url.href.replace(/\/+$/, '');
 }
 
+function chatModelId(connection, model) {
+  if (new URL(connection.baseUrl).hostname === 'generativelanguage.googleapis.com') {
+    return model.replace(/^models\//, '');
+  }
+  return model;
+}
+
 function validateKey(value) {
   if (typeof value !== 'string' || !value.trim() || value.length > 8192 || /[\r\n\0]/.test(value)) {
     throw fail('유효한 API 키를 입력해 주세요.');
@@ -260,7 +267,7 @@ export class ApiConnections {
       try {
         response = await this.#request(connection, key, 'chat/completions', {
           method: 'POST', signal: requestSignal,
-          body: JSON.stringify({ model, messages, stream: true, stream_options: { include_usage: true } }),
+          body: JSON.stringify({ model: chatModelId(connection, model), messages, stream: true, stream_options: { include_usage: true } }),
         });
       } catch (error) {
         // Some OpenAI-compatible services reject stream_options. Retry only their explicit
@@ -268,7 +275,7 @@ export class ApiConnections {
         if (error.remoteStatus !== 400) throw error;
         response = await this.#request(connection, key, 'chat/completions', {
           method: 'POST', signal: requestSignal,
-          body: JSON.stringify({ model, messages, stream: true }),
+          body: JSON.stringify({ model: chatModelId(connection, model), messages, stream: true }),
         });
       }
       if ((response.headers.get('content-type') || '').includes('application/json')) {

@@ -245,3 +245,33 @@ test('stop during automatic project setup cancels the judge before creating a so
   const stopped = await settled(engine, run.id);
   assert.equal(stopped.status, 'stopped'); assert.equal(stopped.source, null); assert.equal(engine.sources.size, 0);
 });
+
+test('native Jev judges Luna proposals and uncertain verdicts continue to a second round', async (t) => {
+  const f = await fixture(t); const script = modelScript(complete); let judgments = 0, typedCalls = 0;
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (selection, prompt, ...rest) => {
+    if (typeof prompt === 'object') {
+      assert.equal(selection.decisionOnly, true); typedCalls++;
+      if (prompt.questions.command) assert.match(prompt.state.inspectedFiles, /diff --git.*file.txt/s);
+      const choice = prompt.questions.goal && ++judgments === 1 ? 'uncertain' : 'pass';
+      return { model: 'jev-version', answers: Object.fromEntries(Object.keys(prompt.questions).map((key) => [key, { type: 'choice', choice, confidence: 0.9, probabilities: { [choice]: 0.9 } }])) };
+    }
+    assert.notEqual(selection.decisionOnly, true);
+    if (prompt.startsWith('새 프로젝트')) return JSON.stringify({ folderName: 'jev-test', reason: 'QA' });
+    if (prompt.startsWith('검증 방법')) return JSON.stringify({ verifyCommand: 'test -f file.txt', reason: 'fixture check' });
+    return script(selection, prompt, ...rest);
+  } });
+  const run = await settled(engine, (await engine.create({ ...f.input, workspace: undefined, verifyCommand: undefined,
+    roles: { ...f.input.roles, judge: { ...f.input.roles.judge, decisionOnly: true } } })).id);
+  assert.equal(run.status, 'completed', run.summary); assert.equal(run.round, 2); assert.equal(typedCalls, 5);
+  assert.ok(run.events.some((e) => e.title.includes('Live Jev decision') && e.detail.includes('uncertain')));
+  assert.equal(await readFile(join(run.source, 'file.txt'), 'utf8'), 'updated 2\n');
+});
+
+test('native Jev cannot generate plans and missing decisions fail closed', async (t) => {
+  const f = await fixture(t); const script = modelScript(complete);
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: (selection, prompt, ...rest) => typeof prompt === 'object' ? { answers: {} } : script(selection, prompt, ...rest) });
+  await assert.rejects(engine.create({ ...f.input, roles: { ...f.input.roles, planner: { ...f.input.roles.planner, decisionOnly: true } } }), /판정 역할/);
+  const run = await settled(engine, (await engine.create({ ...f.input, roles: { ...f.input.roles, judge: { ...f.input.roles.judge, decisionOnly: true } } })).id);
+  assert.equal(run.status, 'failed'); assert.equal(run.applied, undefined);
+  assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'original\n');
+});

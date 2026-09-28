@@ -4,7 +4,7 @@ import { createHarnessUI } from '../public/harness-ui.js';
 
 const KEY = 'loopline.harness.v1';
 // Minimal event surface: exercise the real settings handlers without a browser dependency.
-function setup(t, { storage = new Map(), project = null } = {}) {
+function setup(t, { storage = new Map(), project = null, models = null } = {}) {
   const nodes = new Map();
   const node = (id) => {
     if (!nodes.has(id)) nodes.set(id, { value: '', checked: false, hidden: true, textContent: '', dataset: {},
@@ -22,7 +22,7 @@ function setup(t, { storage = new Map(), project = null } = {}) {
   globalThis.localStorage = { getItem: (key) => storage.get(key), setItem(key, value) { if (failStorage) throw new Error('quota'); storage.set(key, value); } };
   const model = { provider: 'api', id: 'jev-test', label: 'Jev Test', source: 'QA', connected: true, reasoningEfforts: ['medium', 'high'] };
   const state = { conversations: [], activeProjectId: 'project' };
-  const ui = createHarnessUI({ state, catalog: () => [model], modelKey: (item) => item.id, currentKey: () => model.id,
+  const ui = createHarnessUI({ state, catalog: () => models || [model], modelKey: (item) => item.id, currentKey: () => model.id,
     getProject: () => project, saveProjects() {},
     saveConversations() {}, render() {}, toast() {}, instructions() {}, onComplete() {} });
   return { ui, node, storage, saved: () => JSON.parse(storage.get(KEY)),
@@ -65,4 +65,15 @@ test('opening settings preserves saved effort when the model is temporarily unav
   const s = setup(t, { storage }); s.ui.open();
   s.node('#harnessAutoApply').fire('change');
   assert.deepEqual(s.saved().roles.worker, { model: 'disconnected', effort: 'high' });
+});
+
+
+test('native Jev is offered only for the review role', (t) => {
+  const s = setup(t, { models: [
+    { provider: 'api', id: 'writer', label: 'Writer', source: 'QA', connected: true, reasoningEfforts: [] },
+    { provider: 'api', id: 'jev-native', label: 'Jev Native', source: 'TypeSafe', connected: true, decisionOnly: true, reasoningEfforts: [] },
+  ] });
+  s.ui.open();
+  assert.equal((s.node('#harnessRoles').innerHTML.match(/value="jev-native"/g) || []).length, 1);
+  assert.match(s.node('#harnessRoles').innerHTML, /Jev 판정 전용/);
 });

@@ -324,8 +324,8 @@ kbd { margin-left: auto; color: var(--muted); font-family: inherit; font-size: 1
 .composer textarea::placeholder { color: var(--muted); }
 .composer-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 31px; }
 .composer-submit-actions { display: inline-flex; flex-shrink: 0; align-items: center; gap: 7px; }
-.stop-response-button { display: grid; width: 30px; height: 30px; flex: 0 0 30px; place-items: center; padding: 0; border: 1px solid var(--line-strong); border-radius: 50%; background: transparent; color: var(--secondary); cursor: pointer; }
-.stop-response-button:hover { background: var(--sidebar-hover); color: var(--ink); }
+.stop-response-button { display: grid; width: 36px; height: 36px; flex: 0 0 36px; place-items: center; padding: 0; border: 0; border-radius: 50%; background: var(--accent); color: var(--canvas); cursor: pointer; }
+.stop-response-button:hover { background: var(--accent-hover); }
 .stop-response-button .stop-icon { display: block; width: 9px; height: 9px; }
 .composer-left { display: flex; flex: 1; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 0; }
 .composer-tools { display: inline-flex; height: 32px; align-items: center; gap: 6px; padding: 5px 8px; border: 1px solid transparent; border-radius: 9px; background: transparent; color: var(--secondary); font-size: 12px; cursor: pointer; }

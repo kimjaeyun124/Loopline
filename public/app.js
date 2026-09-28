@@ -222,6 +222,13 @@ function loadConversations() {
               if (responseActivityIndex >= 0 && responseActivityIndex !== normalized.activities.length - 1) {
                 normalized.activities.push(normalized.activities.splice(responseActivityIndex, 1)[0]);
               }
+              const responseStatus = normalized.activities.find((activity) => activity.id === 'response')?.status;
+              const settledStatus = ({ completed: 'completed', failed: 'failed', stopped: 'stopped' })[responseStatus];
+              if (settledStatus) {
+                normalized.activities.forEach((activity) => {
+                  if (activity.status === 'pending' || activity.status === 'running') activity.status = settledStatus;
+                });
+              }
               if (typeof message.activityExpanded === 'boolean') normalized.activityExpanded = message.activityExpanded;
             }
             if (message.role === 'user' && message.queued === true) {
@@ -614,6 +621,13 @@ function updateResponseActivity(message, status, title, detail = '') {
   updateAssistantActivity(message, { id: 'response', status, title, detail });
 }
 
+function settleActiveAssistantActivities(message, status) {
+  if (!Array.isArray(message?.activities)) return;
+  message.activities.forEach((activity) => {
+    if (activity.status === 'pending' || activity.status === 'running') activity.status = status;
+  });
+}
+
 function formatWorkedFor(milliseconds) {
   const seconds = Math.floor(Math.max(0, Number(milliseconds) || 0) / 1000);
   const hours = Math.floor(seconds / 3600);
@@ -910,11 +924,12 @@ function renderSendButtonState(selectedConnected) {
   const queueing = state.busy && hasDraft;
   const stopping = state.busy && !hasDraft;
   elements.sendButton.disabled = state.busy ? false : !selectedConnected;
+  elements.sendButton.hidden = stopping;
   elements.sendButton.classList.toggle('busy', stopping);
   elements.sendButton.classList.toggle('queueing', queueing);
   elements.sendButton.setAttribute('aria-label', queueing ? '대기열에 추가' : stopping ? '응답 중지' : '메시지 보내기');
   elements.sendButton.title = queueing ? '대기열에 추가' : stopping ? '응답 중지' : selectedConnected ? '메시지 보내기' : '먼저 연결과 모델을 선택하세요.';
-  elements.stopResponseButton.hidden = !queueing;
+  elements.stopResponseButton.hidden = !state.busy;
 }
 
 function renderModelSelect() {
@@ -2237,7 +2252,9 @@ async function sendMessage(value, queuedMessageId = null) {
     finishAssistantWork(assistantMessage);
     assistantMessage.pending = false;
     assistantMessage.error = error.name !== 'AbortError';
-    updateResponseActivity(assistantMessage, error.name === 'AbortError' ? 'stopped' : 'failed', error.name === 'AbortError' ? '응답 중지' : '응답 실패', error.name === 'AbortError' ? '' : error.message || '서버에 연결할 수 없습니다.');
+    const terminalStatus = error.name === 'AbortError' ? 'stopped' : 'failed';
+    settleActiveAssistantActivities(assistantMessage, terminalStatus);
+    updateResponseActivity(assistantMessage, terminalStatus, error.name === 'AbortError' ? '응답 중지' : '응답 실패', error.name === 'AbortError' ? '' : error.message || '서버에 연결할 수 없습니다.');
     assistantMessage.activityExpanded = true;
     assistantMessage.content = error.name === 'AbortError'
       ? (assistantMessage.content || '응답을 중지했습니다.')

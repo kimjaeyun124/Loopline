@@ -687,12 +687,12 @@ function renderCodexAccounts() {
     const waiting = job?.state === 'starting' || job?.state === 'running';
     const busy = state.busyCodexAccountIds.has(account.id);
     const displayName = codexAccountDisplayName(account);
-    const loginLabel = waiting ? '로그인 중' : account.installed ? '로그인' : 'CLI 설치 필요';
+    const loginLabel = account.installed ? '로그인' : 'CLI 설치 필요';
     const accountHint = codexAccountHint(account, displayName);
     const accountActions = account.connected
       ? `<button class="account-use-button" type="button" data-use-codex-account="${escapeHtml(account.id)}"${selected || busy ? ' disabled' : ''}>${selected ? '선택됨' : '사용'}</button>${account.isDefault ? '' : `<button class="account-unlink-button" type="button" data-disconnect-codex-account="${escapeHtml(account.id)}"${busy ? ' disabled' : ''}>${busy ? '처리 중…' : '로그아웃'}</button>`}`
       : waiting
-        ? `<button class="account-cancel-button" type="button" data-cancel-codex-login="${escapeHtml(account.id)}"${busy ? ' disabled' : ''}>로그인 취소</button>`
+        ? `${job.state === 'running' ? `<button class="connect-button" type="button" data-connect-codex-account="${escapeHtml(account.id)}"${busy ? ' disabled' : ''}>로그인 창 열기</button>` : ''}<button class="account-cancel-button" type="button" data-cancel-codex-login="${escapeHtml(account.id)}"${busy ? ' disabled' : ''}>로그인 취소</button>`
         : `<button class="connect-button" type="button" data-connect-codex-account="${escapeHtml(account.id)}"${!account.installed || busy ? ' disabled' : ''}>${account.disconnected ? '다시 연결' : loginLabel}</button>${!account.isDefault && !account.disconnected ? `<button class="account-unlink-button" type="button" data-disconnect-codex-account="${escapeHtml(account.id)}"${busy ? ' disabled' : ''}>로그아웃</button>` : ''}`;
     const deleteAction = account.isDefault
       ? `<button class="account-delete-button" type="button" data-unlink-codex-connection="${escapeHtml(account.id)}"${busy ? ' disabled' : ''}>앱에서 삭제</button>`
@@ -704,7 +704,7 @@ function renderCodexAccounts() {
         <small class="usage-status">${escapeHtml(codexUsageText(account))}</small>
         ${!account.installed && account.installCommand ? `<code class="install-command">${escapeHtml(account.installCommand)}</code>` : ''}
       </div>
-      <div class="connection-actions"><span class="connection-status${account.connected ? ' ready' : ''}">${account.connected ? '연결됨' : waiting ? '인증 중' : account.disconnected ? '로그아웃됨' : '로그인 필요'}</span>
+      <div class="connection-actions"><span class="connection-status${account.connected ? ' ready' : ''}">${account.connected ? '연결됨' : job?.state === 'starting' ? '로그인 시작 중' : job?.state === 'running' ? '로그인 대기' : account.disconnected ? '로그아웃됨' : '로그인 필요'}</span>
         <div class="account-button-group">${accountActions}${deleteAction}</div>
       </div>
     </article>`;
@@ -1173,7 +1173,8 @@ async function connectProvider(provider) {
 
 async function connectCodexAccount(accountId = null, accountName = '') {
   const feedback = document.querySelector('#loginFeedback');
-  const loginWindow = window.open('about:blank', '_blank');
+  const isDesktopShell = typeof window.looplineAppearance?.setTheme === 'function';
+  const loginWindow = isDesktopShell ? null : window.open('about:blank', '_blank');
   state.addingCodexAccount = accountId === null;
   feedback.hidden = false;
   feedback.textContent = accountId
@@ -1213,6 +1214,10 @@ async function connectCodexAccount(accountId = null, accountName = '') {
       if (loginWindow) {
         loginWindow.opener = null;
         loginWindow.location.replace(authUrl);
+      } else if (isDesktopShell) {
+        window.open(authUrl, '_blank');
+        feedback.textContent = '기본 브라우저에서 ChatGPT 로그인을 열었습니다. 인증을 마친 뒤 이 화면으로 돌아오세요.';
+        showToast('기본 브라우저에서 ChatGPT 로그인 창을 열었습니다.');
       } else {
         showToast('팝업이 차단되었습니다. 아래 로그인 링크를 눌러 계속해 주세요.');
       }

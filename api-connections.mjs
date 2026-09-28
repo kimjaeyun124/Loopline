@@ -4,6 +4,7 @@ import { join } from 'node:path';
 
 const MAX_RESPONSE_BYTES = 2_000_000;
 const fail = (message, status = 400) => Object.assign(new Error(message), { status });
+const isTypeSafe = (connection) => connection.baseUrl === 'https://api.typesafe.ai/v1';
 
 function normalizeBaseUrl(value) {
   let url;
@@ -114,7 +115,7 @@ export class ApiConnections {
     const connected = Boolean(this.#keys.has(connection.id) || (this.#secrets && connection.encryptedKey));
     return {
       id: connection.id, name: connection.name, baseUrl: connection.baseUrl,
-      models: connection.models, connected, updatedAt: connection.updatedAt,
+      models: connection.models, connected, updatedAt: connection.updatedAt, decisionOnly: isTypeSafe(connection),
       label: connected ? '연결됨' : 'API 키 필요',
     };
   }
@@ -182,6 +183,13 @@ export class ApiConnections {
     try {
       const response = await this.#request(connection, key, 'models', { signal });
       const payload = await readLimitedJson(response);
+      if (isTypeSafe(connection)) {
+        if (!Array.isArray(payload.models)) throw fail('Jev 모델 목록 형식이 올바르지 않습니다.', 502);
+        const models = payload.models.filter((model) => typeof model?.name === 'string' && /^[\w.-]{1,240}$/.test(model.name))
+          .slice(0, 500).map((model) => ({ id: model.name, label: model.name, reasoningEfforts: [], decisionOnly: true }));
+        if (!models.length) throw fail('사용 가능한 Jev 모델이 없습니다.', 502);
+        return models;
+      }
       if (!Array.isArray(payload.data)) throw fail('이 서버는 OpenAI 호환 /models 목록을 제공하지 않습니다.', 502);
       const seen = new Set();
       const models = payload.data.filter((model) => {
@@ -255,6 +263,7 @@ export class ApiConnections {
     await this.#ready;
     await this.#writes;
     const connection = this.#find(id);
+    if (isTypeSafe(connection)) throw fail('Jev는 판정 전용 모델입니다. Loop Engineering의 판정 모델로 선택해 주세요.');
     if (!connection.models.some((item) => item.id === model)) throw fail('이 연결의 모델 목록에 없는 모델입니다. 목록을 새로고침해 주세요.');
     if (reasoningEffort && !connection.models.find((item) => item.id === model)?.reasoningEfforts?.includes(reasoningEffort)) throw fail('이 API 모델이 제공한 추론 강도 목록에 없는 값입니다. 자동으로 설정해 주세요.');
     const reasoning = reasoningEffort ? { reasoning_effort: reasoningEffort } : {};
@@ -334,6 +343,42 @@ export class ApiConnections {
       if (timeout.aborted) throw fail('API 응답 시간이 초과되었습니다.', 504);
       if (error.status) throw error;
       throw fail('API 응답을 읽는 도중 연결이 끊겼습니다.', 502);
+    } finally {
+      const count = (this.#active.get(id) || 1) - 1;
+      if (count) this.#active.set(id, count); else this.#active.delete(id);
+    }
+  }
+
+  async evaluate(id, model, { state, questions }, { signal, onUsage }) {
+    await this.#ready; await this.#writes;
+    const connection = this.#find(id);
+    if (!isTypeSafe(connection) || !connection.models.some((item) => item.id === model)) throw fail('연결된 Jev 판정 모델을 선택해 주세요.');
+    this.#active.set(id, (this.#active.get(id) || 0) + 1);
+    const timeout = AbortSignal.timeout(60_000);
+    const requestSignal = AbortSignal.any([signal, timeout]);
+    try {
+      const response = await this.#request(connection, await this.#key(connection), 'systemone', {
+        method: 'POST', signal: requestSignal, body: JSON.stringify({ model, state, questions }),
+      });
+      const result = await readLimitedJson(response);
+      await onUsage?.(result.usage, connection, result.model || model);
+      // 판정 누락·잘못된 확률을 성공으로 취급하지 않습니다.
+      for (const [id, question] of Object.entries(questions)) {
+        const answer = result.answers?.[id];
+        const probability = (value) => typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1;
+        const keys = Object.keys(question.criteria);
+        if (answer?.type !== 'choice' || !keys.includes(answer.choice) || !probability(answer.confidence)
+          || keys.some((key) => !probability(answer.probabilities?.[key]))
+          || Math.abs(keys.reduce((sum, key) => sum + answer.probabilities[key], 0) - 1) > 0.02
+          || keys.some((key) => answer.probabilities[key] > answer.probabilities[answer.choice] + 0.000001)) {
+          throw fail('Jev 판정 응답이 불완전합니다. 변경을 자동 반영하지 않았습니다.', 502);
+        }
+      }
+      return { model: result.model, answers: result.answers, usage: result.usage };
+    } catch (error) {
+      if (signal.aborted) throw signal.reason;
+      if (timeout.aborted) throw fail('Jev 판정 시간이 초과되었습니다.', 504);
+      throw error;
     } finally {
       const count = (this.#active.get(id) || 1) - 1;
       if (count) this.#active.set(id, count); else this.#active.delete(id);

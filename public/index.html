@@ -170,7 +170,7 @@
         <div class="modal-header"><div><p class="eyebrow">Loop Engineering</p><h2 id="harnessTitle">Harness 구성</h2></div><button class="icon-button" id="harnessClose" type="button" aria-label="Harness 구성 닫기">✕</button></div>
         <p class="harness-intro">한 번 설정하면 새 작업과 앱 재실행에도 그대로 적용됩니다. 변경 사항은 자동 저장됩니다.</p>
         <div id="harnessRoles"></div>
-        <p class="harness-intro"><strong>작업 환경 자동 구성</strong><br />연결된 프로젝트를 사용하며, 없으면 판정 모델이 이름을 정해 새 프로젝트를 만듭니다. 검증 명령은 판정 모델이 구현된 파일을 확인해 회차마다 결정합니다.</p>
+        <p class="harness-intro"><strong>작업 환경 자동 구성</strong><br />연결된 프로젝트가 없으면 새 프로젝트를 만듭니다. Jev 사용 시 계획 모델이 폴더 이름과 검증 방법을 제안하고, Jev가 적합성을 판정합니다. 파일 작업과 실제 검증 결과는 단계별로 표시됩니다.</p>
         <label class="harness-auto"><input id="harnessAutoApply" type="checkbox" checked />검증과 판정을 통과하면 프로젝트에 자동 반영</label>
         <p class="harness-intro">작업을 보내면 계획 → 파일 작업 → 검증 → 판정을 자동으로 이어갑니다. 지정한 회차 안에서 승인 없이 진행하며, 중지 버튼으로 멈출 수 있습니다.</p>
         <div class="project-modal-actions"><span class="harness-intro" id="harnessSaveStatus" role="status" aria-live="polite">변경하면 자동 저장됩니다.</span><button class="primary-button" id="harnessSave" type="button">완료</button></div>
@@ -400,7 +400,7 @@
         <div class="modal-header"><div><p class="eyebrow">API Connection</p><h2 id="apiConnectionTitle">에이전트 추가</h2></div><button class="icon-button close-modal" id="closeApiConnection" type="button" aria-label="닫기"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#close"></use></svg></button></div>
         <p class="modal-description">원하는 API를 연결하세요. 모델 목록을 확인한 뒤 바로 선택할 수 있습니다.</p>
         <label class="project-field"><span>에이전트 이름</span><input id="apiConnectionName" type="text" maxlength="60" required placeholder="예: 나의 DeepSeek" autocomplete="off" /></label>
-        <label class="project-field"><span>API 기본 주소</span><input id="apiBaseUrl" type="url" required placeholder="https://api.example.com/v1" autocomplete="off" spellcheck="false" /><small>서비스의 OpenAI 호환 주소를 입력하세요. /models는 자동으로 붙습니다.</small></label>
+        <label class="project-field"><span>API 기본 주소</span><input id="apiBaseUrl" type="url" required placeholder="https://api.example.com/v1" autocomplete="off" spellcheck="false" /><small>OpenAI 호환 주소 또는 Jev 주소(https://api.typesafe.ai/v1)를 입력하세요. Jev는 Loop 판정 전용으로 연결됩니다.</small></label>
         <label class="project-field"><span>API 키 <small id="apiKeyHint"></small></span><input id="apiKey" type="password" maxlength="8192" autocomplete="off" spellcheck="false" placeholder="API 키 입력" /></label>
         <p class="settings-footnote" id="apiEditorStorageInfo"></p>
         <p class="import-error" id="apiConnectionError" role="alert" hidden></p>

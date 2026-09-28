@@ -1812,6 +1812,12 @@ async function relayChat(req, res) {
 // Reuse provider validation, cancellation and usage accounting without a second HTTP request.
 async function invokeHarnessModel(selection, prompt, instructions, signal) {
   if (signal.aborted) throw signal.reason;
+  if (selection.decisionOnly && selection.provider === 'api') {
+    return apiConnections.evaluate(selection.connectionId, selection.model, prompt, {
+      signal,
+      onUsage: (usage, connection, model) => recordTokenUsage({ provider: 'api', accountId: `api:${connection.id}`, accountName: connection.name, model, turnId: randomUUID(), usage }),
+    });
+  }
   const response = new EventEmitter();
   let output = '', buffer = '', failure = '', done = false;
   response.headersSent = false; response.writableEnded = false; response.destroyed = false;
@@ -1899,7 +1905,16 @@ const server = createServer(async (req, res) => {
 
   if (url.pathname.startsWith('/api/harness/runs')) {
     try {
-      if (req.method === 'POST' && url.pathname === '/api/harness/runs') return json(res, 202, await harness.create(await readJson(req)));
+      if (req.method === 'POST' && url.pathname === '/api/harness/runs') {
+        const input = await readJson(req);
+        const { connections } = await apiConnections.list();
+        // Model capabilities come from the saved connection, not renderer-supplied flags.
+        for (const selection of Object.values(input.roles || {})) {
+          if (selection && typeof selection === 'object') selection.decisionOnly = selection.provider === 'api'
+            && connections.some((connection) => connection.id === selection.connectionId && connection.decisionOnly);
+        }
+        return json(res, 202, await harness.create(input));
+      }
       const match = url.pathname.match(/^\/api\/harness\/runs\/([a-f0-9-]{36})(?:\/(stop|patch))?$/);
       if (!match) return json(res, 404, { error: '실행을 찾을 수 없습니다.' });
       if (req.method === 'POST' && match[2] === 'stop') return json(res, 200, await harness.stop(match[1]));

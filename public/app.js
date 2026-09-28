@@ -519,7 +519,7 @@ function renderMessages() {
       const hasWorkedFor = message.pending || Number.isFinite(message.workedForMs);
       const elapsedMs = message.pending ? Date.now() - (message.startedAt || Date.now()) : message.workedForMs;
       const activityItems = Array.isArray(message.activities) ? message.activities : [];
-      const activityMarkup = activityItems.length ? `<details class="worked-for-details" data-activity-message-id="${escapeHtml(message.id || '')}"${message.activityExpanded === true || (message.activityExpanded !== false && message.pending) ? ' open' : ''}>
+      const activityMarkup = activityItems.length ? `<details class="worked-for-details" data-activity-message-id="${escapeHtml(message.id || '')}"${message.activityExpanded !== false ? ' open' : ''}>
         <summary class="worked-for-row"><span class="worked-for-label" data-worked-for="${escapeHtml(message.id || '')}">${hasWorkedFor ? formatWorkedFor(elapsedMs) : '작업 과정'}</span>${message.pending ? '<span class="worked-for-live"><i aria-hidden="true"></i>진행 중</span>' : ''}</summary>
         <ol class="assistant-activity-list" aria-label="작업 단계">${activityItems.map((activity) => activity.kind === 'commentary'
           ? `<li class="activity-commentary activity-${escapeHtml(activity.status)}"><div class="activity-commentary-text">${renderMarkdown(activity.text || '', { copyDisabled: true })}</div></li>`

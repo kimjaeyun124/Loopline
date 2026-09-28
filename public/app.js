@@ -714,11 +714,16 @@ function renderCodexAccounts() {
 }
 
 function modelCatalog() {
-  return [
+  const models = [
     ...(state.codexAccounts.some((account) => account.linked) ? modelsForProvider('openai').map((model) => ({ ...model, provider: 'openai', source: 'Codex', connected: activeCodexAccount()?.connected === true })) : []),
     ...(state.providers.anthropic?.linked ? PROVIDERS.anthropic.models.map((model) => ({ ...model, provider: 'anthropic', source: 'Claude Code', connected: state.providers.anthropic.connected === true })) : []),
     ...state.apiConnections.flatMap((connection) => connection.models.map((model) => ({ ...model, provider: 'api', connectionId: connection.id, source: connection.name, connected: connection.connected }))),
   ];
+  return models.map((model) => ({
+    ...model,
+    label: displayModelName(model.label || model.id),
+    displayId: displayModelName(model.id),
+  }));
 }
 
 function modelKey(model) {
@@ -904,7 +909,7 @@ function renderModelSelect() {
   elements.providerSelectButton.disabled = state.busy;
   elements.providerSelectButton.title = provider ? `${provider.label} · 연결 선택` : '사용할 연결과 모델을 추가하세요.';
   elements.providerSelectButton.setAttribute('aria-label', provider ? `연결 선택 · ${provider.label}` : '모델 추가');
-  document.querySelector('#selectedModelLabel').textContent = selected?.label || state.model || '모델 선택';
+  document.querySelector('#selectedModelLabel').textContent = selected?.label || displayModelName(state.model) || '모델 선택';
   elements.modelSelectButton.hidden = !state.provider;
   elements.modelSelectButton.disabled = state.busy;
   elements.modelSelectButton.title = selected ? `${selected.label} · ${selected.source}` : '사용 가능한 모델을 선택하세요.';

@@ -1,5 +1,8 @@
 import { createServer } from 'node:http';
 import { spawn } from 'node:child_process';
+import { EventEmitter } from 'node:events';
+import { Readable } from 'node:stream';
+import { HarnessEngine } from './harness-engine.mjs';
 import { randomUUID } from 'node:crypto';
 import { mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
@@ -29,6 +32,7 @@ const defaultCodexHome = resolve(process.env.CODEX_HOME || join(homedir(), '.cod
 const port = Number(process.env.PORT || 4173);
 const host = process.env.HOST || '127.0.0.1';
 const apiConnections = new ApiConnections(userDataDir);
+const harness = new HarnessEngine({ directory: userDataDir, invoke: invokeHarnessModel });
 const tokenUsageStore = new TokenUsageStore(userDataDir);
 const conversationHistory = new ConversationHistory({ codexHome: defaultCodexHome });
 
@@ -1719,6 +1723,7 @@ async function relayChat(req, res) {
       agentInstructions ? `Loopline 에이전트 작업 지침:\n${agentInstructions}` : '',
       projectInstructions ? `현재 프로젝트 지침 및 참고 자료:\n${projectInstructions}` : '',
     ].filter(Boolean).join('\n\n');
+    if (res.destroyed) return;
     if (provider === 'api') {
       const controller = new AbortController();
       const cancel = () => controller.abort();
@@ -1735,6 +1740,7 @@ async function relayChat(req, res) {
         const apiMessages = apiSystemMessage ? [{ role: 'system', content: apiSystemMessage }, ...messages] : messages;
         await apiConnections.chat(body.connectionId, model, apiMessages, {
           signal: controller.signal,
+          reasoningEffort: body.reasoningEffort,
           onDelta: (text) => sendEvent(res, 'delta', { text }),
           onUsage: (usage, connection) => recordTokenUsage({
             provider: 'api',
@@ -1763,6 +1769,7 @@ async function relayChat(req, res) {
     }
 
     const status = await providerStatus(provider, codexAccountId);
+    if (res.destroyed) return;
     if (!status.installed) return json(res, 503, { error: providers[provider].label + ' CLI가 설치되어 있지 않습니다. 연결 설정에서 설치 방법을 확인해 주세요.' });
     if (!status.connected) return json(res, 401, { error: providers[provider].label + ' 계정을 먼저 연결해 주세요.' });
     if (provider === 'openai' && !status.models.some((item) => item.id === model)) {
@@ -1802,6 +1809,52 @@ async function relayChat(req, res) {
   }
 }
 
+// Reuse provider validation, cancellation and usage accounting without a second HTTP request.
+async function invokeHarnessModel(selection, prompt, instructions, signal) {
+  if (signal.aborted) throw signal.reason;
+  const response = new EventEmitter();
+  let output = '', buffer = '', failure = '', done = false;
+  response.headersSent = false; response.writableEnded = false; response.destroyed = false;
+  response.writeHead = (status) => { response.headersSent = true; response.statusCode = status; };
+  response.write = (chunk) => {
+    buffer += chunk;
+    let end;
+    while ((end = buffer.indexOf('\n\n')) >= 0) {
+      const block = buffer.slice(0, end); buffer = buffer.slice(end + 2);
+      const event = block.match(/^event: (.*)$/m)?.[1];
+      const line = block.match(/^data: (.*)$/m)?.[1];
+      if (!line) continue;
+      const data = JSON.parse(line);
+      if (event === 'delta') output += data.text || '';
+      if (event === 'retry') output = '';
+      if (event === 'progress' && data.rollbackText && output.endsWith(data.rollbackText)) output = output.slice(0, -data.rollbackText.length);
+      if (event === 'error') failure = data.error || '모델 호출 실패';
+      if (event === 'done') done = true;
+    }
+    return true;
+  };
+  response.end = (body) => {
+    if (body) { try { failure = JSON.parse(body).error || '모델 호출 실패'; } catch { failure = '모델 응답 오류'; } }
+    response.writableEnded = true;
+  };
+  const cancel = () => { response.destroyed = true; response.emit('close'); };
+  signal.addEventListener('abort', cancel, { once: true });
+  const request = Readable.from([Buffer.from(JSON.stringify({
+    provider: selection.provider, model: selection.model, connectionId: selection.connectionId,
+    codexAccountId: selection.codexAccountId || 'default',
+    ...(selection.reasoningEffort ? { reasoningEffort: selection.reasoningEffort } : {}),
+    agentInstructions: [String(selection.instructions || '').slice(0, 22000), '사용자가 이 Harness 실행과 검증 후 자동 반영을 승인했습니다. 단계별 권한 요청 없이 지정된 범위에서 진행하세요. Harness가 파일 도구와 검증 명령을 실행합니다. 이 호출에서는 실제 CLI 도구를 사용하지 말고 요청된 응답 형식만 반환하세요.'].join('\n\n'),
+    projectInstructions: instructions.slice(0, 24000),
+    messages: (`${instructions.length > 24000 ? `추가 프로젝트 지침:\n${instructions.slice(24000)}\n\n` : ''}${prompt}`.match(/[\s\S]{1,35000}/g) || [prompt]).map((content) => ({ role: 'user', content })),
+  }))]);
+  try {
+    await relayChat(request, response);
+    if (signal.aborted) throw signal.reason;
+    if (failure || !done || !output.trim()) throw new Error(failure || '모델의 완료 응답을 받지 못했습니다.');
+    return output;
+  } finally { signal.removeEventListener('abort', cancel); }
+}
+
 async function serveFile(res, pathname) {
   const files = {
     '/': ['index.html', 'text/html; charset=utf-8'],
@@ -1821,6 +1874,7 @@ async function serveFile(res, pathname) {
     '/account-menu-ui.js': ['account-menu-ui.js', 'text/javascript; charset=utf-8'],
     '/usage-activity-ui.js': ['usage-activity-ui.js', 'text/javascript; charset=utf-8'],
     '/model-capabilities.mjs': ['model-capabilities.mjs', 'text/javascript; charset=utf-8'],
+    '/harness-ui.js': ['harness-ui.js', 'text/javascript; charset=utf-8'],
   };
   const entry = files[pathname];
   if (!entry) return json(res, 404, { error: '페이지를 찾을 수 없습니다.' });
@@ -1842,6 +1896,22 @@ async function serveFile(res, pathname) {
 const server = createServer(async (req, res) => {
   if (!allowedOrigin(req)) return json(res, 403, { error: '허용되지 않은 요청 출처입니다.' });
   const url = new URL(req.url, 'http://' + (req.headers.host || '127.0.0.1'));
+
+  if (url.pathname.startsWith('/api/harness/runs')) {
+    try {
+      if (req.method === 'POST' && url.pathname === '/api/harness/runs') return json(res, 202, await harness.create(await readJson(req)));
+      const match = url.pathname.match(/^\/api\/harness\/runs\/([a-f0-9-]{36})(?:\/(stop|patch))?$/);
+      if (!match) return json(res, 404, { error: '실행을 찾을 수 없습니다.' });
+      if (req.method === 'POST' && match[2] === 'stop') return json(res, 200, await harness.stop(match[1]));
+      if (req.method === 'GET' && match[2] === 'patch') {
+        const patch = await harness.patch(match[1]);
+        res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Content-Disposition': 'attachment; filename="harness.patch"', 'Cache-Control': 'no-store' });
+        return res.end(patch);
+      }
+      if (req.method === 'GET' && !match[2]) return json(res, 200, await harness.get(match[1]));
+      return json(res, 405, { error: '지원하지 않는 요청입니다.' });
+    } catch (error) { return json(res, error.status || 500, { error: error.message || 'Harness 실행 실패' }); }
+  }
 
   if (req.method === 'GET' && ['/api/usage/activity', '/api/usage/insights'].includes(url.pathname)) {
     const controller = new AbortController();
@@ -2075,6 +2145,7 @@ async function shutdown() {
   if (isShuttingDown) return;
   isShuttingDown = true;
   server.close();
+  await harness.shutdown();
   for (const context of codexAccountContexts.values()) {
     for (const active of context.activeTurns.values()) {
       finalizeCodexTurn(active, { error: 'Loopline 서버가 종료되었습니다.' });

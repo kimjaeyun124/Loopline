@@ -8,6 +8,7 @@ import { createAccountMenuUI } from './account-menu-ui.js';
 import { createUsageActivityUI } from './usage-activity-ui.js';
 import { modelEffortCapability } from './model-capabilities.mjs';
 import { renderMarkdown } from './markdown.js';
+import { createHarnessUI } from './harness-ui.js';
 
 const PROVIDERS = {
   openai: {
@@ -214,6 +215,11 @@ function loadConversations() {
               content: message.content.slice(0, item.historySourceLabel ? 1_600_000 : 40_000),
             };
             if (typeof message.id === 'string') normalized.id = message.id.slice(0, 120);
+            if (typeof message.harnessRunId === 'string') {
+              normalized.harnessRunId = message.harnessRunId;
+              normalized.harnessStatus = message.harnessStatus || 'running';
+              normalized.activityExpanded = message.activityExpanded !== false;
+            }
             if (message.role === 'assistant' && Number.isFinite(message.workedForMs) && message.workedForMs >= 0) {
               normalized.workedForMs = Math.floor(message.workedForMs);
             }
@@ -234,7 +240,7 @@ function loadConversations() {
                 return [{
                   id: activity.id.slice(0, 120),
                   title: activity.title.slice(0, 220),
-                  detail: typeof activity.detail === 'string' ? activity.detail.slice(0, 240) : '',
+                  detail: typeof activity.detail === 'string' ? activity.detail.slice(0, message.harnessRunId ? 12_000 : 240) : '',
                   status,
                   ...(activity.kind === 'commentary' ? {
                     kind: 'commentary',
@@ -311,6 +317,8 @@ function loadProjects() {
         name: String(item.name || '새 프로젝트').trim().slice(0, 60) || '새 프로젝트',
         instructions: typeof item.instructions === 'string' ? item.instructions.slice(0, 8000) : '',
         knowledge: typeof item.knowledge === 'string' ? item.knowledge.slice(0, 16000) : '',
+        workspace: typeof item.workspace === 'string' ? item.workspace.slice(0, 4096) : '',
+        verifyCommand: typeof item.verifyCommand === 'string' ? item.verifyCommand.slice(0, 1000) : '',
         importSource: ['openai', 'anthropic'].includes(item.importSource) ? item.importSource : null,
         sourceId: typeof item.sourceId === 'string' ? item.sourceId.slice(0, 240) : null,
         createdAt: Number(item.createdAt) || Date.now(),
@@ -950,7 +958,7 @@ function renderModelOptions() {
   const models = visibleModels.filter((model) => `${model.label} ${model.id} ${model.source}`.toLocaleLowerCase().includes(query));
   const loopMatches = !query || 'loop engineering 반복 실행'.includes(query);
   const loopOption = loopMatches
-    ? `<button class="model-option loop-engineering-option${state.loopEngineeringEnabled ? ' selected' : ''}" type="button" role="option" aria-selected="${state.loopEngineeringEnabled}" data-loop-engineering="true"${state.busy ? ' disabled' : ''}><span><strong>Loop Engineering</strong><small>선택한 모델로 최대 ${state.loopEngineeringRounds}회 이어서 실행</small></span><span class="model-check" aria-hidden="true">${state.loopEngineeringEnabled ? icon('check') : icon('chevron-right')}</span></button>`
+    ? `<button class="model-option loop-engineering-option${state.loopEngineeringEnabled ? ' selected' : ''}" type="button" role="option" aria-selected="${state.loopEngineeringEnabled}" data-loop-engineering="true"${state.busy ? ' disabled' : ''}><span><strong>Loop Engineering</strong><small>${harnessUI.enabled() ? '계획·구현·판정 모델로' : '선택한 모델로'} 최대 ${state.loopEngineeringRounds}회 실행</small></span><span class="model-check" aria-hidden="true">${state.loopEngineeringEnabled ? icon('check') : icon('chevron-right')}</span></button>`
     : '';
   const modelRows = models.slice(0, 200).map((model) => {
     const selected = modelKey(model) === selectedModelKey();
@@ -1038,6 +1046,9 @@ function renderModelSelect() {
   elements.loopEngineeringControl.hidden = !state.loopEngineeringEnabled;
   elements.loopEngineeringRounds.value = String(state.loopEngineeringRounds);
   elements.loopEngineeringRounds.disabled = state.busy;
+  document.querySelector('#loopExecutionMode').disabled = state.busy;
+  document.querySelector('#harnessConfigure').disabled = state.busy;
+  document.querySelector('#harnessConfigure').hidden = !harnessUI.enabled();
   if (state.loopEngineeringEnabled && selected) elements.modelSelectButton.title = `${selected.label} · ${selected.source} · Loop Engineering`;
   const codexAccount = state.provider === 'openai' ? activeCodexAccount() : null;
   document.querySelector('#providerPillText').textContent = codexAccount ? codexAccountDisplayName(codexAccount) : provider?.label || '연결 관리';
@@ -1527,16 +1538,16 @@ function activeProjectInstructions() {
   return context.slice(0, 24_000);
 }
 
-function activeAgentInstructions() {
+function activeAgentInstructions(provider = state.provider) {
   const settings = state.agentInstructions;
   const sections = [];
-  if (state.provider === 'openai') {
+  if (provider === 'openai') {
     if (settings.codexUsesShared && settings.shared.trim()) sections.push(`공통 작업 지침:\n${settings.shared.trim()}`);
     if (settings.codex.trim()) sections.push(`Codex 전용 지침 (AGENTS.md):\n${settings.codex.trim()}`);
-  } else if (state.provider === 'anthropic') {
+  } else if (provider === 'anthropic') {
     if (settings.claudeUsesShared && settings.shared.trim()) sections.push(`공통 작업 지침:\n${settings.shared.trim()}`);
     if (settings.claude.trim()) sections.push(`Claude Code 전용 지침 (CLAUDE.md):\n${settings.claude.trim()}`);
-  } else if (state.provider === 'api' && settings.shared.trim()) {
+  } else if (provider === 'api' && settings.shared.trim()) {
     sections.push(`공통 작업 지침:\n${settings.shared.trim()}`);
   }
   return sections.join('\n\n').slice(0, 24_000);
@@ -2255,6 +2266,7 @@ function resumeSavedQueue() {
 }
 
 async function sendLoopEngineering(value, queuedMessageId = null) {
+  if (harnessUI.enabled()) return sendHarness(value, queuedMessageId);
   const message = value.trim();
   if (!message || state.busy) return;
   if (!state.provider || !state.model) {
@@ -2461,6 +2473,28 @@ async function sendLoopEngineering(value, queuedMessageId = null) {
       queueMicrotask(() => startNextQueuedMessage(conversation));
     }
   }
+}
+
+async function sendHarness(value, queuedMessageId) {
+  if (!value.trim() || state.busy) return;
+  let conversation = activeConversation();
+  if (!conversation) { createConversation(); conversation = activeConversation(); }
+  updateConversationTitle(conversation, value);
+  const queued = queuedMessageId && conversation.messages.find((message) => message.id === queuedMessageId && message.queued);
+  if (queuedMessageId && !queued) return;
+  if (queued) { queued.queued = false; delete queued.queueOptions; }
+  else conversation.messages.push({ id: crypto.randomUUID(), role: 'user', content: value.trim() });
+  const message = { id: crypto.randomUUID(), role: 'assistant', content: '', pending: true, startedAt: Date.now(), activityExpanded: true, activityMode: 'native', activities: [] };
+  conversation.messages.push(message); saveConversations();
+  closeModelMenu();
+  try {
+    await harnessUI.start(value.trim(), message, conversation);
+    elements.messageInput.value = ''; resizeInput();
+  } catch (error) {
+    message.pending = false; message.error = true; message.content = error.message;
+    saveConversations(); showToast(error.message);
+  }
+  render();
 }
 
 async function sendMessage(value, queuedMessageId = null) {
@@ -3097,6 +3131,7 @@ elements.exportConversationButton.addEventListener('click', exportConversationMa
 elements.fastModeToggle.addEventListener('click', toggleFastMode);
 elements.composerReasoningEffortSelect.addEventListener('change', (event) => setReasoningEffort(event.target.value));
 elements.stopResponseButton.addEventListener('click', () => {
+  if (harnessUI.active()) { void harnessUI.stop(); return; }
   if (state.loopEngineeringRunning) state.loopStopRequested = true;
   state.controller?.abort();
   if (state.loopEngineeringRunning) showToast('Loop Engineering을 중지합니다.');
@@ -3113,6 +3148,7 @@ elements.composerForm.addEventListener('submit', (event) => {
   event.preventDefault();
   if (state.busy) {
     if (elements.messageInput.value.trim()) enqueueMessage(elements.messageInput.value);
+    else if (harnessUI.active()) void harnessUI.stop();
     else state.controller?.abort();
     return;
   }
@@ -3141,6 +3177,9 @@ document.querySelectorAll('.suggestion').forEach((button) => {
   });
 });
 
+const harnessUI = createHarnessUI({ state, catalog: modelCatalog, modelKey, currentKey: selectedModelKey, getProject: project,
+  saveProjects, saveConversations, render, toast: showToast, instructions: activeAgentInstructions,
+  onComplete: (conversation) => queueMicrotask(() => startNextQueuedMessage(conversation)) });
 loadPreferences();
 applySidebarWidth();
 renderAgentInstructionSettings();
@@ -3153,4 +3192,4 @@ if (!state.provider && activeConversation()?.provider) {
 }
 updateSidebarControls();
 render();
-void refreshStatus().then(resumeSavedQueue);
+void refreshStatus().then(async () => { await harnessUI.resume(); if (!state.busy) resumeSavedQueue(); });

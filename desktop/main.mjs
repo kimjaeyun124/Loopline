@@ -257,6 +257,11 @@ async function createMainWindow(url) {
     } catch { return false; }
   };
   const webChatHandlers = [];
+  ipcMain.handle('loopline:choose-workspace', async (event) => {
+    if (!trustedSender(event)) return null;
+    const result = await dialog.showOpenDialog(window, { title: 'Harness 프로젝트 폴더', properties: ['openDirectory'] });
+    return result.canceled ? null : result.filePaths[0] || null;
+  });
   for (const [service, view] of Object.entries(views)) {
     const channel = `loopline-${service}`;
     const handlers = {
@@ -307,6 +312,7 @@ async function createMainWindow(url) {
   mainWindow.webContents.session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
   mainWindow.once('ready-to-show', () => mainWindow?.show());
   mainWindow.on('closed', () => {
+    ipcMain.removeHandler('loopline:choose-workspace');
     nativeTheme.removeListener('updated', updateBackground);
     ipcMain.removeListener('loopline:appearance', appearanceHandler);
     for (const [channel, handler] of webChatHandlers) ipcMain.removeListener(channel, handler);

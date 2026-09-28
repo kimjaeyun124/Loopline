@@ -112,6 +112,8 @@
                 <button class="composer-tools composer-model-picker" id="modelSelectButton" type="button" aria-label="세부 모델 선택" aria-haspopup="dialog" aria-expanded="false" aria-controls="modelMenu" hidden><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#sparkles"></use></svg><span id="selectedModelLabel">모델 선택</span><svg class="ui-icon chevron" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#chevron-down"></use></svg></button>
                 <div class="loop-engineering-control" id="loopEngineeringControl" hidden>
                   <span class="loop-engineering-badge"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#code"></use></svg>Loop Engineering</span>
+                  <select id="loopExecutionMode" aria-label="Loop 실행 방식"><option value="harness">Harness</option><option value="repeat">모델 반복</option></select>
+                  <button type="button" id="harnessConfigure" class="text-button">구성</button>
                   <label for="loopEngineeringRounds">회차</label>
                   <select id="loopEngineeringRounds" aria-label="Loop Engineering 실행 회차">
                     <option value="2">2회</option><option value="3">3회</option><option value="4">4회</option><option value="5">5회</option><option value="6">6회</option><option value="7">7회</option><option value="8">8회</option><option value="9">9회</option><option value="10">10회</option>
@@ -163,6 +165,18 @@
       </section>
     </div>
 
+    <div class="modal-backdrop" id="harnessModal" hidden>
+      <section class="project-modal harness-modal" role="dialog" aria-modal="true" aria-labelledby="harnessTitle">
+        <div class="modal-header"><div><p class="eyebrow">Loop Engineering</p><h2 id="harnessTitle">Harness 구성</h2></div><button class="icon-button" id="harnessClose" type="button" aria-label="Harness 구성 닫기">✕</button></div>
+        <p class="harness-intro">계획 → 파일 작업 → 검증 → 판정. 수정이 필요하면 다음 회차로 이어집니다.</p>
+        <div id="harnessRoles"></div>
+        <label class="project-field"><span>프로젝트 작업 폴더</span><div class="harness-folder"><input id="harnessWorkspace" placeholder="Git 저장소의 전체 경로" aria-label="프로젝트 작업 폴더" maxlength="4096" /><button id="harnessChooseFolder" type="button" class="secondary-button">폴더 선택</button></div></label>
+        <label class="project-field"><span>검증 명령</span><input id="harnessVerify" placeholder="예: npm test" maxlength="1000" /><small>별도 작업 공간에서 실행합니다. 네트워크 없이 실행할 수 있는 명령을 지정하세요. 의존성 폴더는 자동 복사하지 않습니다.</small></label>
+        <label class="harness-auto"><input id="harnessAutoApply" type="checkbox" checked />검증과 판정을 통과하면 프로젝트에 자동 반영</label>
+        <p class="harness-intro">회차별 승인 없이 실행합니다. 판정 모델의 사용량도 기록되며, 중지 버튼으로 다음 회차까지 멈출 수 있습니다.</p>
+        <div class="project-modal-actions"><span></span><button class="primary-button" id="harnessSave" type="button">구성 저장</button></div>
+      </section>
+    </div>
     <div class="account-menu" id="accountMenu" role="menu" aria-label="계정 메뉴" hidden>
       <div class="account-menu-profile" role="presentation"><span class="account-menu-avatar" id="accountMenuAvatar" aria-hidden="true">LO</span><div><strong id="accountMenuName">Loopline</strong><small id="accountMenuDetail">계정을 연결해 주세요.</small></div></div>
       <div class="account-menu-divider" role="separator"></div>

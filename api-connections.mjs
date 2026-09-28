@@ -190,7 +190,12 @@ export class ApiConnections {
         if (new URL(connection.baseUrl).hostname === 'api.openai.com' && /^(text-embedding|tts-|whisper-|dall-e-|gpt-image|omni-moderation|text-moderation|sora-)|realtime|transcribe/.test(model.id)) return false;
         seen.add(model.id);
         return true;
-      }).slice(0, 500).map((model) => ({ id: model.id, label: String(model.name || model.id).slice(0, 240) }));
+      }).slice(0, 500).map((model) => ({
+        id: model.id, label: String(model.name || model.id).slice(0, 240),
+        reasoningEfforts: Array.isArray(model.supported_reasoning_efforts)
+          ? model.supported_reasoning_efforts.filter((value) => ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'].includes(value))
+          : [],
+      }));
       if (!models.length) throw fail('이 API 키로 사용할 수 있는 텍스트 모델이 없습니다.', 502);
       return models.sort((a, b) => a.label.localeCompare(b.label));
     } catch (error) {
@@ -246,11 +251,13 @@ export class ApiConnections {
     });
   }
 
-  async chat(id, model, messages, { signal, onDelta, onUsage }) {
+  async chat(id, model, messages, { signal, onDelta, onUsage, reasoningEffort }) {
     await this.#ready;
     await this.#writes;
     const connection = this.#find(id);
     if (!connection.models.some((item) => item.id === model)) throw fail('이 연결의 모델 목록에 없는 모델입니다. 목록을 새로고침해 주세요.');
+    if (reasoningEffort && !connection.models.find((item) => item.id === model)?.reasoningEfforts?.includes(reasoningEffort)) throw fail('이 API 모델이 제공한 추론 강도 목록에 없는 값입니다. 자동으로 설정해 주세요.');
+    const reasoning = reasoningEffort ? { reasoning_effort: reasoningEffort } : {};
     this.#active.set(id, (this.#active.get(id) || 0) + 1);
     const timeout = AbortSignal.timeout(180_000);
     const requestSignal = AbortSignal.any([signal, timeout]);
@@ -267,7 +274,7 @@ export class ApiConnections {
       try {
         response = await this.#request(connection, key, 'chat/completions', {
           method: 'POST', signal: requestSignal,
-          body: JSON.stringify({ model: chatModelId(connection, model), messages, stream: true, stream_options: { include_usage: true } }),
+          body: JSON.stringify({ model: chatModelId(connection, model), messages, ...reasoning, stream: true, stream_options: { include_usage: true } }),
         });
       } catch (error) {
         // Some OpenAI-compatible services reject stream_options. Retry only their explicit
@@ -275,7 +282,7 @@ export class ApiConnections {
         if (error.remoteStatus !== 400) throw error;
         response = await this.#request(connection, key, 'chat/completions', {
           method: 'POST', signal: requestSignal,
-          body: JSON.stringify({ model: chatModelId(connection, model), messages, stream: true }),
+          body: JSON.stringify({ model: chatModelId(connection, model), messages, ...reasoning, stream: true }),
         });
       }
       if ((response.headers.get('content-type') || '').includes('application/json')) {

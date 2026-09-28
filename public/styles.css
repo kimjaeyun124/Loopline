@@ -342,6 +342,17 @@ kbd { margin-left: auto; color: var(--muted); font-family: inherit; font-size: 1
 .loop-engineering-control label { color: var(--muted); font-size: 10px; }
 .loop-engineering-control select { max-width: 52px; min-height: 27px; padding: 4px 15px 4px 2px; color: var(--secondary); font-size: 10px; }
 .loop-engineering-control select:disabled { color: var(--disabled); cursor: not-allowed; }
+.loop-engineering-control #loopExecutionMode { max-width: 102px; }
+.loop-engineering-control .text-button { font-size: 11px; padding: 4px; }
+.harness-modal { width: min(640px, 100%); max-height: calc(100vh - 60px); overflow-y: auto; }
+.harness-intro { color: var(--muted); font-size: 12px; line-height: 1.6; margin: 12px 0; }
+.harness-role { display: grid; grid-template-columns: minmax(0, 1fr) 120px; gap: 8px 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.harness-role .project-field { margin-top: 0; min-width: 0; }
+.harness-role small { grid-column: 1 / -1; font-size: 11px; color: var(--muted); }
+.harness-folder { display: flex; gap: 8px; }
+.harness-folder input { min-width: 0; }
+.harness-folder button { flex-shrink: 0; }
+.harness-auto { display: flex; align-items: center; gap: 8px; font-size: 12px; margin: 20px 0 12px; }
 .select-button { display: inline-flex; align-items: center; gap: 6px; max-width: 280px; padding: 6px 8px; border: 0; border-radius: 8px; background: transparent; color: var(--secondary); font-size: 12px; font-weight: 500; cursor: pointer; }
 .select-button:hover { background: var(--sidebar-hover); }
 .mini-provider-mark { color: var(--secondary); font-size: 12px; }

@@ -21,6 +21,10 @@
     ],
     "extraResources": [
       {
+        "from": "harness-engine.mjs",
+        "to": "app-server/harness-engine.mjs"
+      },
+      {
         "from": "server.mjs",
         "to": "app-server/server.mjs"
       },

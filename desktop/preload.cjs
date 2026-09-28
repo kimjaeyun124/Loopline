@@ -10,6 +10,9 @@ function subscribe(channel, callback) {
 contextBridge.exposeInMainWorld('looplineAppearance', {
   setTheme: (theme) => ipcRenderer.send('loopline:appearance', theme),
 });
+contextBridge.exposeInMainWorld('looplineWorkspace', {
+  chooseFolder: () => ipcRenderer.invoke('loopline:choose-workspace'),
+});
 
 for (const [name, service] of [['looplineChatGpt', 'chatgpt'], ['looplineGemini', 'gemini']]) {
   const channel = `loopline-${service}`;

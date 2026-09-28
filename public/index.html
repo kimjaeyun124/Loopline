@@ -110,20 +110,23 @@
             <div class="composer-toolbar">
               <div class="composer-left">
                 <button class="composer-tools composer-model-picker" id="modelSelectButton" type="button" aria-label="세부 모델 선택" aria-haspopup="dialog" aria-expanded="false" aria-controls="modelMenu" hidden><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#sparkles"></use></svg><span id="selectedModelLabel">모델 선택</span><svg class="ui-icon chevron" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#chevron-down"></use></svg></button>
-                <div class="loop-engineering-control" id="loopEngineeringControl" hidden>
+                <div class="loop-engineering-control" id="loopEngineeringControl" aria-label="Loop Engineering 실행 설정" hidden>
                   <span class="loop-engineering-badge"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#code"></use></svg>Loop Engineering</span>
+                  <label for="loopExecutionMode">실행</label>
                   <select id="loopExecutionMode" aria-label="Loop 실행 방식"><option value="harness">Harness</option><option value="repeat">모델 반복</option></select>
                   <button type="button" id="harnessConfigure" class="text-button">구성</button>
-                  <label for="loopEngineeringRounds">회차</label>
+                  <label for="loopEngineeringRounds">최대 회차</label>
                   <select id="loopEngineeringRounds" aria-label="Loop Engineering 실행 회차">
                     <option value="2">2회</option><option value="3">3회</option><option value="4">4회</option><option value="5">5회</option><option value="6">6회</option><option value="7">7회</option><option value="8">8회</option><option value="9">9회</option><option value="10">10회</option>
                   </select>
                 </div>
-                <button class="composer-tools" id="composerConnections" type="button" title="계정 및 API 연결 관리"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#sliders"></use></svg><span>연결</span></button>
-                <button class="fast-mode-toggle" id="fastModeToggle" type="button" aria-pressed="false" title="Fast 모드" hidden><svg class="ui-icon fast-mode-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#bolt"></use></svg><span>Fast</span></button>
-                <div class="composer-reasoning" id="composerReasoningControl" hidden>
-                  <label for="composerReasoningEffortSelect"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#reasoning"></use></svg><span>추론</span></label>
-                  <select id="composerReasoningEffortSelect" aria-label="추론 강도"></select>
+                <div class="composer-loop-secondary">
+                  <button class="composer-tools" id="composerConnections" type="button" title="계정 및 API 연결 관리"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#sliders"></use></svg><span>연결</span></button>
+                  <button class="fast-mode-toggle" id="fastModeToggle" type="button" aria-pressed="false" title="Fast 모드" hidden><svg class="ui-icon fast-mode-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#bolt"></use></svg><span>Fast</span></button>
+                  <div class="composer-reasoning" id="composerReasoningControl" hidden>
+                    <label for="composerReasoningEffortSelect"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#reasoning"></use></svg><span>추론</span></label>
+                    <select id="composerReasoningEffortSelect" aria-label="추론 강도"></select>
+                  </div>
                 </div>
               </div>
               <div class="composer-submit-actions">

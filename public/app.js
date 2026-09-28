@@ -1049,6 +1049,7 @@ function renderModelSelect() {
   elements.modelSelectButton.title = selected ? `${selected.label} · ${selected.source}` : '사용 가능한 모델을 선택하세요.';
   elements.modelSelectButton.setAttribute('aria-label', `세부 모델 선택${selected ? ` · ${selected.label}` : ''}`);
   elements.loopEngineeringControl.hidden = !state.loopEngineeringEnabled;
+  elements.composerForm.classList.toggle('loop-engineering-active', state.loopEngineeringEnabled);
   elements.loopEngineeringRounds.value = String(state.loopEngineeringRounds);
   elements.loopEngineeringRounds.disabled = state.busy;
   document.querySelector('#loopExecutionMode').disabled = state.busy;

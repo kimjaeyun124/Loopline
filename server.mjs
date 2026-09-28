@@ -23,6 +23,7 @@ const publicDir = join(root, 'public');
 const userDataDir = resolve(process.env.MOSAIC_USER_DATA_DIR || join(homedir(), '.mosaic-desk'));
 const codexAccountsDir = join(userDataDir, 'codex-accounts');
 const codexAccountsFile = join(userDataDir, 'codex-accounts.json');
+const providerConnectionsFile = join(userDataDir, 'provider-connections.json');
 const defaultCodexHome = resolve(process.env.CODEX_HOME || join(homedir(), '.codex'));
 const port = Number(process.env.PORT || 4173);
 const host = process.env.HOST || '127.0.0.1';
@@ -41,7 +42,6 @@ const providers = {
     command: 'claude',
     statusArgs: ['auth', 'status', '--json'],
     loginArgs: ['auth', 'login', '--claudeai'],
-    logoutArgs: ['auth', 'logout'],
     installCommand: 'npm install -g @anthropic-ai/claude-code',
   },
 };
@@ -54,6 +54,67 @@ const deletingCodexAccounts = new Set();
 let codexAccountsPromise;
 let codexAccountWrites = Promise.resolve();
 const locallyDisconnectedCodexAccounts = new Set();
+let providerConnectionsPromise;
+let providerConnectionWrites = Promise.resolve();
+const linkedProviders = new Set();
+
+async function getLinkedProviders() {
+  if (!providerConnectionsPromise) {
+    providerConnectionsPromise = (async () => {
+      await mkdir(userDataDir, { recursive: true, mode: 0o700 });
+      let saved;
+      try {
+        saved = JSON.parse(await readFile(providerConnectionsFile, 'utf8'));
+      } catch (error) {
+        if (error.code !== 'ENOENT') throw new Error('AI 연결 목록을 읽지 못했습니다. 연결 설정 파일을 확인해 주세요.');
+        saved = { linkedProviders: [] };
+      }
+      if (!Array.isArray(saved?.linkedProviders)) throw new Error('AI 연결 목록 형식이 올바르지 않습니다.');
+      for (const provider of saved.linkedProviders) {
+        if (provider === 'anthropic') linkedProviders.add(provider);
+      }
+      return linkedProviders;
+    })();
+  }
+  return providerConnectionsPromise;
+}
+
+async function persistLinkedProviders() {
+  await mkdir(userDataDir, { recursive: true, mode: 0o700 });
+  const temporary = `${providerConnectionsFile}.${randomUUID()}.tmp`;
+  try {
+    await writeFile(temporary, JSON.stringify({ version: 1, linkedProviders: [...linkedProviders] }, null, 2) + '\n', { mode: 0o600, flag: 'wx' });
+    await rename(temporary, providerConnectionsFile);
+  } catch (error) {
+    await rm(temporary, { force: true }).catch(() => {});
+    throw error;
+  }
+}
+
+async function setProviderLinked(provider, linked) {
+  if (provider !== 'anthropic') throw Object.assign(new Error('지원하지 않는 연결입니다.'), { status: 400 });
+  await getLinkedProviders();
+  const operation = providerConnectionWrites.then(async () => {
+    const wasLinked = linkedProviders.has(provider);
+    if (linked) linkedProviders.add(provider);
+    else linkedProviders.delete(provider);
+    try {
+      await persistLinkedProviders();
+    } catch (error) {
+      if (wasLinked) linkedProviders.add(provider);
+      else linkedProviders.delete(provider);
+      throw error;
+    }
+    return linkedProviders.has(provider);
+  });
+  providerConnectionWrites = operation.catch(() => {});
+  return operation;
+}
+
+async function isProviderLinked(provider) {
+  await getLinkedProviders();
+  return linkedProviders.has(provider);
+}
 
 function cliEnvironment(provider) {
   const env = { ...process.env };
@@ -429,33 +490,29 @@ async function anthropicProviderStatus() {
   };
 }
 
-async function disconnectAnthropicAccount() {
+async function removeAnthropicConnection() {
   const loginJob = loginJobs.get('anthropic');
   if (loginJob && ['starting', 'running'].includes(loginJob.state)) {
-    throw Object.assign(new Error('Claude 로그인이 진행 중입니다. 로그인이 끝난 뒤 연결을 해제해 주세요.'), { status: 409 });
+    throw Object.assign(new Error('Claude 로그인이 진행 중입니다. 로그인이 끝난 뒤 앱 연결을 삭제해 주세요.'), { status: 409 });
   }
-  const status = await anthropicProviderStatus();
-  if (!status.installed) {
-    throw Object.assign(new Error('Claude Code CLI가 설치되어 있지 않습니다.'), { status: 503 });
-  }
-  if (!status.connected) return { disconnected: true };
-
-  const result = await captureCommand('anthropic', providers.anthropic.logoutArgs, 20_000);
-  if (!result.available || result.timedOut || result.code !== 0) {
-    throw Object.assign(new Error('Claude Code CLI에서 로그아웃하지 못했습니다. CLI 상태를 확인한 뒤 다시 시도해 주세요.'), { status: 502 });
-  }
-  if ((await anthropicProviderStatus()).connected) {
-    throw Object.assign(new Error('Claude Code CLI가 아직 로그인 상태입니다. 연결 상태를 새로고침해 주세요.'), { status: 502 });
-  }
-  return { disconnected: true };
+  await setProviderLinked('anthropic', false);
+  return { disconnected: true, cliSessionPreserved: true };
 }
 
 async function allProviderStatuses() {
-  const entries = await Promise.all([
+  const [openaiEntry, anthropic, claudeLinked] = await Promise.all([
     openAiProviderStatus('default').then((value) => ['openai', value]),
-    anthropicProviderStatus().then((value) => ['anthropic', value]),
+    anthropicProviderStatus(),
+    isProviderLinked('anthropic'),
   ]);
-  return Object.fromEntries(entries);
+  const claudeStatus = {
+    ...anthropic,
+    linked: claudeLinked,
+    cliConnected: anthropic.connected === true,
+    connected: claudeLinked && anthropic.connected === true,
+    label: claudeLinked ? anthropic.label : '앱에 연결되지 않음',
+  };
+  return { openai: openaiEntry[1], anthropic: claudeStatus };
 }
 
 async function allCodexAccountStatuses() {
@@ -468,10 +525,11 @@ async function allCodexAccountStatuses() {
 }
 
 async function tokenUsageAccounts() {
-  const [recorded, codexAccounts, claudeStatus, apiState] = await Promise.all([
+  const [recorded, codexAccounts, claudeStatus, claudeLinked, apiState] = await Promise.all([
     tokenUsageStore.accounts(),
     getCodexAccounts(),
     anthropicProviderStatus().catch(() => ({ connected: false })),
+    isProviderLinked('anthropic'),
     apiConnections.list(),
   ]);
   const accounts = new Map();
@@ -489,7 +547,7 @@ async function tokenUsageAccounts() {
       : await openAiProviderStatus(account.id).catch(() => ({ connected: false }));
     add('codex', `codex:${account.id}`, account.name, status.connected === true);
   }));
-  if (claudeStatus.connected) add('claude', 'claude:cli', 'Claude Code CLI', true);
+  if (claudeLinked && claudeStatus.connected) add('claude', 'claude:cli', 'Claude Code CLI', true);
   for (const connection of apiState.connections) {
     if (connection.connected) add('api', `api:${connection.id}`, connection.name, true);
   }
@@ -1560,6 +1618,9 @@ async function relayChat(req, res) {
     if (!Object.hasOwn(providers, provider) && provider !== 'api') {
       return json(res, 400, { error: '지원하지 않는 제공자 또는 모델입니다.' });
     }
+    if (provider === 'anthropic' && !await isProviderLinked('anthropic')) {
+      return json(res, 401, { error: 'Claude Code가 Loopline에 연결되어 있지 않습니다. 설정에서 연결을 추가해 주세요.' });
+    }
     if (provider === 'anthropic' && !modelAllowlist.anthropic.has(model)) {
       return json(res, 400, { error: '지원하지 않는 제공자 또는 모델입니다.' });
     }
@@ -1854,16 +1915,29 @@ const server = createServer(async (req, res) => {
       return json(res, error.status || 502, { error: error.message || 'Codex 계정을 삭제하지 못했습니다.' });
     }
   }
-  if (req.method === 'POST' && url.pathname === '/api/disconnect/anthropic') {
+  if ((req.method === 'DELETE' && url.pathname === '/api/provider-connections/anthropic')
+    || (req.method === 'POST' && url.pathname === '/api/disconnect/anthropic')) {
     try {
-      return json(res, 200, await disconnectAnthropicAccount());
+      return json(res, 200, await removeAnthropicConnection());
     } catch (error) {
-      return json(res, error.status || 502, { error: error.message || 'Claude 연결을 해제하지 못했습니다.' });
+      return json(res, error.status || 502, { error: error.message || 'Claude 앱 연결을 삭제하지 못했습니다.' });
     }
   }
   const connectMatch = url.pathname.match(/^\/api\/connect\/(openai|anthropic)$/);
   if (req.method === 'POST' && connectMatch) {
     const provider = connectMatch[1];
+    if (provider === 'anthropic') {
+      try {
+        const status = await anthropicProviderStatus();
+        await setProviderLinked('anthropic', true);
+        if (!status.installed) return json(res, 503, { error: providers[provider].label + ' CLI가 설치되어 있지 않습니다.', installCommand: status.installCommand });
+        if (status.connected) return json(res, 200, { connected: true, message: 'Claude Code를 Loopline에 연결했습니다.' });
+        const job = startLogin(provider);
+        return json(res, 202, { state: job.state, message: 'Claude 공식 로그인 절차를 시작했습니다. 브라우저 또는 실행 안내를 확인해 주세요.' });
+      } catch (error) {
+        return json(res, error.status || 502, { error: error.message || 'Claude Code 연결을 시작하지 못했습니다.' });
+      }
+    }
     const status = await providerStatus(provider);
     if (!status.installed) return json(res, 503, { error: providers[provider].label + ' CLI가 설치되어 있지 않습니다.', installCommand: status.installCommand });
     if (status.connected) return json(res, 200, { connected: true, message: '이미 계정이 연결되어 있습니다.' });
@@ -1876,8 +1950,6 @@ const server = createServer(async (req, res) => {
         return json(res, 502, { error: error.message || 'ChatGPT 로그인 절차를 시작하지 못했습니다.' });
       }
     }
-    const job = startLogin(provider);
-    return json(res, 202, { state: job.state, message: 'Claude 공식 로그인 절차를 시작했습니다. 브라우저 또는 실행 안내를 확인해 주세요.' });
   }
   if (req.method === 'POST' && url.pathname === '/api/chat') return relayChat(req, res);
   if (req.method === 'POST' && url.pathname === '/api/thread/delete') {

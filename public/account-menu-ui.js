@@ -24,7 +24,7 @@ export function createAccountMenuUI({ onOpen, onUsage, onSettings, formatAccount
     if (context.provider === 'openai' && account?.connected) {
       return { name: account.accountName || account.name || formatAccountName(account), detail: `Codex${account.planType ? ` · ${account.planType}` : ''}`, account };
     }
-    if (context.provider === 'anthropic') {
+    if (context.provider === 'anthropic' && context.claude.linked) {
       return { name: 'Claude Code', detail: context.claude.connected ? '구독 계정 연결됨' : '로그인 필요' };
     }
     const connection = context.provider === 'api' && context.connections.find((item) => item.id === context.connectionId);
@@ -59,7 +59,8 @@ export function createAccountMenuUI({ onOpen, onUsage, onSettings, formatAccount
     if (usagePanel.hidden) return;
     const codexOptions = context.accounts.map((account) => `<option value="${escape(`codex:${account.id}`)}">${escape(formatAccountName(account))}${account.connected ? '' : ' · 로그인 필요'}</option>`).join('');
     const apiOptions = context.connections.map((connection) => `<option value="${escape(`api:${connection.id}`)}">${escape(connection.name)}</option>`).join('');
-    const options = `<option value="all">전체 계정</option>${codexOptions ? `<optgroup label="Codex">${codexOptions}</optgroup>` : ''}<optgroup label="Claude"><option value="claude">Claude Code${context.claude.connected ? '' : ' · 로그인 필요'}</option></optgroup>${apiOptions ? `<optgroup label="API 에이전트">${apiOptions}</optgroup>` : ''}`;
+    const claudeOptions = context.claude.linked ? `<optgroup label="Claude"><option value="claude">Claude Code${context.claude.connected ? '' : ' · 로그인 필요'}</option></optgroup>` : '';
+    const options = `<option value="all">전체 계정</option>${codexOptions ? `<optgroup label="Codex">${codexOptions}</optgroup>` : ''}${claudeOptions}${apiOptions ? `<optgroup label="API 에이전트">${apiOptions}</optgroup>` : ''}`;
     if (options !== previousUsageOptions) {
       const selected = usageAccount.value;
       usageAccount.innerHTML = options;
@@ -81,7 +82,7 @@ export function createAccountMenuUI({ onOpen, onUsage, onSettings, formatAccount
       return `<article class="usage-account-card"><div class="usage-account-heading"><span class="usage-provider-icon" aria-hidden="true">${icon('terminal')}</span><div><strong>${escape(name)}</strong><small>Codex${account.planType ? ` · ${escape(account.planType)}` : ''}</small></div>${active ? '<span class="active-account-badge">사용 중</span>' : ''}</div>${usage}</article>`;
     });
     if (allAccounts && !context.accounts.length) cards.push('<p class="usage-description">Codex 계정을 연결하면 남은 사용 한도가 표시됩니다.</p>');
-    if (allAccounts || selected === 'claude') {
+    if (context.claude.linked && (allAccounts || selected === 'claude')) {
       cards.push(`<article class="usage-account-card"><div class="usage-account-heading"><span class="usage-provider-icon" aria-hidden="true">${icon('asterisk')}</span><div><strong>Claude Code</strong><small>${context.claude.connected ? '구독 계정 연결됨' : '로그인 필요'}</small></div></div><p class="usage-description">${escape(context.claude.usageSummary?.message || 'Claude Code CLI에 로그인한 뒤 /usage에서 플랜 사용 한도를 확인하세요.')}</p><code class="usage-command">/usage</code></article>`);
     }
     for (const connection of context.connections.filter((item) => allAccounts || selected === `api:${item.id}`)) {

@@ -632,6 +632,20 @@ kbd { margin-left: auto; color: var(--muted); font-family: inherit; font-size: 1
 .settings-dialog .codex-account-card:last-child { padding-bottom: 0; }
 .settings-dialog .codex-account-card.active { background: transparent; }
 .settings-dialog .connection-row { margin-top: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 12px; }
+.settings-dialog .provider-connection-section { margin-top: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 12px; }
+.provider-connection-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.provider-connection-heading > div { display: flex; flex-direction: column; gap: 4px; }
+.provider-connection-heading strong { font-size: 13px; font-weight: 600; }
+.provider-connection-heading small { color: var(--muted); font-size: 10px; }
+.provider-connection-list { margin-top: 10px; }
+.provider-connection-list:empty { display: none; }
+.provider-connection-list .connection-row { margin: 0; padding: 13px 0 0; border: 0; border-top: 1px solid var(--line); border-radius: 0; }
+.provider-connection-empty { padding: 13px 0 0; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; line-height: 1.6; }
+.provider-connection-backdrop { z-index: 11; }
+.provider-connection-dialog { width: min(100%, 520px); }
+.provider-connection-choice { margin: 0 0 14px; }
+.provider-connection-choice .connection-details small + small { margin-top: 2px; }
+.provider-connection-choice .connect-button { flex: 0 0 auto; }
 .settings-dialog .api-section-heading { margin: 0 0 22px; }
 .settings-dialog .api-section-heading h3 { font-size: 17px; font-weight: 600; letter-spacing: -.025em; }
 .settings-dialog .api-section-heading p { font-size: 12px; }

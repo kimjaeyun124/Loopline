@@ -71,7 +71,7 @@ const state = {
   codexAccounts: [],
   activeCodexAccountId: 'default',
   busyCodexAccountIds: new Set(),
-  busyClaudeDisconnect: false,
+  busyClaudeConnectionChange: false,
   statusUpdatedAt: null,
   statusError: false,
 };
@@ -712,7 +712,7 @@ function renderCodexAccounts() {
 function modelCatalog() {
   return [
     ...modelsForProvider('openai').map((model) => ({ ...model, provider: 'openai', source: 'Codex', connected: activeCodexAccount()?.connected === true })),
-    ...PROVIDERS.anthropic.models.map((model) => ({ ...model, provider: 'anthropic', source: 'Claude Code', connected: state.providers.anthropic?.connected === true })),
+    ...(state.providers.anthropic?.linked ? PROVIDERS.anthropic.models.map((model) => ({ ...model, provider: 'anthropic', source: 'Claude Code', connected: state.providers.anthropic.connected === true })) : []),
     ...state.apiConnections.flatMap((connection) => connection.models.map((model) => ({ ...model, provider: 'api', connectionId: connection.id, source: connection.name, connected: connection.connected }))),
   ];
 }
@@ -725,7 +725,7 @@ function providerCatalog() {
   const codexCount = state.codexAccounts.filter((account) => account.connected).length;
   return [
     { provider: 'openai', label: 'Codex', connected: activeCodexAccount()?.connected === true, detail: codexCount ? `${codexCount}개 계정 연결됨` : '계정 로그인' },
-    { provider: 'anthropic', label: 'Claude Code', connected: state.providers.anthropic?.connected === true, detail: state.providers.anthropic?.connected ? '구독 계정 연결됨' : '계정 로그인' },
+    ...(state.providers.anthropic?.linked ? [{ provider: 'anthropic', label: 'Claude Code', connected: state.providers.anthropic.connected === true, detail: state.providers.anthropic.connected ? '구독 계정 연결됨' : '계정 로그인' }] : []),
     ...state.apiConnections.map((connection) => ({ provider: 'api', connectionId: connection.id, label: connection.name, connected: connection.connected, detail: connection.connected ? `${connection.models.length}개 모델 · API` : 'API 키 연결 필요' })),
   ];
 }
@@ -871,7 +871,7 @@ function renderAgentList() {
   const codexCount = state.codexAccounts.filter((account) => account.connected).length;
   const agents = [
     { name: 'Codex', mark: icon('terminal'), connected: codexCount > 0, detail: codexCount ? `${codexCount}개 계정` : '로그인 필요', tab: 'accounts' },
-    { name: 'Claude Code', mark: icon('asterisk'), connected: state.providers.anthropic?.connected, detail: state.providers.anthropic?.connected ? '연결됨' : '로그인 필요', tab: 'accounts' },
+    ...(state.providers.anthropic?.linked ? [{ name: 'Claude Code', mark: icon('asterisk'), connected: state.providers.anthropic.connected, detail: state.providers.anthropic.connected ? '연결됨' : '로그인 필요', tab: 'accounts' }] : []),
     ...state.apiConnections.map((connection) => ({ name: connection.name, mark: icon('plug'), connected: connection.connected, detail: connection.connected ? `${connection.models.length}개 모델` : '키 필요', tab: 'agents' })),
   ];
   document.querySelector('#agentList').innerHTML = agents.map((agent) => `<button class="agent-sidebar-row" type="button" data-agent-tab="${agent.tab}" title="${escapeHtml(agent.name)} · ${escapeHtml(agent.detail)}"><span class="agent-mark" aria-hidden="true">${agent.mark}</span><span class="agent-name">${escapeHtml(agent.name)}</span><span class="agent-detail">${escapeHtml(agent.detail)}</span><span class="agent-status${agent.connected ? ' connected' : ''}" aria-label="${agent.connected ? '연결됨' : '연결 필요'}"></span></button>`).join('');
@@ -981,27 +981,42 @@ async function refreshApiConnections() {
   render();
 }
 
+function renderClaudeConnection() {
+  const list = document.querySelector('#claudeConnectionList');
+  const anthropic = state.providers.anthropic || {};
+  const claudeJob = state.loginJobs.anthropic;
+  if (!anthropic.linked) {
+    list.innerHTML = '<p class="provider-connection-empty">연결된 Claude Code 계정이 없습니다. ‘연결 추가’를 눌러 등록하세요.</p>';
+    return;
+  }
+
+  const loginRunning = claudeJob?.state === 'running' || claudeJob?.state === 'starting';
+  const statusLabel = anthropic.connected ? '연결됨' : anthropic.installed === false ? 'CLI 설치 필요' : loginRunning ? '인증 중' : '로그인 필요';
+  const usage = anthropic.usageSummary?.message || (anthropic.connected
+    ? 'Claude Code에서 /usage를 실행해 플랜 사용량을 확인하세요.'
+    : 'Claude Code CLI에 로그인한 뒤 /usage에서 플랜 사용량을 확인하세요.');
+  const install = anthropic.installed === false && anthropic.installCommand
+    ? `<code class="install-command">${escapeHtml(anthropic.installCommand)}</code>` : '';
+  const loginAction = anthropic.connected ? ''
+    : `<button class="connect-button" type="button" data-claude-action="login"${anthropic.installed !== true || loginRunning || state.busyClaudeConnectionChange ? ' disabled' : ''}>${loginRunning ? '진행 중' : anthropic.installed === false ? '설치 필요' : '로그인'}</button>`;
+  const deleteAction = `<button class="account-delete-button" type="button" data-claude-action="delete"${loginRunning || state.busyClaudeConnectionChange ? ' disabled' : ''}>${state.busyClaudeConnectionChange ? '삭제 중…' : '삭제'}</button>`;
+  list.innerHTML = `<article class="connection-row">
+    <span class="connection-logo claude-logo" aria-hidden="true">${icon('asterisk')}</span>
+    <div class="connection-details"><strong>Claude · Claude Code</strong><small>${escapeHtml(usage)}</small>${install}</div>
+    <div class="connection-actions"><span class="connection-status${anthropic.connected ? ' ready' : ''}">${escapeHtml(statusLabel)}</span><div class="account-button-group">${loginAction}${deleteAction}</div></div>
+  </article>`;
+}
+
 function updateConnectionControls() {
   const feedback = document.querySelector('#loginFeedback');
   const messages = [];
   const anthropic = state.providers.anthropic || {};
   const claudeJob = state.loginJobs.anthropic;
-  document.querySelector('#anthropicStatus').textContent = anthropic.label || '상태 확인 실패';
-  document.querySelector('#anthropicStatus').classList.toggle('ready', anthropic.connected === true);
-  const claudeButton = document.querySelector('#connectClaude');
-  const claudeLoginRunning = claudeJob?.state === 'running' || claudeJob?.state === 'starting';
-  claudeButton.textContent = state.busyClaudeDisconnect ? '해제 중…' : anthropic.connected ? '연결 해제' : claudeLoginRunning ? '진행 중' : anthropic.installed ? '로그인' : '설치 필요';
-  claudeButton.disabled = state.busyClaudeDisconnect || anthropic.installed !== true || claudeLoginRunning;
-  claudeButton.classList.remove('connected');
-  claudeButton.classList.toggle('disconnect-button', anthropic.connected === true);
-  document.querySelector('#anthropicInstall').textContent = anthropic.installCommand || '';
-  document.querySelector('#anthropicInstall').hidden = anthropic.installed !== false || !anthropic.installCommand;
-  document.querySelector('#anthropicUsage').textContent = anthropic.usageSummary?.message || (anthropic.connected
-    ? 'Claude Code에서 /usage를 실행해 플랜 사용량을 확인하세요.'
-    : 'Claude Code CLI 로그인 후 /usage에서 플랜 사용량을 확인하세요.');
-  if (!anthropic.connected && claudeJob?.output) messages.push(`Claude 로그인 안내:\n${claudeJob.output.trim()}`);
-  else if (!anthropic.connected && (claudeJob?.state === 'running' || claudeJob?.state === 'starting')) messages.push('Claude 공식 로그인 창에서 인증을 완료해 주세요.');
-  else if (!anthropic.connected && claudeJob?.state === 'failed') messages.push('Claude 로그인 절차가 종료되었습니다. CLI 상태를 새로고침해 주세요.');
+  document.querySelector('#addClaudeConnection').hidden = anthropic.linked === true;
+  renderClaudeConnection();
+  if (anthropic.linked && !anthropic.connected && claudeJob?.output) messages.push(`Claude 로그인 안내:\n${claudeJob.output.trim()}`);
+  else if (anthropic.linked && !anthropic.connected && (claudeJob?.state === 'running' || claudeJob?.state === 'starting')) messages.push('Claude 공식 로그인 창에서 인증을 완료해 주세요.');
+  else if (anthropic.linked && !anthropic.connected && claudeJob?.state === 'failed') messages.push('Claude 로그인 절차가 종료되었습니다. CLI 상태를 새로고침해 주세요.');
 
   for (const account of state.codexAccounts) {
     const job = account.loginJob;
@@ -1069,6 +1084,11 @@ async function refreshStatus() {
     state.loginJobs = status.loginJobs || {};
     state.codexAccounts = Array.isArray(status.codexAccounts) ? status.codexAccounts : [];
     updateApiConnections(status);
+    if (!state.busy && state.provider === 'anthropic' && !state.providers.anthropic?.linked) {
+      state.provider = '';
+      state.model = '';
+      savePreferences();
+    }
     if (!state.codexAccounts.some((account) => account.id === state.activeCodexAccountId && account.connected)) {
       state.activeCodexAccountId = state.codexAccounts.find((account) => account.id !== state.activeCodexAccountId && account.connected)?.id || 'default';
     }
@@ -1114,7 +1134,7 @@ async function connectProvider(provider) {
   } catch {
     feedback.textContent = '로그인 요청을 처리하지 못했습니다. Loopline 서버가 실행 중인지 확인해 주세요.';
   }
-  refreshStatus();
+  await refreshStatus();
 }
 
 async function connectCodexAccount(accountId = null, accountName = '') {
@@ -1232,27 +1252,48 @@ async function updateCodexAccountLink(accountId, action) {
   }
 }
 
-async function disconnectClaudeAccount() {
-  if (state.busyClaudeDisconnect) return;
-  if (!window.confirm('Claude Code CLI에서 로그아웃할까요?\n\n이 로그아웃은 Loopline과 터미널 등 Claude Code CLI를 사용하는 곳에 영향을 줍니다.')) return;
-  state.busyClaudeDisconnect = true;
+async function removeClaudeConnection() {
+  if (state.busyClaudeConnectionChange) return;
+  if (!window.confirm('Claude Code 연결을 삭제할까요?\n\nLoopline의 연결 항목만 삭제합니다. 이 Mac의 Claude Code CLI와 터미널 로그인은 유지됩니다.')) return;
+  state.busyClaudeConnectionChange = true;
   updateConnectionControls();
   try {
-    const response = await fetch('/api/disconnect/anthropic', { method: 'POST' });
+    const response = await fetch('/api/provider-connections/anthropic', { method: 'DELETE' });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.error || 'Claude 연결을 해제하지 못했습니다.');
-    showToast('Claude Code CLI에서 로그아웃했습니다.');
+    if (!response.ok) throw new Error(data.error || 'Claude 앱 연결을 삭제하지 못했습니다.');
+    if (state.provider === 'anthropic') {
+      state.provider = '';
+      state.model = '';
+      savePreferences();
+    }
+    showToast('Loopline에서 Claude Code 연결을 삭제했습니다. CLI 로그인은 유지됩니다.');
   } catch (error) {
-    showToast(error.message || 'Claude 연결을 해제하지 못했습니다.');
+    showToast(error.message || 'Claude 앱 연결을 삭제하지 못했습니다.');
   } finally {
-    state.busyClaudeDisconnect = false;
+    state.busyClaudeConnectionChange = false;
     await refreshStatus();
   }
 }
 
-function toggleClaudeConnection() {
-  if (state.providers.anthropic?.connected) return disconnectClaudeAccount();
-  return connectProvider('anthropic');
+function openProviderConnectionModal() {
+  const modal = document.querySelector('#providerConnectionModal');
+  const status = state.providers.anthropic || {};
+  const hint = document.querySelector('#claudeConnectionHint');
+  hint.textContent = status.cliConnected
+    ? '이 Mac의 Claude Code CLI 로그인 상태를 Loopline에 등록합니다.'
+    : status.installed === false
+      ? '먼저 Claude Code CLI를 설치해야 연결할 수 있습니다.'
+      : '연결하면 Claude Code CLI 로그인을 시작합니다.';
+  document.querySelector('#connectClaudeFromModal').disabled = false;
+  modal.hidden = false;
+  document.querySelector('#closeProviderConnection').focus();
+}
+
+function closeProviderConnectionModal(restoreFocus = false) {
+  const modal = document.querySelector('#providerConnectionModal');
+  if (modal.hidden) return;
+  modal.hidden = true;
+  if (restoreFocus) document.querySelector('#addClaudeConnection').focus();
 }
 
 function activeProjectInstructions() {
@@ -2327,7 +2368,36 @@ document.querySelector('#refreshStatus').addEventListener('click', () => {
   void refreshStatus();
   if (!document.querySelector('#usagePanel').hidden) usageActivityUI.refresh();
 });
-document.querySelector('#connectClaude').addEventListener('click', toggleClaudeConnection);
+document.querySelector('#addClaudeConnection').addEventListener('click', openProviderConnectionModal);
+document.querySelector('#closeProviderConnection').addEventListener('click', () => closeProviderConnectionModal(true));
+document.querySelector('#cancelProviderConnection').addEventListener('click', () => closeProviderConnectionModal(true));
+document.querySelector('#providerConnectionModal').addEventListener('click', (event) => {
+  if (event.target.id === 'providerConnectionModal') closeProviderConnectionModal(true);
+});
+document.querySelector('#providerConnectionModal').addEventListener('keydown', (event) => {
+  const modal = document.querySelector('#providerConnectionModal');
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    event.stopPropagation();
+    closeProviderConnectionModal(true);
+    return;
+  }
+  if (event.key !== 'Tab') return;
+  const controls = [...modal.querySelectorAll('button:not(:disabled)')].filter((node) => node.getClientRects().length);
+  const first = controls[0]; const last = controls.at(-1);
+  if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+  else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+});
+document.querySelector('#connectClaudeFromModal').addEventListener('click', () => {
+  closeProviderConnectionModal();
+  void connectProvider('anthropic');
+});
+document.querySelector('#claudeConnectionList').addEventListener('click', (event) => {
+  const button = event.target.closest('[data-claude-action]');
+  if (!button || button.disabled) return;
+  if (button.dataset.claudeAction === 'login') void connectProvider('anthropic');
+  if (button.dataset.claudeAction === 'delete') void removeClaudeConnection();
+});
 document.querySelector('#connectionDetails').addEventListener('click', () => showSettings(state.provider === 'api' ? 'agents' : 'accounts'));
 document.querySelector('#openHistoryImport').addEventListener('click', () => {
   if (historyImportUI.open()) hideSettings();

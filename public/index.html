@@ -338,14 +338,13 @@
           <div class="codex-account-list" id="codexAccountsList"></div>
           <form class="inline-account-form" id="codexAccountForm" hidden><input id="codexAccountName" maxlength="60" placeholder="계정 이름 (선택 사항)" aria-label="새 Codex 계정 이름" /><button type="submit" class="primary-button">로그인</button><button type="button" id="cancelCodexAccountForm" class="secondary-button">취소</button></form>
         </div>
-        <div class="connection-row">
-          <div class="connection-logo claude-logo" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#asterisk"></use></svg></div>
-          <div class="connection-details"><strong>Claude · Claude Code</strong><small id="anthropicHelp">Claude 구독 계정으로 Claude Code에 로그인</small><small class="usage-status" id="anthropicUsage">CLI 로그인 상태 확인 중…</small><code class="install-command" id="anthropicInstall" hidden></code></div>
-          <div class="connection-actions"><span class="connection-status" id="anthropicStatus">확인 중</span><button class="connect-button" id="connectClaude" type="button">로그인</button></div>
+        <div class="provider-connection-section">
+          <div class="provider-connection-heading"><div><strong>Claude Code</strong><small>Loopline에서 사용할 CLI 연결을 관리합니다.</small></div><button class="add-account-button" id="addClaudeConnection" type="button"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#plus"></use></svg><span>연결 추가</span></button></div>
+          <div id="claudeConnectionList" class="provider-connection-list"></div>
         </div>
         <div class="login-feedback" id="loginFeedback" hidden></div>
         <div class="notice-box"><strong>계정별 사용 한도</strong><p>Codex 한도가 소진되면 한도가 남은 연결 계정으로 해당 요청을 다시 시도합니다. Claude Code CLI는 로그인 상태만 자동 확인할 수 있으며, 플랜 사용량은 Claude Code에서 <code>/usage</code>를 실행해 확인하세요.</p></div>
-        <p class="settings-footnote">Codex 기본 계정과 Claude는 설치된 CLI의 로그인 상태를 공유합니다. 연결을 해제하면 CLI에서도 로그아웃됩니다.</p>
+        <p class="settings-footnote">Claude Code를 삭제해도 이 Mac의 Claude CLI 로그인과 터미널 사용 상태는 유지됩니다.</p>
         </div>
         <div id="agentsPanel" role="tabpanel" aria-labelledby="agentsTab" data-settings-panel="agents" hidden>
           <div class="api-section-heading"><div><h3>나만의 에이전트</h3><p>API를 연결하면 사용 가능한 모델을 자동으로 가져옵니다.</p></div><button class="primary-button" id="addApiConnection" type="button"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#plus"></use></svg><span>에이전트 추가</span></button></div>
@@ -386,6 +385,19 @@
         <p class="import-error" id="apiConnectionError" role="alert" hidden></p>
         <div class="project-modal-actions"><span></span><button class="secondary-button" id="cancelApiConnection" type="button">취소</button><button class="primary-button" id="saveApiConnection" type="submit">연결 및 모델 가져오기</button></div>
       </form>
+    </div>
+
+    <div class="modal-backdrop provider-connection-backdrop" id="providerConnectionModal" hidden>
+      <section class="project-modal provider-connection-dialog" role="dialog" aria-modal="true" aria-labelledby="providerConnectionTitle">
+        <div class="modal-header"><div><p class="eyebrow">연결 추가</p><h2 id="providerConnectionTitle">AI 연결 선택</h2></div><button class="icon-button close-modal" id="closeProviderConnection" type="button" aria-label="닫기"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/icons.svg#close"></use></svg></button></div>
+        <p class="modal-description">연결할 서비스를 선택하세요. 연결은 이 앱에서만 등록되며, 기존 CLI 로그인 상태를 바꾸지 않습니다.</p>
+        <article class="connection-row provider-connection-choice">
+          <div class="connection-logo claude-logo" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 24 24"><use href="/icons.svg#asterisk"></use></svg></div>
+          <div class="connection-details"><strong>Claude Code</strong><small>이 Mac의 Claude Code CLI 계정을 사용합니다.</small><small id="claudeConnectionHint">연결하면 모델 선택과 대화에서 사용할 수 있습니다.</small></div>
+          <button class="connect-button" id="connectClaudeFromModal" type="button">연결</button>
+        </article>
+        <div class="project-modal-actions"><span></span><button class="secondary-button" id="cancelProviderConnection" type="button">취소</button></div>
+      </section>
     </div>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>

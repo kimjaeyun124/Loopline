@@ -528,8 +528,7 @@ function renderMessages() {
       return `<article class="message assistant${errorClass}" data-message-id="${escapeHtml(message.id || '')}">
         <div class="assistant-response">
           ${activityMarkup}
-          <section class="assistant-result" aria-label="${message.pending ? '응답' : '결과'}">
-            <div class="assistant-result-label">${message.pending ? '응답' : '결과'}</div>
+          <section class="assistant-result" aria-label="응답">
             <div class="message-content markdown-content">${content}${message.pending && message.content ? '<span class="typing-dots" aria-label="응답 생성 중"><i></i><i></i><i></i></span>' : ''}</div>
           </section>
           ${!message.pending && message.content ? `<div class="message-actions">${copyButton}</div>` : ''}

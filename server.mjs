@@ -1460,14 +1460,18 @@ async function ensureCodexThread(context, requestedId, model, ephemeral = false)
 async function deleteEphemeralCodexThread(context, client, threadId) {
   let lastError;
   try {
-    await client.request('thread/unsubscribe', { threadId }, 15_000);
+    await client.request('thread/unsubscribe', { threadId }, 5_000);
   } catch (error) {
     lastError = error;
   }
-  for (const delayMs of [0, 250, 750]) {
+  const deadline = Date.now() + 30_000;
+  for (const delayMs of [0, 250, 750, 1_500, 3_000, 5_000, 8_000]) {
+    if (Date.now() >= deadline) break;
     if (delayMs) await new Promise((resolve) => setTimeout(resolve, delayMs));
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) break;
     try {
-      await client.request('thread/delete', { threadId }, 15_000);
+      await client.request('thread/delete', { threadId }, Math.min(5_000, remaining));
       context.loadedThreads.delete(threadId);
       return;
     } catch (error) {
@@ -1570,6 +1574,7 @@ async function runCodexTurnAttempt(context, model, messages, requestedThreadId, 
     return { error: '요청이 취소되었습니다.', cancelled: true };
   }
   if (context.activeTurns.has(thread.id)) {
+    if (ephemeralCodexThread && thread.created) await deleteEphemeralCodexThread(context, client, thread.id);
     return { error: '이 대화에서 진행 중인 응답이 있습니다. 완료 후 다시 시도해 주세요.' };
   }
   sendEvent(res, 'account', accountPublicInfo(context.account));

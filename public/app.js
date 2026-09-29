@@ -828,7 +828,8 @@ function renderActivityInspector() {
     <div class="activity-inspector-status"><span class="activity-${escapeHtml(activity.status)}"><i aria-hidden="true"></i>${activityStatusLabel(activity.status)}</span>${Number.isFinite(activity.timestamp) ? `<time datetime="${new Date(activity.timestamp).toISOString()}">${new Date(activity.timestamp).toLocaleString()}</time>` : ''}</div>
     ${model ? `<section class="activity-inspector-card"><span>사용한 AI · AI used</span><strong>${escapeHtml(harnessProviderName(model))}</strong><small>${escapeHtml(model.label || model.id)}</small>${model.effort ? `<small>추론 강도 · Effort: ${escapeHtml(model.effort)}</small>` : ''}</section>` : ''}
     ${promptMarkup}
-    ${!promptMarkup && !isHarnessPromptStep(message, activity) && message.activityMode === 'native' ? '<section class="activity-inspector-prompt"><h3>AI에게 보낸 입력 · Sent to AI</h3><p class="activity-inspector-empty">이 단계는 자동 실행 기록이며, 별도로 보낸 질문은 없습니다.</p></section>' : ''}
+    ${!promptMarkup && !isHarnessPromptStep(message, activity) && activity.id === 'request' ? '<section class="activity-inspector-prompt"><h3>AI에게 보낸 입력 · Sent to AI</h3><p class="activity-inspector-empty">질문 기록은 개인정보와 프로젝트 정보를 포함할 수 있어 현재 앱 세션에서만 확인할 수 있습니다.</p></section>' : ''}
+    ${!promptMarkup && !isHarnessPromptStep(message, activity) && activity.id !== 'request' && message.activityMode === 'native' ? '<section class="activity-inspector-prompt"><h3>AI에게 보낸 입력 · Sent to AI</h3><p class="activity-inspector-empty">이 단계는 자동 실행 기록이며, 별도로 보낸 질문은 없습니다.</p></section>' : ''}
     <section class="activity-inspector-detail"><h3>단계 기록 · Step details</h3>${detail ? `<div class="activity-inspector-markdown">${renderMarkdown(detail, { copyDisabled: true })}</div>` : '<p class="activity-inspector-empty">이 단계에서 추가로 기록된 내용이 없습니다.</p>'}</section>
     ${message.activityMode === 'lifecycle' ? '<p class="activity-inspector-note">이 연결은 요청·응답 상태만 제공합니다. 모델 내부의 실시간 도구 과정은 제공되지 않습니다.</p>' : ''}
   `;

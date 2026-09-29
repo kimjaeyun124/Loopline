@@ -13,7 +13,11 @@ test('automatic effort uses the lowest suitable level for simple work and a stro
   assert.equal(recommendLoopEffort('planner', supported, 'Fix one label.'), 'low');
   assert.equal(recommendLoopEffort('worker', supported, 'Fix one label.'), 'medium');
   assert.equal(recommendLoopEffort('judge', supported, 'Fix one label.'), 'low');
-  assert.equal(recommendLoopEffort('worker', supported, 'Refactor the architecture and improve concurrency handling.'), 'high');
+  const complexTask = 'Refactor the architecture and improve concurrency handling.';
+  assert.equal(recommendLoopEffort('planner', supported, complexTask), 'medium');
+  assert.equal(recommendLoopEffort('worker', supported, complexTask), 'high');
+  assert.equal(recommendLoopEffort('judge', supported, complexTask), 'medium');
+  assert.equal(recommendLoopEffort('planner', ['low', 'high'], complexTask), 'high');
   assert.equal(recommendLoopEffort('worker', [], 'Anything'), null);
 });
 

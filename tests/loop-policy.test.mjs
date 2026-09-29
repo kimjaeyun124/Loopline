@@ -38,3 +38,24 @@ test('automatic roles share the implementation model, prefer Jev for review, and
   assert.equal(selectAutomaticLoopModel('judge', withoutJev, key, { currentModelKey: 'grok' })?.id, 'codex');
   assert.equal(selectAutomaticLoopModel('judge', withoutJev.filter((model) => model.id === 'grok'), key, { currentModelKey: 'grok' })?.id, 'grok');
 });
+
+
+test('automatic roles prefer the measured mix and skip known exhausted accounts', () => {
+  const models = [
+    { id: 'gpt-6-luna', provider: 'openai', connected: true },
+    { id: 'gpt-6-sol', provider: 'openai', connected: true, remainingPercent: 20 },
+    { id: 'models/gemini-3-flash-preview', provider: 'api', connectionId: 'gemini', connected: true },
+    { id: 'jev', provider: 'api', connected: true, decisionOnly: true },
+  ];
+  const key = (model) => model.id;
+  const options = { currentModelKey: 'gpt-6-luna' };
+  assert.equal(selectAutomaticLoopModel('worker', models, key, options).id, 'gpt-6-sol');
+  assert.equal(selectAutomaticLoopModel('planner', models, key, options).id, 'models/gemini-3-flash-preview');
+  assert.equal(selectAutomaticLoopModel('judge', models, key, options).id, 'jev');
+  assert.equal(selectAutomaticLoopModel('worker', models, key, { ...options, workerModelKey: 'gpt-6-luna' }).id, 'gpt-6-luna');
+  models[1].remainingPercent = 0;
+  assert.equal(selectAutomaticLoopModel('worker', models, key, options).id, 'gpt-6-luna');
+  assert.equal(selectAutomaticLoopModel('worker', [{ ...models[1] }], key, options), null);
+  models[2].connected = false;
+  assert.equal(selectAutomaticLoopModel('planner', models, key, options).id, 'gpt-6-luna');
+});

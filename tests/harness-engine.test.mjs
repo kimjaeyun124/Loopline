@@ -665,3 +665,74 @@ test('native Jev cannot generate plans and missing decisions fail closed', async
   assert.equal(run.status, 'failed'); assert.equal(run.applied, undefined);
   assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'original\n');
 });
+
+test('Jev selects automatic roles once, accounts routing tokens, and preserves fallback order', async (t) => {
+  const f = await fixture(t), routes = [], plannerCalls = [];
+  const planner = { ...f.input.roles.planner, automatic: true, fallbacks: [
+    { ...f.input.roles.planner, model: 'planner-b' },
+    { ...f.input.roles.planner, model: 'planner-c' },
+  ] };
+  const script = modelScript(complete);
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (selection, prompt, ...rest) => {
+    if (prompt?.questions?.planner) {
+      routes.push(prompt);
+      rest[2]({ type: 'usage', usage: { total_tokens: 42 } });
+      return { answers: { planner: { choice: 'candidate_1', reason: 'Suitable candidate from saved choices.' } } };
+    }
+    if (hasText(prompt, '구현 계획과 검증 기준')) plannerCalls.push(selection.model);
+    return script(selection, prompt, ...rest);
+  } });
+  const run = await settled(engine, (await engine.create({ ...f.input, roles: {
+    ...f.input.roles, planner, judge: { ...f.input.roles.judge, decisionOnly: true },
+  } })).id);
+  assert.equal(run.status, 'completed', run.summary);
+  assert.equal(routes.length, 1);
+  assert.equal(routes[0].questions.worker, undefined);
+  assert.deepEqual(plannerCalls, ['planner-b']);
+  assert.equal(run.stageModels.planner.id, 'planner-b');
+  assert.deepEqual(run.modelPriority.planner.map((item) => item.model), ['planner-b', 'planner-c']);
+  assert.equal(Object.values(run.modelUsage)[0].totalTokens, 42);
+  const event = run.events.find((event) => event.title === '모델 배정 / Model selection');
+  assert.ok(event);
+  assert.match((await engine.getPromptDetails(run.id, event.id)).input, /candidate_1/);
+});
+
+test('invalid Jev routing keeps all default roles and excludes exhausted candidates', async (t) => {
+  const f = await fixture(t), script = modelScript(complete);
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (selection, prompt, ...rest) => {
+    if (prompt?.questions?.planner) {
+      assert.equal(prompt.state.candidates.planner.length, 2);
+      return { answers: { planner: { choice: 'candidate_1' }, worker: { choice: 'unlisted-model' } } };
+    }
+    return script(selection, prompt, ...rest);
+  } });
+  const roles = { ...f.input.roles, judge: { ...f.input.roles.judge, decisionOnly: true } };
+  for (const role of ['planner', 'worker']) roles[role] = { ...roles[role], automatic: true, fallbacks: [
+    { ...roles[role], model: 'exhausted', remainingPercent: 0 },
+    { ...roles[role], model: 'alternative' },
+  ] };
+  const run = await settled(engine, (await engine.create({ ...f.input, roles })).id);
+  assert.equal(run.status, 'completed', run.summary);
+  assert.equal(run.roles.planner.model, f.input.roles.planner.model);
+  assert.equal(run.roles.worker.model, f.input.roles.worker.model);
+  assert.ok(run.events.some((event) => event.title.includes('기본 배정 유지')));
+});
+
+test('stop during Jev routing prevents planning and implementation', async (t) => {
+  const f = await fixture(t);
+  let routingStarted;
+  const started = new Promise((resolve) => { routingStarted = resolve; });
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (_selection, prompt, _instructions, signal) => {
+    assert.ok(prompt.questions.planner);
+    routingStarted();
+    return new Promise((_resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+  } });
+  const run = await engine.create({ ...f.input, roles: { ...f.input.roles,
+    planner: { ...f.input.roles.planner, automatic: true, fallbacks: [{ ...f.input.roles.planner, model: 'alternative' }] },
+    judge: { ...f.input.roles.judge, decisionOnly: true },
+  } });
+  await started; await engine.stop(run.id);
+  const done = await settled(engine, run.id);
+  assert.equal(done.status, 'stopped');
+  assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'original\n');
+});

@@ -92,7 +92,45 @@ test('saved fallback model order is visible and changes persist immediately', (t
   const fallbackRows = () => s.fields.innerHTML.match(/aria-label="구현 \/ Implementation 대체 모델 우선순위"[\s\S]*?<ol>([\s\S]*?)<\/ol>/)?.[1] || '';
   assert.ok(fallbackRows().indexOf('WRITER-B') < fallbackRows().indexOf('WRITER-C'));
   s.fields.fire('click', { closest: (selector) => selector === '[data-fallback-move]'
-    ? { dataset: { fallbackMove: 'worker', index: '1', direction: 'up' } } : null });
+    ? { dataset: { fallbackMove: 'worker', key: 'writer-c', direction: 'up' } } : null });
   assert.deepEqual(s.saved().roles.worker.fallbacks, ['writer-c', 'writer-b']);
   assert.ok(fallbackRows().indexOf('WRITER-C') < fallbackRows().indexOf('WRITER-B'));
+});
+
+
+test('fallback candidate change does not redraw the select before Add', (t) => {
+  const models = ['a', 'b'].map((id) => ({ id, label: id, source: 'QA', connected: true }));
+  const storage = new Map([[KEY, JSON.stringify({ roles: { worker: { model: 'a', fallbacks: [] } } })]]);
+  const s = setup(t, { storage, models }); s.ui.open();
+  s.fields.innerHTML = 'unchanged';
+  s.fields.fire('change', { dataset: { fallbackSelect: 'worker' }, value: 'b' });
+  assert.equal(s.fields.innerHTML, 'unchanged');
+  s.node('#fallbackSelect-worker').value = 'b';
+  s.fields.fire('click', { closest: (selector) => selector === '[data-fallback-add]'
+    ? { dataset: { fallbackAdd: 'worker' } } : null });
+  assert.deepEqual(s.saved().roles.worker.fallbacks, ['b']);
+});
+
+test('fallback edits use model identity when the primary is hidden from the list', (t) => {
+  const models = ['a', 'b', 'c'].map((id) => ({ id, label: id, source: 'QA', connected: true }));
+  const storage = new Map([[KEY, JSON.stringify({ roles: { worker: { model: 'a', fallbacks: ['a', 'b', 'c'] } } })]]);
+  const s = setup(t, { storage, models }); s.ui.open();
+  s.fields.fire('click', { closest: (selector) => selector === '[data-fallback-move]'
+    ? { dataset: { fallbackMove: 'worker', key: 'c', direction: 'up' } } : null });
+  assert.deepEqual(s.saved().roles.worker.fallbacks, ['a', 'c', 'b']);
+  s.fields.fire('click', { closest: (selector) => selector === '[data-fallback-remove]'
+    ? { dataset: { fallbackRemove: 'worker', key: 'c' } } : null });
+  assert.deepEqual(s.saved().roles.worker.fallbacks, ['a', 'b']);
+});
+
+test('search keeps the selected model and automatic reset preserves fallback priority', (t) => {
+  const models = ['a', 'b', 'c'].map((id) => ({ id, label: id, source: 'QA', connected: true }));
+  const storage = new Map([[KEY, JSON.stringify({ roles: { worker: { model: 'a', effort: 'high', fallbacks: ['c', 'b'] } } })]]);
+  const s = setup(t, { storage, models }); s.ui.open();
+  s.node('#harnessModelSearch').value = 'nonexistent';
+  s.node('#harnessModelSearch').fire('input');
+  assert.match(s.fields.innerHTML, /value="a" selected/);
+  assert.match(s.fields.innerHTML, /검색 결과 없음/);
+  s.node('#harnessUseAutomatic').fire('click');
+  assert.deepEqual(s.saved().roles.worker, { model: '', effort: '', fallbacks: ['c', 'b'] });
 });

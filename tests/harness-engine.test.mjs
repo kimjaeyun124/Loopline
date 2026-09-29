@@ -228,6 +228,69 @@ test('automatic verification command is reused after a passing check requests an
   assert.equal(run.events.filter((event) => event.title.startsWith('검증 자동 구성')).length, 1);
 });
 
+test('automatic verification keeps the same command after a test assertion fails', async (t) => {
+  const f = await fixture(t), script = modelScript(complete);
+  let verificationPlans = 0, reviews = 0, verifications = 0;
+  const engine = new HarnessEngine({ directory: f.data, verify: async (_workspace, command) => {
+    assert.equal(command, 'node --test'); verifications++;
+    return verifications === 1 ? { code: 1, output: 'AssertionError: expected updated output', error: '' } : pass();
+  }, invoke: async (selection, prompt, ...rest) => {
+    if (prompt.startsWith('검증 방법을')) {
+      verificationPlans++;
+      return JSON.stringify({ verifyCommand: 'node --test', reason: 'Run the project tests.' });
+    }
+    if (prompt.startsWith('변경 결과를')) {
+      reviews++;
+      return JSON.stringify(reviews === 1
+        ? { decision: 'revise', summary: 'The test exposed an implementation defect.', feedback: 'Fix the failing behavior.' }
+        : complete());
+    }
+    return script(selection, prompt, ...rest);
+  } });
+
+  const run = await settled(engine, (await engine.create({ ...f.input, verifyCommand: undefined })).id);
+  assert.equal(run.status, 'completed', run.summary);
+  assert.equal(run.round, 2);
+  assert.equal(verificationPlans, 1);
+  assert.equal(verifications, 2);
+  assert.equal(run.events.filter((event) => event.title.startsWith('검증 자동 구성')).length, 1);
+});
+
+test('automatic verification can choose another command when the selected command is unavailable', async (t) => {
+  const f = await fixture(t), script = modelScript(complete);
+  let verificationPlans = 0, reviews = 0, verifications = 0;
+  const engine = new HarnessEngine({ directory: f.data, verify: async (_workspace, command) => {
+    verifications++;
+    if (verifications === 1) {
+      assert.equal(command, 'missing-check');
+      return { code: 127, output: 'sh: missing-check: command not found', error: '' };
+    }
+    assert.equal(command, 'test -f file.txt');
+    return pass();
+  }, invoke: async (selection, prompt, ...rest) => {
+    if (prompt.startsWith('검증 방법을')) {
+      verificationPlans++;
+      return JSON.stringify({
+        verifyCommand: verificationPlans === 1 ? 'missing-check' : 'test -f file.txt',
+        reason: 'Use the available project check.',
+      });
+    }
+    if (prompt.startsWith('변경 결과를')) {
+      reviews++;
+      return JSON.stringify(reviews === 1
+        ? { decision: 'revise', summary: 'The verification command could not run.', feedback: 'Continue after selecting a runnable check.' }
+        : complete());
+    }
+    return script(selection, prompt, ...rest);
+  } });
+
+  const run = await settled(engine, (await engine.create({ ...f.input, verifyCommand: undefined })).id);
+  assert.equal(run.status, 'completed', run.summary);
+  assert.equal(run.round, 2);
+  assert.equal(verificationPlans, 2);
+  assert.equal(verifications, 2);
+});
+
 test('restored unfinished runs are marked interrupted without restarting model calls', async (t) => {
   const f = await fixture(t); const id = '12345678-1234-1234-1234-123456789abc';
   await mkdir(join(f.data, 'harness'));

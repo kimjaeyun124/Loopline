@@ -1449,17 +1449,21 @@ async function ensureCodexThread(context, requestedId, model, ephemeral = false)
     sandbox: 'read-only',
     developerInstructions: codexProgressInstructions,
     serviceName: 'mosaic_desk',
-    // Harness steps are recorded in Loopline itself; keep internal model calls out of Codex history.
-    ...(ephemeral ? { ephemeral: true } : {}),
   });
   const id = result.thread?.id;
   if (!validCodexThreadId(id)) throw new Error('Codex app-server가 대화 식별자를 반환하지 않았습니다.');
+  // Harness records each step in Loopline and deletes its temporary Codex thread after the turn.
   if (!ephemeral) context.loadedThreads.add(id);
   return { id, cwd, created: true };
 }
 
 async function deleteEphemeralCodexThread(context, client, threadId) {
   let lastError;
+  try {
+    await client.request('thread/unsubscribe', { threadId }, 15_000);
+  } catch (error) {
+    lastError = error;
+  }
   for (const delayMs of [0, 250, 750]) {
     if (delayMs) await new Promise((resolve) => setTimeout(resolve, delayMs));
     try {
@@ -2161,6 +2165,7 @@ const server = createServer(async (req, res) => {
       const context = await getCodexAccountContext(accountId);
       if (context.activeTurns.has(body.threadId)) return json(res, 409, { error: '응답이 진행 중인 Codex 대화는 삭제할 수 없습니다.' });
       const client = await getCodexAppServer(context);
+      await client.request('thread/unsubscribe', { threadId: body.threadId }, 15_000).catch(() => {});
       await client.request('thread/delete', { threadId: body.threadId }, 15_000);
       context.loadedThreads.delete(body.threadId);
       return json(res, 200, { deleted: true });

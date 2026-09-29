@@ -1882,6 +1882,7 @@ async function serveFile(res, pathname) {
     '/account-menu-ui.js': ['account-menu-ui.js', 'text/javascript; charset=utf-8'],
     '/usage-activity-ui.js': ['usage-activity-ui.js', 'text/javascript; charset=utf-8'],
     '/model-capabilities.mjs': ['model-capabilities.mjs', 'text/javascript; charset=utf-8'],
+    '/loop-policy.mjs': ['loop-policy.mjs', 'text/javascript; charset=utf-8'],
     '/harness-ui.js': ['harness-ui.js', 'text/javascript; charset=utf-8'],
   };
   const entry = files[pathname];

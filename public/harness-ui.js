@@ -1,4 +1,5 @@
 import { modelEffortCapability } from './model-capabilities.mjs';
+import { recommendLoopEffort, selectAutomaticLoopModel } from './loop-policy.mjs';
 
 const KEY = 'loopline.harness.v1';
 const DONE = new Set(['completed', 'reviewed', 'failed', 'stopped', 'limit', 'blocked', 'interrupted']);
@@ -35,21 +36,26 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
   const choose = (role) => {
     const models = connected().filter((model) => role === 'judge' || !model.decisionOnly);
     if (config.roles[role].model) return models.find((model) => modelKey(model) === config.roles[role].model);
-    if (role === 'judge') return models.find((model) => /\bjev\b/i.test(`${model.id} ${model.label} ${model.source}`));
-    const selected = models.find((model) => modelKey(model) === currentKey());
-    if (role === 'worker') return selected || models[0];
-    return (efforts(selected).includes('high') ? selected : models.find((model) => efforts(model).includes('high'))) || selected || models[0];
+    return selectAutomaticLoopModel(role, models, modelKey, { currentModelKey: currentKey(), workerModelKey: config.roles.worker.model });
   };
-  const resolveEffort = (role, model) => {
+  const resolveEffort = (role, model, task = '') => {
     const allowed = efforts(model);
     if (config.roles[role].effort && !allowed.includes(config.roles[role].effort)) throw new Error(`${model.label}의 추론 강도를 다시 선택해 주세요.`);
-    return config.roles[role].effort || (role === 'worker' ? ['medium', 'high', 'low'] : ['high', 'medium', 'low']).find((effort) => allowed.includes(effort)) || null;
+    return config.roles[role].effort || recommendLoopEffort(role, allowed, task);
+  };
+  const roleGuidance = {
+    planner: '자동 배정은 구현 모델을 공유해 간단한 계획 호출 비용을 줄입니다.',
+    worker: '선택한 구현 모델이 코드를 작성하고, 복합 작업에는 높은 추론 강도를 사용합니다.',
+    judge: 'Jev를 우선 사용하고, 없으면 가능할 때 구현과 다른 연결로 검토합니다.',
   };
   function renderRoles() {
     fields.innerHTML = ROLES.map(([role, title]) => {
       const model = choose(role), supported = efforts(model);
       const unavailableEffort = config.roles[role].effort && !supported.includes(config.roles[role].effort);
-      return `<div class="harness-role"><label class="project-field"><span>${title}</span><select data-harness-role="${role}" aria-label="${title} 모델"><option value="">${role === 'judge' ? '자동 · Jev 연결' : '자동 · 모델 기능에 맞춰 배정'}</option>${config.roles[role].model && !model ? `<option selected value="${escape(config.roles[role].model)}">저장된 모델 · 연결 확인 필요</option>` : ''}${connected().filter((item) => role === 'judge' || !item.decisionOnly).map((item) => `<option value="${escape(modelKey(item))}"${config.roles[role].model === modelKey(item) ? ' selected' : ''}>${escape(item.label)} · ${escape(item.source)}</option>`).join('')}</select></label><label class="project-field"><span>Effort</span><select data-harness-effort="${role}" aria-label="${title} 추론 강도"${!supported.length ? ' disabled' : ''}><option value="">${supported.length ? '자동' : '서비스 기본값'}</option>${unavailableEffort ? `<option selected value="${escape(config.roles[role].effort)}">${escape(config.roles[role].effort)} · 지원 확인 필요</option>` : ''}${supported.map((value) => `<option value="${escape(value)}"${config.roles[role].effort === value ? ' selected' : ''}>${escape(value)}</option>`).join('')}</select></label><small>${model ? `${escape(model.label)} · ${escape(unavailableEffort ? '저장된 추론 강도의 지원 여부를 확인해 주세요.' : resolveEffort(role, model) || (model.decisionOnly ? 'Jev 판정 전용' : '서비스 기본 추론'))}` : role === 'judge' ? 'Jev를 연결하거나 사용할 판정 모델을 직접 선택하세요.' : '연결된 모델이 필요합니다.'}</small></div>`;
+      const effortLabel = config.roles[role].effort
+        ? `${config.roles[role].effort} · 직접 지정`
+        : supported.length ? '자동 · 작업 난이도에 따라 조정' : model?.decisionOnly ? 'Jev 판정 전용' : '서비스 기본 추론';
+      return `<div class="harness-role"><label class="project-field"><span>${title}</span><select data-harness-role="${role}" aria-label="${title} 모델"><option value="">${role === 'judge' ? '자동 · Jev 또는 독립 검토' : role === 'planner' ? '자동 · 구현 모델과 공유' : '자동 · 현재 선택 모델'}</option>${config.roles[role].model && !model ? `<option selected value="${escape(config.roles[role].model)}">저장된 모델 · 연결 확인 필요</option>` : ''}${connected().filter((item) => role === 'judge' || !item.decisionOnly).map((item) => `<option value="${escape(modelKey(item))}"${config.roles[role].model === modelKey(item) ? ' selected' : ''}>${escape(item.label)} · ${escape(item.source)}</option>`).join('')}</select></label><label class="project-field"><span>Effort</span><select data-harness-effort="${role}" aria-label="${title} 추론 강도"${!supported.length ? ' disabled' : ''}><option value="">${supported.length ? '자동' : '서비스 기본값'}</option>${unavailableEffort ? `<option selected value="${escape(config.roles[role].effort)}">${escape(config.roles[role].effort)} · 지원 확인 필요</option>` : ''}${supported.map((value) => `<option value="${escape(value)}"${config.roles[role].effort === value ? ' selected' : ''}>${escape(value)}</option>`).join('')}</select></label><small>${model ? `${escape(model.label)} · ${escape(effortLabel)} · ${escape(roleGuidance[role])}` : role === 'judge' ? 'Jev 또는 연결된 판정 모델이 필요합니다.' : '연결된 모델이 필요합니다.'}</small></div>`;
     }).join('');
   }
   function open() {
@@ -146,7 +152,7 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
       const model = choose(role);
       if (!model) { open(); throw new Error(role === 'judge' ? 'Jev를 연결하거나 판정 모델을 선택해 주세요.' : '사용할 모델을 연결해 주세요.'); }
       roles[role] = { provider: model.provider, model: model.id, label: model.label, connectionId: model.connectionId,
-        codexAccountId: state.activeCodexAccountId, reasoningEffort: resolveEffort(role, model), instructions: instructions(model.provider) };
+        codexAccountId: state.activeCodexAccountId, reasoningEffort: resolveEffort(role, model, task), instructions: instructions(model.provider) };
     }
     const workspace = project?.workspace || conversation.harnessWorkspace || undefined;
     starting = true; stopRequested = false;

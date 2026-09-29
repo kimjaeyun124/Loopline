@@ -1458,6 +1458,25 @@ async function ensureCodexThread(context, requestedId, model, ephemeral = false)
   return { id, cwd, created: true };
 }
 
+async function deleteEphemeralCodexThread(context, client, threadId) {
+  let lastError;
+  for (const delayMs of [0, 250, 750]) {
+    if (delayMs) await new Promise((resolve) => setTimeout(resolve, delayMs));
+    try {
+      await client.request('thread/delete', { threadId }, 15_000);
+      context.loadedThreads.delete(threadId);
+      return;
+    } catch (error) {
+      lastError = error;
+      if (/not found|does not exist|already deleted/i.test(error.message || '')) {
+        context.loadedThreads.delete(threadId);
+        return;
+      }
+    }
+  }
+  console.warn('Harness 임시 Codex 대화를 자동 삭제하지 못했습니다:', lastError?.message || '알 수 없는 오류');
+}
+
 function hasCodexUsageLimit(status) {
   if (status?.usageSummary?.rateLimitReachedType) return true;
   const limits = status?.usageSummary?.windows?.filter((window) => window.limitId === 'codex') || [];
@@ -1542,7 +1561,10 @@ async function runCodexTurnAttempt(context, model, messages, requestedThreadId, 
     return { error: error.message || 'Codex 대화를 열지 못했습니다.', rateLimited: isUsageLimitError(error) };
   }
 
-  if (res.destroyed) return { error: '요청이 취소되었습니다.', cancelled: true };
+  if (res.destroyed) {
+    if (ephemeralCodexThread && thread.created) await deleteEphemeralCodexThread(context, client, thread.id);
+    return { error: '요청이 취소되었습니다.', cancelled: true };
+  }
   if (context.activeTurns.has(thread.id)) {
     return { error: '이 대화에서 진행 중인 응답이 있습니다. 완료 후 다시 시도해 주세요.' };
   }
@@ -1565,6 +1587,7 @@ async function runCodexTurnAttempt(context, model, messages, requestedThreadId, 
     agentMessages: new Map(),
     finished: false,
     cancelled: false,
+    ephemeral: ephemeralCodexThread && thread.created,
     timer: null,
     resolveCompletion,
   };
@@ -1616,7 +1639,9 @@ async function runCodexTurnAttempt(context, model, messages, requestedThreadId, 
   } catch (error) {
     finalizeCodexTurn(active, { error: error.message || 'Codex 요청을 시작하지 못했습니다.', rateLimited: isUsageLimitError(error) });
   }
-  return completion;
+  const result = await completion;
+  if (active.ephemeral) await deleteEphemeralCodexThread(context, client, thread.id);
+  return result;
 }
 
 async function runCodexTurn(requestedAccountId, model, messages, requestedThreadId, res, instructions = '', fastMode = false, reasoningEffort = null, ephemeralCodexThread = false) {

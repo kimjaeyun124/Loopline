@@ -1,14 +1,14 @@
 import { createServer } from 'node:http';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
+import { chmod, mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runCommand } from '../../harness-engine.mjs';
 
 // Local model fixtures exercise the real HTTP relay without credentials or external services.
-export async function startFixture({ delay = 0 } = {}) {
+export async function startFixture({ delay = 0, codexMock = false } = {}) {
   const directory = await mkdtemp(join(tmpdir(), 'loopline-harness-http-'));
   const source = join(directory, 'project'), data = join(directory, 'data');
   await mkdir(source); await mkdir(data);
@@ -50,9 +50,54 @@ export async function startFixture({ delay = 0 } = {}) {
   await writeFile(join(source, 'file.txt'), 'original\n');
   await runCommand('git', ['add', '.'], { cwd: source });
   await runCommand('git', ['-c', 'core.hooksPath=/dev/null', '-c', 'commit.gpgsign=false', '-c', 'user.name=QA', '-c', 'user.email=qa@localhost', 'commit', '-m', 'QA fixture'], { cwd: source });
+  let codexCommand = '';
+  const codexLog = join(data, 'codex-mock.jsonl');
+  if (codexMock) {
+    codexCommand = join(directory, 'codex-mock.mjs');
+    await writeFile(join(data, 'provider-connections.json'), JSON.stringify({ version: 1, linkedProviders: ['openai'] }));
+    await writeFile(codexCommand, `#!${process.execPath}
+import { appendFile } from 'node:fs/promises';
+import { createInterface } from 'node:readline';
+
+let threadNumber = 0;
+let turnNumber = 0;
+let deleteFailuresRemaining = 1;
+const input = createInterface({ input: process.stdin });
+for await (const line of input) {
+  const request = JSON.parse(line);
+  if (!request.method || !Object.hasOwn(request, 'id')) continue;
+  await appendFile(process.env.CODEX_MOCK_LOG, JSON.stringify({ method: request.method, params: request.params || {} }) + '\\n');
+  let result = {};
+  if (request.method === 'account/read') result = { account: { type: 'chatgpt', email: 'qa@localhost' } };
+  if (request.method === 'model/list') result = { data: [{ id: 'qa-codex', displayName: 'QA Codex', inputModalities: ['text'], defaultReasoningEffort: 'medium', supportedReasoningEfforts: [{ reasoningEffort: 'medium' }] }] };
+  if (request.method === 'thread/start') result = { thread: { id: 'qa-thread-' + (++threadNumber), cwd: request.params.cwd } };
+  if (request.method === 'turn/start') {
+    const turnId = 'qa-turn-' + (++turnNumber);
+    const text = (request.params.input || []).map((item) => item.text || '').join('\\n');
+    const answer = text.includes('독립적으로 평가하세요')
+      ? JSON.stringify({ decision: 'complete', summary: '임시 대화 정리 QA 완료', feedback: '' })
+      : text.includes('최근 도구 결과:')
+        ? JSON.stringify({ done: true, summary: '임시 대화 정리 QA 변경 완료' })
+        : 'QA 계획: 임시 대화 자동 삭제를 확인합니다.';
+    setTimeout(() => {
+      process.stdout.write(JSON.stringify({ method: 'item/agentMessage/delta', params: { threadId: request.params.threadId, turnId, itemId: 'qa-message', delta: answer } }) + '\\n');
+      process.stdout.write(JSON.stringify({ method: 'turn/completed', params: { threadId: request.params.threadId, turn: { id: turnId, status: 'completed' } } }) + '\\n');
+    }, text.includes('codex-delay-qa') ? 20_000 : 20);
+    result = { turn: { id: turnId, status: 'inProgress' } };
+  }
+  if (request.method === 'thread/delete' && request.params.threadId?.startsWith('qa-thread-') && deleteFailuresRemaining > 0) {
+    deleteFailuresRemaining -= 1;
+    process.stdout.write(JSON.stringify({ id: request.id, error: { code: -32001, message: '임시 QA 삭제 실패' } }) + '\\n');
+    continue;
+  }
+  process.stdout.write(JSON.stringify({ id: request.id, result }) + '\\n');
+}
+`);
+    await chmod(codexCommand, 0o700);
+  }
   const child = spawn(process.execPath, ['server.mjs'], {
     cwd: fileURLToPath(new URL('../../', import.meta.url)),
-    env: { ...process.env, PORT: '0', HOST: '127.0.0.1', MOSAIC_USER_DATA_DIR: data, CODEX_HOME: join(directory, 'codex'), PATH: '/usr/bin:/bin:/usr/sbin:/sbin' },
+    env: { ...process.env, PORT: '0', HOST: '127.0.0.1', MOSAIC_USER_DATA_DIR: data, CODEX_HOME: join(directory, 'codex'), ...(codexMock ? { CODEX_CLI: codexCommand, CODEX_MOCK_LOG: codexLog } : {}), PATH: '/usr/bin:/bin:/usr/sbin:/sbin' },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   const url = await new Promise((resolve, reject) => {
@@ -78,7 +123,7 @@ export async function startFixture({ delay = 0 } = {}) {
     mock.closeAllConnections(); await new Promise((resolve) => mock.close(resolve));
     await rm(directory, { recursive: true, force: true });
   };
-  return { url, source, data, calls, input, request, close };
+  return { url, source, data, calls, input, request, close, codexLog };
 }
 
 if (process.argv.includes('--visible')) {

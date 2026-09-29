@@ -58,3 +58,71 @@ test('HTTP automatic setup creates a project and the judge reads files before ea
   assert.equal(run.events.filter((event) => event.title.startsWith('검증 자동 구성')).length, 2);
   assert.ok(f.calls.filter((call) => call.messages.some((message) => message.content.startsWith('검증 방법을'))).every((call) => call.model === 'jev-qa'));
 });
+
+test('Harness removes temporary Codex threads after each model call', async (t) => {
+  const f = await startFixture({ codexMock: true }); t.after(f.close);
+  const selection = { provider: 'openai', model: 'qa-codex', reasoningEffort: 'medium' };
+  const created = await f.request('/api/harness/runs', {
+    task: '임시 Codex 대화 정리 동작을 확인합니다.',
+    workspace: f.source,
+    rounds: 1,
+    verifyCommand: 'true',
+    roles: { planner: selection, worker: selection, judge: selection },
+  });
+  const run = await until(async () => { const value = await f.request(`/api/harness/runs/${created.id}`); return value.finishedAt ? value : null; });
+  assert.equal(run.status, 'completed', run.summary);
+
+  const calls = (await readFile(f.codexLog, 'utf8')).trim().split('\n').map(JSON.parse);
+  const starts = calls.filter((call) => call.method === 'thread/start');
+  const unsubscribes = calls.filter((call) => call.method === 'thread/unsubscribe');
+  const deletes = calls.filter((call) => call.method === 'thread/delete');
+  assert.ok(starts.length >= 3, 'planner, worker, and judge each create a temporary Codex thread');
+  assert.ok(starts.every((call) => !Object.hasOwn(call.params, 'ephemeral')));
+  assert.equal(unsubscribes.length, starts.length);
+  assert.equal(deletes.length, starts.length + 1, 'the temporary delete failure is retried once');
+  assert.ok(deletes.every((call) => /^qa-thread-\d+$/.test(call.params.threadId)));
+  for (const deletion of deletes) {
+    const deletionIndex = calls.indexOf(deletion);
+    assert.ok(calls.findIndex((call) => call.method === 'thread/unsubscribe' && call.params.threadId === deletion.params.threadId) < deletionIndex);
+  }
+});
+
+test('Harness removes its temporary Codex thread after stopping a model call', async (t) => {
+  const f = await startFixture({ codexMock: true }); t.after(f.close);
+  const selection = { provider: 'openai', model: 'qa-codex', reasoningEffort: 'medium' };
+  const created = await f.request('/api/harness/runs', {
+    task: 'codex-delay-qa',
+    workspace: f.source,
+    rounds: 1,
+    verifyCommand: 'true',
+    roles: { planner: f.input.roles.planner, worker: selection, judge: f.input.roles.judge },
+  });
+  await until(async () => {
+    try { return (await readFile(f.codexLog, 'utf8')).includes('"method":"turn/start"') ? true : null; }
+    catch { return null; }
+  });
+  await f.request(`/api/harness/runs/${created.id}/stop`, {});
+  const run = await until(async () => { const value = await f.request(`/api/harness/runs/${created.id}`); return value.finishedAt ? value : null; });
+  assert.equal(run.status, 'stopped');
+
+  const calls = (await readFile(f.codexLog, 'utf8')).trim().split('\n').map(JSON.parse);
+  const starts = calls.filter((call) => call.method === 'thread/start');
+  const unsubscribes = calls.filter((call) => call.method === 'thread/unsubscribe');
+  const deletes = calls.filter((call) => call.method === 'thread/delete');
+  assert.equal(starts.length, 1);
+  assert.equal(unsubscribes.length, 1);
+  assert.equal(deletes.length, 2, 'the interrupted thread is removed after retrying one temporary delete failure');
+  assert.ok(deletes.every((call) => call.params.threadId === 'qa-thread-1'));
+});
+
+test('Codex conversation deletion unsubscribes before deleting the thread', async (t) => {
+  const f = await startFixture({ codexMock: true }); t.after(f.close);
+  const result = await f.request('/api/thread/delete', { threadId: 'existing-thread', codexAccountId: 'default' });
+  assert.equal(result.deleted, true);
+
+  const calls = (await readFile(f.codexLog, 'utf8')).trim().split('\n').map(JSON.parse);
+  const unsubscribeIndex = calls.findIndex((call) => call.method === 'thread/unsubscribe');
+  const deleteIndex = calls.findIndex((call) => call.method === 'thread/delete');
+  assert.ok(unsubscribeIndex >= 0);
+  assert.ok(deleteIndex > unsubscribeIndex);
+});

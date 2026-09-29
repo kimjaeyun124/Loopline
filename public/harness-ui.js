@@ -136,7 +136,7 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
         </span></li>`).join('');
       return `<div class="harness-role">
         <label class="project-field"><span>${title}</span><select data-harness-role="${role}" aria-label="${title} 모델">
-          <option value="">${role !== 'judge' && choose('judge')?.decisionOnly ? '자동 · Jev가 실행 시 선택' : '자동 · 역할에 맞게 배정'}</option>
+          <option value="">자동</option>
           ${config.roles[role].model && !model ? `<option selected value="${escape(config.roles[role].model)}">저장된 모델 · 연결 확인 필요</option>` : ''}
           ${modelOptions(available, config.roles[role].model)}</select></label>
         <label class="project-field"><span>추론 강도</span><select data-harness-effort="${role}" aria-label="${title} 추론 강도"${!supported.length ? ' disabled' : ''}>

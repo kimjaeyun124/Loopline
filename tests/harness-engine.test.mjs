@@ -259,6 +259,63 @@ test('judge creates a managed project and configures verification from implement
   assert.equal(next.source, run.source); assert.equal(next.managedProject, false);
 });
 
+test('automatic verification retries malformed and incomplete judge responses', async (t) => {
+  const f = await fixture(t), script = modelScript(complete);
+  let verificationResponses = 0;
+  const engine = new HarnessEngine({ directory: f.data, verify: async (_workspace, command) => {
+    assert.equal(command, 'test -f file.txt'); return pass();
+  }, invoke: async (selection, prompt, ...rest) => {
+    if (prompt.startsWith('새 프로젝트')) return JSON.stringify({ folderName: 'retry-review', reason: 'QA' });
+    if (prompt.startsWith('검증 방법을')) {
+      verificationResponses++;
+      if (verificationResponses === 1) return 'The response is not JSON';
+      if (verificationResponses === 2) return JSON.stringify({ reason: 'command omitted' });
+      return JSON.stringify({ verifyCommand: 'test -f file.txt', reason: 'Check the created file exists.' });
+    }
+    return script(selection, prompt, ...rest);
+  } });
+  const run = await settled(engine, (await engine.create({ ...f.input, workspace: undefined, verifyCommand: undefined })).id);
+  assert.equal(run.status, 'completed', run.summary);
+  assert.equal(verificationResponses, 3);
+  assert.equal(run.events.filter((event) => event.title.startsWith('검증 응답 재요청')).length, 2);
+});
+
+test('automatic verification stops safely after eight invalid judge responses', async (t) => {
+  const f = await fixture(t), script = modelScript(complete);
+  let verificationResponses = 0;
+  const engine = new HarnessEngine({ directory: f.data, verify: () => assert.fail('Invalid verification must not run'), invoke: async (selection, prompt, ...rest) => {
+    if (prompt.startsWith('새 프로젝트')) return JSON.stringify({ folderName: 'invalid-review', reason: 'QA' });
+    if (prompt.startsWith('검증 방법을')) { verificationResponses++; return JSON.stringify({ reason: 'command omitted' }); }
+    return script(selection, prompt, ...rest);
+  } });
+  const run = await settled(engine, (await engine.create({ ...f.input, workspace: undefined, verifyCommand: undefined })).id);
+  assert.equal(run.status, 'failed'); assert.match(run.summary, /검증 준비 한도\(8회\)/);
+  assert.equal(verificationResponses, 8);
+  assert.equal(run.events.filter((event) => event.title.startsWith('검증 응답 재요청')).length, 8);
+  assert.equal(run.applied, undefined);
+});
+
+test('failed edit feedback includes current file contents so the worker can rebase its edit', async (t) => {
+  const f = await fixture(t); let step = 0, receivedCurrentFile = false;
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (_selection, prompt) => {
+    if (prompt.includes('구현 계획과 검증 기준')) return 'Read file.txt and update it.';
+    if (prompt.startsWith('변경 결과를')) return JSON.stringify(complete());
+    step++;
+    if (step === 1) return JSON.stringify({ operations: [{ type: 'read', path: 'file.txt' }] });
+    if (step === 2) return JSON.stringify({ operations: [{ type: 'edit', path: 'file.txt', oldText: 'stale source', newText: 'updated\n' }] });
+    if (step === 3) {
+      receivedCurrentFile = prompt.includes('최신 파일 내용입니다') && prompt.includes('original\n');
+      return JSON.stringify({ operations: [{ type: 'edit', path: 'file.txt', oldText: 'original\n', newText: 'updated\n' }] });
+    }
+    return JSON.stringify({ done: true, summary: 'Updated file.txt using the current file contents.' });
+  } });
+  const run = await settled(engine, (await engine.create(f.input)).id);
+  assert.equal(run.status, 'completed', run.summary);
+  assert.equal(receivedCurrentFile, true);
+  assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'updated\n');
+  assert.ok(run.events.some((event) => event.title.startsWith('작업 수정 요청') && event.detail.includes('original\n')));
+});
+
 test('judge folder names cannot escape the managed project directory', async (t) => {
   const f = await fixture(t);
   const engine = new HarnessEngine({ directory: f.data, invoke: async () => JSON.stringify({ folderName: '../../outside' }) });

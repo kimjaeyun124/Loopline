@@ -621,6 +621,10 @@ function renderMessages() {
       const taskContext = taskPrompt
         ? `<section class="loop-task-context"><span>현재 작업 · Current task</span><p title="${escapeHtml(taskPrompt)}">${escapeHtml(taskPrompt)}</p></section>`
         : '';
+      const taskStatus = isLoopMessage ? loopCompletionStatus(message) : null;
+      const taskStatusMarkup = taskStatus
+        ? `<p class="assistant-result-label"><span class="loop-result-status loop-result-status--${taskStatus.tone}">${escapeHtml(taskStatus.label)}</span></p>`
+        : '';
       const activityMarkup = activityItems.length || stageModels ? `<details class="worked-for-details" data-activity-message-id="${escapeHtml(message.id || '')}"${message.activityExpanded !== false ? ' open' : ''}>
         <summary class="worked-for-row"><span class="worked-for-label" data-worked-for="${escapeHtml(message.id || '')}">${hasWorkedFor ? formatWorkedFor(elapsedMs) : '작업 과정'}</span>${message.pending ? '<span class="worked-for-live"><i aria-hidden="true"></i>Running · 진행 중</span>' : ''}</summary>
         ${taskContext}${stageModels}
@@ -630,6 +634,7 @@ function renderMessages() {
         <div class="assistant-response">
           ${activityMarkup}
           <section class="assistant-result" aria-label="응답">
+            ${taskStatusMarkup}
             <div class="message-content markdown-content">${content}${message.pending && message.content ? '<span class="typing-dots" aria-label="응답 생성 중"><i></i><i></i><i></i></span>' : ''}</div>
           </section>
           ${!message.pending && message.content ? `<div class="message-actions">${copyButton}</div>` : ''}
@@ -653,6 +658,41 @@ function previousTaskPrompt(messages, messageIndex) {
     if (message.role === 'user' && !message.queued) return String(message.content || '').trim();
   }
   return '';
+}
+
+function loopCompletionStatus(message) {
+  if (message.pending) return { label: '작업 진행 중 · In progress', tone: 'running' };
+  if (message.harnessRunId) {
+    const harnessStatuses = {
+      completed: { label: '작업 완료 · 검증 통과', tone: 'complete' },
+      reviewed: { label: '검증 통과 · 프로젝트 반영 대기', tone: 'review' },
+      failed: { label: '작업 실패 · Failed', tone: 'failed' },
+      stopped: { label: '작업 중지 · Stopped', tone: 'stopped' },
+      limit: { label: '최대 회차 종료 · 목표 미완료', tone: 'review' },
+      blocked: { label: '판정 단계에서 중단됨', tone: 'failed' },
+      interrupted: { label: '작업 연결 중단 · Interrupted', tone: 'failed' },
+    };
+    return harnessStatuses[message.harnessStatus] || { label: '작업 진행 중 · In progress', tone: 'running' };
+  }
+
+  const request = message.activities?.find((activity) => activity.id === 'request');
+  const response = message.activities?.find((activity) => activity.id === 'response');
+  if (message.error || request?.status === 'failed' || response?.status === 'failed') {
+    return { label: '작업 실패 · Failed', tone: 'failed' };
+  }
+  if (request?.status === 'stopped' || response?.status === 'stopped') {
+    return { label: '작업 중지 · Stopped', tone: 'stopped' };
+  }
+  if (request?.detail?.includes('목표가 완료되어 루프를 조기 종료했습니다')) {
+    return { label: '작업 완료 · 모델 보고', tone: 'complete' };
+  }
+  if (request?.detail?.includes('설정한 최대 회차를 완료했습니다')) {
+    return { label: '최대 회차 종료 · 완료 확인 필요', tone: 'review' };
+  }
+  if (request?.detail?.includes('다음 회차에서 이어서 개선합니다')) {
+    return { label: '회차 완료 · 다음 회차 진행', tone: 'running' };
+  }
+  return { label: '응답 완료 · 작업 확인 필요', tone: 'review' };
 }
 
 function messageDisplayContent(message) {

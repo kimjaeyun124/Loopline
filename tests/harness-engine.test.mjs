@@ -137,6 +137,47 @@ test('review-only mode preserves original and passes root instructions to every 
   assert.equal(restored.status, 'reviewed'); assert.equal(restored.events.length, run.events.length);
 });
 
+test('identical AGENTS.md and CLAUDE.md instructions are delivered once per model call', async (t) => {
+  const f = await fixture(t); const shared = 'Follow the same project rules in every stage.';
+  await writeFile(join(f.source, 'AGENTS.md'), `${shared}\n`);
+  await writeFile(join(f.source, 'CLAUDE.md'), `${shared}\n`);
+  const script = modelScript(complete), delivered = [];
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: (...args) => {
+    delivered.push(args[2]); return script(...args);
+  } });
+  const run = await settled(engine, (await engine.create(f.input)).id);
+  assert.equal(run.status, 'completed', run.summary);
+  assert.ok(delivered.length > 0);
+  for (const instructions of delivered) {
+    assert.equal(instructions.split(shared).length - 1, 1);
+    assert.match(instructions, /AGENTS\.md \/ CLAUDE\.md \(내용 동일 \/ identical content\)/);
+  }
+});
+
+test('automatic verification command is reused after a passing check requests another implementation round', async (t) => {
+  const f = await fixture(t); const script = modelScript(complete);
+  let verificationPlans = 0, reviews = 0, verifications = 0;
+  const engine = new HarnessEngine({ directory: f.data, verify: async () => { verifications++; return pass(); }, invoke: async (selection, prompt, ...rest) => {
+    if (prompt.startsWith('검증 방법을')) {
+      verificationPlans++;
+      return JSON.stringify({ verifyCommand: 'test -f file.txt', reason: 'Check the requested output exists.' });
+    }
+    if (prompt.startsWith('변경 결과를')) {
+      reviews++;
+      return JSON.stringify(reviews === 1
+        ? { decision: 'revise', summary: 'One focused change remains.', feedback: 'Continue the requested work.' }
+        : complete());
+    }
+    return script(selection, prompt, ...rest);
+  } });
+  const run = await settled(engine, (await engine.create({ ...f.input, verifyCommand: undefined })).id);
+  assert.equal(run.status, 'completed', run.summary);
+  assert.equal(run.round, 2);
+  assert.equal(verificationPlans, 1);
+  assert.equal(verifications, 2);
+  assert.equal(run.events.filter((event) => event.title.startsWith('검증 자동 구성')).length, 1);
+});
+
 test('restored unfinished runs are marked interrupted without restarting model calls', async (t) => {
   const f = await fixture(t); const id = '12345678-1234-1234-1234-123456789abc';
   await mkdir(join(f.data, 'harness'));
@@ -262,7 +303,7 @@ test('native Jev judges Luna proposals and uncertain verdicts continue to a seco
   } });
   const run = await settled(engine, (await engine.create({ ...f.input, workspace: undefined, verifyCommand: undefined,
     roles: { ...f.input.roles, judge: { ...f.input.roles.judge, decisionOnly: true } } })).id);
-  assert.equal(run.status, 'completed', run.summary); assert.equal(run.round, 2); assert.equal(typedCalls, 5);
+  assert.equal(run.status, 'completed', run.summary); assert.equal(run.round, 2); assert.equal(typedCalls, 4);
   assert.ok(run.events.some((e) => e.title.includes('Live Jev decision') && e.detail.includes('uncertain')));
   assert.equal(await readFile(join(run.source, 'file.txt'), 'utf8'), 'updated 2\n');
 });

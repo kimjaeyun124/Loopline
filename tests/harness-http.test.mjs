@@ -10,6 +10,14 @@ async function until(check) {
   throw new Error('Harness did not reach expected state');
 }
 
+test('the browser can load the provider-neutral automatic loop routing policy', async (t) => {
+  const f = await startFixture(); t.after(f.close);
+  const response = await fetch(`${f.url}/loop-policy.mjs`);
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get('content-type'), /javascript/);
+  assert.match(await response.text(), /selectAutomaticLoopModel/);
+});
+
 test('HTTP harness relays roles and supported effort, records usage and completes two verified rounds', async (t) => {
   const f = await startFixture(); t.after(f.close);
   const created = await f.request('/api/harness/runs', f.input);

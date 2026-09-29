@@ -405,6 +405,20 @@ kbd { margin-left: auto; color: var(--muted); font-family: inherit; font-size: 1
 .harness-selection-toolbar { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; }
 .harness-selection-toolbar .project-field { flex: 1; min-width: 180px; margin: 0; }
 .harness-selection-toolbar > button { min-height: 38px; }
+.harness-priority { display: grid; grid-template-columns: minmax(0, 1fr) minmax(210px, .9fr); gap: 8px 18px; margin: 14px 0; padding: 13px; border: 1px solid var(--line); border-radius: 10px; background: var(--soft); }
+.harness-priority h3 { margin: 0; color: var(--ink); font-size: 12px; font-weight: 600; }
+.harness-priority p, .harness-priority > small { margin: 5px 0 0; color: var(--muted); font-size: 10px; line-height: 1.5; }
+.harness-priority > small { grid-column: 1 / -1; }
+.harness-priority-list { display: flex; flex-direction: column; gap: 3px; margin: 0; padding: 0; list-style: none; }
+.harness-priority-item { display: flex; min-height: 27px; align-items: center; gap: 7px; padding: 2px 4px; border-radius: 6px; background: var(--canvas); color: var(--secondary); font-size: 10px; }
+.harness-priority-index { width: 15px; color: var(--muted); text-align: center; }
+.harness-priority-item strong { flex: 1; color: var(--ink); font-size: 10px; font-weight: 500; }
+.harness-priority-item.locked { border: 1px solid var(--line-strong); }
+.harness-priority-lock { color: var(--muted); font-size: 9px; }
+.harness-priority-actions { display: flex; gap: 2px; }
+.harness-priority-actions button { width: 23px; height: 22px; border: 0; border-radius: 5px; background: transparent; color: var(--secondary); cursor: pointer; }
+.harness-priority-actions button:hover:not(:disabled) { background: var(--sidebar-hover); color: var(--ink); }
+.harness-priority-actions button:disabled { color: var(--disabled); cursor: default; }
 .harness-role-summary { grid-column: 1 / -1; display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 5px 12px; font-size: 12px; }
 .harness-role-summary strong { min-width: 0; overflow-wrap: anywhere; font-weight: 550; }
 .harness-role-summary span { color: var(--muted); font-size: 11px; }
@@ -434,6 +448,7 @@ kbd { margin-left: auto; color: var(--muted); font-family: inherit; font-size: 1
 .harness-folder { display: flex; gap: 8px; }
 .harness-folder input { min-width: 0; }
 .harness-folder button { flex-shrink: 0; }
+@media (max-width: 560px) { .harness-priority { grid-template-columns: minmax(0, 1fr); } .harness-priority > small { grid-column: auto; } }
 .harness-auto { display: flex; align-items: center; gap: 8px; font-size: 12px; margin: 20px 0 12px; }
 .select-button { display: inline-flex; align-items: center; gap: 6px; max-width: 280px; padding: 6px 8px; border: 0; border-radius: 8px; background: transparent; color: var(--secondary); font-size: 12px; font-weight: 500; cursor: pointer; }
 .select-button:hover { background: var(--sidebar-hover); }

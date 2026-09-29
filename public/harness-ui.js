@@ -1,5 +1,5 @@
 import { modelEffortCapability } from './model-capabilities.mjs';
-import { recommendLoopEffort, selectAutomaticLoopModel } from './loop-policy.mjs';
+import { DEFAULT_LOOP_PRIORITIES, LOOP_PRIORITY_DIMENSIONS, normalizeLoopPriorities, recommendLoopEffort, selectAutomaticLoopModel } from './loop-policy.mjs';
 
 const KEY = 'loopline.harness.v1';
 const DONE = new Set(['completed', 'reviewed', 'failed', 'stopped', 'limit', 'blocked', 'interrupted']);
@@ -12,6 +12,7 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
   try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { saved = {}; }
   const config = {
     enabled: saved?.enabled !== false, autoApply: saved?.autoApply !== false,
+    priorities: normalizeLoopPriorities(saved?.priorities),
     roles: Object.fromEntries(ROLES.map(([role]) => [role, {
       model: typeof saved?.roles?.[role]?.model === 'string' ? saved.roles[role].model : '',
       effort: typeof saved?.roles?.[role]?.effort === 'string' ? saved.roles[role].effort : '',
@@ -21,13 +22,14 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
   };
   const modal = document.querySelector('#harnessModal');
   const fields = document.querySelector('#harnessRoles');
+  const priorityFields = document.querySelector('#harnessPriorities');
   const saveStatus = document.querySelector('#harnessSaveStatus');
   const search = document.querySelector('#harnessModelSearch');
   const expandedFallbacks = new Set();
   let activeRunId = null, watching = false, starting = false, stopRequested = false;
   const save = () => {
     try {
-      const persisted = { ...config, roles: Object.fromEntries(ROLES.map(([role]) => [role, {
+      const persisted = { ...config, priorities: normalizeLoopPriorities(config.priorities), roles: Object.fromEntries(ROLES.map(([role]) => [role, {
         model: config.roles[role].model, effort: config.roles[role].effort, fallbacks: config.roles[role].fallbacks.slice(0, MAX_FALLBACKS),
       }])) };
       localStorage.setItem(KEY, JSON.stringify(persisted));
@@ -53,13 +55,13 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
   const resolveEffort = (role, model, task = '') => {
     const allowed = efforts(model);
     if (config.roles[role].effort && !allowed.includes(config.roles[role].effort)) throw new Error(`${model.label}의 추론 강도를 다시 선택해 주세요.`);
-    return config.roles[role].effort || recommendLoopEffort(role, allowed, task);
+    return config.roles[role].effort || recommendLoopEffort(role, allowed, task, config.priorities);
   };
   const resolveFallbackEffort = (role, model, task) => {
     const allowed = efforts(model);
     return allowed.includes(config.roles[role].effort)
       ? config.roles[role].effort
-      : recommendLoopEffort(role, allowed, task);
+      : recommendLoopEffort(role, allowed, task, config.priorities);
   };
   function suggestedFallbacks(role) {
     const primary = choose(role);
@@ -95,9 +97,9 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
     if (changed) save();
   }
   const roleGuidance = {
-    planner: '자동은 실측한 Gemini Flash를 우선 사용하고, 없으면 구현 모델을 공유합니다.',
-    worker: '자동은 실측한 GPT-6 Sol을 우선 사용합니다. 추론 강도는 작업 난이도에 맞춥니다.',
-    judge: 'Jev를 먼저 쓰고, 모든 판정 요청은 이 역할의 우선순위로 처리합니다.',
+    planner: '자동은 작업 적합도와 완료 우선순위를 기준으로 후보를 고릅니다.',
+    worker: '자동은 개인 연산 우선순위를 반영하고, 품질 우선이면 높은 추론 강도를 사용합니다.',
+    judge: '이 모델은 자동 배정 판단과 실행 결과 검토에 사용됩니다.',
   };
   const budgetLabel = (model) => Number.isFinite(model?.remainingPercent)
     ? `계정 한도 ${Math.max(0, Math.min(100, model.remainingPercent))}% 남음` : '잔여 한도 미제공';
@@ -150,14 +152,21 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
           <section aria-label="${title} 대체 모델 우선순위"><ol>${fallbackList || '<li class="harness-fallback-empty">대체 모델이 없습니다.</li>'}</ol>
           <div class="harness-fallback-add"><select data-fallback-select="${role}" aria-label="${title} 대체 모델 선택"><option value="">대체 모델 추가…</option>${modelOptions(eligible)}</select>
           <button type="button" data-fallback-add="${role}"${config.roles[role].fallbacks.length >= MAX_FALLBACKS || !eligible.length ? ' disabled' : ''}>추가</button></div></section>
-          <small>저장한 순서대로 전환합니다. 잔여 한도 미제공은 사용 가능량을 알 수 없다는 뜻입니다.</small>
+          <small>판정 모델이 대체 순서를 제안하고, 실행 중에는 잔여 한도와 실패 여부를 확인해 다음 후보로 전환합니다. 잔여 한도 미제공은 사용 가능량을 알 수 없다는 뜻입니다.</small>
         </details></div>`;
     }).join('');
+  }
+  function renderPriorities() {
+    const movable = normalizeLoopPriorities(config.priorities);
+    priorityFields.innerHTML = `<ol class="harness-priority-list"><li class="harness-priority-item locked"><span class="harness-priority-index">1</span><strong>완료 안정성</strong><span class="harness-priority-lock">항상 최우선</span></li>${movable.map((id, index) => {
+      const item = LOOP_PRIORITY_DIMENSIONS.find((dimension) => dimension.id === id);
+      return `<li class="harness-priority-item"><span class="harness-priority-index">${index + 2}</span><strong>${escape(item.label)}</strong><span class="harness-priority-actions"><button type="button" data-priority-move="${id}" data-direction="up" aria-label="${escape(item.label)} 우선순위 올리기"${index === 0 ? ' disabled' : ''}>↑</button><button type="button" data-priority-move="${id}" data-direction="down" aria-label="${escape(item.label)} 우선순위 내리기"${index === movable.length - 1 ? ' disabled' : ''}>↓</button></span></li>`;
+    }).join('')}</ol>`;
   }
   function open() {
     if (state.busy) return toast('실행이 끝난 뒤 구성을 변경해 주세요.');
     document.querySelector('#harnessAutoApply').checked = config.autoApply;
-    search.value = ''; ensureFallbackPriority(); renderRoles(); modal.hidden = false; document.querySelector('#harnessClose').focus();
+    search.value = ''; ensureFallbackPriority(); renderPriorities(); renderRoles(); modal.hidden = false; document.querySelector('#harnessClose').focus();
   }
   function close() { modal.hidden = true; document.querySelector('#harnessConfigure').focus(); }
   search.addEventListener('input', renderRoles);
@@ -165,6 +174,15 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
     const role = event.target.dataset.fallbackDetails;
     if (role) event.target.open ? expandedFallbacks.add(role) : expandedFallbacks.delete(role);
   }, true);
+  priorityFields.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-priority-move]');
+    if (!button) return;
+    const index = config.priorities.indexOf(button.dataset.priorityMove);
+    const next = index + (button.dataset.direction === 'up' ? -1 : 1);
+    if (index < 0 || next < 0 || next >= config.priorities.length) return;
+    [config.priorities[index], config.priorities[next]] = [config.priorities[next], config.priorities[index]];
+    save(); renderPriorities();
+  });
   document.querySelector('#harnessUseAutomatic').addEventListener('click', () => {
     for (const [role] of ROLES) {
       config.roles[role].model = ''; config.roles[role].effort = '';
@@ -254,7 +272,7 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
       ...(event.status !== 'running' && event.detail && !event.model && !event.title.startsWith('파일 작업') ? { kind: 'commentary', text: `**${event.title}**\n\n${event.detail}` } : {}),
     }));
     message.error = ['failed', 'blocked', 'interrupted'].includes(run.status);
-    message.content = pending ? `Harness · ${run.round}/${run.rounds}회차 · ${run.status === 'stopping' ? '중지 중' : ({ selecting: 'Jev가 역할별 모델 선택', prepare: '작업 공간 준비', configuring: '판정 모델이 실행 환경 구성', planning: '계획 작성', working: '파일 작업', verifying: '검증', judging: '판정', applying: '프로젝트 반영' })[run.stage] || run.stage}`
+    message.content = pending ? `Harness · ${run.round}/${run.rounds}회차 · ${run.status === 'stopping' ? '중지 중' : ({ selecting: '판정 모델이 주·대체 모델 순위 선택', prepare: '작업 공간 준비', configuring: '판정 모델이 실행 환경 구성', planning: '계획 작성', working: '파일 작업', verifying: '검증', judging: '판정', applying: '프로젝트 반영' })[run.stage] || run.stage}`
       : `${run.summary || '실행을 마쳤습니다.'}${run.applied ? '\n\n프로젝트에 변경을 자동 반영했습니다.' : ''}${run.source ? `\n\n프로젝트: \`${run.source}\`` : ''}${run.workspace && run.status !== 'completed' ? `\n\n작업 공간: \`${run.workspace}\`` : ''}${run.patchAvailable ? `\n\n[변경 패치 내려받기](${location.origin}/api/harness/runs/${run.id}/patch)` : ''}`;
     if (run.source) {
       conversation.harnessWorkspace = run.source;
@@ -315,7 +333,7 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
     starting = true; stopRequested = false;
     state.busy = true; state.loopEngineeringRunning = true; render();
     try {
-      const run = await request('/api/harness/runs', { task, roles, workspace, rounds: state.loopEngineeringRounds, autoApply: config.autoApply, instructions: project ? `${project.instructions || ''}\n${project.knowledge || ''}` : '' });
+      const run = await request('/api/harness/runs', { task, roles, priorities: config.priorities, workspace, rounds: state.loopEngineeringRounds, autoApply: config.autoApply, instructions: project ? `${project.instructions || ''}\n${project.knowledge || ''}` : '' });
       activeRunId = run.id;
       update(run, message, conversation);
       if (stopRequested) await stop();

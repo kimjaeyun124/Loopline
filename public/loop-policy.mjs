@@ -1,4 +1,18 @@
 const DEEP_TASK = /\b(?:architecture|architectural|refactor(?:ing)?|migration|migrate|security|concurrency|database|performance|optimization|integration|distributed|race condition|multi[- ]file)\b|아키텍처|구조 변경|리팩토링|마이그레이션|보안|동시성|경쟁 조건|데이터베이스|성능|최적화|통합|대규모|여러\s*파일/i;
+export const LOOP_PRIORITY_DIMENSIONS = Object.freeze([
+  { id: 'quality', label: '결과 품질' },
+  { id: 'reasoning', label: '추론 투입량' },
+  { id: 'tokenEfficiency', label: '토큰 효율' },
+  { id: 'speed', label: '응답 속도' },
+]);
+export const DEFAULT_LOOP_PRIORITIES = Object.freeze(LOOP_PRIORITY_DIMENSIONS.map(({ id }) => id));
+const EFFORT_ORDER = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'];
+
+export function normalizeLoopPriorities(value) {
+  const allowed = new Set(DEFAULT_LOOP_PRIORITIES);
+  const requested = Array.isArray(value) ? value.filter((id) => allowed.has(id)) : [];
+  return [...new Set(requested), ...DEFAULT_LOOP_PRIORITIES.filter((id) => !requested.includes(id))];
+}
 
 export function classifyLoopTask(task) {
   const text = String(task || '').trim();
@@ -6,14 +20,24 @@ export function classifyLoopTask(task) {
   return text.length >= 600 || DEEP_TASK.test(text) || checklistItems >= 4 ? 'complex' : 'simple';
 }
 
-export function recommendLoopEffort(role, supportedEfforts, task) {
+export function recommendLoopEffort(role, supportedEfforts, task, priorities = DEFAULT_LOOP_PRIORITIES) {
   if (!Array.isArray(supportedEfforts) || !supportedEfforts.length) return null;
+  const supported = [...new Set(supportedEfforts)].sort((left, right) => EFFORT_ORDER.indexOf(left) - EFFORT_ORDER.indexOf(right));
+  const normalizedPriorities = normalizeLoopPriorities(priorities);
+  const qualityPosition = normalizedPriorities.indexOf('quality');
+  const reasoningPosition = normalizedPriorities.indexOf('reasoning');
+  const efficiencyPosition = Math.min(normalizedPriorities.indexOf('tokenEfficiency'), normalizedPriorities.indexOf('speed'));
+  const computePosition = Math.min(qualityPosition, reasoningPosition);
+  if (computePosition < efficiencyPosition) {
+    const offset = computePosition === 0 ? 0 : 1;
+    return supported[Math.max(0, supported.length - 1 - offset)];
+  }
   const complex = classifyLoopTask(task) === 'complex';
   const preferences = complex
     ? { planner: ['medium', 'high', 'xhigh', 'max', 'ultra', 'low'], worker: ['high', 'medium', 'xhigh', 'max', 'ultra', 'low'], judge: ['medium', 'low', 'high', 'xhigh', 'max', 'ultra'] }
     : { planner: ['low', 'medium', 'high'], worker: ['medium', 'low', 'high'], judge: ['low', 'medium', 'high'] };
   const order = preferences[role] || preferences.worker;
-  return [...order, ...supportedEfforts].find((effort, index, all) => supportedEfforts.includes(effort) && all.indexOf(effort) === index) || null;
+  return [...order, ...supported].find((effort, index, all) => supported.includes(effort) && all.indexOf(effort) === index) || null;
 }
 
 function sameConnection(left, right) {

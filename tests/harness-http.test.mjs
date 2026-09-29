@@ -27,6 +27,14 @@ test('HTTP harness relays roles and supported effort, records usage and complete
   assert.ok(run.events.some((event) => event.model?.role === 'planner' && event.model.label === 'QA Worker'));
   assert.ok(run.events.some((event) => event.model?.role === 'worker' && event.model.effort === 'medium'));
   assert.ok(run.events.some((event) => event.model?.role === 'judge' && event.model.source === 'Harness QA · 시뮬레이션'));
+  const plannerEvent = run.events.find((event) => event.model?.role === 'planner');
+  const promptDetails = await f.request(`/api/harness/runs/${run.id}/events/${plannerEvent.id}/prompt`);
+  assert.equal(promptDetails.kind, 'harness');
+  assert.match(promptDetails.input, /목표: file\.txt를 updated 2로 수정하세요\./);
+  const savedRun = JSON.parse(await readFile(join(f.data, 'harness', `${run.id}.json`), 'utf8'));
+  const savedPlannerEvent = savedRun.events.find((event) => event.id === plannerEvent.id);
+  assert.equal(Object.hasOwn(savedPlannerEvent, 'prompt'), false);
+  assert.equal(Object.hasOwn(savedPlannerEvent, 'promptDetails'), false);
   assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'updated 2\n');
   assert.equal(f.calls.length, 9);
   assert.equal(f.calls[0].reasoning_effort, 'high'); assert.equal(f.calls[1].reasoning_effort, 'medium');

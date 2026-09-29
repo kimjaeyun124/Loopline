@@ -316,6 +316,49 @@ test('failed edit feedback includes current file contents so the worker can reba
   assert.ok(run.events.some((event) => event.title.startsWith('작업 수정 요청') && event.detail.includes('original\n')));
 });
 
+test('failed edit in a batch returns the latest contents after earlier edits were applied', async (t) => {
+  const f = await fixture(t); let step = 0, receivedLatestFile = false;
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (_selection, prompt) => {
+    if (prompt.includes('구현 계획과 검증 기준')) return 'Read and update file.txt.';
+    if (prompt.startsWith('변경 결과를')) return JSON.stringify(complete());
+    step++;
+    if (step === 1) return JSON.stringify({ operations: [{ type: 'read', path: 'file.txt' }] });
+    if (step === 2) return JSON.stringify({ operations: [
+      { type: 'edit', path: 'file.txt', oldText: 'original\n', newText: 'partially updated\n' },
+      { type: 'edit', path: 'file.txt', oldText: 'original\n', newText: 'stale replacement\n' },
+    ] });
+    if (step === 3) {
+      receivedLatestFile = prompt.includes('최신 파일 내용입니다') && prompt.includes('partially updated\n');
+      return JSON.stringify({ operations: [{ type: 'edit', path: 'file.txt', oldText: 'partially updated\n', newText: 'updated\n' }] });
+    }
+    return JSON.stringify({ done: true, summary: 'Rebased the failed edit on the latest file contents.' });
+  } });
+  const run = await settled(engine, (await engine.create(f.input)).id);
+  assert.equal(run.status, 'completed', run.summary);
+  assert.equal(receivedLatestFile, true);
+  assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'updated\n');
+  assert.ok(run.events.some((event) => event.title.startsWith('작업 수정 요청') && event.detail.includes('partially updated\n')));
+});
+
+test('malformed operations response returns tool feedback instead of throwing in the error handler', async (t) => {
+  const f = await fixture(t); let step = 0, receivedError = false;
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (_selection, prompt) => {
+    if (prompt.includes('구현 계획과 검증 기준')) return 'Inspect and update file.txt.';
+    if (prompt.startsWith('변경 결과를')) return JSON.stringify(complete());
+    step++;
+    if (step === 1) return JSON.stringify({ operations: 'invalid' });
+    if (step === 2) {
+      receivedError = prompt.includes('작업 요청은 한 번에 12개까지 가능합니다.');
+      return JSON.stringify({ operations: [{ type: 'edit', path: 'file.txt', oldText: 'original\n', newText: 'updated\n' }] });
+    }
+    return JSON.stringify({ done: true, summary: 'Updated file.txt after correcting the malformed tool request.' });
+  } });
+  const run = await settled(engine, (await engine.create(f.input)).id);
+  assert.equal(run.status, 'completed', run.summary);
+  assert.equal(receivedError, true);
+  assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'updated\n');
+});
+
 test('judge folder names cannot escape the managed project directory', async (t) => {
   const f = await fixture(t);
   const engine = new HarnessEngine({ directory: f.data, invoke: async () => JSON.stringify({ folderName: '../../outside' }) });

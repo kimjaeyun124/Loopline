@@ -57,6 +57,56 @@ test('round feedback reaches worker, dirty user files survive and accepted patch
   assert.ok(!run.events.some((event) => event.status === 'running'));
 });
 
+test('worker combines the final file operation and completion to reduce model calls', async (t) => {
+  async function runWorker(combineCompletion) {
+    const f = await fixture(t); let workerCalls = 0;
+    const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (_selection, prompt) => {
+      if (prompt.includes('구현 계획과 검증 기준')) return 'Read and update file.txt.';
+      if (prompt.startsWith('변경 결과를')) return JSON.stringify(complete());
+      workerCalls++;
+      if (workerCalls === 1) return JSON.stringify({ operations: [{ type: 'read', path: 'file.txt' }] });
+      const operation = { type: 'edit', path: 'file.txt', oldText: 'original\n', newText: 'updated\n' };
+      if (workerCalls === 2 && combineCompletion) return JSON.stringify({ operations: [operation], done: true, summary: 'Updated file.txt.' });
+      if (workerCalls === 2) return JSON.stringify({ operations: [operation] });
+      return JSON.stringify({ done: true, summary: 'Updated file.txt.' });
+    } });
+    const run = await settled(engine, (await engine.create({ ...f.input, rounds: 1 })).id);
+    return { run, workerCalls, source: f.source };
+  }
+
+  const separate = await runWorker(false);
+  const combined = await runWorker(true);
+  assert.equal(separate.run.status, 'completed', separate.run.summary);
+  assert.equal(combined.run.status, 'completed', combined.run.summary);
+  assert.equal(separate.workerCalls, 3);
+  assert.equal(combined.workerCalls, 2);
+  assert.equal(await readFile(join(separate.source, 'file.txt'), 'utf8'), 'updated\n');
+  assert.equal(await readFile(join(combined.source, 'file.txt'), 'utf8'), 'updated\n');
+});
+
+test('a failed batched final operation does not count as worker completion', async (t) => {
+  const f = await fixture(t); let workerCalls = 0, receivedCurrentFile = false;
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (_selection, prompt) => {
+    if (prompt.includes('구현 계획과 검증 기준')) return 'Read and update file.txt.';
+    if (prompt.startsWith('변경 결과를')) return JSON.stringify(complete());
+    workerCalls++;
+    if (workerCalls === 1) return JSON.stringify({ operations: [{ type: 'read', path: 'file.txt' }] });
+    if (workerCalls === 2) return JSON.stringify({
+      operations: [{ type: 'edit', path: 'file.txt', oldText: 'stale text', newText: 'updated\n' }],
+      done: true,
+      summary: 'Updated file.txt.',
+    });
+    receivedCurrentFile = prompt.includes('최신 파일 내용입니다') && prompt.includes('original\n');
+    return JSON.stringify({ operations: [{ type: 'edit', path: 'file.txt', oldText: 'original\n', newText: 'updated\n' }], done: true, summary: 'Updated file.txt.' });
+  } });
+
+  const run = await settled(engine, (await engine.create({ ...f.input, rounds: 1 })).id);
+  assert.equal(run.status, 'completed', run.summary);
+  assert.equal(workerCalls, 3);
+  assert.equal(receivedCurrentFile, true);
+  assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'updated\n');
+});
+
 test('failed verification cannot be overridden by a complete verdict', async (t) => {
   const f = await fixture(t);
   const engine = new HarnessEngine({ directory: f.data, invoke: modelScript(complete), verify: async () => ({ code: 1, output: '', error: 'FAIL' }) });

@@ -4,6 +4,7 @@ import { recommendLoopEffort, selectAutomaticLoopModel } from './loop-policy.mjs
 const KEY = 'loopline.harness.v1';
 const DONE = new Set(['completed', 'reviewed', 'failed', 'stopped', 'limit', 'blocked', 'interrupted']);
 const ROLES = [['planner', '계획 / Planning'], ['worker', '구현 / Implementation'], ['judge', '판정 / Review']];
+const MAX_FALLBACKS = 8;
 const escape = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 export function createHarnessUI({ state, catalog, modelKey, currentKey, getProject, saveProjects, saveConversations, render, toast, instructions, onComplete }) {
@@ -11,7 +12,12 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
   try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { saved = {}; }
   const config = {
     enabled: saved?.enabled !== false, autoApply: saved?.autoApply !== false,
-    roles: Object.fromEntries(ROLES.map(([role]) => [role, { model: typeof saved?.roles?.[role]?.model === 'string' ? saved.roles[role].model : '', effort: typeof saved?.roles?.[role]?.effort === 'string' ? saved.roles[role].effort : '' }])),
+    roles: Object.fromEntries(ROLES.map(([role]) => [role, {
+      model: typeof saved?.roles?.[role]?.model === 'string' ? saved.roles[role].model : '',
+      effort: typeof saved?.roles?.[role]?.effort === 'string' ? saved.roles[role].effort : '',
+      fallbacks: Array.isArray(saved?.roles?.[role]?.fallbacks) ? saved.roles[role].fallbacks.filter((value) => typeof value === 'string').slice(0, MAX_FALLBACKS) : [],
+      fallbacksConfigured: Array.isArray(saved?.roles?.[role]?.fallbacks),
+    }])),
   };
   const modal = document.querySelector('#harnessModal');
   const fields = document.querySelector('#harnessRoles');
@@ -19,7 +25,10 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
   let activeRunId = null, watching = false, starting = false, stopRequested = false;
   const save = () => {
     try {
-      localStorage.setItem(KEY, JSON.stringify(config));
+      const persisted = { ...config, roles: Object.fromEntries(ROLES.map(([role]) => [role, {
+        model: config.roles[role].model, effort: config.roles[role].effort, fallbacks: config.roles[role].fallbacks.slice(0, MAX_FALLBACKS),
+      }])) };
+      localStorage.setItem(KEY, JSON.stringify(persisted));
       saveStatus.textContent = '자동 저장됨 · 다음 실행부터 적용';
       return true;
     } catch {
@@ -33,6 +42,7 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
   const efforts = (model) => model?.provider === 'openai'
     ? (model.supportedReasoningEfforts || []).map((item) => item.reasoningEffort)
     : model?.provider === 'anthropic' ? modelEffortCapability('anthropic', model.id)?.reasoningEfforts || [] : model?.reasoningEfforts || [];
+  const modelByKey = (key) => connected().find((model) => modelKey(model) === key) || null;
   const choose = (role) => {
     const models = connected().filter((model) => role === 'judge' || !model.decisionOnly);
     if (config.roles[role].model) return models.find((model) => modelKey(model) === config.roles[role].model);
@@ -43,10 +53,48 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
     if (config.roles[role].effort && !allowed.includes(config.roles[role].effort)) throw new Error(`${model.label}의 추론 강도를 다시 선택해 주세요.`);
     return config.roles[role].effort || recommendLoopEffort(role, allowed, task);
   };
+  const resolveFallbackEffort = (role, model, task) => {
+    const allowed = efforts(model);
+    return allowed.includes(config.roles[role].effort)
+      ? config.roles[role].effort
+      : recommendLoopEffort(role, allowed, task);
+  };
+  function suggestedFallbacks(role) {
+    const primary = choose(role);
+    if (!primary) return [];
+    const models = connected().filter((model) => role === 'judge' || !model.decisionOnly);
+    const preferred = [];
+    if (role === 'judge') preferred.push(...models.filter((model) => model.decisionOnly));
+    for (const [otherRole] of ROLES) {
+      if (otherRole === role) continue;
+      const other = choose(otherRole);
+      if (other) preferred.push(other);
+    }
+    const current = models.find((model) => modelKey(model) === currentKey());
+    if (current) preferred.push(current);
+    preferred.push(...models);
+    const seen = new Set([modelKey(primary)]);
+    return preferred.filter((model) => {
+      const key = modelKey(model);
+      if (seen.has(key)) return false;
+      seen.add(key); return true;
+    }).slice(0, MAX_FALLBACKS).map(modelKey);
+  }
+  function ensureFallbackPriority() {
+    let changed = false;
+    for (const [role] of ROLES) {
+      const settings = config.roles[role];
+      if (settings.fallbacksConfigured) continue;
+      settings.fallbacks = suggestedFallbacks(role);
+      settings.fallbacksConfigured = true;
+      changed = true;
+    }
+    if (changed) save();
+  }
   const roleGuidance = {
     planner: '자동 배정은 구현 모델을 공유해 간단한 계획 호출 비용을 줄입니다.',
     worker: '선택한 구현 모델이 코드를 작성하고, 복합 작업에는 높은 추론 강도를 사용합니다.',
-    judge: 'Jev를 우선 사용하고, 없으면 가능할 때 구현과 다른 연결로 검토합니다.',
+    judge: 'Jev를 먼저 쓰고, 모든 판정 요청은 이 역할의 우선순위로 처리합니다.',
   };
   function renderRoles() {
     fields.innerHTML = ROLES.map(([role, title]) => {
@@ -55,18 +103,51 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
       const effortLabel = config.roles[role].effort
         ? `${config.roles[role].effort} · 직접 지정`
         : supported.length ? '자동 · 작업 난이도에 따라 조정' : model?.decisionOnly ? 'Jev 판정 전용' : '서비스 기본 추론';
-      return `<div class="harness-role"><label class="project-field"><span>${title}</span><select data-harness-role="${role}" aria-label="${title} 모델"><option value="">${role === 'judge' ? '자동 · Jev 또는 독립 검토' : role === 'planner' ? '자동 · 구현 모델과 공유' : '자동 · 현재 선택 모델'}</option>${config.roles[role].model && !model ? `<option selected value="${escape(config.roles[role].model)}">저장된 모델 · 연결 확인 필요</option>` : ''}${connected().filter((item) => role === 'judge' || !item.decisionOnly).map((item) => `<option value="${escape(modelKey(item))}"${config.roles[role].model === modelKey(item) ? ' selected' : ''}>${escape(item.label)} · ${escape(item.source)}</option>`).join('')}</select></label><label class="project-field"><span>Effort</span><select data-harness-effort="${role}" aria-label="${title} 추론 강도"${!supported.length ? ' disabled' : ''}><option value="">${supported.length ? '자동' : '서비스 기본값'}</option>${unavailableEffort ? `<option selected value="${escape(config.roles[role].effort)}">${escape(config.roles[role].effort)} · 지원 확인 필요</option>` : ''}${supported.map((value) => `<option value="${escape(value)}"${config.roles[role].effort === value ? ' selected' : ''}>${escape(value)}</option>`).join('')}</select></label><small>${model ? `${escape(model.label)} · ${escape(effortLabel)} · ${escape(roleGuidance[role])}` : role === 'judge' ? 'Jev 또는 연결된 판정 모델이 필요합니다.' : '연결된 모델이 필요합니다.'}</small></div>`;
+      const primaryKey = model ? modelKey(model) : '';
+      const savedFallbacks = config.roles[role].fallbacks.filter((key) => key !== primaryKey);
+      const fallbackModels = savedFallbacks.map((key) => ({ key, model: modelByKey(key) }));
+      const eligible = connected().filter((item) => (role === 'judge' || !item.decisionOnly)
+        && modelKey(item) !== primaryKey && !savedFallbacks.includes(modelKey(item)));
+      const fallbackList = fallbackModels.map(({ key, model: fallback, }, index) => `<li class="harness-fallback-item"><span class="harness-fallback-index">${index + 1}</span><span class="harness-fallback-name">${fallback ? `${escape(fallback.label)} · ${escape(fallback.source)}` : '연결을 확인할 수 없는 저장 모델'}</span><span class="harness-fallback-actions"><button type="button" data-fallback-move="${role}" data-index="${index}" data-direction="up" aria-label="${title} 대체 모델 우선순위 올리기"${index === 0 ? ' disabled' : ''}>↑</button><button type="button" data-fallback-move="${role}" data-index="${index}" data-direction="down" aria-label="${title} 대체 모델 우선순위 내리기"${index === fallbackModels.length - 1 ? ' disabled' : ''}>↓</button><button type="button" data-fallback-remove="${role}" data-index="${index}" aria-label="${title} 대체 모델 제거">×</button></span></li>`).join('');
+      return `<div class="harness-role"><label class="project-field"><span>${title}</span><select data-harness-role="${role}" aria-label="${title} 모델"><option value="">${role === 'judge' ? '자동 · Jev 우선 판정' : role === 'planner' ? '자동 · 구현 모델과 공유' : '자동 · 현재 선택 모델'}</option>${config.roles[role].model && !model ? `<option selected value="${escape(config.roles[role].model)}">저장된 모델 · 연결 확인 필요</option>` : ''}${connected().filter((item) => role === 'judge' || !item.decisionOnly).map((item) => `<option value="${escape(modelKey(item))}"${config.roles[role].model === modelKey(item) ? ' selected' : ''}>${escape(item.label)} · ${escape(item.source)}</option>`).join('')}</select></label><label class="project-field"><span>Effort</span><select data-harness-effort="${role}" aria-label="${title} 추론 강도"${!supported.length ? ' disabled' : ''}><option value="">${supported.length ? '자동' : '서비스 기본값'}</option>${unavailableEffort ? `<option selected value="${escape(config.roles[role].effort)}">${escape(config.roles[role].effort)} · 지원 확인 필요</option>` : ''}${supported.map((value) => `<option value="${escape(value)}"${config.roles[role].effort === value ? ' selected' : ''}>${escape(value)}</option>`).join('')}</select></label><small>${model ? `${escape(model.label)} · ${escape(effortLabel)} · ${escape(roleGuidance[role])}` : role === 'judge' ? 'Jev 또는 연결된 판정 모델이 필요합니다.' : '연결된 모델이 필요합니다.'}</small><section class="harness-fallbacks" aria-label="${title} 대체 모델 우선순위"><div class="harness-fallback-heading"><strong>한도 소진 시 다음 모델</strong><span>${fallbackModels.length}/${MAX_FALLBACKS}</span></div><ol>${fallbackList || '<li class="harness-fallback-empty">대체 모델이 없습니다.</li>'}</ol><div class="harness-fallback-add"><select data-fallback-select="${role}" aria-label="${title} 대체 모델 선택"><option value="">대체 모델 추가…</option>${eligible.map((item) => `<option value="${escape(modelKey(item))}">${escape(item.label)} · ${escape(item.source)}</option>`).join('')}</select><button type="button" data-fallback-add="${role}"${fallbackModels.length >= MAX_FALLBACKS || !eligible.length ? ' disabled' : ''}>추가</button></div><small>확인 가능한 잔여 한도가 0이거나 제공자가 한도 초과를 알리면 이 순서로 전환합니다.</small></section></div>`;
     }).join('');
   }
   function open() {
     if (state.busy) return toast('실행이 끝난 뒤 구성을 변경해 주세요.');
     document.querySelector('#harnessAutoApply').checked = config.autoApply;
-    renderRoles(); modal.hidden = false; document.querySelector('#harnessClose').focus();
+    ensureFallbackPriority(); renderRoles(); modal.hidden = false; document.querySelector('#harnessClose').focus();
   }
   function close() { modal.hidden = true; document.querySelector('#harnessConfigure').focus(); }
   fields.addEventListener('change', (event) => {
-    if (event.target.dataset.harnessRole) { const role = event.target.dataset.harnessRole; config.roles[role] = { model: event.target.value, effort: '' }; }
+    if (event.target.dataset.harnessRole) {
+      const role = event.target.dataset.harnessRole;
+      config.roles[role].model = event.target.value;
+      config.roles[role].effort = '';
+    }
     if (event.target.dataset.harnessEffort) config.roles[event.target.dataset.harnessEffort].effort = event.target.value;
+    save(); renderRoles();
+  });
+  fields.addEventListener('click', (event) => {
+    const add = event.target.closest('[data-fallback-add]');
+    const move = event.target.closest('[data-fallback-move]');
+    const remove = event.target.closest('[data-fallback-remove]');
+    const role = add?.dataset.fallbackAdd || move?.dataset.fallbackMove || remove?.dataset.fallbackRemove;
+    if (!role || !config.roles[role]) return;
+    const fallbacks = config.roles[role].fallbacks;
+    if (add) {
+      const select = fields.querySelector(`[data-fallback-select="${role}"]`);
+      const key = select?.value;
+      if (!key || fallbacks.includes(key) || fallbacks.length >= MAX_FALLBACKS) return;
+      fallbacks.push(key);
+      select.value = '';
+    } else if (remove) {
+      fallbacks.splice(Number(remove.dataset.index), 1);
+    } else {
+      const index = Number(move.dataset.index), next = index + (move.dataset.direction === 'up' ? -1 : 1);
+      if (next < 0 || next >= fallbacks.length) return;
+      [fallbacks[index], fallbacks[next]] = [fallbacks[next], fallbacks[index]];
+    }
+    config.roles[role].fallbacksConfigured = true;
     save(); renderRoles();
   });
   document.querySelector('#harnessAutoApply').addEventListener('change', (event) => {
@@ -149,11 +230,24 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
   async function start(task, message, conversation) {
     const project = currentProject();
     const roles = {};
+    ensureFallbackPriority();
+    const roleSelection = (role, model, primary) => ({
+      provider: model.provider, source: model.source, model: model.id, label: model.label,
+      connectionId: model.connectionId,
+      ...(model.provider === 'openai' ? {
+        codexAccountId: model.codexAccountId || state.activeCodexAccountId,
+        ...(Number.isFinite(model.remainingPercent) ? { remainingPercent: model.remainingPercent } : {}),
+      } : {}),
+      ...(model.decisionOnly ? { decisionOnly: true } : {}),
+      reasoningEffort: primary ? resolveEffort(role, model, task) : resolveFallbackEffort(role, model, task),
+      instructions: instructions(model.provider),
+    });
     for (const [role] of ROLES) {
       const model = choose(role);
       if (!model) { open(); throw new Error(role === 'judge' ? 'Jev를 연결하거나 판정 모델을 선택해 주세요.' : '사용할 모델을 연결해 주세요.'); }
-      roles[role] = { provider: model.provider, source: model.source, model: model.id, label: model.label, connectionId: model.connectionId,
-        codexAccountId: state.activeCodexAccountId, reasoningEffort: resolveEffort(role, model, task), instructions: instructions(model.provider) };
+      const fallbacks = config.roles[role].fallbacks.map(modelByKey)
+        .filter((candidate) => candidate && (role === 'judge' || !candidate.decisionOnly) && modelKey(candidate) !== modelKey(model));
+      roles[role] = { ...roleSelection(role, model, true), fallbacks: fallbacks.map((candidate) => roleSelection(role, candidate, false)) };
     }
     const workspace = project?.workspace || conversation.harnessWorkspace || undefined;
     starting = true; stopRequested = false;

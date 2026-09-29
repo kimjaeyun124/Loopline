@@ -1185,6 +1185,8 @@ function renderCodexAccounts() {
 }
 
 function modelCatalog() {
+  const codexUsageWindows = activeCodexAccount()?.usageSummary?.windows?.filter((window) => window.limitId === 'codex' && Number.isFinite(window.remainingPercent)) || [];
+  const codexRemainingPercent = codexUsageWindows.length ? Math.min(...codexUsageWindows.map((window) => window.remainingPercent)) : null;
   const models = [
     ...(state.codexAccounts.some((account) => account.linked) ? modelsForProvider('openai').map((model) => ({ ...model, provider: 'openai', source: 'Codex', connected: activeCodexAccount()?.connected === true })) : []),
     ...(state.providers.anthropic?.linked ? PROVIDERS.anthropic.models.map((model) => ({ ...model, provider: 'anthropic', source: 'Claude Code', connected: state.providers.anthropic.connected === true })) : []),
@@ -1192,6 +1194,10 @@ function modelCatalog() {
   ];
   return models.map((model) => ({
     ...model,
+    ...(model.provider === 'openai' ? {
+      codexAccountId: state.activeCodexAccountId,
+      ...(codexRemainingPercent === null ? {} : { remainingPercent: codexRemainingPercent }),
+    } : {}),
     label: displayModelName(model.label || model.id),
     displayId: displayModelName(model.id),
   }));

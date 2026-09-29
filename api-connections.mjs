@@ -49,6 +49,22 @@ function remoteError(status) {
   return error;
 }
 
+function tokenBudgetHeaders(headers) {
+  const read = (names) => {
+    for (const name of names) {
+      const raw = headers.get(name);
+      if (raw !== null && /^\d+$/.test(raw.trim())) {
+        const value = Number(raw);
+        if (Number.isSafeInteger(value) && value >= 0) return value;
+      }
+    }
+    return null;
+  };
+  const remainingTokens = read(['x-ratelimit-remaining-tokens', 'ratelimit-remaining-tokens']);
+  const limitTokens = read(['x-ratelimit-limit-tokens', 'ratelimit-limit-tokens']);
+  return remainingTokens === null && limitTokens === null ? null : { remainingTokens, limitTokens, source: 'API response headers' };
+}
+
 async function readLimitedJson(response) {
   const parts = [];
   let size = 0;
@@ -259,7 +275,7 @@ export class ApiConnections {
     });
   }
 
-  async chat(id, model, messages, { signal, onDelta, onUsage, reasoningEffort }) {
+  async chat(id, model, messages, { signal, onDelta, onUsage, onBudget, reasoningEffort }) {
     await this.#ready;
     await this.#writes;
     const connection = this.#find(id);
@@ -294,6 +310,8 @@ export class ApiConnections {
           body: JSON.stringify({ model: chatModelId(connection, model), messages, ...reasoning, stream: true }),
         });
       }
+      const budget = tokenBudgetHeaders(response.headers);
+      if (budget) await onBudget?.(budget, connection, model);
       if ((response.headers.get('content-type') || '').includes('application/json')) {
         const result = await readLimitedJson(response);
         append(result.choices?.[0]?.message?.content);
@@ -349,7 +367,7 @@ export class ApiConnections {
     }
   }
 
-  async evaluate(id, model, { state, questions }, { signal, onUsage }) {
+  async evaluate(id, model, { state, questions }, { signal, onUsage, onBudget }) {
     await this.#ready; await this.#writes;
     const connection = this.#find(id);
     if (!isTypeSafe(connection) || !connection.models.some((item) => item.id === model)) throw fail('연결된 Jev 판정 모델을 선택해 주세요.');
@@ -360,6 +378,8 @@ export class ApiConnections {
       const response = await this.#request(connection, await this.#key(connection), 'systemone', {
         method: 'POST', signal: requestSignal, body: JSON.stringify({ model, state, questions }),
       });
+      const budget = tokenBudgetHeaders(response.headers);
+      if (budget) await onBudget?.(budget, connection, model);
       const result = await readLimitedJson(response);
       await onUsage?.(result.usage, connection, result.model || model);
       // 판정 누락·잘못된 확률을 성공으로 취급하지 않습니다.

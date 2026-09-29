@@ -402,6 +402,24 @@ kbd { margin-left: auto; color: var(--muted); font-family: inherit; font-size: 1
 .harness-role { display: grid; grid-template-columns: minmax(0, 1fr) 120px; gap: 8px 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
 .harness-role .project-field { margin-top: 0; min-width: 0; }
 .harness-role small { grid-column: 1 / -1; font-size: 11px; color: var(--muted); }
+.harness-fallbacks { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--soft); }
+.harness-fallback-heading { display: flex; align-items: center; justify-content: space-between; color: var(--secondary); font-size: 11px; }
+.harness-fallback-heading span { color: var(--muted); font-size: 10px; }
+.harness-fallbacks ol { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.harness-fallback-item { display: flex; min-width: 0; align-items: center; gap: 8px; min-height: 30px; padding: 3px 5px 3px 8px; border: 1px solid var(--line); border-radius: 7px; background: var(--canvas); }
+.harness-fallback-index { width: 17px; flex: 0 0 17px; color: var(--muted); font-size: 10px; text-align: center; }
+.harness-fallback-name { min-width: 0; flex: 1; overflow: hidden; color: var(--ink); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.harness-fallback-actions { display: flex; flex: 0 0 auto; gap: 2px; }
+.harness-fallback-actions button { display: grid; width: 24px; height: 24px; place-items: center; border: 0; border-radius: 5px; background: transparent; color: var(--secondary); cursor: pointer; }
+.harness-fallback-actions button:hover:not(:disabled) { background: var(--sidebar-hover); color: var(--ink); }
+.harness-fallback-actions button:disabled { color: var(--disabled); cursor: default; }
+.harness-fallback-empty { padding: 5px 2px; color: var(--muted); font-size: 11px; }
+.harness-fallback-add { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px; }
+.harness-fallback-add select { min-width: 0; min-height: 34px; padding: 0 9px; border: 1px solid var(--line-strong); border-radius: 7px; background: var(--canvas); color: var(--ink); font-size: 11px; }
+.harness-fallback-add button { min-width: 52px; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: 7px; background: var(--canvas); color: var(--secondary); font-size: 11px; cursor: pointer; }
+.harness-fallback-add button:hover:not(:disabled) { color: var(--ink); }
+.harness-fallback-add button:disabled { color: var(--disabled); }
+.harness-fallbacks > small { color: var(--muted); font-size: 10px; line-height: 1.45; }
 .harness-folder { display: flex; gap: 8px; }
 .harness-folder input { min-width: 0; }
 .harness-folder button { flex-shrink: 0; }

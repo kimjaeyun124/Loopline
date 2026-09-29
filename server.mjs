@@ -1094,6 +1094,7 @@ function handleCodexNotification(context, message) {
         turnId: active.turnId || turn.id,
         usage: active.tokenUsage,
       });
+      sendEvent(active.res, 'usage', { usage: active.tokenUsage, model: active.model });
     }
     sendEvent(active.res, 'activity', {
       id: 'codex-turn',
@@ -1108,6 +1109,17 @@ function isUsageLimitError(error) {
   const info = error?.codexErrorInfo;
   const variant = typeof info === 'string' ? info : info?.kind || info?.type || Object.keys(info || {})[0];
   return variant === 'UsageLimitExceeded' || error?.httpStatusCode === 429 || info?.httpStatusCode === 429;
+}
+
+function isQuotaExhaustionMessage(error) {
+  if (error?.quotaExhausted === true || error?.remoteStatus === 429 || error?.httpStatusCode === 429) return true;
+  return /(?:http\s*429|quota.{0,40}(?:exhaust|limit|reach)|(?:usage|rate)\s*limit|사용\s*한도|요청\s*제한|토큰.{0,12}소진)/i.test(String(error?.message || error || ''));
+}
+
+function codexBudgetSnapshot(status) {
+  const windows = status?.usageSummary?.windows?.filter((window) => window.limitId === 'codex' && Number.isFinite(window.remainingPercent)) || [];
+  if (!windows.length) return null;
+  return { remainingPercent: Math.min(...windows.map((window) => window.remainingPercent)), source: 'Codex 계정 사용량' };
 }
 
 async function startOpenAiLogin(accountId = 'default') {
@@ -1681,6 +1693,8 @@ async function runCodexTurn(requestedAccountId, model, messages, requestedThread
       sendEvent(res, 'retry', { accountId: account.id, name: account.name });
       retrying = false;
     }
+    const budget = codexBudgetSnapshot(accountStatus);
+    if (budget) sendEvent(res, 'budget', budget);
     const threadId = account.id === requestedAccountId ? requestedThreadId : null;
     const reservation = Symbol('codex-turn');
     context.pendingChatRequests.add(reservation);
@@ -1697,7 +1711,7 @@ async function runCodexTurn(requestedAccountId, model, messages, requestedThread
         retrying = true;
         continue;
       }
-      sendEvent(res, 'error', { error: '선택한 Codex 계정의 사용 한도가 소진되었고, 같은 모델과 추론 강도를 지원하면서 한도가 남은 다른 연결 계정이 없습니다.' });
+      sendEvent(res, 'error', { error: '선택한 Codex 계정의 사용 한도가 소진되었고, 같은 모델과 추론 강도를 지원하면서 한도가 남은 다른 연결 계정이 없습니다.', quotaExhausted: true });
       if (!res.writableEnded) res.end();
       return;
     }
@@ -1781,14 +1795,18 @@ async function relayChat(req, res, internalOptions = {}) {
           signal: controller.signal,
           reasoningEffort: body.reasoningEffort,
           onDelta: (text) => sendEvent(res, 'delta', { text }),
-          onUsage: (usage, connection) => recordTokenUsage({
-            provider: 'api',
-            accountId: `api:${connection.id}`,
-            accountName: connection.name,
-            model,
-            turnId: randomUUID(),
-            usage,
-          }),
+          onUsage: async (usage, connection) => {
+            await recordTokenUsage({
+              provider: 'api',
+              accountId: `api:${connection.id}`,
+              accountName: connection.name,
+              model,
+              turnId: randomUUID(),
+              usage,
+            });
+            sendEvent(res, 'usage', { usage, model });
+          },
+          onBudget: (budget) => sendEvent(res, 'budget', budget),
         });
         sendEvent(res, 'done', {});
         res.end();
@@ -1834,11 +1852,11 @@ async function relayChat(req, res, internalOptions = {}) {
         model: usedModel,
         turnId: randomUUID(),
         usage,
-      }));
+      }).then(() => sendEvent(res, 'usage', { usage, model: usedModel })));
   } catch (error) {
     if (res.destroyed) return;
     if (res.headersSent) {
-      sendEvent(res, 'error', { error: error.message || '요청 처리 중 오류가 발생했습니다.' });
+      sendEvent(res, 'error', { error: error.message || '요청 처리 중 오류가 발생했습니다.', quotaExhausted: isQuotaExhaustionMessage(error) });
       if (!res.writableEnded) res.end();
     } else {
       json(res, error.status || 500, { error: error.message || '요청 처리 중 오류가 발생했습니다.' });
@@ -1849,16 +1867,20 @@ async function relayChat(req, res, internalOptions = {}) {
 }
 
 // Reuse provider validation, cancellation and usage accounting without a second HTTP request.
-async function invokeHarnessModel(selection, prompt, instructions, signal) {
+async function invokeHarnessModel(selection, prompt, instructions, signal, onSignal = () => {}) {
   if (signal.aborted) throw signal.reason;
   if (selection.decisionOnly && selection.provider === 'api') {
     return apiConnections.evaluate(selection.connectionId, selection.model, prompt, {
       signal,
-      onUsage: (usage, connection, model) => recordTokenUsage({ provider: 'api', accountId: `api:${connection.id}`, accountName: connection.name, model, turnId: randomUUID(), usage }),
+      onUsage: async (usage, connection, model) => {
+        await recordTokenUsage({ provider: 'api', accountId: `api:${connection.id}`, accountName: connection.name, model, turnId: randomUUID(), usage });
+        onSignal({ type: 'usage', usage });
+      },
+      onBudget: (budget) => onSignal({ type: 'budget', ...budget }),
     });
   }
   const response = new EventEmitter();
-  let output = '', buffer = '', failure = '', done = false;
+  let output = '', buffer = '', failure = '', quotaFailure = false, done = false;
   response.headersSent = false; response.writableEnded = false; response.destroyed = false;
   response.writeHead = (status) => { response.headersSent = true; response.statusCode = status; };
   response.write = (chunk) => {
@@ -1873,29 +1895,38 @@ async function invokeHarnessModel(selection, prompt, instructions, signal) {
       if (event === 'delta') output += data.text || '';
       if (event === 'retry') output = '';
       if (event === 'progress' && data.rollbackText && output.endsWith(data.rollbackText)) output = output.slice(0, -data.rollbackText.length);
-      if (event === 'error') failure = data.error || '모델 호출 실패';
+      if (event === 'usage') onSignal({ type: 'usage', usage: data.usage });
+      if (event === 'budget') onSignal({ type: 'budget', ...data });
+      if (event === 'error') { failure = data.error || '모델 호출 실패'; quotaFailure = data.quotaExhausted === true; }
       if (event === 'done') done = true;
     }
     return true;
   };
   response.end = (body) => {
-    if (body) { try { failure = JSON.parse(body).error || '모델 호출 실패'; } catch { failure = '모델 응답 오류'; } }
+    if (body) {
+      try {
+        const payload = JSON.parse(body);
+        failure = payload.error || '모델 호출 실패';
+        quotaFailure = payload.quotaExhausted === true;
+      } catch { failure = '모델 응답 오류'; }
+    }
     response.writableEnded = true;
   };
   const cancel = () => { response.destroyed = true; response.emit('close'); };
   signal.addEventListener('abort', cancel, { once: true });
+  const promptText = typeof prompt === 'string' ? prompt : JSON.stringify(prompt, null, 2);
   const request = Readable.from([Buffer.from(JSON.stringify({
     provider: selection.provider, model: selection.model, connectionId: selection.connectionId,
     codexAccountId: selection.codexAccountId || 'default',
     ...(selection.reasoningEffort ? { reasoningEffort: selection.reasoningEffort } : {}),
     agentInstructions: [String(selection.instructions || '').slice(0, 22000), '사용자가 이 Harness 실행과 검증 후 자동 반영을 승인했습니다. 단계별 권한 요청 없이 지정된 범위에서 진행하세요. Harness가 파일 도구와 검증 명령을 실행합니다. 이 호출에서는 실제 CLI 도구를 사용하지 말고 요청된 응답 형식만 반환하세요.'].join('\n\n'),
     projectInstructions: instructions.slice(0, 24000),
-    messages: (`${instructions.length > 24000 ? `추가 프로젝트 지침:\n${instructions.slice(24000)}\n\n` : ''}${prompt}`.match(/[\s\S]{1,35000}/g) || [prompt]).map((content) => ({ role: 'user', content })),
+    messages: (`${instructions.length > 24000 ? `추가 프로젝트 지침:\n${instructions.slice(24000)}\n\n` : ''}${promptText}`.match(/[\s\S]{1,35000}/g) || [promptText]).map((content) => ({ role: 'user', content })),
   }))]);
   try {
     await relayChat(request, response, { ephemeralCodexThread: true });
     if (signal.aborted) throw signal.reason;
-    if (failure || !done || !output.trim()) throw new Error(failure || '모델의 완료 응답을 받지 못했습니다.');
+    if (failure || !done || !output.trim()) throw Object.assign(new Error(failure || '모델의 완료 응답을 받지 못했습니다.'), { quotaExhausted: quotaFailure });
     return output;
   } finally { signal.removeEventListener('abort', cancel); }
 }
@@ -1950,8 +1981,11 @@ const server = createServer(async (req, res) => {
         const { connections } = await apiConnections.list();
         // Model capabilities come from the saved connection, not renderer-supplied flags.
         for (const selection of Object.values(input.roles || {})) {
-          if (selection && typeof selection === 'object') selection.decisionOnly = selection.provider === 'api'
-            && connections.some((connection) => connection.id === selection.connectionId && connection.decisionOnly);
+          if (!selection || typeof selection !== 'object') continue;
+          for (const candidate of [selection, ...(Array.isArray(selection.fallbacks) ? selection.fallbacks : [])]) {
+            if (candidate && typeof candidate === 'object') candidate.decisionOnly = candidate.provider === 'api'
+              && connections.some((connection) => connection.id === candidate.connectionId && connection.decisionOnly);
+          }
         }
         return json(res, 202, await harness.create(input));
       }

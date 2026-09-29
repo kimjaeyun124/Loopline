@@ -23,6 +23,10 @@ test('HTTP harness relays roles and supported effort, records usage and complete
   const created = await f.request('/api/harness/runs', f.input);
   const run = await until(async () => { const value = await f.request(`/api/harness/runs/${created.id}`); return value.finishedAt ? value : null; });
   assert.equal(run.status, 'completed', run.summary); assert.equal(run.round, 2); assert.equal(run.applied, true);
+  assert.deepEqual(run.stageModels.planner, { provider: 'api', source: 'Harness QA · 시뮬레이션', id: 'qa-worker', label: 'QA Worker', reasoningEffort: 'high' });
+  assert.ok(run.events.some((event) => event.model?.role === 'planner' && event.model.label === 'QA Worker'));
+  assert.ok(run.events.some((event) => event.model?.role === 'worker' && event.model.effort === 'medium'));
+  assert.ok(run.events.some((event) => event.model?.role === 'judge' && event.model.source === 'Harness QA · 시뮬레이션'));
   assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'updated 2\n');
   assert.equal(f.calls.length, 9);
   assert.equal(f.calls[0].reasoning_effort, 'high'); assert.equal(f.calls[1].reasoning_effort, 'medium');
@@ -59,8 +63,8 @@ test('HTTP automatic setup creates a project and the judge reads files before ea
   assert.ok(f.calls.filter((call) => call.messages.some((message) => message.content.startsWith('검증 방법을'))).every((call) => call.model === 'jev-qa'));
 });
 
-test('Harness removes temporary Codex threads after each model call', async (t) => {
-  const f = await startFixture({ codexMock: true }); t.after(f.close);
+test('Harness removes temporary Codex threads after transient delete failures', async (t) => {
+  const f = await startFixture({ codexMock: true, codexDeleteFailures: 3 }); t.after(f.close);
   const selection = { provider: 'openai', model: 'qa-codex', reasoningEffort: 'medium' };
   const created = await f.request('/api/harness/runs', {
     task: '임시 Codex 대화 정리 동작을 확인합니다.',
@@ -79,7 +83,7 @@ test('Harness removes temporary Codex threads after each model call', async (t) 
   assert.ok(starts.length >= 3, 'planner, worker, and judge each create a temporary Codex thread');
   assert.ok(starts.every((call) => !Object.hasOwn(call.params, 'ephemeral')));
   assert.equal(unsubscribes.length, starts.length);
-  assert.equal(deletes.length, starts.length + 1, 'the temporary delete failure is retried once');
+  assert.equal(deletes.length, starts.length + 3, 'transient thread writer failures are retried until deletion succeeds');
   assert.ok(deletes.every((call) => /^qa-thread-\d+$/.test(call.params.threadId)));
   for (const deletion of deletes) {
     const deletionIndex = calls.indexOf(deletion);

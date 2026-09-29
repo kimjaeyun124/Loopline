@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { runCommand } from '../../harness-engine.mjs';
 
 // Local model fixtures exercise the real HTTP relay without credentials or external services.
-export async function startFixture({ delay = 0, codexMock = false } = {}) {
+export async function startFixture({ delay = 0, codexMock = false, codexDeleteFailures = 1 } = {}) {
   const directory = await mkdtemp(join(tmpdir(), 'loopline-harness-http-'));
   const source = join(directory, 'project'), data = join(directory, 'data');
   await mkdir(source); await mkdir(data);
@@ -61,7 +61,7 @@ import { createInterface } from 'node:readline';
 
 let threadNumber = 0;
 let turnNumber = 0;
-let deleteFailuresRemaining = 1;
+let deleteFailuresRemaining = ${Math.max(0, Math.min(10, Number(codexDeleteFailures) || 0))};
 const input = createInterface({ input: process.stdin });
 for await (const line of input) {
   const request = JSON.parse(line);
@@ -74,11 +74,15 @@ for await (const line of input) {
   if (request.method === 'turn/start') {
     const turnId = 'qa-turn-' + (++turnNumber);
     const text = (request.params.input || []).map((item) => item.text || '').join('\\n');
-    const answer = text.includes('독립적으로 평가하세요')
-      ? JSON.stringify({ decision: 'complete', summary: '임시 대화 정리 QA 완료', feedback: '' })
-      : text.includes('최근 도구 결과:')
-        ? JSON.stringify({ done: true, summary: '임시 대화 정리 QA 변경 완료' })
-        : 'QA 계획: 임시 대화 자동 삭제를 확인합니다.';
+    let answer;
+    if (text.includes('새 프로젝트의 작업 폴더')) answer = JSON.stringify({ folderName: 'qa-loop-project', reason: '화면 QA 프로젝트' });
+    else if (text.includes('검증 방법을 결정하세요')) answer = text.includes('"content":')
+      ? JSON.stringify({ verifyCommand: 'test "$(cat file.txt)" = "updated 2"', reason: 'file.txt의 실제 내용을 확인합니다.' })
+      : JSON.stringify({ operations: [{ type: 'read', path: 'file.txt' }] });
+    else if (text.includes('구현 계획과 검증 기준')) answer = 'QA 계획: 파일을 수정하고 실제 내용을 검증합니다.';
+    else if (text.includes('독립적으로 평가하세요')) answer = JSON.stringify({ decision: 'complete', summary: '임시 대화 정리 QA 완료', feedback: '' });
+    else if (text.includes('최근 도구 결과:')) answer = JSON.stringify({ done: true, summary: '임시 대화 정리 QA 변경 완료' });
+    else answer = 'QA 계획: 임시 대화 자동 삭제를 확인합니다.';
     setTimeout(() => {
       process.stdout.write(JSON.stringify({ method: 'item/agentMessage/delta', params: { threadId: request.params.threadId, turnId, itemId: 'qa-message', delta: answer } }) + '\\n');
       process.stdout.write(JSON.stringify({ method: 'turn/completed', params: { threadId: request.params.threadId, turn: { id: turnId, status: 'completed' } } }) + '\\n');
@@ -114,7 +118,7 @@ for await (const line of input) {
     return result;
   };
   const { connection } = await request('/api/connections', { name: 'Harness QA · 시뮬레이션', baseUrl: `http://127.0.0.1:${mock.address().port}/v1`, apiKey: 'local-test-only' });
-  const selection = { provider: 'api', model: 'qa-worker', connectionId: connection.id, reasoningEffort: 'high' };
+  const selection = { provider: 'api', source: connection.name, model: 'qa-worker', label: 'QA Worker', connectionId: connection.id, reasoningEffort: 'high' };
   const input = { task: 'file.txt를 updated 2로 수정하세요.', workspace: source, rounds: 2, verifyCommand: 'test "$(cat file.txt)" = "updated 2"', roles: { planner: selection, worker: { ...selection, reasoningEffort: 'medium' }, judge: { ...selection, model: 'jev-qa', reasoningEffort: null } } };
   const close = async () => {
     const exit = once(child, 'exit'); child.kill('SIGTERM');

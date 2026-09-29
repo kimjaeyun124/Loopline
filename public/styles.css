@@ -265,6 +265,31 @@ kbd { margin-left: auto; color: var(--muted); font-family: inherit; font-size: 1
   .harness-stage-models > div { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .harness-stage-model:last-child { grid-column: 1 / -1; }
 }
+.activity-inspector { z-index: 3; display: flex; width: clamp(320px, 34vw, 440px); min-width: 320px; min-height: 0; flex: 0 0 clamp(320px, 34vw, 440px); flex-direction: column; border-left: 1px solid var(--line); background: var(--canvas); animation: activity-inspector-enter .18s ease-out; }
+.activity-inspector[hidden] { display: none; }
+.activity-inspector-header { display: flex; min-height: 64px; flex: 0 0 auto; align-items: center; justify-content: space-between; gap: 14px; padding: 10px 16px; border-bottom: 1px solid var(--line); }
+.activity-inspector-header > div { min-width: 0; }
+.activity-inspector-eyebrow { display: block; margin-bottom: 3px; color: var(--muted); font-size: 9px; font-weight: 600; letter-spacing: .11em; }
+.activity-inspector-header h2 { overflow: hidden; margin: 0; color: var(--ink); font-size: 14px; font-weight: 550; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
+.activity-inspector-content { min-height: 0; flex: 1; overflow: auto; padding: 16px; }
+.activity-inspector-status { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; color: var(--muted); font-size: 10px; }
+.activity-inspector-status > span { display: inline-flex; align-items: center; gap: 6px; }
+.activity-inspector-status > span i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.activity-inspector-status .activity-completed { color: var(--green); }
+.activity-inspector-status .activity-running { color: var(--accent); }
+.activity-inspector-status .activity-failed { color: var(--danger); }
+.activity-inspector-status .activity-stopped { color: var(--muted); }
+.activity-inspector-status time { text-align: right; }
+.activity-inspector-card { display: flex; flex-direction: column; gap: 5px; margin-bottom: 18px; padding: 12px; border: 1px solid var(--line); border-radius: 11px; background: var(--soft); }
+.activity-inspector-card > span, .activity-inspector-card > small { color: var(--muted); font-size: 10px; line-height: 1.5; overflow-wrap: anywhere; }
+.activity-inspector-card > strong { color: var(--ink); font-size: 13px; font-weight: 550; overflow-wrap: anywhere; }
+.activity-inspector-detail h3 { margin: 0 0 9px; color: var(--secondary); font-size: 11px; font-weight: 550; }
+.activity-inspector-markdown { color: var(--ink); font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; }
+.activity-inspector-markdown > :first-child { margin-top: 0; }
+.activity-inspector-markdown > :last-child { margin-bottom: 0; }
+.activity-inspector-empty, .activity-inspector-note { color: var(--muted); font-size: 11px; line-height: 1.6; }
+.activity-inspector-note { margin: 16px 0 0; padding: 10px; border-radius: 9px; background: var(--soft); }
+@keyframes activity-inspector-enter { from { transform: translateX(8px); opacity: .7; } to { transform: translateX(0); opacity: 1; } }
 .assistant-activity-list { display: flex; flex-direction: column; gap: 0; margin: 0; padding: 9px 0 2px 3px; list-style: none; }
 .assistant-activity-list li { position: relative; display: grid; grid-template-columns: 10px minmax(0, 1fr); gap: 8px; min-height: 38px; padding: 2px 0 9px; }
 .assistant-activity-list li:not(:last-child)::before { position: absolute; top: 10px; bottom: -1px; left: 3px; width: 1px; background: var(--line); content: ""; }
@@ -272,12 +297,11 @@ kbd { margin-left: auto; color: var(--muted); font-family: inherit; font-size: 1
 .activity-running .activity-marker { border-color: var(--accent); background: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent); animation: pulse 1.3s infinite ease-in-out; }
 .activity-completed .activity-marker { border-color: var(--accent); background: var(--accent); }
 .activity-failed .activity-marker { border-color: var(--danger); background: var(--danger); }
-.assistant-activity-list .activity-commentary { display: block; min-height: 0; padding: 2px 0 12px; }
-.assistant-activity-list .activity-commentary::before { display: none; }
-.activity-commentary-text { color: var(--ink); font-size: 14px; line-height: 1.7; overflow-wrap: anywhere; }
-.activity-commentary-text > :first-child { margin-top: 0; }
-.activity-commentary-text > :last-child { margin-bottom: 0; }
 .assistant-activity-list li > div { min-width: 0; }
+.activity-step-button { display: block; width: 100%; min-width: 0; padding: 2px 5px 5px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: inherit; text-align: left; cursor: pointer; }
+.activity-step-button:hover, .activity-selected .activity-step-button { border-color: var(--line); background: var(--soft); }
+.activity-step-button:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.assistant-activity-list .activity-step-button small { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .activity-event-label { display: flex; min-width: 0; align-items: center; gap: 7px; }
 .activity-event-label .ui-icon { width: 14px; height: 14px; flex: 0 0 14px; color: var(--muted); }
 .activity-event-label strong { min-width: 0; flex: 0 1 auto; overflow: hidden; color: var(--muted); font-size: 11px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
@@ -955,3 +979,7 @@ kbd { margin-left: auto; color: var(--muted); font-family: inherit; font-size: 1
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (max-width: 440px) { .composer-reasoning label span { display: none; } .loop-guide { gap: 6px; font-size: 11px; } }
 @media (prefers-reduced-motion: reduce) { .spinning { animation: none; } }
+@media (max-width: 900px) {
+  .activity-inspector { position: fixed; z-index: 10; top: var(--app-header-height); right: 0; bottom: 0; width: min(92vw, 440px); min-width: 0; max-height: calc(100dvh - var(--app-header-height)); border-left: 1px solid var(--line-strong); box-shadow: -14px 0 38px #0004; }
+}
+@media (prefers-reduced-motion: reduce) { .activity-inspector { animation: none; } }

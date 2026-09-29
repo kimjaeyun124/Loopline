@@ -56,6 +56,7 @@ const state = {
   pendingProjectImport: null,
   activeId: null,
   activeProjectId: null,
+  activityInspector: null,
   sidebarWidth: SIDEBAR_WIDTH_DEFAULT,
   editingProjectId: null,
   movingConversationId: null,
@@ -118,6 +119,10 @@ const elements = {
   conversationProjectLabel: document.querySelector('#conversationProjectLabel'),
   conversationProjectAction: document.querySelector('#conversationProjectAction'),
   chatScroll: document.querySelector('#chatScroll'),
+  activityInspector: document.querySelector('#activityInspector'),
+  activityInspectorTitle: document.querySelector('#activityInspectorTitle'),
+  activityInspectorContent: document.querySelector('#activityInspectorContent'),
+  closeActivityInspector: document.querySelector('#closeActivityInspector'),
   welcome: document.querySelector('#welcome'),
   messages: document.querySelector('#messages'),
   conversationActions: document.querySelector('#conversationActions'),
@@ -192,6 +197,8 @@ if (new URLSearchParams(location.search).get('desktop') === '1') {
 }
 const chatGptUI = createChatGptUI({
   beforeOpen: () => {
+    state.activityInspector = null;
+    elements.activityInspector.hidden = true;
     if (discardUnsentNewTaskDrafts()) render();
     accountMenuUI.close();
     hideSettings();
@@ -227,6 +234,10 @@ function loadConversations() {
                 if (Object.keys(stageModels).length) normalized.harnessStageModels = stageModels;
               }
             }
+            if (message.role === 'assistant') {
+              const modelInfo = safeHarnessModel(message.modelInfo);
+              if (modelInfo) normalized.modelInfo = modelInfo;
+            }
             if (message.role === 'assistant' && Number.isFinite(message.workedForMs) && message.workedForMs >= 0) {
               normalized.workedForMs = Math.floor(message.workedForMs);
             }
@@ -248,9 +259,12 @@ function loadConversations() {
                 return [{
                   id: activity.id.slice(0, 120),
                   title: activity.title.slice(0, 220),
-                  detail: typeof activity.detail === 'string' ? activity.detail.slice(0, message.harnessRunId ? 12_000 : 240) : '',
+                  detail: typeof activity.detail === 'string'
+                    ? activity.detail.slice(0, (message.harnessRunId || status === 'failed') ? 12_000 : normalized.activityMode === 'native' ? 4_000 : 240)
+                    : '',
                   status,
                   ...(model ? { model } : {}),
+                  ...(Number.isFinite(activity.timestamp) && Math.abs(activity.timestamp) <= 8.64e15 ? { timestamp: activity.timestamp } : {}),
                   ...(activity.kind === 'commentary' ? {
                     kind: 'commentary',
                     text: typeof activity.text === 'string' ? activity.text.slice(0, 6000) : '',
@@ -575,6 +589,7 @@ function renderMessages() {
   elements.exportConversationButton.disabled = !messages.length || messages.some((message) => message.pending);
   if (!messages.length) {
     elements.messages.innerHTML = '';
+    renderActivityInspector();
     return;
   }
 
@@ -599,9 +614,7 @@ function renderMessages() {
       const activityMarkup = activityItems.length || stageModels ? `<details class="worked-for-details" data-activity-message-id="${escapeHtml(message.id || '')}"${message.activityExpanded !== false ? ' open' : ''}>
         <summary class="worked-for-row"><span class="worked-for-label" data-worked-for="${escapeHtml(message.id || '')}">${hasWorkedFor ? formatWorkedFor(elapsedMs) : '작업 과정'}</span>${message.pending ? '<span class="worked-for-live"><i aria-hidden="true"></i>Running · 진행 중</span>' : ''}</summary>
         ${stageModels}
-        <ol class="assistant-activity-list" aria-label="작업 단계">${activityItems.map((activity) => activity.kind === 'commentary'
-          ? `<li class="activity-commentary activity-${escapeHtml(activity.status)}"><div class="activity-commentary-text">${renderMarkdown(activity.text || '', { copyDisabled: true })}</div></li>`
-          : `<li class="activity-${escapeHtml(activity.status)}"><span class="activity-marker" aria-hidden="true"></span><div><span class="activity-event-label">${icon(activityIconName(activity))}<strong>${escapeHtml(activityTitleLabel(activity))}</strong>${activity.model ? `<span class="activity-model-pill" title="${escapeHtml(activityModelLabel(activity.model))}">${escapeHtml(activityModelLabel(activity.model))}</span>` : ''}<span class="activity-state">${activityStatusLabel(activity.status)}</span></span>${activityDisplayDetail(activity) ? `<small>${escapeHtml(activityDisplayDetail(activity))}</small>` : ''}</div></li>`).join('')}</ol>${message.activityMode === 'lifecycle' ? '<p class="activity-availability-note">This connection reports request and response status only; live tool events are unavailable. · 이 연결은 요청과 응답 상태만 제공하며 실시간 도구 작업은 표시할 수 없습니다.</p>' : ''}
+        <ol class="assistant-activity-list" aria-label="작업 단계">${activityItems.map((activity) => renderActivityItem(activity, message)).join('')}</ol>
       </details>` : hasWorkedFor ? `<div class="worked-for-row"><span class="worked-for-label" data-worked-for="${escapeHtml(message.id || '')}">${formatWorkedFor(elapsedMs)}</span>${message.pending ? '<span class="worked-for-live"><i aria-hidden="true"></i>진행 중</span>' : ''}</div>` : '';
       return `<article class="message assistant${errorClass}" data-message-id="${escapeHtml(message.id || '')}">
         <div class="assistant-response">
@@ -621,6 +634,7 @@ function renderMessages() {
     </article>`;
   }).join('');
   elements.chatScroll.scrollTop = elements.chatScroll.scrollHeight;
+  renderActivityInspector();
 }
 
 function activityStatusLabel(status) {
@@ -669,6 +683,83 @@ function renderHarnessStageModels(models) {
     return [`<div class="harness-stage-model"><span>${title}</span><strong>${escapeHtml(harnessProviderName(model))}</strong><small class="harness-stage-model-name" title="${escapeHtml(model.label || model.id)}">${escapeHtml(model.label || model.id)}</small>${effort}</div>`];
   });
   return stages.length ? `<section class="harness-stage-models" aria-label="단계별 사용 AI"><h4>단계별 사용 AI <span>AI by stage</span></h4><div>${stages.join('')}</div></section>` : '';
+}
+
+function activityModelForMessage(message, activity) {
+  const direct = safeHarnessModel(activity.model);
+  if (direct) return direct;
+  if (message.harnessStageModels) {
+    const label = `${activity.title} ${activity.detail}`.toLowerCase();
+    const role = /계획|planning|plan/.test(label) ? 'planner'
+      : /판정|검증|review|verification|jev/.test(label) ? 'judge'
+        : /구현|작업|파일|implementation|operations|round summary/.test(label) ? 'worker'
+          : '';
+    const model = role ? safeHarnessModel(message.harnessStageModels[role]) : null;
+    if (model) return model;
+  }
+  return safeHarnessModel(message.modelInfo);
+}
+
+function activityDetailText(activity) {
+  return activity.kind === 'commentary' ? activity.text || activity.detail : activityDisplayDetail(activity);
+}
+
+function activitySummary(activity) {
+  const text = String(activityDetailText(activity) || '').replace(/\s+/g, ' ').trim();
+  const plain = text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/[`*_>#]/g, '');
+  return plain.length > 170 ? `${plain.slice(0, 170).trimEnd()}…` : plain;
+}
+
+function renderActivityItem(activity, message) {
+  const selected = state.activityInspector?.messageId === message.id && state.activityInspector?.eventId === activity.id;
+  const model = activityModelForMessage(message, activity);
+  const summary = activitySummary(activity);
+  return `<li class="activity-${escapeHtml(activity.status)}${selected ? ' activity-selected' : ''}"><span class="activity-marker" aria-hidden="true"></span><div><button class="activity-step-button" type="button" data-open-activity="true" data-activity-message-id="${escapeHtml(message.id || '')}" data-activity-event-id="${escapeHtml(activity.id)}" aria-controls="activityInspector" aria-expanded="${selected}"><span class="activity-event-label">${icon(activityIconName(activity))}<strong>${escapeHtml(activityTitleLabel(activity))}</strong>${model ? `<span class="activity-model-pill" title="${escapeHtml(activityModelLabel(model))}">${escapeHtml(activityModelLabel(model))}</span>` : ''}<span class="activity-state">${activityStatusLabel(activity.status)}</span></span>${summary ? `<small>${escapeHtml(summary)}</small>` : ''}</button></div></li>`;
+}
+
+function renderActivityInspector() {
+  const selection = state.activityInspector;
+  const conversation = activeConversation();
+  const message = conversation?.messages.find((item) => item.id === selection?.messageId);
+  const activity = message?.activities?.find((item) => item.id === selection?.eventId);
+  if (!message || !activity) {
+    state.activityInspector = null;
+    elements.activityInspector.hidden = true;
+    elements.activityInspectorContent.innerHTML = '';
+    syncActivitySelection();
+    return;
+  }
+
+  const model = activityModelForMessage(message, activity);
+  const detail = activityDetailText(activity);
+  elements.activityInspector.hidden = false;
+  elements.activityInspectorTitle.textContent = activityTitleLabel(activity);
+  elements.activityInspectorContent.innerHTML = `
+    <div class="activity-inspector-status"><span class="activity-${escapeHtml(activity.status)}"><i aria-hidden="true"></i>${activityStatusLabel(activity.status)}</span>${Number.isFinite(activity.timestamp) ? `<time datetime="${new Date(activity.timestamp).toISOString()}">${new Date(activity.timestamp).toLocaleString()}</time>` : ''}</div>
+    ${model ? `<section class="activity-inspector-card"><span>사용한 AI · AI used</span><strong>${escapeHtml(harnessProviderName(model))}</strong><small>${escapeHtml(model.label || model.id)}</small>${model.effort ? `<small>추론 강도 · Effort: ${escapeHtml(model.effort)}</small>` : ''}</section>` : ''}
+    <section class="activity-inspector-detail"><h3>단계 기록 · Step details</h3>${detail ? `<div class="activity-inspector-markdown">${renderMarkdown(detail, { copyDisabled: true })}</div>` : '<p class="activity-inspector-empty">이 단계에서 추가로 기록된 내용이 없습니다.</p>'}</section>
+    ${message.activityMode === 'lifecycle' ? '<p class="activity-inspector-note">이 연결은 요청·응답 상태만 제공합니다. 모델 내부의 실시간 도구 과정은 제공되지 않습니다.</p>' : ''}
+  `;
+  syncActivitySelection();
+}
+
+function syncActivitySelection() {
+  for (const button of elements.messages.querySelectorAll('[data-open-activity]')) {
+    const selected = state.activityInspector?.messageId === button.dataset.activityMessageId
+      && state.activityInspector?.eventId === button.dataset.activityEventId;
+    button.setAttribute('aria-expanded', String(selected));
+    button.closest('li')?.classList.toggle('activity-selected', selected);
+  }
+}
+
+function closeActivityInspector() {
+  const selection = state.activityInspector;
+  state.activityInspector = null;
+  renderActivityInspector();
+  if (!selection) return;
+  const trigger = [...elements.messages.querySelectorAll('[data-open-activity]')]
+    .find((button) => button.dataset.activityMessageId === selection.messageId && button.dataset.activityEventId === selection.eventId);
+  trigger?.focus({ preventScroll: true });
 }
 
 function activityTitleLabel(activity) {
@@ -724,8 +815,12 @@ function updateAssistantActivity(message, activity) {
   const next = {
     id: activity.id.slice(0, 120),
     title: activity.title.replace(/\s+/g, ' ').trim().slice(0, 220),
-    detail: typeof activity.detail === 'string' ? activity.detail.replace(/\s+/g, ' ').trim().slice(0, 240) : '',
+    detail: typeof activity.detail === 'string'
+      ? activity.detail.slice(0, (message.harnessRunId || status === 'failed') ? 12_000 : message.activityMode === 'native' ? 4_000 : 240)
+      : '',
     status,
+    timestamp: Number.isFinite(activity.timestamp) && Math.abs(activity.timestamp) <= 8.64e15 ? activity.timestamp : Date.now(),
+    ...(safeHarnessModel(activity.model) ? { model: safeHarnessModel(activity.model) } : {}),
     ...(activity.kind === 'commentary' ? {
       kind: 'commentary',
       text: typeof activity.text === 'string' ? activity.text.slice(0, 6000) : '',
@@ -897,6 +992,17 @@ function modelCatalog() {
     label: displayModelName(model.label || model.id),
     displayId: displayModelName(model.id),
   }));
+}
+
+function activeModelInfo() {
+  const selected = modelCatalog().find((model) => modelKey(model) === selectedModelKey());
+  return safeHarnessModel({
+    provider: state.provider,
+    source: selected?.source || '',
+    id: state.model,
+    label: selected?.label || displayModelName(state.model),
+    effort: reasoningSettings().effectiveEffort || '',
+  });
 }
 
 function modelKey(model) {
@@ -2401,6 +2507,7 @@ async function sendLoopEngineering(value, queuedMessageId = null) {
         id: crypto.randomUUID(),
         pending: true,
         startedAt: Date.now(),
+        modelInfo: activeModelInfo(),
         activityMode: state.provider === 'openai' ? 'native' : 'lifecycle',
         activityExpanded: true,
         activities: [
@@ -2605,6 +2712,7 @@ async function sendMessage(value, queuedMessageId = null) {
   }
   const assistantMessage = {
     role: 'assistant', content: '', id: crypto.randomUUID(), pending: true, startedAt: Date.now(),
+    modelInfo: activeModelInfo(),
     activityMode: state.provider === 'openai' ? 'native' : 'lifecycle',
     activities: [
       { id: 'request', title: '요청 전송', detail: '선택한 모델로 요청을 보냈습니다.', status: 'completed' },
@@ -2735,6 +2843,7 @@ function selectConversation(conversation) {
     return false;
   }
   discardUnsentNewTaskDrafts(conversation.id);
+  state.activityInspector = null;
   state.activeId = conversation.id;
   state.activeProjectId = project(conversation.projectId) ? conversation.projectId : null;
   state.provider = conversation.provider;
@@ -3176,6 +3285,16 @@ elements.messages.addEventListener('toggle', (event) => {
   saveConversations();
 }, true);
 elements.messages.addEventListener('click', (event) => {
+  const activityStep = event.target.closest('[data-open-activity]');
+  if (activityStep) {
+    state.activityInspector = {
+      messageId: activityStep.dataset.activityMessageId,
+      eventId: activityStep.dataset.activityEventId,
+    };
+    renderActivityInspector();
+    activityStep.focus({ preventScroll: true });
+    return;
+  }
   const cancelQueued = event.target.closest('[data-cancel-queued]');
   if (cancelQueued) {
     removeQueuedMessage(cancelQueued.dataset.cancelQueued);
@@ -3189,6 +3308,12 @@ elements.messages.addEventListener('click', (event) => {
   if (!button) return;
   if (button.matches('.copy-code-button')) void copyCodeBlock(button);
   else void copyMessage(button);
+});
+elements.closeActivityInspector.addEventListener('click', closeActivityInspector);
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape' || elements.activityInspector.hidden || event.defaultPrevented) return;
+  event.preventDefault();
+  closeActivityInspector();
 });
 elements.exportConversationButton.addEventListener('click', exportConversationMarkdown);
 elements.fastModeToggle.addEventListener('click', toggleFastMode);

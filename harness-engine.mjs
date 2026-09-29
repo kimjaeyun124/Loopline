@@ -103,6 +103,11 @@ export function parseHarnessJson(text) {
   throw fail('모델 응답이 요청한 JSON 형식이 아닙니다.');
 }
 
+function verificationCommandUnavailable(result) {
+  const output = `${result?.output || ''}\n${result?.error || ''}`;
+  return result?.code === 127 && /command not found|no such file or directory/i.test(output);
+}
+
 // Resolve every path component: a worktree path alone does not constrain symlink traversal.
 export async function workspacePath(root, name, allowMissing = false) {
   if (typeof name !== 'string' || !name || name.length > 500 || isAbsolute(name) || name.includes('\\') || /[\x00-\x1f]/.test(name)) throw fail('작업 파일 경로가 올바르지 않습니다.');
@@ -382,7 +387,7 @@ export class HarnessEngine {
       run.stage = 'planning';
       const plan = String(await this.call(record, 'planner', `목표: ${run.task}\n파일 목록:\n${files}\n작업을 수행할 모델을 위한 짧은 구현 계획과 검증 기준을 작성하세요. 실제 도구를 실행하지 마세요. 핵심만 1,200자 이내로 작성하세요.`)).trim().slice(0, 6_000);
       await this.event(record, '구현 계획 / Implementation plan', plan);
-      let feedback = '', previousSummary = '';
+      let feedback = '', previousSummary = '', reselectVerification = false;
       for (let round = 1; round <= run.rounds; round++) {
         aborted(signal); run.round = round; run.stage = 'working';
         let history = '', lastReadAction = '', repeatedReads = 0;
@@ -426,13 +431,17 @@ export class HarnessEngine {
         }
         if (!finished) throw fail('한 회차의 작업 도구 호출 한도(16회)에 도달했습니다. 목표를 작게 나누어 다시 실행해 주세요.');
         await this.event(record, '회차 변경 요약 / Round summary', previousSummary);
-        if (run.automaticVerification && (!run.verifyCommand || run.verificationPassed === false)) await this.configureVerification(record, plan, previousSummary);
+        if (run.automaticVerification && (!run.verifyCommand || reselectVerification)) {
+          await this.configureVerification(record, plan, previousSummary);
+          reselectVerification = false;
+        }
         run.stage = 'verifying'; await this.event(record, '검증 / Verification', run.verifyCommand, 'running');
         const verifyEvent = run.events.at(-1);
         const verification = await this.verify(run.workspace, run.verifyCommand, run.runtime, signal);
         aborted(signal); verifyEvent.status = verification.code === 0 ? 'completed' : 'failed';
         verifyEvent.detail = `${run.verifyCommand}\n종료 코드: ${verification.code}\n${verification.output}\n${verification.error}`.slice(-12_000);
         run.verificationPassed = verification.code === 0;
+        reselectVerification = run.automaticVerification && verificationCommandUnavailable(verification);
         await git(run.workspace, ['add', '-A'], signal);
         const patch = await git(run.workspace, ['diff', '--cached', '--no-ext-diff', '--binary', run.baseline, '--'], signal);
         await writeFile(join(directory, 'final.patch'), patch, { mode: 0o600 }); run.patchAvailable = Boolean(patch);

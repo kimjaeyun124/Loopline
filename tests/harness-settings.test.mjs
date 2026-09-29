@@ -134,3 +134,17 @@ test('search keeps the selected model and automatic reset preserves fallback pri
   s.node('#harnessUseAutomatic').fire('click');
   assert.deepEqual(s.saved().roles.worker, { model: '', effort: '', fallbacks: ['c', 'b'] });
 });
+
+test('all role selectors use the concise automatic label with or without Jev', (t) => {
+  for (const withJev of [false, true]) {
+    const models = [{ id: 'writer', label: 'Writer', provider: 'api', source: 'QA', connected: true }];
+    if (withJev) models.push({ id: 'jev', label: 'Jev', provider: 'api', source: 'QA', connected: true, decisionOnly: true });
+    const s = setup(t, { models }); s.ui.open();
+    for (const role of ['planner', 'worker', 'judge']) {
+      const options = s.fields.innerHTML.match(new RegExp(`<select data-harness-role="${role}"[^>]*>([\\s\\S]*?)</select>`))?.[1];
+      assert.ok(options, role);
+      assert.match(options, /<option value="">자동<\/option>/);
+      assert.doesNotMatch(options, /자동 ·/);
+    }
+  }
+});

@@ -600,9 +600,13 @@ function renderMessages() {
   elements.messages.innerHTML = messages.map((message, index) => {
     const assistant = message.role === 'assistant';
     const errorClass = message.error ? ' error' : '';
+    const activityItems = assistant && Array.isArray(message.activities) ? message.activities : [];
+    const isLoopMessage = assistant && (Boolean(message.harnessRunId)
+      || activityItems.some((activity) => activity.id === 'request' && activity.title.startsWith('Loop Engineering')));
+    const displayContent = messageDisplayContent(message);
     const content = message.pending && !message.content
       ? '<span class="typing-dots" aria-label="응답 생성 중"><i></i><i></i><i></i></span>'
-      : assistant ? renderMarkdown(message.content, { copyDisabled: message.pending }) : escapeHtml(message.content);
+      : assistant ? renderMarkdown(displayContent, { copyDisabled: message.pending }) : escapeHtml(message.content);
     const copyLabel = assistant ? '답변' : '질문';
     const copyButton = `<button class="message-copy-button" type="button" data-copy-message-index="${index}" aria-label="${copyLabel} 복사" title="${copyLabel} 복사">${icon('copy')}<span>복사</span></button>`;
     const queuePosition = message.queued ? queuedMessages.findIndex((item) => item.id === message.id) + 1 : 0;
@@ -612,11 +616,14 @@ function renderMessages() {
     if (assistant) {
       const hasWorkedFor = message.pending || Number.isFinite(message.workedForMs);
       const elapsedMs = message.pending ? Date.now() - (message.startedAt || Date.now()) : message.workedForMs;
-      const activityItems = Array.isArray(message.activities) ? message.activities : [];
       const stageModels = message.harnessRunId ? renderHarnessStageModels(message.harnessStageModels) : '';
+      const taskPrompt = isLoopMessage ? previousTaskPrompt(messages, index) : '';
+      const taskContext = taskPrompt
+        ? `<section class="loop-task-context"><span>현재 작업 · Current task</span><p title="${escapeHtml(taskPrompt)}">${escapeHtml(taskPrompt)}</p></section>`
+        : '';
       const activityMarkup = activityItems.length || stageModels ? `<details class="worked-for-details" data-activity-message-id="${escapeHtml(message.id || '')}"${message.activityExpanded !== false ? ' open' : ''}>
         <summary class="worked-for-row"><span class="worked-for-label" data-worked-for="${escapeHtml(message.id || '')}">${hasWorkedFor ? formatWorkedFor(elapsedMs) : '작업 과정'}</span>${message.pending ? '<span class="worked-for-live"><i aria-hidden="true"></i>Running · 진행 중</span>' : ''}</summary>
-        ${stageModels}
+        ${taskContext}${stageModels}
         <ol class="assistant-activity-list" aria-label="작업 단계">${activityItems.map((activity) => renderActivityItem(activity, message)).join('')}</ol>
       </details>` : hasWorkedFor ? `<div class="worked-for-row"><span class="worked-for-label" data-worked-for="${escapeHtml(message.id || '')}">${formatWorkedFor(elapsedMs)}</span>${message.pending ? '<span class="worked-for-live"><i aria-hidden="true"></i>진행 중</span>' : ''}</div>` : '';
       return `<article class="message assistant${errorClass}" data-message-id="${escapeHtml(message.id || '')}">
@@ -638,6 +645,69 @@ function renderMessages() {
   }).join('');
   elements.chatScroll.scrollTop = elements.chatScroll.scrollHeight;
   renderActivityInspector();
+}
+
+function previousTaskPrompt(messages, messageIndex) {
+  for (let index = messageIndex - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message.role === 'user' && !message.queued) return String(message.content || '').trim();
+  }
+  return '';
+}
+
+function messageDisplayContent(message) {
+  const isModelRepeatMessage = message.role === 'assistant' && !message.harnessRunId
+    && message.activities?.some((activity) => activity.id === 'request' && activity.title.startsWith('Loop Engineering'));
+  return isModelRepeatMessage ? loopResponsePresentation(message.content, message.pending) : String(message.content || '');
+}
+
+function loopResponsePresentation(content, pending = false) {
+  const text = String(content || '');
+  const trimmed = text.trim();
+  if (!trimmed.startsWith('{')) return text;
+
+  let response;
+  try {
+    response = JSON.parse(trimmed);
+  } catch {
+    return pending && /^\s*\{\s*"/.test(text) ? '작업 결과를 정리하고 있습니다…' : text;
+  }
+
+  if (!response || typeof response !== 'object' || !Array.isArray(response.operations)) return text;
+  if (pending) return '작업 결과를 정리하고 있습니다…';
+  if (!response.operations.length) return '결론\n모델이 제안한 작업이 없습니다.';
+  const actionLabels = {
+    read: '읽기',
+    read_file: '읽기',
+    write: '작성',
+    write_file: '작성',
+    edit: '수정',
+    edit_file: '수정',
+    delete: '삭제',
+    delete_file: '삭제',
+    list: '목록 확인',
+    list_files: '목록 확인',
+    search: '검색',
+    run: '명령 실행',
+    run_command: '명령 실행',
+    execute: '명령 실행',
+  };
+  const operations = response.operations.slice(0, 12).map((operation) => {
+    const type = typeof operation?.type === 'string' ? operation.type.toLowerCase() : '';
+    const action = actionLabels[type] || '작업 제안';
+    const target = typeof operation?.path === 'string' && operation.path.trim()
+      ? `\`${operation.path.trim().slice(0, 240)}\` `
+      : typeof operation?.command === 'string' && operation.command.trim()
+        ? `\`${operation.command.trim().slice(0, 240)}\` `
+        : '프로젝트 ';
+    return `${target}${action}`;
+  });
+
+  const conclusion = [response.conclusion, response.summary, response.result]
+    .find((item) => typeof item === 'string' && item.trim());
+  const requestedWork = `요청된 작업\n${operations.map((operation) => `- ${operation}`).join('\n')}`;
+  if (conclusion) return `${String(conclusion).trim().slice(0, 12_000)}\n\n${requestedWork}`;
+  return `${requestedWork}\n\n결론\n응답에는 작업 요청만 있고 파일 내용이나 실행 결과는 포함되어 있지 않습니다.`;
 }
 
 function activityStatusLabel(status) {
@@ -2175,7 +2245,7 @@ async function copyLastResponse() {
     .find((item) => item.role === 'assistant' && item.content && !item.pending);
   if (!message) return;
   try {
-    await navigator.clipboard.writeText(message.content);
+    await navigator.clipboard.writeText(messageDisplayContent(message));
     showToast('마지막 답변을 복사했습니다.');
   } catch {
     showToast('클립보드에 복사하지 못했습니다. 앱 권한을 확인해 주세요.');
@@ -2188,7 +2258,7 @@ async function copyMessage(button) {
   const message = Number.isInteger(index) ? activeConversation()?.messages[index] : null;
   if (!message || typeof message.content !== 'string' || message.pending) return;
   try {
-    await navigator.clipboard.writeText(message.content);
+    await navigator.clipboard.writeText(messageDisplayContent(message));
     showToast(message.role === 'user' ? '질문을 복사했습니다.' : '답변을 복사했습니다.');
   } catch {
     showToast('클립보드에 복사하지 못했습니다. 앱 권한을 확인해 주세요.');
@@ -2692,6 +2762,13 @@ async function sendLoopEngineering(value, queuedMessageId = null) {
       const signaledComplete = completedContent.endsWith(LOOP_ENGINEERING_COMPLETE_MARKER);
       if (signaledComplete) {
         assistantMessage.content = completedContent.slice(0, -LOOP_ENGINEERING_COMPLETE_MARKER.length).trimEnd();
+      }
+      if (!assistantMessage.error) {
+        const summarizedContent = loopResponsePresentation(assistantMessage.content);
+        if (summarizedContent !== assistantMessage.content) {
+          assistantMessage.content = summarizedContent;
+          updateResponseActivity(assistantMessage, 'completed', '응답 완료', '작업 요청과 결과를 읽기 쉬운 문장으로 정리했습니다.');
+        }
       }
       if (state.loopStopRequested) {
         assistantMessage.error = false;

@@ -104,10 +104,11 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
   function update(run, message, conversation) {
     const pending = !DONE.has(run.status);
     message.harnessRunId = run.id; message.harnessStatus = run.status; message.pending = pending;
+    if (run.stageModels) message.harnessStageModels = run.stageModels;
     message.startedAt = run.createdAt; message.workedForMs = (run.finishedAt || Date.now()) - run.createdAt;
     message.activityMode = 'native';
     message.activities = run.events.slice(-100).map((event) => ({ ...event,
-      ...(event.status !== 'running' && event.detail && !event.title.startsWith('파일 작업') ? { kind: 'commentary', text: `**${event.title}**\n\n${event.detail}` } : {}),
+      ...(event.status !== 'running' && event.detail && !event.model && !event.title.startsWith('파일 작업') ? { kind: 'commentary', text: `**${event.title}**\n\n${event.detail}` } : {}),
     }));
     message.error = ['failed', 'blocked', 'interrupted'].includes(run.status);
     message.content = pending ? `Harness · ${run.round}/${run.rounds}회차 · ${run.status === 'stopping' ? '중지 중' : ({ prepare: '작업 공간 준비', configuring: '판정 모델이 실행 환경 구성', planning: '계획 작성', working: '파일 작업', verifying: '검증', judging: '판정', applying: '프로젝트 반영' })[run.stage] || run.stage}`
@@ -151,7 +152,7 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
     for (const [role] of ROLES) {
       const model = choose(role);
       if (!model) { open(); throw new Error(role === 'judge' ? 'Jev를 연결하거나 판정 모델을 선택해 주세요.' : '사용할 모델을 연결해 주세요.'); }
-      roles[role] = { provider: model.provider, model: model.id, label: model.label, connectionId: model.connectionId,
+      roles[role] = { provider: model.provider, source: model.source, model: model.id, label: model.label, connectionId: model.connectionId,
         codexAccountId: state.activeCodexAccountId, reasoningEffort: resolveEffort(role, model, task), instructions: instructions(model.provider) };
     }
     const workspace = project?.workspace || conversation.harnessWorkspace || undefined;

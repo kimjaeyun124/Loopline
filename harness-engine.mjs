@@ -205,7 +205,18 @@ export class HarnessEngine {
     }
     const id = randomUUID();
     const run = { id, status: 'running', stage: 'prepare', round: 0, rounds: input.rounds, source, task: input.task,
-      roles: input.roles, managedProject: !source, automaticVerification: !input.verifyCommand?.trim(), verifyCommand: input.verifyCommand?.trim() || '', instructions: typeof input.instructions === 'string' ? input.instructions.slice(0, 24_000) : '',
+      roles: input.roles,
+      stageModels: Object.fromEntries(['planner', 'worker', 'judge'].map((role) => {
+        const selection = input.roles[role];
+        return [role, {
+          provider: selection.provider,
+          source: typeof selection.source === 'string' ? selection.source.slice(0, 120) : '',
+          id: selection.model.slice(0, 160),
+          label: (typeof selection.label === 'string' && selection.label.trim() ? selection.label : selection.model).slice(0, 160),
+          reasoningEffort: typeof selection.reasoningEffort === 'string' ? selection.reasoningEffort.slice(0, 24) : '',
+        }];
+      })),
+      managedProject: !source, automaticVerification: !input.verifyCommand?.trim(), verifyCommand: input.verifyCommand?.trim() || '', instructions: typeof input.instructions === 'string' ? input.instructions.slice(0, 24_000) : '',
       autoApply: input.autoApply !== false, events: [], createdAt: Date.now(), summary: '', patchAvailable: false };
     const record = { run, controller: new AbortController(), writes: Promise.resolve() };
     if (source) this.sources.add(source); this.runs.set(id, record);
@@ -247,15 +258,25 @@ export class HarnessEngine {
     if (!TERMINAL.has(record.run.status)) { record.controller.abort(new Error('사용자가 실행을 중지했습니다.')); record.run.status = 'stopping'; await this.persist(record); }
     return this.publicRun(record.run);
   }
-  async event(record, title, detail = '', status = 'completed') {
-    record.run.events.push({ id: randomUUID(), title, detail: String(detail).slice(0, 12_000), status, timestamp: Date.now() });
+  async event(record, title, detail = '', status = 'completed', model = null) {
+    const event = { id: randomUUID(), title, detail: String(detail).slice(0, 12_000), status, timestamp: Date.now() };
+    if (model) event.model = model;
+    record.run.events.push(event);
     if (record.run.events.length > 500) record.run.events.shift();
     await this.persist(record);
   }
   async call(record, role, prompt) {
     aborted(record.controller.signal);
     const selection = record.run.roles[role];
-    await this.event(record, `${role === 'planner' ? '계획 / Planning' : role === 'judge' ? '판정 / Review' : '작업 / Work'} · ${selection.label || selection.model}`, `${record.run.round}/${record.run.rounds} · effort: ${selection.reasoningEffort || '자동'}`, 'running');
+    const model = {
+      role,
+      provider: selection.provider,
+      source: typeof selection.source === 'string' ? selection.source.slice(0, 120) : '',
+      id: selection.model.slice(0, 160),
+      label: (typeof selection.label === 'string' && selection.label.trim() ? selection.label : selection.model).slice(0, 160),
+      effort: typeof selection.reasoningEffort === 'string' ? selection.reasoningEffort.slice(0, 24) : '',
+    };
+    await this.event(record, `${role === 'planner' ? '계획 / Planning' : role === 'judge' ? '판정 / Review' : '구현 / Implementation'}`, `${record.run.round}/${record.run.rounds} · 추론 강도 / Effort: ${selection.reasoningEffort || '자동'}`, 'running', model);
     const event = record.run.events.at(-1);
     try {
       const answer = await this.invoke(selection, prompt, record.run.instructions, record.controller.signal);
@@ -276,7 +297,14 @@ export class HarnessEngine {
     });
     const failed = Object.entries(checks).filter(([id]) => result.answers[id].choice !== 'pass');
     const summary = `Jev · ${result.model || record.run.roles.judge.model}\n${lines.join('\n')}`;
-    await this.event(record, 'Jev 실제 판정 / Live Jev decision', summary);
+    const judge = record.run.roles.judge;
+    await this.event(record, 'Jev 실제 판정 / Live Jev decision', summary, 'completed', {
+      role: 'judge', provider: judge.provider,
+      source: typeof judge.source === 'string' ? judge.source.slice(0, 120) : '',
+      id: String(result.model || judge.model).slice(0, 160),
+      label: String(result.model || judge.label || judge.model).slice(0, 160),
+      effort: typeof judge.reasoningEffort === 'string' ? judge.reasoningEffort.slice(0, 24) : '',
+    });
     return { decision: failed.length ? 'revise' : 'complete', summary, feedback: failed.map(([, check]) => check.revise).join('\n') };
   }
 

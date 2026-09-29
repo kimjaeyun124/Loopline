@@ -219,6 +219,13 @@ function loadConversations() {
               normalized.harnessRunId = message.harnessRunId;
               normalized.harnessStatus = message.harnessStatus || 'running';
               normalized.activityExpanded = message.activityExpanded !== false;
+              if (message.harnessStageModels && typeof message.harnessStageModels === 'object') {
+                const stageModels = Object.fromEntries(['planner', 'worker', 'judge'].flatMap((role) => {
+                  const model = safeHarnessModel(message.harnessStageModels[role]);
+                  return model ? [[role, model]] : [];
+                }));
+                if (Object.keys(stageModels).length) normalized.harnessStageModels = stageModels;
+              }
             }
             if (message.role === 'assistant' && Number.isFinite(message.workedForMs) && message.workedForMs >= 0) {
               normalized.workedForMs = Math.floor(message.workedForMs);
@@ -237,11 +244,13 @@ function loadConversations() {
                 const status = ['pending', 'running', 'completed', 'failed', 'stopped'].includes(activity.status)
                   ? activity.status
                   : 'completed';
+                const model = safeHarnessModel(activity.model);
                 return [{
                   id: activity.id.slice(0, 120),
                   title: activity.title.slice(0, 220),
                   detail: typeof activity.detail === 'string' ? activity.detail.slice(0, message.harnessRunId ? 12_000 : 240) : '',
                   status,
+                  ...(model ? { model } : {}),
                   ...(activity.kind === 'commentary' ? {
                     kind: 'commentary',
                     text: typeof activity.text === 'string' ? activity.text.slice(0, 6000) : '',
@@ -586,11 +595,13 @@ function renderMessages() {
       const hasWorkedFor = message.pending || Number.isFinite(message.workedForMs);
       const elapsedMs = message.pending ? Date.now() - (message.startedAt || Date.now()) : message.workedForMs;
       const activityItems = Array.isArray(message.activities) ? message.activities : [];
-      const activityMarkup = activityItems.length ? `<details class="worked-for-details" data-activity-message-id="${escapeHtml(message.id || '')}"${message.activityExpanded !== false ? ' open' : ''}>
+      const stageModels = message.harnessRunId ? renderHarnessStageModels(message.harnessStageModels) : '';
+      const activityMarkup = activityItems.length || stageModels ? `<details class="worked-for-details" data-activity-message-id="${escapeHtml(message.id || '')}"${message.activityExpanded !== false ? ' open' : ''}>
         <summary class="worked-for-row"><span class="worked-for-label" data-worked-for="${escapeHtml(message.id || '')}">${hasWorkedFor ? formatWorkedFor(elapsedMs) : '작업 과정'}</span>${message.pending ? '<span class="worked-for-live"><i aria-hidden="true"></i>Running · 진행 중</span>' : ''}</summary>
+        ${stageModels}
         <ol class="assistant-activity-list" aria-label="작업 단계">${activityItems.map((activity) => activity.kind === 'commentary'
           ? `<li class="activity-commentary activity-${escapeHtml(activity.status)}"><div class="activity-commentary-text">${renderMarkdown(activity.text || '', { copyDisabled: true })}</div></li>`
-          : `<li class="activity-${escapeHtml(activity.status)}"><span class="activity-marker" aria-hidden="true"></span><div><span class="activity-event-label">${icon(activityIconName(activity))}<strong>${escapeHtml(activityTitleLabel(activity))}</strong><span class="activity-state">${activityStatusLabel(activity.status)}</span></span>${activityDisplayDetail(activity) ? `<small>${escapeHtml(activityDisplayDetail(activity))}</small>` : ''}</div></li>`).join('')}</ol>${message.activityMode === 'lifecycle' ? '<p class="activity-availability-note">This connection reports request and response status only; live tool events are unavailable. · 이 연결은 요청과 응답 상태만 제공하며 실시간 도구 작업은 표시할 수 없습니다.</p>' : ''}
+          : `<li class="activity-${escapeHtml(activity.status)}"><span class="activity-marker" aria-hidden="true"></span><div><span class="activity-event-label">${icon(activityIconName(activity))}<strong>${escapeHtml(activityTitleLabel(activity))}</strong>${activity.model ? `<span class="activity-model-pill" title="${escapeHtml(activityModelLabel(activity.model))}">${escapeHtml(activityModelLabel(activity.model))}</span>` : ''}<span class="activity-state">${activityStatusLabel(activity.status)}</span></span>${activityDisplayDetail(activity) ? `<small>${escapeHtml(activityDisplayDetail(activity))}</small>` : ''}</div></li>`).join('')}</ol>${message.activityMode === 'lifecycle' ? '<p class="activity-availability-note">This connection reports request and response status only; live tool events are unavailable. · 이 연결은 요청과 응답 상태만 제공하며 실시간 도구 작업은 표시할 수 없습니다.</p>' : ''}
       </details>` : hasWorkedFor ? `<div class="worked-for-row"><span class="worked-for-label" data-worked-for="${escapeHtml(message.id || '')}">${formatWorkedFor(elapsedMs)}</span>${message.pending ? '<span class="worked-for-live"><i aria-hidden="true"></i>진행 중</span>' : ''}</div>` : '';
       return `<article class="message assistant${errorClass}" data-message-id="${escapeHtml(message.id || '')}">
         <div class="assistant-response">
@@ -620,6 +631,44 @@ function activityStatusLabel(status) {
     failed: 'Failed · 실패',
     stopped: 'Stopped · 중지',
   })[status] || 'Completed · 완료';
+}
+
+function safeHarnessModel(value) {
+  if (!value || typeof value !== 'object' || !['openai', 'anthropic', 'api'].includes(value.provider)) return null;
+  const text = (item, limit) => typeof item === 'string' ? item.replace(/[\x00-\x1f]/g, '').trim().slice(0, limit) : '';
+  const model = {
+    provider: value.provider,
+    source: text(value.source, 120),
+    id: text(value.id, 160),
+    label: text(value.label, 160),
+    effort: text(value.effort ?? value.reasoningEffort, 24),
+  };
+  if (['planner', 'worker', 'judge'].includes(value.role)) model.role = value.role;
+  return model.label || model.id ? model : null;
+}
+
+function harnessProviderName(model) {
+  if (model.provider === 'api') return model.source || 'API';
+  return model.provider === 'openai' ? 'Codex' : 'Claude Code';
+}
+
+function activityModelLabel(model) {
+  return [harnessProviderName(model), model.label || model.id, model.effort].filter(Boolean).join(' · ');
+}
+
+function renderHarnessStageModels(models) {
+  if (!models || typeof models !== 'object') return '';
+  const stages = [
+    ['planner', '계획 / Planning'],
+    ['worker', '구현 / Implementation'],
+    ['judge', '판정 / Review'],
+  ].flatMap(([role, title]) => {
+    const model = safeHarnessModel(models[role]);
+    if (!model) return [];
+    const effort = model.effort ? `<small>추론 강도 · Effort: ${escapeHtml(model.effort)}</small>` : '';
+    return [`<div class="harness-stage-model"><span>${title}</span><strong>${escapeHtml(harnessProviderName(model))}</strong><small class="harness-stage-model-name" title="${escapeHtml(model.label || model.id)}">${escapeHtml(model.label || model.id)}</small>${effort}</div>`];
+  });
+  return stages.length ? `<section class="harness-stage-models" aria-label="단계별 사용 AI"><h4>단계별 사용 AI <span>AI by stage</span></h4><div>${stages.join('')}</div></section>` : '';
 }
 
 function activityTitleLabel(activity) {

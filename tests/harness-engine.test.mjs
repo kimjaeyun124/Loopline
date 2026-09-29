@@ -25,11 +25,25 @@ async function settled(engine, id) {
   await engine.runs.get(id).execution;
   return engine.get(id);
 }
+const promptText = (prompt) => typeof prompt === 'string' ? prompt : JSON.stringify(prompt);
+const hasText = (prompt, value) => promptText(prompt).includes(value);
+const startsWithText = (prompt, value) => typeof prompt === 'string' && prompt.startsWith(value);
+const isJudgementPrompt = (prompt) => Boolean(prompt && typeof prompt === 'object' && prompt.questions && prompt.state);
+function judgementResponse(prompt, decision = 'complete', reason = '') {
+  const choice = decision === 'complete' ? 'pass' : 'revise';
+  return JSON.stringify({ answers: Object.fromEntries(Object.keys(prompt.questions).map((id) => [id, {
+    choice, reason: reason || (choice === 'pass' ? '검증 근거가 기준을 충족합니다.' : '기준을 충족하지 못한 부분을 수정해야 합니다.'),
+  }])) });
+}
 function modelScript(judge) {
   let steps = 0;
   return async (_selection, prompt) => {
-    if (prompt.includes('구현 계획과 검증 기준')) return 'Read, update, verify.';
-    if (prompt.startsWith('변경 결과를')) return JSON.stringify(await judge());
+    if (isJudgementPrompt(prompt)) {
+      const verdict = await judge();
+      return verdict?.answers ? verdict : judgementResponse(prompt, verdict?.decision, verdict?.feedback);
+    }
+    if (startsWithText(prompt, '새 프로젝트의 작업 폴더')) return JSON.stringify({ folderName: 'generated-project', reason: 'Goal-specific folder' });
+    if (hasText(prompt, '구현 계획과 검증 기준')) return 'Read, update, verify.';
     steps++;
     if (steps % 3 === 1) return JSON.stringify({ operations: [{ type: 'read', path: 'file.txt' }] });
     if (steps % 3 === 2) return JSON.stringify({ operations: [{ type: 'write', path: 'file.txt', content: `updated ${Math.ceil(steps / 3)}\n` }] });
@@ -39,6 +53,89 @@ function modelScript(judge) {
 const pass = async () => ({ code: 0, output: 'PASS', error: '' });
 const complete = () => ({ decision: 'complete', summary: 'Verified', feedback: '' });
 
+test('a reported zero-token budget skips to the next saved planner and judge priorities', async (t) => {
+  const f = await fixture(t), plannerCalls = [];
+  const primary = { ...f.input.roles.planner, fallbacks: [
+    { ...f.input.roles.planner, model: 'planner-priority-1', label: 'Planner priority 1' },
+    { ...f.input.roles.planner, model: 'planner-priority-2', label: 'Planner priority 2' },
+  ] };
+  const script = modelScript(complete);
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (selection, prompt, instructions, signal, onSignal) => {
+    if (startsWithText(prompt, '검증 방법을')) {
+      plannerCalls.push(selection.model);
+      if (plannerCalls.length === 1) {
+        onSignal({ type: 'budget', remainingTokens: 0, source: 'QA response header' });
+        return JSON.stringify({ operations: [{ type: 'read', path: 'file.txt' }] });
+      }
+      return JSON.stringify({ verifyCommand: 'test -f file.txt', reason: 'Check the implemented file.' });
+    }
+    return script(selection, prompt, instructions, signal, onSignal);
+  } });
+  const run = await settled(engine, (await engine.create({ ...f.input, roles: { ...f.input.roles, planner: primary }, verifyCommand: undefined })).id);
+  assert.equal(run.status, 'completed', run.summary);
+  assert.deepEqual(plannerCalls, ['fixture-model', 'planner-priority-1']);
+  assert.equal(run.stageModels.planner.id, 'planner-priority-1');
+  assert.ok(run.events.some((event) => event.title.includes('모델 한도 확인') && event.detail.includes('남은 토큰 0')));
+  assert.ok(run.events.some((event) => event.title.includes('우선순위 모델 전환') && event.model?.id === 'planner-priority-1'));
+});
+
+test('HTTP 429 fails over in the saved order but authentication errors do not', async (t) => {
+  const f = await fixture(t), plannerCalls = [];
+  const primary = { ...f.input.roles.planner, fallbacks: [
+    { ...f.input.roles.planner, model: 'planner-priority-1', label: 'Planner priority 1' },
+    { ...f.input.roles.planner, model: 'planner-priority-2', label: 'Planner priority 2' },
+  ] };
+  const script = modelScript(complete);
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (selection, prompt, ...rest) => {
+    if (hasText(prompt, '구현 계획과 검증 기준')) {
+      plannerCalls.push(selection.model);
+      if (selection.model !== 'planner-priority-2') throw Object.assign(new Error('API rate limit reached'), { remoteStatus: 429 });
+    }
+    return script(selection, prompt, ...rest);
+  } });
+  const run = await settled(engine, (await engine.create({ ...f.input, roles: {
+    ...f.input.roles, planner: primary,
+    worker: { ...f.input.roles.worker, fallbacks: primary.fallbacks },
+  } })).id);
+  assert.equal(run.status, 'completed', run.summary);
+  assert.deepEqual(plannerCalls, ['fixture-model', 'planner-priority-1', 'planner-priority-2']);
+  assert.equal(run.stageModels.planner.id, 'planner-priority-2');
+  assert.equal(run.events.filter((event) => event.title.includes('한도 초과')).length, 2);
+
+  const g = await fixture(t), attempted = [];
+  const fatalEngine = new HarnessEngine({ directory: g.data, invoke: async (selection, prompt) => {
+    if (hasText(prompt, '구현 계획과 검증 기준')) {
+      attempted.push(selection.model);
+      throw Object.assign(new Error('API key invalid'), { remoteStatus: 401 });
+    }
+    return script(selection, prompt);
+  } });
+  const failed = await settled(fatalEngine, (await fatalEngine.create({ ...g.input, roles: { ...g.input.roles, planner: primary } })).id);
+  assert.equal(failed.status, 'failed');
+  assert.deepEqual(attempted, ['fixture-model']);
+});
+
+test('Jev quota exhaustion routes every subsequent judgement to the saved general model', async (t) => {
+  const f = await fixture(t), calls = [];
+  const script = modelScript(complete);
+  const judge = { provider: 'api', model: 'jev-primary', label: 'Jev', connectionId: 'jev', decisionOnly: true,
+    fallbacks: [{ provider: 'api', model: 'judge-priority-1', label: 'General judge', connectionId: 'general' }] };
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (selection, prompt, ...rest) => {
+    if (isJudgementPrompt(prompt)) {
+      calls.push(selection.model);
+      if (selection.model === 'jev-primary') throw Object.assign(new Error('Jev rate limit reached'), { remoteStatus: 429 });
+      return judgementResponse(prompt);
+    }
+    return script(selection, prompt, ...rest);
+  } });
+  const run = await settled(engine, (await engine.create({ ...f.input, roles: { ...f.input.roles, judge } })).id);
+  assert.equal(run.status, 'completed', run.summary);
+  assert.equal(calls[0], 'jev-primary');
+  assert.ok(calls.slice(1).length > 0 && calls.slice(1).every((model) => model === 'judge-priority-1'));
+  assert.equal(run.stageModels.judge.id, 'judge-priority-1');
+  assert.ok(run.events.some((event) => event.title.includes('우선순위 모델 전환') && event.model?.id === 'judge-priority-1'));
+});
+
 test('round feedback reaches worker, dirty user files survive and accepted patch applies automatically', async (t) => {
   const f = await fixture(t);
   await writeFile(join(f.source, 'user-note.txt'), 'untracked user data');
@@ -46,7 +143,7 @@ test('round feedback reaches worker, dirty user files survive and accepted patch
   let judgments = 0;
   const invoke = modelScript(() => ++judgments === 1 ? { decision: 'revise', summary: 'Needs another pass', feedback: 'second-pass-feedback' } : complete());
   let receivedFeedback = false;
-  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (...args) => { if (args[1].includes('second-pass-feedback')) receivedFeedback = true; return invoke(...args); } });
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (...args) => { if (hasText(args[1], 'second-pass-feedback')) receivedFeedback = true; return invoke(...args); } });
   const created = await engine.create(f.input);
   const run = await settled(engine, created.id);
   assert.equal(run.status, 'completed', run.summary); assert.equal(run.round, 2); assert.equal(run.applied, true);
@@ -61,8 +158,8 @@ test('worker combines the final file operation and completion to reduce model ca
   async function runWorker(combineCompletion) {
     const f = await fixture(t); let workerCalls = 0;
     const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (_selection, prompt) => {
-      if (prompt.includes('구현 계획과 검증 기준')) return 'Read and update file.txt.';
-      if (prompt.startsWith('변경 결과를')) return JSON.stringify(complete());
+      if (hasText(prompt, '구현 계획과 검증 기준')) return 'Read and update file.txt.';
+      if (isJudgementPrompt(prompt)) return judgementResponse(prompt);
       workerCalls++;
       if (workerCalls === 1) return JSON.stringify({ operations: [{ type: 'read', path: 'file.txt' }] });
       const operation = { type: 'edit', path: 'file.txt', oldText: 'original\n', newText: 'updated\n' };
@@ -90,8 +187,8 @@ test('worker context replaces an edited file with its latest contents', async (t
   await writeFile(join(f.source, 'file.txt'), previous);
   let workerCalls = 0, latestPrompt = '';
   const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (_selection, prompt) => {
-    if (prompt.includes('구현 계획과 검증 기준')) return 'Read and update file.txt.';
-    if (prompt.startsWith('변경 결과를')) return JSON.stringify(complete());
+    if (hasText(prompt, '구현 계획과 검증 기준')) return 'Read and update file.txt.';
+    if (isJudgementPrompt(prompt)) return judgementResponse(prompt);
     workerCalls++;
     if (workerCalls === 1) return JSON.stringify({ operations: [{ type: 'read', path: 'file.txt' }] });
     if (workerCalls === 2) return JSON.stringify({ operations: [{ type: 'edit', path: 'file.txt', oldText: previous, newText: current }] });
@@ -112,8 +209,8 @@ test('worker context sends one current copy when a file is read repeatedly', asy
   await writeFile(join(f.source, 'file.txt'), content);
   let workerCalls = 0, promptAfterRepeatedRead = '';
   const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (_selection, prompt) => {
-    if (prompt.includes('구현 계획과 검증 기준')) return 'Read file.txt.';
-    if (prompt.startsWith('변경 결과를')) return JSON.stringify(complete());
+    if (hasText(prompt, '구현 계획과 검증 기준')) return 'Read file.txt.';
+    if (isJudgementPrompt(prompt)) return judgementResponse(prompt);
     workerCalls++;
     if (workerCalls < 3) return JSON.stringify({ operations: [{ type: 'read', path: 'file.txt' }] });
     promptAfterRepeatedRead = prompt;
@@ -129,8 +226,8 @@ test('worker context sends one current copy when a file is read repeatedly', asy
 test('a failed batched final operation does not count as worker completion', async (t) => {
   const f = await fixture(t); let workerCalls = 0, receivedCurrentFile = false;
   const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (_selection, prompt) => {
-    if (prompt.includes('구현 계획과 검증 기준')) return 'Read and update file.txt.';
-    if (prompt.startsWith('변경 결과를')) return JSON.stringify(complete());
+    if (hasText(prompt, '구현 계획과 검증 기준')) return 'Read and update file.txt.';
+    if (isJudgementPrompt(prompt)) return judgementResponse(prompt);
     workerCalls++;
     if (workerCalls === 1) return JSON.stringify({ operations: [{ type: 'read', path: 'file.txt' }] });
     if (workerCalls === 2) return JSON.stringify({
@@ -138,7 +235,7 @@ test('a failed batched final operation does not count as worker completion', asy
       done: true,
       summary: 'Updated file.txt.',
     });
-    receivedCurrentFile = prompt.includes('최신 파일 내용입니다') && prompt.includes('original\n');
+    receivedCurrentFile = hasText(prompt, '최신 파일 내용입니다') && hasText(prompt, 'original\n');
     return JSON.stringify({ operations: [{ type: 'edit', path: 'file.txt', oldText: 'original\n', newText: 'updated\n' }], done: true, summary: 'Updated file.txt.' });
   } });
 
@@ -159,7 +256,7 @@ test('failed verification cannot be overridden by a complete verdict', async (t)
 
 test('malformed judge reply fails closed and retains patch', async (t) => {
   const f = await fixture(t), invoke = modelScript(complete);
-  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: (...args) => args[1].startsWith('변경 결과를') ? 'Looks good!' : invoke(...args) });
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: (...args) => isJudgementPrompt(args[1]) ? 'Looks good!' : invoke(...args) });
   const run = await settled(engine, (await engine.create(f.input)).id);
   assert.equal(run.status, 'failed'); assert.equal(run.patchAvailable, true);
   assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'original\n');
@@ -250,15 +347,14 @@ test('automatic verification command is reused after a passing check requests an
   const f = await fixture(t); const script = modelScript(complete);
   let verificationPlans = 0, reviews = 0, verifications = 0;
   const engine = new HarnessEngine({ directory: f.data, verify: async () => { verifications++; return pass(); }, invoke: async (selection, prompt, ...rest) => {
-    if (prompt.startsWith('검증 방법을')) {
+    if (startsWithText(prompt, '검증 방법을')) {
       verificationPlans++;
       return JSON.stringify({ verifyCommand: 'test -f file.txt', reason: 'Check the requested output exists.' });
     }
-    if (prompt.startsWith('변경 결과를')) {
+    if (isJudgementPrompt(prompt)) {
+      if (prompt.questions.command) return judgementResponse(prompt);
       reviews++;
-      return JSON.stringify(reviews === 1
-        ? { decision: 'revise', summary: 'One focused change remains.', feedback: 'Continue the requested work.' }
-        : complete());
+      return judgementResponse(prompt, reviews === 1 ? 'revise' : 'complete', reviews === 1 ? 'Continue the requested work.' : '');
     }
     return script(selection, prompt, ...rest);
   } });
@@ -277,15 +373,14 @@ test('automatic verification keeps the same command after a test assertion fails
     assert.equal(command, 'node --test'); verifications++;
     return verifications === 1 ? { code: 1, output: 'AssertionError: expected updated output', error: '' } : pass();
   }, invoke: async (selection, prompt, ...rest) => {
-    if (prompt.startsWith('검증 방법을')) {
+    if (startsWithText(prompt, '검증 방법을')) {
       verificationPlans++;
       return JSON.stringify({ verifyCommand: 'node --test', reason: 'Run the project tests.' });
     }
-    if (prompt.startsWith('변경 결과를')) {
+    if (isJudgementPrompt(prompt)) {
+      if (prompt.questions.command) return judgementResponse(prompt);
       reviews++;
-      return JSON.stringify(reviews === 1
-        ? { decision: 'revise', summary: 'The test exposed an implementation defect.', feedback: 'Fix the failing behavior.' }
-        : complete());
+      return judgementResponse(prompt, reviews === 1 ? 'revise' : 'complete', reviews === 1 ? 'Fix the failing behavior.' : '');
     }
     return script(selection, prompt, ...rest);
   } });
@@ -310,18 +405,17 @@ test('automatic verification can choose another command when the selected comman
     assert.equal(command, 'test -f file.txt');
     return pass();
   }, invoke: async (selection, prompt, ...rest) => {
-    if (prompt.startsWith('검증 방법을')) {
+    if (startsWithText(prompt, '검증 방법을')) {
       verificationPlans++;
       return JSON.stringify({
         verifyCommand: verificationPlans === 1 ? 'missing-check' : 'test -f file.txt',
         reason: 'Use the available project check.',
       });
     }
-    if (prompt.startsWith('변경 결과를')) {
+    if (isJudgementPrompt(prompt)) {
+      if (prompt.questions.command) return judgementResponse(prompt);
       reviews++;
-      return JSON.stringify(reviews === 1
-        ? { decision: 'revise', summary: 'The verification command could not run.', feedback: 'Continue after selecting a runnable check.' }
-        : complete());
+      return judgementResponse(prompt, reviews === 1 ? 'revise' : 'complete', reviews === 1 ? 'Continue after selecting a runnable check.' : '');
     }
     return script(selection, prompt, ...rest);
   } });
@@ -379,7 +473,7 @@ test('repeated identical reads stop early instead of consuming every tool step',
   const f = await fixture(t); let calls = 0;
   const engine = new HarnessEngine({ directory: f.data, invoke: async (_model, prompt) => {
     calls++;
-    if (prompt.includes('구현 계획과 검증 기준')) return 'Read then update.';
+    if (hasText(prompt, '구현 계획과 검증 기준')) return 'Read then update.';
     return JSON.stringify({ operations: [{ type: 'read', path: 'file.txt' }] });
   } });
   const run = await settled(engine, (await engine.create(f.input)).id);
@@ -393,10 +487,10 @@ test('judge creates a managed project and configures verification from implement
   const engine = new HarnessEngine({ directory: f.data, verify: async (_workspace, command) => {
     assert.equal(command, 'test -f file.txt'); assert.equal(inspected, true); return pass();
   }, invoke: async (selection, prompt, ...rest) => {
-    if (prompt.startsWith('새 프로젝트의 작업 폴더')) return JSON.stringify({ folderName: 'generated-project', reason: 'Goal-specific folder' });
-    if (prompt.startsWith('검증 방법을')) {
-      assert.equal(selection.model, 'jev-fixture');
-      if (!prompt.includes('"content":')) return JSON.stringify({ operations: [{ type: 'read', path: 'file.txt' }] });
+    if (startsWithText(prompt, '새 프로젝트의 작업 폴더')) return JSON.stringify({ folderName: 'generated-project', reason: 'Goal-specific folder' });
+    if (startsWithText(prompt, '검증 방법을')) {
+      assert.equal(selection.model, 'fixture-model');
+      if (!hasText(prompt, '"content":')) return JSON.stringify({ operations: [{ type: 'read', path: 'file.txt' }] });
       inspected = true; return JSON.stringify({ verifyCommand: 'test -f file.txt', reason: 'Check output exists' });
     }
     return script(selection, prompt, ...rest);
@@ -420,8 +514,8 @@ test('automatic verification retries malformed and incomplete judge responses', 
   const engine = new HarnessEngine({ directory: f.data, verify: async (_workspace, command) => {
     assert.equal(command, 'test -f file.txt'); return pass();
   }, invoke: async (selection, prompt, ...rest) => {
-    if (prompt.startsWith('새 프로젝트')) return JSON.stringify({ folderName: 'retry-review', reason: 'QA' });
-    if (prompt.startsWith('검증 방법을')) {
+    if (startsWithText(prompt, '새 프로젝트')) return JSON.stringify({ folderName: 'retry-review', reason: 'QA' });
+    if (startsWithText(prompt, '검증 방법을')) {
       verificationResponses++;
       if (verificationResponses === 1) return 'The response is not JSON';
       if (verificationResponses === 2) return JSON.stringify({ reason: 'command omitted' });
@@ -439,8 +533,8 @@ test('automatic verification stops safely after eight invalid judge responses', 
   const f = await fixture(t), script = modelScript(complete);
   let verificationResponses = 0;
   const engine = new HarnessEngine({ directory: f.data, verify: () => assert.fail('Invalid verification must not run'), invoke: async (selection, prompt, ...rest) => {
-    if (prompt.startsWith('새 프로젝트')) return JSON.stringify({ folderName: 'invalid-review', reason: 'QA' });
-    if (prompt.startsWith('검증 방법을')) { verificationResponses++; return JSON.stringify({ reason: 'command omitted' }); }
+    if (startsWithText(prompt, '새 프로젝트')) return JSON.stringify({ folderName: 'invalid-review', reason: 'QA' });
+    if (startsWithText(prompt, '검증 방법을')) { verificationResponses++; return JSON.stringify({ reason: 'command omitted' }); }
     return script(selection, prompt, ...rest);
   } });
   const run = await settled(engine, (await engine.create({ ...f.input, workspace: undefined, verifyCommand: undefined })).id);
@@ -453,13 +547,13 @@ test('automatic verification stops safely after eight invalid judge responses', 
 test('failed edit feedback includes current file contents so the worker can rebase its edit', async (t) => {
   const f = await fixture(t); let step = 0, receivedCurrentFile = false;
   const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (_selection, prompt) => {
-    if (prompt.includes('구현 계획과 검증 기준')) return 'Read file.txt and update it.';
-    if (prompt.startsWith('변경 결과를')) return JSON.stringify(complete());
+    if (hasText(prompt, '구현 계획과 검증 기준')) return 'Read file.txt and update it.';
+    if (isJudgementPrompt(prompt)) return judgementResponse(prompt);
     step++;
     if (step === 1) return JSON.stringify({ operations: [{ type: 'read', path: 'file.txt' }] });
     if (step === 2) return JSON.stringify({ operations: [{ type: 'edit', path: 'file.txt', oldText: 'stale source', newText: 'updated\n' }] });
     if (step === 3) {
-      receivedCurrentFile = prompt.includes('최신 파일 내용입니다') && prompt.includes('original\n');
+      receivedCurrentFile = hasText(prompt, '최신 파일 내용입니다') && hasText(prompt, 'original\n');
       return JSON.stringify({ operations: [{ type: 'edit', path: 'file.txt', oldText: 'original\n', newText: 'updated\n' }] });
     }
     return JSON.stringify({ done: true, summary: 'Updated file.txt using the current file contents.' });
@@ -474,8 +568,8 @@ test('failed edit feedback includes current file contents so the worker can reba
 test('failed edit in a batch returns the latest contents after earlier edits were applied', async (t) => {
   const f = await fixture(t); let step = 0, receivedLatestFile = false;
   const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (_selection, prompt) => {
-    if (prompt.includes('구현 계획과 검증 기준')) return 'Read and update file.txt.';
-    if (prompt.startsWith('변경 결과를')) return JSON.stringify(complete());
+    if (hasText(prompt, '구현 계획과 검증 기준')) return 'Read and update file.txt.';
+    if (isJudgementPrompt(prompt)) return judgementResponse(prompt);
     step++;
     if (step === 1) return JSON.stringify({ operations: [{ type: 'read', path: 'file.txt' }] });
     if (step === 2) return JSON.stringify({ operations: [
@@ -483,7 +577,7 @@ test('failed edit in a batch returns the latest contents after earlier edits wer
       { type: 'edit', path: 'file.txt', oldText: 'original\n', newText: 'stale replacement\n' },
     ] });
     if (step === 3) {
-      receivedLatestFile = prompt.includes('최신 파일 내용입니다') && prompt.includes('partially updated\n');
+      receivedLatestFile = hasText(prompt, '최신 파일 내용입니다') && hasText(prompt, 'partially updated\n');
       return JSON.stringify({ operations: [{ type: 'edit', path: 'file.txt', oldText: 'partially updated\n', newText: 'updated\n' }] });
     }
     return JSON.stringify({ done: true, summary: 'Rebased the failed edit on the latest file contents.' });
@@ -498,12 +592,12 @@ test('failed edit in a batch returns the latest contents after earlier edits wer
 test('malformed operations response returns tool feedback instead of throwing in the error handler', async (t) => {
   const f = await fixture(t); let step = 0, receivedError = false;
   const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (_selection, prompt) => {
-    if (prompt.includes('구현 계획과 검증 기준')) return 'Inspect and update file.txt.';
-    if (prompt.startsWith('변경 결과를')) return JSON.stringify(complete());
+    if (hasText(prompt, '구현 계획과 검증 기준')) return 'Inspect and update file.txt.';
+    if (isJudgementPrompt(prompt)) return judgementResponse(prompt);
     step++;
     if (step === 1) return JSON.stringify({ operations: 'invalid' });
     if (step === 2) {
-      receivedError = prompt.includes('작업 요청은 한 번에 12개까지 가능합니다.');
+      receivedError = hasText(prompt, '작업 요청은 한 번에 12개까지 가능합니다.');
       return JSON.stringify({ operations: [{ type: 'edit', path: 'file.txt', oldText: 'original\n', newText: 'updated\n' }] });
     }
     return JSON.stringify({ done: true, summary: 'Updated file.txt after correcting the malformed tool request.' });
@@ -524,7 +618,7 @@ test('judge folder names cannot escape the managed project directory', async (t)
 
 test('verification setup cannot mutate files and never applies on configuration failure', async (t) => {
   const f = await fixture(t), script = modelScript(complete);
-  const engine = new HarnessEngine({ directory: f.data, verify: () => assert.fail('must not verify'), invoke: (selection, prompt, ...rest) => prompt.startsWith('검증 방법을')
+  const engine = new HarnessEngine({ directory: f.data, verify: () => assert.fail('must not verify'), invoke: (selection, prompt, ...rest) => startsWithText(prompt, '검증 방법을')
     ? JSON.stringify({ operations: [{ type: 'write', path: 'file.txt', content: 'override' }] }) : script(selection, prompt, ...rest) });
   const run = await settled(engine, (await engine.create({ ...f.input, verifyCommand: undefined })).id);
   assert.equal(run.status, 'failed'); assert.match(run.summary, /읽기만 허용/);
@@ -549,11 +643,11 @@ test('native Jev judges Luna proposals and uncertain verdicts continue to a seco
       assert.equal(selection.decisionOnly, true); typedCalls++;
       if (prompt.questions.command) assert.match(prompt.state.inspectedFiles, /diff --git.*file.txt/s);
       const choice = prompt.questions.goal && ++judgments === 1 ? 'uncertain' : 'pass';
-      return { model: 'jev-version', answers: Object.fromEntries(Object.keys(prompt.questions).map((key) => [key, { type: 'choice', choice, confidence: 0.9, probabilities: { [choice]: 0.9 } }])) };
+      return { model: 'jev-version', answers: Object.fromEntries(Object.keys(prompt.questions).map((key) => [key, { type: 'choice', choice, confidence: 0.9, probabilities: { pass: choice === 'pass' ? 0.9 : 0.05, revise: choice === 'revise' ? 0.9 : 0.05, uncertain: choice === 'uncertain' ? 0.9 : 0.05 } }])) };
     }
     assert.notEqual(selection.decisionOnly, true);
-    if (prompt.startsWith('새 프로젝트')) return JSON.stringify({ folderName: 'jev-test', reason: 'QA' });
-    if (prompt.startsWith('검증 방법')) return JSON.stringify({ verifyCommand: 'test -f file.txt', reason: 'fixture check' });
+    if (startsWithText(prompt, '새 프로젝트')) return JSON.stringify({ folderName: 'jev-test', reason: 'QA' });
+    if (startsWithText(prompt, '검증 방법')) return JSON.stringify({ verifyCommand: 'test -f file.txt', reason: 'fixture check' });
     return script(selection, prompt, ...rest);
   } });
   const run = await settled(engine, (await engine.create({ ...f.input, workspace: undefined, verifyCommand: undefined,

@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { runCommand } from '../../harness-engine.mjs';
 
 // Local model fixtures exercise the real HTTP relay without credentials or external services.
-export async function startFixture({ delay = 0, codexMock = false, codexDeleteFailures = 1 } = {}) {
+export async function startFixture({ delay = 0, codexMock = false, codexDeleteFailures = 1, remainingTokens = null, limitTokens = null } = {}) {
   const directory = await mkdtemp(join(tmpdir(), 'loopline-harness-http-'));
   const source = join(directory, 'project'), data = join(directory, 'data');
   await mkdir(source); await mkdir(data);
@@ -24,14 +24,20 @@ export async function startFixture({ delay = 0, codexMock = false, codexDeleteFa
     const parts = []; for await (const part of req) parts.push(part);
     const body = JSON.parse(Buffer.concat(parts)); calls.push(body);
     const prompt = body.messages.filter((item) => item.role === 'user').map((item) => item.content).join('');
+    let structuredPrompt = null;
+    try { structuredPrompt = JSON.parse(prompt); } catch { /* Ordinary planner and worker prompts are text. */ }
     let answer;
-    if (prompt.startsWith('새 프로젝트의 작업 폴더')) answer = JSON.stringify({ folderName: 'qa-project', reason: 'QA 작업 폴더 자동 생성' });
+    if (structuredPrompt?.questions) {
+      const failedVerification = structuredPrompt.state?.verification?.code !== 0;
+      answer = JSON.stringify({ answers: Object.fromEntries(Object.keys(structuredPrompt.questions).map((id) => [id, {
+        choice: id === 'verification' && failedVerification ? 'revise' : 'pass',
+        reason: id === 'verification' && failedVerification ? '실제 검증 명령이 실패했습니다.' : '요청과 검증 근거가 기준을 충족합니다.',
+      }])) });
+    }
+    else if (prompt.startsWith('새 프로젝트의 작업 폴더')) answer = JSON.stringify({ folderName: 'qa-project', reason: 'QA 작업 폴더 자동 생성' });
     else if (prompt.startsWith('검증 방법을')) answer = prompt.includes('\"content\":') ? JSON.stringify({ verifyCommand: 'test \"$(cat file.txt)\" = \"updated 2\"', reason: 'file.txt의 실제 내용을 확인합니다.' }) : JSON.stringify({ operations: [{ type: 'read', path: 'file.txt' }] });
     else if (prompt.includes('구현 계획과 검증 기준')) answer = 'file.txt를 읽고 두 회차에 걸쳐 수정한 뒤 실제 검증 명령으로 확인합니다. / Read, revise, and verify.';
-    else if (prompt.startsWith('변경 결과를')) {
-      const passed = prompt.includes('"code":0');
-      answer = JSON.stringify({ decision: passed ? 'complete' : 'revise', summary: passed ? '검증 통과 · 두 번째 회차 완료 / Verified and completed' : '다음 회차에서 updated 2로 수정 / Revision needed', feedback: passed ? '' : 'file.txt를 updated 2로 수정하세요.' });
-    } else {
+    else {
       const round = Number(prompt.match(/회차 (\d+)\//)?.[1] || 1);
       const history = prompt.split('최근 도구 결과:\n')[1] || '';
       answer = JSON.stringify(history.includes('"completed":true') ? { done: true, summary: `file.txt를 updated ${round}로 수정했습니다.` }
@@ -39,7 +45,10 @@ export async function startFixture({ delay = 0, codexMock = false, codexDeleteFa
           : { operations: [{ type: 'read', path: 'file.txt' }] });
     }
     const timer = setTimeout(() => {
-      res.writeHead(200, { 'Content-Type': 'text/event-stream' });
+      res.writeHead(200, { 'Content-Type': 'text/event-stream',
+        ...(Number.isSafeInteger(remainingTokens) ? { 'x-ratelimit-remaining-tokens': String(remainingTokens) } : {}),
+        ...(Number.isSafeInteger(limitTokens) ? { 'x-ratelimit-limit-tokens': String(limitTokens) } : {}),
+      });
       res.end(`data: ${JSON.stringify({ choices: [{ index: 0, delta: { content: answer }, finish_reason: 'stop' }], usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 } })}\n\ndata: [DONE]\n\n`);
     }, prompt.includes('HOLD_FOR_STOP') ? 20000 : delay);
     res.once('close', () => clearTimeout(timer));
@@ -75,7 +84,16 @@ for await (const line of input) {
     const turnId = 'qa-turn-' + (++turnNumber);
     const text = (request.params.input || []).map((item) => item.text || '').join('\\n');
     let answer;
-    if (text.includes('새 프로젝트의 작업 폴더')) answer = JSON.stringify({ folderName: 'qa-loop-project', reason: '화면 QA 프로젝트' });
+    let structuredPrompt = null;
+    try { structuredPrompt = JSON.parse(text); } catch { /* Planner and worker calls use plain text. */ }
+    if (structuredPrompt?.questions || text.includes('"questions"')) {
+      const questionIds = new Set(Object.keys(structuredPrompt?.questions || {}));
+      for (const id of ['folder', 'command', 'goal', 'verification']) if (text.includes('"' + id + '"')) questionIds.add(id);
+      answer = JSON.stringify({ answers: Object.fromEntries([...new Set(questionIds)].map((id) => [id, {
+        choice: 'pass', reason: '실제 작업 근거가 판정 기준을 충족합니다.',
+      }])) });
+    }
+    else if (text.includes('새 프로젝트의 작업 폴더')) answer = JSON.stringify({ folderName: 'qa-loop-project', reason: '화면 QA 프로젝트' });
     else if (text.includes('검증 방법을 결정하세요')) answer = text.includes('"content":')
       ? JSON.stringify({ verifyCommand: 'test "$(cat file.txt)" = "updated 2"', reason: 'file.txt의 실제 내용을 확인합니다.' })
       : JSON.stringify({ operations: [{ type: 'read', path: 'file.txt' }] });

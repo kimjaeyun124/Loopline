@@ -19,11 +19,15 @@ test('the browser can load the provider-neutral automatic loop routing policy', 
 });
 
 test('HTTP harness relays roles and supported effort, records usage and completes two verified rounds', async (t) => {
-  const f = await startFixture(); t.after(f.close);
+  const f = await startFixture({ remainingTokens: 75, limitTokens: 400 }); t.after(f.close);
   const created = await f.request('/api/harness/runs', f.input);
   const run = await until(async () => { const value = await f.request(`/api/harness/runs/${created.id}`); return value.finishedAt ? value : null; });
   assert.equal(run.status, 'completed', run.summary); assert.equal(run.round, 2); assert.equal(run.applied, true);
-  assert.deepEqual(run.stageModels.planner, { provider: 'api', source: 'Harness QA · 시뮬레이션', id: 'qa-worker', label: 'QA Worker', reasoningEffort: 'high' });
+  assert.equal(run.stageModels.planner.id, 'qa-worker');
+  assert.equal(run.stageModels.planner.effort, 'high');
+  assert.equal(run.stageModels.planner.role, 'planner');
+  assert.ok(Object.values(run.modelBudgets).some((budget) => budget.remainingTokens === 75 && budget.limitTokens === 400));
+  assert.equal(Object.values(run.modelUsage).reduce((sum, usage) => sum + usage.totalTokens, 0), 135);
   assert.ok(run.events.some((event) => event.model?.role === 'planner' && event.model.label === 'QA Worker'));
   assert.ok(run.events.some((event) => event.model?.role === 'worker' && event.model.effort === 'medium'));
   assert.ok(run.events.some((event) => event.model?.role === 'judge' && event.model.source === 'Harness QA · 시뮬레이션'));
@@ -60,7 +64,7 @@ test('HTTP stop aborts streaming request and releases the source for a new run',
   assert.equal(result.status, 'completed', result.summary);
 });
 
-test('HTTP automatic setup creates a project and reuses the judge-selected verification command', async (t) => {
+test('HTTP automatic setup creates a project and has the judge approve the planned verification command', async (t) => {
   const f = await startFixture(); t.after(f.close);
   const created = await f.request('/api/harness/runs', { ...f.input, workspace: undefined, verifyCommand: undefined });
   const run = await until(async () => { const value = await f.request(`/api/harness/runs/${created.id}`); return value.finishedAt ? value : null; });
@@ -68,7 +72,7 @@ test('HTTP automatic setup creates a project and reuses the judge-selected verif
   assert.equal(run.round, 2); assert.equal(run.automaticVerification, true);
   assert.equal(await readFile(join(run.source, 'file.txt'), 'utf8'), 'updated 2\n');
   assert.equal(run.events.filter((event) => event.title.startsWith('검증 자동 구성')).length, 1);
-  assert.ok(f.calls.filter((call) => call.messages.some((message) => message.content.startsWith('검증 방법을'))).every((call) => call.model === 'jev-qa'));
+  assert.ok(f.calls.filter((call) => call.messages.some((message) => message.content.startsWith('검증 방법을'))).every((call) => call.model === 'qa-worker'));
 });
 
 test('Harness removes temporary Codex threads after transient delete failures', async (t) => {

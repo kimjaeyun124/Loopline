@@ -79,6 +79,23 @@ test('a reported zero-token budget skips to the next saved planner and judge pri
   assert.ok(run.events.some((event) => event.title.includes('우선순위 모델 전환') && event.model?.id === 'planner-priority-1'));
 });
 
+test('a temporary provider failure switches to the next configured model and completes the task', async (t) => {
+  const f = await fixture(t); let primaryFailed = false;
+  const planner = { ...f.input.roles.planner, fallbacks: [{ ...f.input.roles.planner, model: 'planner-backup' }] };
+  const script = modelScript(complete);
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (selection, prompt, ...rest) => {
+    if (!primaryFailed && selection.model === 'fixture-model' && hasText(prompt, '구현 계획과 검증 기준')) {
+      primaryFailed = true;
+      throw Object.assign(new Error('API unavailable (HTTP 503)'), { remoteStatus: 503 });
+    }
+    return script(selection, prompt, ...rest);
+  } });
+  const run = await settled(engine, (await engine.create({ ...f.input, roles: { ...f.input.roles, planner } })).id);
+  assert.equal(run.status, 'completed', run.summary);
+  assert.equal(run.stageModels.planner.id, 'planner-backup');
+  assert.ok(run.events.some((event) => event.title.includes('모델 일시 오류') && event.model?.id === 'fixture-model'));
+});
+
 test('HTTP 429 fails over in the saved order but authentication errors do not', async (t) => {
   const f = await fixture(t), plannerCalls = [];
   const primary = { ...f.input.roles.planner, fallbacks: [
@@ -713,7 +730,7 @@ test('native Jev cannot generate plans and missing decisions fail closed', async
   assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'original\n');
 });
 
-test('Jev selects automatic roles once, accounts routing tokens, and preserves fallback order', async (t) => {
+test('Jev selects automatic roles once, applies ranking, accounts routing tokens, and preserves priority fallbacks', async (t) => {
   const f = await fixture(t), routes = [], plannerCalls = [];
   const planner = { ...f.input.roles.planner, automatic: true, fallbacks: [
     { ...f.input.roles.planner, model: 'planner-b' },
@@ -724,6 +741,7 @@ test('Jev selects automatic roles once, accounts routing tokens, and preserves f
     if (prompt?.questions?.planner) {
       routes.push(prompt);
       rest[2]({ type: 'usage', usage: { total_tokens: 42 } });
+      assert.deepEqual(prompt.state.priorities.map((item) => item.id), ['completion', 'quality', 'reasoning', 'tokenEfficiency', 'speed']);
       return { answers: { planner: { choice: 'candidate_1', reason: 'Suitable candidate from saved choices.' } } };
     }
     if (hasText(prompt, '구현 계획과 검증 기준')) plannerCalls.push(selection.model);
@@ -737,11 +755,37 @@ test('Jev selects automatic roles once, accounts routing tokens, and preserves f
   assert.equal(routes[0].questions.worker, undefined);
   assert.deepEqual(plannerCalls, ['planner-b']);
   assert.equal(run.stageModels.planner.id, 'planner-b');
-  assert.deepEqual(run.modelPriority.planner.map((item) => item.model), ['planner-b', 'planner-c']);
+  assert.deepEqual(run.modelPriority.planner.map((item) => item.model), ['fixture-model', 'planner-c']);
   assert.equal(Object.values(run.modelUsage)[0].totalTokens, 42);
   const event = run.events.find((event) => event.title === '모델 배정 / Model selection');
   assert.ok(event);
   assert.match((await engine.getPromptDetails(run.id, event.id)).input, /candidate_1/);
+});
+
+test('a regular judge ranks the primary and all automatic-role fallbacks by the saved priorities', async (t) => {
+  const f = await fixture(t), plannerCalls = [];
+  const planner = { ...f.input.roles.planner, automatic: true, fallbacks: [
+    { ...f.input.roles.planner, model: 'planner-b' }, { ...f.input.roles.planner, model: 'planner-c' },
+  ] };
+  const judge = { ...f.input.roles.judge, model: 'general-review-model', label: 'General reviewer' };
+  const script = modelScript(complete);
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (selection, prompt, ...rest) => {
+    if (prompt?.questions?.planner) {
+      assert.deepEqual(prompt.state.priorities.map((item) => item.id), ['completion', 'speed', 'tokenEfficiency', 'quality', 'reasoning']);
+      return { answers: { planner: {
+        choice: 'candidate_2', order: ['candidate_2', 'candidate_1', 'candidate_0'], reason: 'Reported quota is available; this order matches the requested priorities.' } } };
+    }
+    if (hasText(prompt, '구현 계획과 검증 기준')) plannerCalls.push(selection.model);
+    return script(selection, prompt, ...rest);
+  } });
+  const run = await settled(engine, (await engine.create({ ...f.input, priorities: ['speed', 'tokenEfficiency', 'quality'], roles: {
+    ...f.input.roles, planner, judge,
+  } })).id);
+  assert.equal(run.status, 'completed', run.summary);
+  assert.deepEqual(plannerCalls, ['planner-c']);
+  assert.equal(run.stageModels.planner.id, 'planner-c');
+  assert.deepEqual(run.modelPriority.planner.map((item) => item.model), ['planner-b', 'fixture-model']);
+  assert.deepEqual(run.priorities, ['speed', 'tokenEfficiency', 'quality', 'reasoning']);
 });
 
 test('invalid Jev routing keeps all default roles and excludes exhausted candidates', async (t) => {

@@ -54,6 +54,19 @@ test('model settings survive a fresh UI instance without workspace inputs', (t) 
   assert.deepEqual(reloaded.saved().roles.worker, { model: 'jev-test', effort: 'high', fallbacks: [] });
 });
 
+test('loop compute priorities are reorderable, persisted, and keep completion locked at the top', (t) => {
+  const s = setup(t); s.ui.open();
+  assert.match(s.node('#harnessPriorities').innerHTML, /완료 안정성/);
+  assert.match(s.node('#harnessPriorities').innerHTML, /항상 최우선/);
+  s.node('#harnessPriorities').fire('click', { closest: (selector) => selector === '[data-priority-move]'
+    ? { dataset: { priorityMove: 'speed', direction: 'up' } } : null });
+  assert.deepEqual(s.saved().priorities, ['quality', 'reasoning', 'speed', 'tokenEfficiency']);
+  assert.match(s.node('#harnessPriorities').innerHTML, /locked/);
+  const reloaded = setup(t, { storage: s.storage }); reloaded.ui.open();
+  assert.deepEqual(reloaded.saved().priorities, ['quality', 'reasoning', 'speed', 'tokenEfficiency']);
+  assert.ok(reloaded.node('#harnessPriorities').innerHTML.indexOf('응답 속도') < reloaded.node('#harnessPriorities').innerHTML.indexOf('토큰 효율'));
+});
+
 test('storage failure stays visible and completion retries before closing', (t) => {
   const s = setup(t); s.ui.open(); s.failStorage(true);
   s.node('#harnessRoles').fire('change', { dataset: { harnessRole: 'judge' }, value: 'jev-test' });

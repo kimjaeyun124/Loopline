@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { classifyLoopTask, recommendLoopEffort, selectAutomaticLoopModel } from '../public/loop-policy.mjs';
+import { classifyLoopTask, DEFAULT_LOOP_PRIORITIES, normalizeLoopPriorities, recommendLoopEffort, selectAutomaticLoopModel } from '../public/loop-policy.mjs';
 
 test('loop complexity keeps small requests light and raises effort for broad engineering changes', () => {
   assert.equal(classifyLoopTask('Export a small constant and test its value.'), 'simple');
@@ -8,17 +8,27 @@ test('loop complexity keeps small requests light and raises effort for broad eng
   assert.equal(classifyLoopTask('- one\n- two\n- three\n- four'), 'complex');
 });
 
-test('automatic effort uses the lowest suitable level for simple work and a stronger level for complex work', () => {
+test('automatic effort puts quality and compute first by default and follows resource priorities when reordered', () => {
   const supported = ['low', 'medium', 'high', 'max'];
-  assert.equal(recommendLoopEffort('planner', supported, 'Fix one label.'), 'low');
-  assert.equal(recommendLoopEffort('worker', supported, 'Fix one label.'), 'medium');
-  assert.equal(recommendLoopEffort('judge', supported, 'Fix one label.'), 'low');
+  assert.equal(recommendLoopEffort('planner', supported, 'Fix one label.'), 'max');
+  assert.equal(recommendLoopEffort('worker', supported, 'Fix one label.'), 'max');
+  assert.equal(recommendLoopEffort('judge', supported, 'Fix one label.'), 'max');
   const complexTask = 'Refactor the architecture and improve concurrency handling.';
-  assert.equal(recommendLoopEffort('planner', supported, complexTask), 'medium');
-  assert.equal(recommendLoopEffort('worker', supported, complexTask), 'high');
-  assert.equal(recommendLoopEffort('judge', supported, complexTask), 'medium');
+  assert.equal(recommendLoopEffort('planner', supported, complexTask), 'max');
+  assert.equal(recommendLoopEffort('worker', supported, complexTask), 'max');
+  assert.equal(recommendLoopEffort('judge', supported, complexTask), 'max');
   assert.equal(recommendLoopEffort('planner', ['low', 'high'], complexTask), 'high');
+  const resourceFirst = ['tokenEfficiency', 'speed', 'quality', 'reasoning'];
+  assert.equal(recommendLoopEffort('worker', supported, 'Fix one label.', resourceFirst), 'medium');
+  assert.equal(recommendLoopEffort('worker', supported, complexTask, resourceFirst), 'high');
+  assert.equal(recommendLoopEffort('worker', supported, 'Fix one label.', ['reasoning', 'quality', 'tokenEfficiency', 'speed']), 'max');
   assert.equal(recommendLoopEffort('worker', [], 'Anything'), null);
+});
+
+test('completion stays fixed and invalid saved priority values normalize to the full supported order', () => {
+  assert.deepEqual(DEFAULT_LOOP_PRIORITIES, ['quality', 'reasoning', 'tokenEfficiency', 'speed']);
+  assert.deepEqual(normalizeLoopPriorities(['speed', 'speed', 'unknown']), ['speed', 'quality', 'reasoning', 'tokenEfficiency']);
+  assert.deepEqual(normalizeLoopPriorities(null), DEFAULT_LOOP_PRIORITIES);
 });
 
 test('automatic roles share the implementation model, prefer Jev for review, and otherwise use another connection', () => {

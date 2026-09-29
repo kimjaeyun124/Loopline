@@ -21,13 +21,20 @@ function sameConnection(left, right) {
 }
 
 export function selectAutomaticLoopModel(role, models, getKey, { currentModelKey = '', workerModelKey = '' } = {}) {
-  const available = (Array.isArray(models) ? models : []).filter((model) => model?.connected && (role === 'judge' || !model.decisionOnly));
+  const available = (Array.isArray(models) ? models : []).filter((model) => model?.connected
+    && !(Number.isFinite(model.remainingPercent) && model.remainingPercent <= 0)
+    && (role === 'judge' || !model.decisionOnly));
   if (!available.length) return null;
   const find = (key) => key ? available.find((model) => getKey(model) === key) : null;
-  const worker = find(workerModelKey) || find(currentModelKey) || available.find((model) => !model.decisionOnly) || null;
+  // This measured combination is a starting preference, not a price or quality ranking
+  // for unknown models. Explicit role choices and saved fallback order remain separate.
+  const id = (model) => String(model.id || '').replace(/^models\//, '');
+  const worker = find(workerModelKey)
+    || available.find((model) => model.provider === 'openai' && id(model) === 'gpt-6-sol')
+    || find(currentModelKey) || available.find((model) => !model.decisionOnly) || null;
 
-  if (role === 'worker') return find(workerModelKey) || find(currentModelKey) || worker || available[0];
-  if (role === 'planner') return worker || available[0];
+  if (role === 'worker') return worker || available[0];
+  if (role === 'planner') return available.find((model) => id(model) === 'gemini-3-flash-preview') || worker || available[0];
   if (role === 'judge') {
     return available.find((model) => model.decisionOnly)
       || available.find((model) => worker && !sameConnection(model, worker))

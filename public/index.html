@@ -178,7 +178,12 @@
     <div class="modal-backdrop" id="harnessModal" hidden>
       <section class="project-modal harness-modal" role="dialog" aria-modal="true" aria-labelledby="harnessTitle">
         <div class="modal-header"><div><p class="eyebrow">Loop Engineering</p><h2 id="harnessTitle">Harness 구성</h2></div><button class="icon-button" id="harnessClose" type="button" aria-label="Harness 구성 닫기">✕</button></div>
-        <p class="harness-intro">한 번 설정하면 새 작업과 앱 재실행에도 그대로 적용됩니다. 역할마다 한도 소진 시 사용할 모델 순서를 저장할 수 있습니다.</p>
+        <p class="harness-intro">역할별 모델과 추론 강도를 한 번 설정하면 다음 작업에도 적용됩니다.</p>
+        <div class="harness-selection-toolbar">
+          <label class="project-field"><span>모델 빠르게 찾기</span><input id="harnessModelSearch" type="search" placeholder="모델 또는 연결 이름 검색" autocomplete="off" /></label>
+          <button type="button" id="harnessUseAutomatic" class="text-button">모든 역할 자동 배정</button>
+        </div>
+        <p class="harness-intro">판정 모델이 Jev이면 실행 시작 시 자동 역할의 모델을 한 번 선택합니다. 기본 후보와 저장한 대체 모델 중 작업 내용·잔여 한도를 보고 판단하며, 직접 지정한 역할은 유지합니다. 실측 조합은 참고 자료로만 사용합니다.</p>
         <div id="harnessRoles"></div>
         <p class="harness-intro"><strong>작업 환경 자동 구성</strong><br />연결된 프로젝트가 없으면 새 프로젝트를 만듭니다. 계획 모델은 폴더 이름과 검증 방법을 제안하고, 판정 모델은 제안·검증·최종 결과를 독립적으로 판단합니다. Jev를 선택하면 모든 판정에서 Jev를 먼저 사용합니다.</p>
         <label class="harness-auto"><input id="harnessAutoApply" type="checkbox" checked />검증과 판정을 통과하면 프로젝트에 자동 반영</label>

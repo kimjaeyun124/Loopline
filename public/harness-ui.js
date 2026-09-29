@@ -22,6 +22,8 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
   const modal = document.querySelector('#harnessModal');
   const fields = document.querySelector('#harnessRoles');
   const saveStatus = document.querySelector('#harnessSaveStatus');
+  const search = document.querySelector('#harnessModelSearch');
+  const expandedFallbacks = new Set();
   let activeRunId = null, watching = false, starting = false, stopRequested = false;
   const save = () => {
     try {
@@ -75,6 +77,7 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
     preferred.push(...models);
     const seen = new Set([modelKey(primary)]);
     return preferred.filter((model) => {
+      if (role !== 'judge' && model.decisionOnly) return false;
       const key = modelKey(model);
       if (seen.has(key)) return false;
       seen.add(key); return true;
@@ -92,10 +95,25 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
     if (changed) save();
   }
   const roleGuidance = {
-    planner: '자동 배정은 구현 모델을 공유해 간단한 계획 호출 비용을 줄입니다.',
-    worker: '선택한 구현 모델이 코드를 작성하고, 복합 작업에는 높은 추론 강도를 사용합니다.',
+    planner: '자동은 실측한 Gemini Flash를 우선 사용하고, 없으면 구현 모델을 공유합니다.',
+    worker: '자동은 실측한 GPT-6 Sol을 우선 사용합니다. 추론 강도는 작업 난이도에 맞춥니다.',
     judge: 'Jev를 먼저 쓰고, 모든 판정 요청은 이 역할의 우선순위로 처리합니다.',
   };
+  const budgetLabel = (model) => Number.isFinite(model?.remainingPercent)
+    ? `계정 한도 ${Math.max(0, Math.min(100, model.remainingPercent))}% 남음` : '잔여 한도 미제공';
+  function modelOptions(models, selected = '') {
+    const query = search.value.trim().toLocaleLowerCase();
+    const visible = models.filter((model) => modelKey(model) === selected
+      || `${model.label} ${model.id} ${model.source}`.toLocaleLowerCase().includes(query));
+    const groups = new Map();
+    for (const model of visible) {
+      const group = model.source || '연결된 모델';
+      if (!groups.has(group)) groups.set(group, []);
+      groups.get(group).push(model);
+    }
+    return [...groups].map(([source, items]) => `<optgroup label="${escape(source)}">${items.map((model) => `<option value="${escape(modelKey(model))}"${selected === modelKey(model) ? ' selected' : ''}>${escape(model.label)}${Number.isFinite(model.remainingPercent) ? ` · 한도 ${Math.max(0, model.remainingPercent)}%` : ''}</option>`).join('')}</optgroup>`).join('')
+      || '<option disabled>검색 결과 없음</option>';
+  }
   function renderRoles() {
     fields.innerHTML = ROLES.map(([role, title]) => {
       const model = choose(role), supported = efforts(model);
@@ -106,19 +124,56 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
       const primaryKey = model ? modelKey(model) : '';
       const savedFallbacks = config.roles[role].fallbacks.filter((key) => key !== primaryKey);
       const fallbackModels = savedFallbacks.map((key) => ({ key, model: modelByKey(key) }));
-      const eligible = connected().filter((item) => (role === 'judge' || !item.decisionOnly)
-        && modelKey(item) !== primaryKey && !savedFallbacks.includes(modelKey(item)));
-      const fallbackList = fallbackModels.map(({ key, model: fallback, }, index) => `<li class="harness-fallback-item"><span class="harness-fallback-index">${index + 1}</span><span class="harness-fallback-name">${fallback ? `${escape(fallback.label)} · ${escape(fallback.source)}` : '연결을 확인할 수 없는 저장 모델'}</span><span class="harness-fallback-actions"><button type="button" data-fallback-move="${role}" data-index="${index}" data-direction="up" aria-label="${title} 대체 모델 우선순위 올리기"${index === 0 ? ' disabled' : ''}>↑</button><button type="button" data-fallback-move="${role}" data-index="${index}" data-direction="down" aria-label="${title} 대체 모델 우선순위 내리기"${index === fallbackModels.length - 1 ? ' disabled' : ''}>↓</button><button type="button" data-fallback-remove="${role}" data-index="${index}" aria-label="${title} 대체 모델 제거">×</button></span></li>`).join('');
-      return `<div class="harness-role"><label class="project-field"><span>${title}</span><select data-harness-role="${role}" aria-label="${title} 모델"><option value="">${role === 'judge' ? '자동 · Jev 우선 판정' : role === 'planner' ? '자동 · 구현 모델과 공유' : '자동 · 현재 선택 모델'}</option>${config.roles[role].model && !model ? `<option selected value="${escape(config.roles[role].model)}">저장된 모델 · 연결 확인 필요</option>` : ''}${connected().filter((item) => role === 'judge' || !item.decisionOnly).map((item) => `<option value="${escape(modelKey(item))}"${config.roles[role].model === modelKey(item) ? ' selected' : ''}>${escape(item.label)} · ${escape(item.source)}</option>`).join('')}</select></label><label class="project-field"><span>Effort</span><select data-harness-effort="${role}" aria-label="${title} 추론 강도"${!supported.length ? ' disabled' : ''}><option value="">${supported.length ? '자동' : '서비스 기본값'}</option>${unavailableEffort ? `<option selected value="${escape(config.roles[role].effort)}">${escape(config.roles[role].effort)} · 지원 확인 필요</option>` : ''}${supported.map((value) => `<option value="${escape(value)}"${config.roles[role].effort === value ? ' selected' : ''}>${escape(value)}</option>`).join('')}</select></label><small>${model ? `${escape(model.label)} · ${escape(effortLabel)} · ${escape(roleGuidance[role])}` : role === 'judge' ? 'Jev 또는 연결된 판정 모델이 필요합니다.' : '연결된 모델이 필요합니다.'}</small><section class="harness-fallbacks" aria-label="${title} 대체 모델 우선순위"><div class="harness-fallback-heading"><strong>한도 소진 시 다음 모델</strong><span>${fallbackModels.length}/${MAX_FALLBACKS}</span></div><ol>${fallbackList || '<li class="harness-fallback-empty">대체 모델이 없습니다.</li>'}</ol><div class="harness-fallback-add"><select data-fallback-select="${role}" aria-label="${title} 대체 모델 선택"><option value="">대체 모델 추가…</option>${eligible.map((item) => `<option value="${escape(modelKey(item))}">${escape(item.label)} · ${escape(item.source)}</option>`).join('')}</select><button type="button" data-fallback-add="${role}"${fallbackModels.length >= MAX_FALLBACKS || !eligible.length ? ' disabled' : ''}>추가</button></div><small>확인 가능한 잔여 한도가 0이거나 제공자가 한도 초과를 알리면 이 순서로 전환합니다.</small></section></div>`;
+      const available = connected().filter((item) => role === 'judge' || !item.decisionOnly);
+      const eligible = available.filter((item) => modelKey(item) !== primaryKey && !savedFallbacks.includes(modelKey(item)));
+      const fallbackList = fallbackModels.map(({ key, model: fallback }, index) => `<li class="harness-fallback-item">
+        <span class="harness-fallback-index">${index + 1}</span>
+        <span class="harness-fallback-name">${fallback ? `${escape(fallback.label)} · ${escape(fallback.source)}${role !== 'judge' && fallback.decisionOnly ? ' · 판정 전용, 이 역할에서 건너뜀' : ''}` : '연결을 확인할 수 없는 저장 모델'}</span>
+        <span class="harness-fallback-actions">
+          <button type="button" data-fallback-move="${role}" data-key="${escape(key)}" data-direction="up" aria-label="${title} ${index + 1}순위 올리기"${index === 0 ? ' disabled' : ''}>↑</button>
+          <button type="button" data-fallback-move="${role}" data-key="${escape(key)}" data-direction="down" aria-label="${title} ${index + 1}순위 내리기"${index === fallbackModels.length - 1 ? ' disabled' : ''}>↓</button>
+          <button type="button" data-fallback-remove="${role}" data-key="${escape(key)}" aria-label="${title} ${index + 1}순위 제거">×</button>
+        </span></li>`).join('');
+      return `<div class="harness-role">
+        <label class="project-field"><span>${title}</span><select data-harness-role="${role}" aria-label="${title} 모델">
+          <option value="">${role !== 'judge' && choose('judge')?.decisionOnly ? '자동 · Jev가 실행 시 선택' : '자동 · 역할에 맞게 배정'}</option>
+          ${config.roles[role].model && !model ? `<option selected value="${escape(config.roles[role].model)}">저장된 모델 · 연결 확인 필요</option>` : ''}
+          ${modelOptions(available, config.roles[role].model)}</select></label>
+        <label class="project-field"><span>추론 강도</span><select data-harness-effort="${role}" aria-label="${title} 추론 강도"${!supported.length ? ' disabled' : ''}>
+          <option value="">${supported.length ? '자동' : '서비스 기본값'}</option>
+          ${unavailableEffort ? `<option selected value="${escape(config.roles[role].effort)}">${escape(config.roles[role].effort)} · 지원 확인 필요</option>` : ''}
+          ${supported.map((value) => `<option value="${escape(value)}"${config.roles[role].effort === value ? ' selected' : ''}>${escape(value)}</option>`).join('')}</select></label>
+        <div class="harness-role-summary"><strong>${!config.roles[role].model ? '기본 후보 · ' : ''}${model ? escape(model.label) : '사용 가능한 모델 없음'}</strong><span>${model ? escape(budgetLabel(model)) : '연결과 잔여 한도를 확인하세요.'}</span></div>
+        <small>${model ? `${escape(effortLabel)} · ${escape(roleGuidance[role])}` : '모델을 연결하거나 직접 선택해 주세요.'}</small>
+        <details class="harness-fallbacks" data-fallback-details="${role}"${expandedFallbacks.has(role) ? ' open' : ''}>
+          <summary class="harness-fallback-heading"><strong>한도 소진 시 대체 순서</strong><span>${fallbackModels.length}개 · 펼쳐서 편집</span></summary>
+          <section aria-label="${title} 대체 모델 우선순위"><ol>${fallbackList || '<li class="harness-fallback-empty">대체 모델이 없습니다.</li>'}</ol>
+          <div class="harness-fallback-add"><select data-fallback-select="${role}" aria-label="${title} 대체 모델 선택"><option value="">대체 모델 추가…</option>${modelOptions(eligible)}</select>
+          <button type="button" data-fallback-add="${role}"${config.roles[role].fallbacks.length >= MAX_FALLBACKS || !eligible.length ? ' disabled' : ''}>추가</button></div></section>
+          <small>저장한 순서대로 전환합니다. 잔여 한도 미제공은 사용 가능량을 알 수 없다는 뜻입니다.</small>
+        </details></div>`;
     }).join('');
   }
   function open() {
     if (state.busy) return toast('실행이 끝난 뒤 구성을 변경해 주세요.');
     document.querySelector('#harnessAutoApply').checked = config.autoApply;
-    ensureFallbackPriority(); renderRoles(); modal.hidden = false; document.querySelector('#harnessClose').focus();
+    search.value = ''; ensureFallbackPriority(); renderRoles(); modal.hidden = false; document.querySelector('#harnessClose').focus();
   }
   function close() { modal.hidden = true; document.querySelector('#harnessConfigure').focus(); }
+  search.addEventListener('input', renderRoles);
+  fields.addEventListener('toggle', (event) => {
+    const role = event.target.dataset.fallbackDetails;
+    if (role) event.target.open ? expandedFallbacks.add(role) : expandedFallbacks.delete(role);
+  }, true);
+  document.querySelector('#harnessUseAutomatic').addEventListener('click', () => {
+    for (const [role] of ROLES) {
+      config.roles[role].model = ''; config.roles[role].effort = '';
+    }
+    search.value = ''; save(); renderRoles();
+  });
   fields.addEventListener('change', (event) => {
+    // Choosing an add candidate must survive until the Add button is pressed.
+    if (!event.target.dataset.harnessRole && !event.target.dataset.harnessEffort) return;
     if (event.target.dataset.harnessRole) {
       const role = event.target.dataset.harnessRole;
       config.roles[role].model = event.target.value;
@@ -134,17 +189,24 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
     const role = add?.dataset.fallbackAdd || move?.dataset.fallbackMove || remove?.dataset.fallbackRemove;
     if (!role || !config.roles[role]) return;
     const fallbacks = config.roles[role].fallbacks;
+    expandedFallbacks.add(role);
     if (add) {
       const select = fields.querySelector(`[data-fallback-select="${role}"]`);
       const key = select?.value;
-      if (!key || fallbacks.includes(key) || fallbacks.length >= MAX_FALLBACKS) return;
+      const candidate = modelByKey(key);
+      if (!candidate || (role !== 'judge' && candidate.decisionOnly) || key === modelKey(choose(role) || {}) || fallbacks.includes(key) || fallbacks.length >= MAX_FALLBACKS) return;
       fallbacks.push(key);
       select.value = '';
     } else if (remove) {
-      fallbacks.splice(Number(remove.dataset.index), 1);
+      const index = fallbacks.indexOf(remove.dataset.key);
+      if (index < 0) return;
+      fallbacks.splice(index, 1);
     } else {
-      const index = Number(move.dataset.index), next = index + (move.dataset.direction === 'up' ? -1 : 1);
-      if (next < 0 || next >= fallbacks.length) return;
+      const visible = fallbacks.filter((key) => key !== modelKey(choose(role) || {}));
+      const position = visible.indexOf(move.dataset.key);
+      const neighbor = visible[position + (move.dataset.direction === 'up' ? -1 : 1)];
+      const index = fallbacks.indexOf(move.dataset.key), next = fallbacks.indexOf(neighbor);
+      if (position < 0 || index < 0 || next < 0) return;
       [fallbacks[index], fallbacks[next]] = [fallbacks[next], fallbacks[index]];
     }
     config.roles[role].fallbacksConfigured = true;
@@ -192,7 +254,7 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
       ...(event.status !== 'running' && event.detail && !event.model && !event.title.startsWith('파일 작업') ? { kind: 'commentary', text: `**${event.title}**\n\n${event.detail}` } : {}),
     }));
     message.error = ['failed', 'blocked', 'interrupted'].includes(run.status);
-    message.content = pending ? `Harness · ${run.round}/${run.rounds}회차 · ${run.status === 'stopping' ? '중지 중' : ({ prepare: '작업 공간 준비', configuring: '판정 모델이 실행 환경 구성', planning: '계획 작성', working: '파일 작업', verifying: '검증', judging: '판정', applying: '프로젝트 반영' })[run.stage] || run.stage}`
+    message.content = pending ? `Harness · ${run.round}/${run.rounds}회차 · ${run.status === 'stopping' ? '중지 중' : ({ selecting: 'Jev가 역할별 모델 선택', prepare: '작업 공간 준비', configuring: '판정 모델이 실행 환경 구성', planning: '계획 작성', working: '파일 작업', verifying: '검증', judging: '판정', applying: '프로젝트 반영' })[run.stage] || run.stage}`
       : `${run.summary || '실행을 마쳤습니다.'}${run.applied ? '\n\n프로젝트에 변경을 자동 반영했습니다.' : ''}${run.source ? `\n\n프로젝트: \`${run.source}\`` : ''}${run.workspace && run.status !== 'completed' ? `\n\n작업 공간: \`${run.workspace}\`` : ''}${run.patchAvailable ? `\n\n[변경 패치 내려받기](${location.origin}/api/harness/runs/${run.id}/patch)` : ''}`;
     if (run.source) {
       conversation.harnessWorkspace = run.source;
@@ -247,7 +309,7 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
       if (!model) { open(); throw new Error(role === 'judge' ? 'Jev를 연결하거나 판정 모델을 선택해 주세요.' : '사용할 모델을 연결해 주세요.'); }
       const fallbacks = config.roles[role].fallbacks.map(modelByKey)
         .filter((candidate) => candidate && (role === 'judge' || !candidate.decisionOnly) && modelKey(candidate) !== modelKey(model));
-      roles[role] = { ...roleSelection(role, model, true), fallbacks: fallbacks.map((candidate) => roleSelection(role, candidate, false)) };
+      roles[role] = { ...roleSelection(role, model, true), automatic: !config.roles[role].model, fallbacks: fallbacks.map((candidate) => roleSelection(role, candidate, false)) };
     }
     const workspace = project?.workspace || conversation.harnessWorkspace || undefined;
     starting = true; stopRequested = false;

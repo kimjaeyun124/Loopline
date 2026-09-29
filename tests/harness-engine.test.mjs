@@ -84,6 +84,48 @@ test('worker combines the final file operation and completion to reduce model ca
   assert.equal(await readFile(join(combined.source, 'file.txt'), 'utf8'), 'updated\n');
 });
 
+test('worker context replaces an edited file with its latest contents', async (t) => {
+  const f = await fixture(t);
+  const previous = 'ORIGINAL_CONTEXT_SENTINEL\n', current = 'CURRENT_CONTEXT_SENTINEL\n';
+  await writeFile(join(f.source, 'file.txt'), previous);
+  let workerCalls = 0, latestPrompt = '';
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (_selection, prompt) => {
+    if (prompt.includes('구현 계획과 검증 기준')) return 'Read and update file.txt.';
+    if (prompt.startsWith('변경 결과를')) return JSON.stringify(complete());
+    workerCalls++;
+    if (workerCalls === 1) return JSON.stringify({ operations: [{ type: 'read', path: 'file.txt' }] });
+    if (workerCalls === 2) return JSON.stringify({ operations: [{ type: 'edit', path: 'file.txt', oldText: previous, newText: current }] });
+    latestPrompt = prompt;
+    return JSON.stringify({ done: true, summary: 'Updated file.txt.' });
+  } });
+
+  const run = await settled(engine, (await engine.create({ ...f.input, rounds: 1 })).id);
+  assert.equal(run.status, 'completed', run.summary);
+  assert.match(latestPrompt, new RegExp(current.trim()));
+  assert.doesNotMatch(latestPrompt, new RegExp(previous.trim()));
+  assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), current);
+});
+
+test('worker context sends one current copy when a file is read repeatedly', async (t) => {
+  const f = await fixture(t);
+  const content = `REPEATED_READ_SENTINEL\n${'x'.repeat(12_000)}`;
+  await writeFile(join(f.source, 'file.txt'), content);
+  let workerCalls = 0, promptAfterRepeatedRead = '';
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (_selection, prompt) => {
+    if (prompt.includes('구현 계획과 검증 기준')) return 'Read file.txt.';
+    if (prompt.startsWith('변경 결과를')) return JSON.stringify(complete());
+    workerCalls++;
+    if (workerCalls < 3) return JSON.stringify({ operations: [{ type: 'read', path: 'file.txt' }] });
+    promptAfterRepeatedRead = prompt;
+    return JSON.stringify({ done: true, summary: 'Read file.txt once per current state.' });
+  } });
+
+  const run = await settled(engine, (await engine.create({ ...f.input, rounds: 1 })).id);
+  assert.equal(run.status, 'completed', run.summary);
+  assert.equal(promptAfterRepeatedRead.split('REPEATED_READ_SENTINEL').length - 1, 1);
+  assert.ok(promptAfterRepeatedRead.length < content.length * 1.6, `prompt was ${promptAfterRepeatedRead.length} chars for ${content.length} chars of file content`);
+});
+
 test('a failed batched final operation does not count as worker completion', async (t) => {
   const f = await fixture(t); let workerCalls = 0, receivedCurrentFile = false;
   const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (_selection, prompt) => {

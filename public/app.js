@@ -57,6 +57,9 @@ const state = {
   activeId: null,
   activeProjectId: null,
   activityInspector: null,
+  activityPromptDetails: new Map(),
+  activityPromptPending: new Set(),
+  activityPromptErrors: new Map(),
   sidebarWidth: SIDEBAR_WIDTH_DEFAULT,
   editingProjectId: null,
   movingConversationId: null,
@@ -704,6 +707,84 @@ function activityDetailText(activity) {
   return activity.kind === 'commentary' ? activity.text || activity.detail : activityDisplayDetail(activity);
 }
 
+function activityPromptKey(messageId, eventId) { return `${messageId}:${eventId}`; }
+
+function rememberActivityPrompt(messageId, eventId, details) {
+  if (typeof messageId !== 'string' || typeof eventId !== 'string' || !details || typeof details !== 'object') return;
+  if (details.kind === 'chat') {
+    let remaining = 60_000;
+    let contextTruncated = false;
+    const messages = [];
+    const sourceMessages = Array.isArray(details.messages) ? details.messages : [];
+    for (let index = sourceMessages.length - 1; index >= 0 && remaining > 0; index -= 1) {
+      const item = sourceMessages[index];
+      const content = String(item.content || '');
+      const bounded = content.slice(0, remaining);
+      messages.unshift({ role: item.role === 'assistant' ? 'assistant' : 'user', content: bounded });
+      remaining -= bounded.length;
+      if (bounded.length < content.length) contextTruncated = true;
+    }
+    if (messages.length < sourceMessages.length) contextTruncated = true;
+    details = {
+      ...details,
+      messages,
+      agentInstructions: String(details.agentInstructions || '').slice(0, 20_000),
+      projectInstructions: String(details.projectInstructions || '').slice(0, 20_000),
+      contextTruncated: contextTruncated || String(details.agentInstructions || '').length > 20_000 || String(details.projectInstructions || '').length > 20_000,
+    };
+  }
+  const key = activityPromptKey(messageId, eventId);
+  state.activityPromptDetails.set(key, details);
+  state.activityPromptErrors.delete(key);
+  while (state.activityPromptDetails.size > 100) state.activityPromptDetails.delete(state.activityPromptDetails.keys().next().value);
+}
+
+function isHarnessPromptStep(message, activity) {
+  return Boolean(message.harnessRunId && activity.model
+    && ['계획 / Planning', '구현 / Implementation', '판정 / Review'].includes(activity.title));
+}
+
+function promptSection(title, content, format = 'text') {
+  if (!content) return '';
+  const body = format === 'json'
+    ? `<pre class="activity-prompt-pre">${escapeHtml(String(content))}</pre>`
+    : `<div class="activity-prompt-text">${escapeHtml(String(content))}</div>`;
+  return `<section class="activity-inspector-prompt-section"><h4>${title}</h4>${body}</section>`;
+}
+
+function renderActivityPrompt(details) {
+  if (details.kind === 'chat') {
+    const messages = Array.isArray(details.messages) ? details.messages : [];
+    return `<section class="activity-inspector-prompt"><h3>AI에게 전달한 입력 · Sent to AI</h3><p class="activity-inspector-prompt-note">이번 요청에 포함된 대화와 지침입니다.</p>${messages.map((message, index) => {
+      const speaker = message.role === 'assistant' ? 'AI 응답 · Assistant' : '사용자 질문 · User';
+      return `<section class="activity-inspector-prompt-section"><h4>${speaker}${messages.length > 1 ? ` · ${index + 1}` : ''}</h4><div class="activity-prompt-text">${escapeHtml(String(message.content || ''))}</div></section>`;
+    }).join('')}${details.contextTruncated ? '<p class="activity-inspector-prompt-note">입력이 길어 최근 대화 중심으로 일부만 표시합니다.</p>' : ''}${promptSection('Loop 및 모델 지침 · Loop and model instructions', details.agentInstructions)}${promptSection('프로젝트 지침 · Project instructions', details.projectInstructions)}</section>`;
+  }
+  if (details.kind === 'harness') {
+    return `<section class="activity-inspector-prompt"><h3>AI에게 보낸 질문 · Prompt sent</h3>${details.inputTruncated ? '<p class="activity-inspector-prompt-note">입력이 길어 앞부분만 표시합니다.</p>' : ''}${promptSection('요청 입력 · Request', details.input, details.inputFormat === 'json' ? 'json' : 'text')}${promptSection('역할 지침 · Role instructions', details.roleInstructions)}${promptSection('프로젝트 지침 · Project instructions', details.projectInstructions)}${promptSection('추가 프로젝트 지침 · Additional project instructions', details.extraProjectInstructions)}${promptSection('Harness 실행 규칙 · Harness instructions', details.executionInstructions)}</section>`;
+  }
+  return '';
+}
+
+async function loadActivityPrompt(message, activity) {
+  if (!isHarnessPromptStep(message, activity)) return;
+  const key = activityPromptKey(message.id, activity.id);
+  if (state.activityPromptDetails.has(key) || state.activityPromptPending.has(key)) return;
+  state.activityPromptPending.add(key);
+  renderActivityInspector();
+  try {
+    const response = await fetch(`/api/harness/runs/${encodeURIComponent(message.harnessRunId)}/events/${encodeURIComponent(activity.id)}/prompt`);
+    const details = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(details.error || '질문 기록을 불러오지 못했습니다.');
+    rememberActivityPrompt(message.id, activity.id, details);
+  } catch (error) {
+    state.activityPromptErrors.set(key, error.message || '질문 기록을 불러오지 못했습니다.');
+  } finally {
+    state.activityPromptPending.delete(key);
+    if (state.activityInspector?.messageId === message.id && state.activityInspector?.eventId === activity.id) renderActivityInspector();
+  }
+}
+
 function activitySummary(activity) {
   const text = String(activityDetailText(activity) || '').replace(/\s+/g, ' ').trim();
   const plain = text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/[`*_>#]/g, '');
@@ -732,11 +813,22 @@ function renderActivityInspector() {
 
   const model = activityModelForMessage(message, activity);
   const detail = activityDetailText(activity);
+  const promptKey = activityPromptKey(message.id, activity.id);
+  const promptDetails = state.activityPromptDetails.get(promptKey);
+  const promptMarkup = promptDetails
+    ? renderActivityPrompt(promptDetails)
+    : state.activityPromptPending.has(promptKey)
+      ? '<section class="activity-inspector-prompt"><h3>AI에게 보낸 입력 · Sent to AI</h3><p class="activity-inspector-empty">질문과 지침을 불러오고 있습니다…</p></section>'
+      : state.activityPromptErrors.has(promptKey)
+        ? `<section class="activity-inspector-prompt"><h3>AI에게 보낸 입력 · Sent to AI</h3><p class="activity-inspector-empty">${escapeHtml(state.activityPromptErrors.get(promptKey))}</p></section>`
+        : '';
   elements.activityInspector.hidden = false;
   elements.activityInspectorTitle.textContent = activityTitleLabel(activity);
   elements.activityInspectorContent.innerHTML = `
     <div class="activity-inspector-status"><span class="activity-${escapeHtml(activity.status)}"><i aria-hidden="true"></i>${activityStatusLabel(activity.status)}</span>${Number.isFinite(activity.timestamp) ? `<time datetime="${new Date(activity.timestamp).toISOString()}">${new Date(activity.timestamp).toLocaleString()}</time>` : ''}</div>
     ${model ? `<section class="activity-inspector-card"><span>사용한 AI · AI used</span><strong>${escapeHtml(harnessProviderName(model))}</strong><small>${escapeHtml(model.label || model.id)}</small>${model.effort ? `<small>추론 강도 · Effort: ${escapeHtml(model.effort)}</small>` : ''}</section>` : ''}
+    ${promptMarkup}
+    ${!promptMarkup && !isHarnessPromptStep(message, activity) && message.activityMode === 'native' ? '<section class="activity-inspector-prompt"><h3>AI에게 보낸 입력 · Sent to AI</h3><p class="activity-inspector-empty">이 단계는 자동 실행 기록이며, 별도로 보낸 질문은 없습니다.</p></section>' : ''}
     <section class="activity-inspector-detail"><h3>단계 기록 · Step details</h3>${detail ? `<div class="activity-inspector-markdown">${renderMarkdown(detail, { copyDisabled: true })}</div>` : '<p class="activity-inspector-empty">이 단계에서 추가로 기록된 내용이 없습니다.</p>'}</section>
     ${message.activityMode === 'lifecycle' ? '<p class="activity-inspector-note">이 연결은 요청·응답 상태만 제공합니다. 모델 내부의 실시간 도구 과정은 제공되지 않습니다.</p>' : ''}
   `;
@@ -2544,6 +2636,19 @@ async function sendLoopEngineering(value, queuedMessageId = null) {
         `목표가 완료되고 확인까지 끝났다면 응답 마지막에 ${LOOP_ENGINEERING_COMPLETE_MARKER}를 단독으로 출력해 조기 종료를 요청하세요. 완료되지 않았다면 해당 문구를 출력하지 마세요.`,
       ].join('\n');
       const agentInstructions = [baseAgentInstructions, loopInstructions].filter(Boolean).join('\n\n');
+      const requestBody = {
+        provider: state.provider,
+        model: state.model,
+        ...(state.provider === 'api' ? { connectionId: conversation.connectionId } : {}),
+        ...(['openai', 'anthropic'].includes(state.provider) ? { reasoningEffort: reasoning.selectedEffort } : {}),
+        ...(state.provider === 'openai' ? { fastMode: reasoning.fastEnabled } : {}),
+        ...(state.provider === 'openai' ? { codexAccountId: conversation.codexAccountId || 'default' } : {}),
+        ...(agentInstructions ? { agentInstructions } : {}),
+        ...(projectInstructions ? { projectInstructions } : {}),
+        messages,
+        ...(state.provider === 'openai' && conversation.codexThreadId ? { codexThreadId: conversation.codexThreadId } : {}),
+      };
+      rememberActivityPrompt(assistantMessage.id, 'request', { kind: 'chat', messages, agentInstructions, projectInstructions });
       const controller = new AbortController();
       state.controller = controller;
 
@@ -2551,18 +2656,7 @@ async function sendLoopEngineering(value, queuedMessageId = null) {
         const response = await fetch('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            provider: state.provider,
-            model: state.model,
-            ...(state.provider === 'api' ? { connectionId: conversation.connectionId } : {}),
-            ...(['openai', 'anthropic'].includes(state.provider) ? { reasoningEffort: reasoning.selectedEffort } : {}),
-            ...(state.provider === 'openai' ? { fastMode: reasoning.fastEnabled } : {}),
-            ...(state.provider === 'openai' ? { codexAccountId: conversation.codexAccountId || 'default' } : {}),
-            ...(agentInstructions ? { agentInstructions } : {}),
-            ...(projectInstructions ? { projectInstructions } : {}),
-            messages,
-            ...(state.provider === 'openai' && conversation.codexThreadId ? { codexThreadId: conversation.codexThreadId } : {}),
-          }),
+          body: JSON.stringify(requestBody),
           signal: controller.signal,
         });
         if (!response.ok) {
@@ -2740,6 +2834,7 @@ async function sendMessage(value, queuedMessageId = null) {
   }
   const agentInstructions = activeAgentInstructions();
   const projectInstructions = activeProjectInstructions();
+  rememberActivityPrompt(assistantMessage.id, 'request', { kind: 'chat', messages, agentInstructions, projectInstructions });
   let shouldContinueQueue = false;
   try {
     const response = await fetch('/api/chat', {
@@ -3292,6 +3387,9 @@ elements.messages.addEventListener('click', (event) => {
       eventId: activityStep.dataset.activityEventId,
     };
     renderActivityInspector();
+    const message = activeConversation()?.messages.find((item) => item.id === state.activityInspector.messageId);
+    const activity = message?.activities?.find((item) => item.id === state.activityInspector.eventId);
+    if (message && activity) void loadActivityPrompt(message, activity);
     activityStep.focus({ preventScroll: true });
     return;
   }

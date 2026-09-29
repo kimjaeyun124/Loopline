@@ -183,7 +183,8 @@ export async function verifyWorkspace(workspace, command, runtime, signal) {
 export class HarnessEngine {
   constructor({ directory, invoke, verify = verifyWorkspace }) {
     this.directory = join(directory, 'harness'); this.invoke = invoke; this.verify = verify;
-    this.runs = new Map(); this.sources = new Set();
+    // Prompt text can contain project files, so keep inspection data in memory instead of run logs.
+    this.runs = new Map(); this.sources = new Set(); this.promptDetails = new Map();
   }
 
   async create(input) {
@@ -226,6 +227,17 @@ export class HarnessEngine {
   }
 
   publicRun(run) { const { instructions, fingerprint, baseline, ...visible } = run; return visible; }
+  async getPromptDetails(runId, eventId) {
+    const record = await this.record(runId);
+    if (!record.run.events.some((event) => event.id === eventId)) throw fail('이 단계의 입력 기록을 찾을 수 없습니다.', 404);
+    const promptDetails = this.promptDetails.get(eventId);
+    if (!promptDetails) throw fail('이 단계의 입력 기록을 현재 세션에서 찾을 수 없습니다.', 404);
+    return promptDetails;
+  }
+  rememberPrompt(eventId, promptDetails) {
+    this.promptDetails.set(eventId, promptDetails);
+    while (this.promptDetails.size > 100) this.promptDetails.delete(this.promptDetails.keys().next().value);
+  }
   persist(record) {
     const data = JSON.stringify(record.run);
     const operation = record.writes.then(async () => {
@@ -263,7 +275,7 @@ export class HarnessEngine {
     if (model) event.model = model;
     record.run.events.push(event);
     if (record.run.events.length > 500) record.run.events.shift();
-    await this.persist(record);
+    await this.persist(record); return event;
   }
   async call(record, role, prompt) {
     aborted(record.controller.signal);
@@ -276,8 +288,21 @@ export class HarnessEngine {
       label: (typeof selection.label === 'string' && selection.label.trim() ? selection.label : selection.model).slice(0, 160),
       effort: typeof selection.reasoningEffort === 'string' ? selection.reasoningEffort.slice(0, 24) : '',
     };
-    await this.event(record, `${role === 'planner' ? '계획 / Planning' : role === 'judge' ? '판정 / Review' : '구현 / Implementation'}`, `${record.run.round}/${record.run.rounds} · 추론 강도 / Effort: ${selection.reasoningEffort || '자동'}`, 'running', model);
-    const event = record.run.events.at(-1);
+    const event = await this.event(record, `${role === 'planner' ? '계획 / Planning' : role === 'judge' ? '판정 / Review' : '구현 / Implementation'}`, `${record.run.round}/${record.run.rounds} · 추론 강도 / Effort: ${selection.reasoningEffort || '자동'}`, 'running', model);
+    const inputText = typeof prompt === 'string' ? prompt : JSON.stringify(prompt, null, 2);
+    const promptLimit = 48_000;
+    this.rememberPrompt(event.id, {
+      kind: 'harness',
+      inputFormat: typeof prompt === 'string' ? 'text' : 'json',
+      input: String(inputText || '').slice(0, promptLimit),
+      inputTruncated: String(inputText || '').length > promptLimit,
+      roleInstructions: selection.decisionOnly ? '' : String(selection.instructions || '').slice(0, 22_000),
+      projectInstructions: selection.decisionOnly ? '' : String(record.run.instructions || '').slice(0, 24_000),
+      extraProjectInstructions: !selection.decisionOnly && record.run.instructions.length > 24_000
+        ? record.run.instructions.slice(24_000, 44_000)
+        : '',
+      executionInstructions: selection.decisionOnly ? '' : '사용자가 이 Harness 실행과 검증 후 자동 반영을 승인했습니다. 단계별 권한 요청 없이 지정된 범위에서 진행하세요. Harness가 파일 도구와 검증 명령을 실행합니다. 이 호출에서는 실제 CLI 도구를 사용하지 말고 요청된 응답 형식만 반환하세요.',
+    });
     try {
       const answer = await this.invoke(selection, prompt, record.run.instructions, record.controller.signal);
       aborted(record.controller.signal); event.status = 'completed'; await this.persist(record); return answer;

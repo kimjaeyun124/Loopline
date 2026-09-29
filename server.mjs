@@ -1952,6 +1952,10 @@ const server = createServer(async (req, res) => {
         }
         return json(res, 202, await harness.create(input));
       }
+      const promptMatch = url.pathname.match(/^\/api\/harness\/runs\/([a-f0-9-]{36})\/events\/([a-f0-9-]{36})\/prompt$/);
+      if (req.method === 'GET' && promptMatch) {
+        return json(res, 200, await harness.getPromptDetails(promptMatch[1], promptMatch[2]));
+      }
       const match = url.pathname.match(/^\/api\/harness\/runs\/([a-f0-9-]{36})(?:\/(stop|patch))?$/);
       if (!match) return json(res, 404, { error: '실행을 찾을 수 없습니다.' });
       if (req.method === 'POST' && match[2] === 'stop') return json(res, 200, await harness.stop(match[1]));

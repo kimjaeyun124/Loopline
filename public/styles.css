@@ -283,6 +283,13 @@ kbd { margin-left: auto; color: var(--muted); font-family: inherit; font-size: 1
 .activity-inspector-card { display: flex; flex-direction: column; gap: 5px; margin-bottom: 18px; padding: 12px; border: 1px solid var(--line); border-radius: 11px; background: var(--soft); }
 .activity-inspector-card > span, .activity-inspector-card > small { color: var(--muted); font-size: 10px; line-height: 1.5; overflow-wrap: anywhere; }
 .activity-inspector-card > strong { color: var(--ink); font-size: 13px; font-weight: 550; overflow-wrap: anywhere; }
+.activity-inspector-prompt { margin: 0 0 18px; padding: 12px; border: 1px solid var(--line); border-radius: 11px; background: var(--soft); }
+.activity-inspector-prompt h3 { margin: 0 0 5px; color: var(--secondary); font-size: 11px; font-weight: 600; }
+.activity-inspector-prompt-note { margin: 0 0 10px; color: var(--muted); font-size: 10px; line-height: 1.5; }
+.activity-inspector-prompt-section { margin-top: 12px; }
+.activity-inspector-prompt-section h4 { margin: 0 0 6px; color: var(--muted); font-size: 10px; font-weight: 550; }
+.activity-prompt-text, .activity-prompt-pre { max-height: 280px; overflow: auto; margin: 0; padding: 9px; border: 1px solid var(--line); border-radius: 8px; background: var(--canvas); color: var(--ink); font-family: inherit; font-size: 11px; line-height: 1.65; overflow-wrap: anywhere; white-space: pre-wrap; }
+.activity-prompt-pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; }
 .activity-inspector-detail h3 { margin: 0 0 9px; color: var(--secondary); font-size: 11px; font-weight: 550; }
 .activity-inspector-markdown { color: var(--ink); font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; }
 .activity-inspector-markdown > :first-child { margin-top: 0; }

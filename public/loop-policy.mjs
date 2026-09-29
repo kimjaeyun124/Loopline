@@ -10,7 +10,7 @@ export function recommendLoopEffort(role, supportedEfforts, task) {
   if (!Array.isArray(supportedEfforts) || !supportedEfforts.length) return null;
   const complex = classifyLoopTask(task) === 'complex';
   const preferences = complex
-    ? { planner: ['high', 'medium', 'xhigh', 'max', 'ultra', 'low'], worker: ['high', 'medium', 'xhigh', 'max', 'ultra', 'low'], judge: ['medium', 'low', 'high', 'xhigh', 'max', 'ultra'] }
+    ? { planner: ['medium', 'high', 'xhigh', 'max', 'ultra', 'low'], worker: ['high', 'medium', 'xhigh', 'max', 'ultra', 'low'], judge: ['medium', 'low', 'high', 'xhigh', 'max', 'ultra'] }
     : { planner: ['low', 'medium', 'high'], worker: ['medium', 'low', 'high'], judge: ['low', 'medium', 'high'] };
   const order = preferences[role] || preferences.worker;
   return [...order, ...supportedEfforts].find((effort, index, all) => supportedEfforts.includes(effort) && all.indexOf(effort) === index) || null;

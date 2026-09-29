@@ -93,7 +93,7 @@ test('Harness removes temporary Codex threads after transient delete failures', 
   const unsubscribes = calls.filter((call) => call.method === 'thread/unsubscribe');
   const deletes = calls.filter((call) => call.method === 'thread/delete');
   assert.ok(starts.length >= 3, 'planner, worker, and judge each create a temporary Codex thread');
-  assert.ok(starts.every((call) => !Object.hasOwn(call.params, 'ephemeral')));
+  assert.ok(starts.every((call) => call.params.ephemeral === true), 'temporary role threads must not be persisted to chat history');
   assert.equal(unsubscribes.length, starts.length);
   assert.equal(deletes.length, starts.length + 3, 'transient thread writer failures are retried until deletion succeeds');
   assert.ok(deletes.every((call) => /^qa-thread-\d+$/.test(call.params.threadId)));
@@ -126,6 +126,7 @@ test('Harness removes its temporary Codex thread after stopping a model call', a
   const unsubscribes = calls.filter((call) => call.method === 'thread/unsubscribe');
   const deletes = calls.filter((call) => call.method === 'thread/delete');
   assert.equal(starts.length, 1);
+  assert.equal(starts[0].params.ephemeral, true, 'stopped role calls must also use a non-persistent thread');
   assert.equal(unsubscribes.length, 1);
   assert.equal(deletes.length, 2, 'the interrupted thread is removed after retrying one temporary delete failure');
   assert.ok(deletes.every((call) => call.params.threadId === 'qa-thread-1'));

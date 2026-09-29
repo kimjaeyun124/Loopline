@@ -12,6 +12,7 @@ const MAX_MODEL_FALLBACKS = 8;
 const TERMINAL = new Set(['completed', 'reviewed', 'stopped', 'failed', 'limit', 'blocked', 'interrupted']);
 const gitArgs = ['-c', 'core.hooksPath=/dev/null', '-c', 'core.fsmonitor=false'];
 const fail = (message, status = 400) => Object.assign(new Error(message), { status });
+const invalidJudgeOutput = (message) => Object.assign(fail(message), { invalidJudgeOutput: true });
 const aborted = (signal) => { if (signal?.aborted) throw signal.reason || new Error('실행을 중지했습니다.'); };
 
 function selectionKey(selection) {
@@ -522,13 +523,15 @@ export class HarnessEngine {
       answers = result.answers;
       sourceModel = { ...sourceModel, model: result.model || sourceModel.model };
     } else {
-      const parsed = parseHarnessJson(typeof result === 'string' ? result : '');
+      let parsed;
+      try { parsed = parseHarnessJson(typeof result === 'string' ? result : ''); }
+      catch (error) { throw invalidJudgeOutput(error.message); }
       answers = parsed.answers;
     }
-    if (!answers || typeof answers !== 'object') throw fail('판정 모델의 결과 형식이 올바르지 않아 실행을 멈췄습니다.');
+    if (!answers || typeof answers !== 'object') throw invalidJudgeOutput('판정 모델의 결과 형식이 올바르지 않습니다.');
     const lines = Object.entries(checks).map(([id, check]) => {
       const answer = answers[id];
-      if (!['pass', 'revise', 'uncertain'].includes(answer?.choice)) throw fail(`${check.label} 판정이 누락되어 실행을 멈췄습니다.`);
+      if (!['pass', 'revise', 'uncertain'].includes(answer?.choice)) throw invalidJudgeOutput(`${check.label} 판정이 누락되었습니다.`);
       const probabilities = answer.probabilities;
       if (probabilities) {
         const keys = Object.keys(questions[id].criteria);
@@ -537,7 +540,7 @@ export class HarnessEngine {
           || keys.some((key) => !valid(probabilities[key]))
           || Math.abs(keys.reduce((sum, key) => sum + probabilities[key], 0) - 1) > 0.02
           || keys.some((key) => probabilities[key] > probabilities[answer.choice] + 0.000001)) {
-          throw fail('Jev 판정 확률이 올바르지 않아 실행을 멈췄습니다.');
+          throw invalidJudgeOutput('Jev 판정 확률이 올바르지 않습니다.');
         }
       }
       const confidence = Number.isFinite(answer.confidence) ? ` · 신뢰도 / Confidence ${(answer.confidence * 100).toFixed(1)}%` : '';
@@ -791,9 +794,19 @@ export class HarnessEngine {
         await this.event(record, '검증 응답 재요청 / Retry verification response', lastResponseIssue);
         continue;
       }
-      const verdict = await this.decide(record, { task: run.task, plan, summary, files, inspectedFiles: history.slice(-40_000), proposal: result }, {
-        command: { label: '검증 방법 / Verification plan', question: 'Will this proposed command meaningfully test the requested behavior using the inspected source and tests?', pass: 'The command exercises relevant behavior with real assertions and can run offline.', revise: 'Read the relevant implementation and tests, then propose a command with actual assertions covering the task, without downloads or unconditional success.' },
-      });
+      let verdict;
+      try {
+        verdict = await this.decide(record, { task: run.task, plan, summary, files, inspectedFiles: history.slice(-40_000), proposal: result }, {
+          command: { label: '검증 방법 / Verification plan', question: 'Will this proposed command meaningfully test the requested behavior using the inspected source and tests?', pass: 'The command exercises relevant behavior with real assertions and can run offline.', revise: 'Read the relevant implementation and tests, then propose a command with actual assertions covering the task, without downloads or unconditional success.' },
+        });
+      } catch (error) {
+        aborted(controller.signal);
+        if (!error.invalidJudgeOutput) throw error;
+        lastResponseIssue = `검증 명령 판정 응답이 올바르지 않습니다: ${String(error.message || '').slice(0, 300)}`;
+        history += `\n검증 판정 응답 오류: ${lastResponseIssue}`;
+        await this.event(record, '검증 판정 재요청 / Retry verification review', lastResponseIssue);
+        continue;
+      }
       if (verdict.decision !== 'complete') { history += `\nJudge feedback: ${verdict.feedback}`; continue; }
       run.verifyCommand = result.verifyCommand.trim();
       await this.event(record, '검증 자동 구성 / Verification configured', `${result.reason.slice(0, 2000)}\n${run.verifyCommand}`);

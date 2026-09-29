@@ -1461,10 +1461,12 @@ async function ensureCodexThread(context, requestedId, model, ephemeral = false)
     sandbox: 'read-only',
     developerInstructions: codexProgressInstructions,
     serviceName: 'mosaic_desk',
+    // Harness role calls are recorded in Loopline; keep their Codex threads out of chat history.
+    ...(ephemeral ? { ephemeral: true } : {}),
   });
   const id = result.thread?.id;
   if (!validCodexThreadId(id)) throw new Error('Codex app-server가 대화 식별자를 반환하지 않았습니다.');
-  // Harness records each step in Loopline and deletes its temporary Codex thread after the turn.
+  // Harness records each step in Loopline and does not persist its temporary Codex thread.
   if (!ephemeral) context.loadedThreads.add(id);
   return { id, cwd, created: true };
 }

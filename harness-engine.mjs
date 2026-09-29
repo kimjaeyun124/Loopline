@@ -13,19 +13,96 @@ const gitArgs = ['-c', 'core.hooksPath=/dev/null', '-c', 'core.fsmonitor=false']
 const fail = (message, status = 400) => Object.assign(new Error(message), { status });
 const aborted = (signal) => { if (signal?.aborted) throw signal.reason || new Error('실행을 중지했습니다.'); };
 
-function appendWorkerHistory(history, entry) {
-  const marker = '[이전 작업 기록 일부 생략 / Earlier tool output trimmed]\n';
-  let latest = String(entry);
-  if (latest.length > MAX_WORKER_HISTORY) {
-    const headLength = 6_000;
-    const tailLength = MAX_WORKER_HISTORY - headLength - marker.length - 1;
-    latest = `${latest.slice(0, headLength)}\n${marker}${latest.slice(-tailLength)}`;
+function createWorkerHistory() {
+  return { files: new Map(), listings: new Map(), operations: [], errors: [] };
+}
+
+function rememberWorkerFile(history, path, value) {
+  history.files.delete(path);
+  history.files.set(path, value);
+}
+
+function clearWorkerErrors(history, paths) {
+  if (!paths.size) return;
+  history.errors = history.errors.filter((entry) => !entry.paths.some((path) => paths.has(path)));
+}
+
+function recordWorkerResults(history, step, operations, results) {
+  const resolvedPaths = new Set();
+  for (const result of results) {
+    if (result.type === 'read') rememberWorkerFile(history, result.path, { step, content: result.content, source: 'read' });
+    if (result.type === 'list') {
+      history.listings.delete(result.path);
+      history.listings.set(result.path, { step, entries: result.entries });
+    }
   }
-  if (!history) return latest;
-  const previousBudget = Math.max(0, MAX_WORKER_HISTORY - latest.length - marker.length - 1);
-  if (!previousBudget) return latest;
-  const previous = previousBudget ? history.slice(-previousBudget) : '';
-  return `${marker}${previous ? `${previous}\n` : ''}${latest}`;
+  for (const operation of operations) {
+    if (typeof operation.path === 'string') resolvedPaths.add(operation.path);
+    if (['write', 'edit', 'delete'].includes(operation.type)) {
+      if (operation.type === 'delete') history.files.delete(operation.path);
+      else rememberWorkerFile(history, operation.path, { step, content: operation.content, source: 'updated' });
+      history.listings.clear();
+    }
+    const action = { step, type: operation.type, path: operation.path || '.' };
+    if (['write', 'edit', 'delete'].includes(operation.type)) action.completed = true;
+    history.operations.push(JSON.stringify(action));
+  }
+  clearWorkerErrors(history, resolvedPaths);
+  history.operations = history.operations.slice(-12);
+}
+
+async function recordWorkerFailure(history, workspace, step, detail, operations) {
+  const paths = new Set(Array.isArray(operations) ? operations.map((operation) => operation?.path).filter((path) => typeof path === 'string') : []);
+  const mutations = Array.isArray(operations) ? operations.filter((operation) => ['write', 'edit', 'delete'].includes(operation?.type) && typeof operation.path === 'string') : [];
+  if (mutations.length) history.listings.clear();
+  for (const operation of mutations) {
+    history.files.delete(operation.path);
+    if (operation.type === 'delete') continue;
+    try {
+      const path = await workspacePath(workspace, operation.path);
+      const stat = await lstat(path);
+      if (!stat.isFile() || stat.size > MAX_FILE) continue;
+      const content = await readFile(path, 'utf8');
+      if (!content.includes('\0')) rememberWorkerFile(history, operation.path, { step, content, source: 'updated after partial failure' });
+    } catch { /* A failed or deleted file is not safe to keep as current context. */ }
+  }
+  const mutationPaths = new Set(mutations.map((operation) => operation.path));
+  for (const operation of Array.isArray(operations) ? operations : []) {
+    if (operation?.type === 'read' && typeof operation.path === 'string' && !mutationPaths.has(operation.path)) history.files.delete(operation.path);
+  }
+  const conciseDetail = String(detail).split('\n최신 파일 내용입니다.')[0];
+  history.errors.push({ step, paths: [...paths], detail: conciseDetail });
+  history.errors = history.errors.slice(-3);
+}
+
+function formatWorkerHistory(history) {
+  const sections = [];
+  const used = () => sections.join('\n').length;
+  const append = (value, kind = 'text') => {
+    const remaining = MAX_WORKER_HISTORY - used();
+    if (remaining <= 80) return;
+    const text = String(value);
+    if (text.length <= remaining) { sections.push(text); return; }
+    const marker = '\n[일부 내용 생략. 필요하면 해당 파일을 다시 읽으세요.]';
+    const available = remaining - marker.length;
+    if (available <= 0) return;
+    const head = kind === 'file' ? Math.min(Math.ceil(available / 2), 4_000) : Math.min(available, 4_000);
+    const tail = Math.max(0, available - head);
+    sections.push(`${text.slice(0, head)}${marker}${tail ? text.slice(-tail) : ''}`);
+  };
+
+  for (const entry of [...history.errors].reverse()) {
+    append(`도구 오류: (단계 ${entry.step}) ${entry.detail}`);
+  }
+  const files = [...history.files.entries()].reverse();
+  const failedFiles = files.filter(([path]) => history.errors.some((entry) => entry.paths.includes(path)));
+  const currentFiles = files.filter(([path]) => !history.errors.some((entry) => entry.paths.includes(path)))
+    .map(([path, file]) => ({ path, step: file.step, content: file.content }));
+  for (const [path, file] of failedFiles) append(`최신 파일 내용입니다. ${path}\n${file.content}`, 'file');
+  if (currentFiles.length) append(`현재 파일 상태:\n${JSON.stringify(currentFiles)}`, 'file');
+  if (history.listings.size) append(`현재 디렉터리 목록:\n${JSON.stringify([...history.listings.entries()].reverse())}`);
+  if (history.operations.length) append(`최근 작업 기록:\n[${history.operations.join(',')}]`);
+  return sections.join('\n');
 }
 
 function boundedFileInventory(value) {
@@ -390,14 +467,14 @@ export class HarnessEngine {
       let feedback = '', previousSummary = '', reselectVerification = false;
       for (let round = 1; round <= run.rounds; round++) {
         aborted(signal); run.round = round; run.stage = 'working';
-        let history = '', lastReadAction = '', repeatedReads = 0;
+        const history = createWorkerHistory(); let lastReadAction = '', repeatedReads = 0;
         let finished = false;
         for (let step = 0; step < 16; step++) {
           const protocol = '기본 CLI 도구 대신 Harness의 JSON 작업 도구만 사용하세요. 마크다운 없이 JSON 객체 하나만 반환하세요. 파일 경로는 작업 공간 기준 상대 경로입니다. 허용 형식: {"operations":[{"type":"list","path":"."},{"type":"read","path":"src/file.js"},{"type":"write","path":"new.txt","content":"full text"},{"type":"edit","path":"src/file.js","oldText":"unique exact text","newText":"replacement"},{"type":"delete","path":"old.txt"}]} 또는 모든 변경을 마친 뒤 {"done":true,"summary":"실제 변경 요약"}. 마지막 파일 작업과 완료 요약은 {"operations":[...],"done":true,"summary":"실제 변경 요약"}처럼 한 번에 반환해 추가 호출을 줄일 수 있습니다. 작업 도구가 성공한 경우에만 완료 처리됩니다. 먼저 필요한 파일을 읽고 수정하세요. 서로 독립적인 파일 작업은 operations 배열에 묶어 호출 횟수를 줄이세요. 새 프로젝트라면 오프라인 검증 가능한 테스트도 작성하세요. 검증 명령은 판정 모델이 정하고 Harness가 실행합니다. 편집 도구가 치환할 내용을 찾지 못하면 오류에 포함된 최신 파일 내용을 읽고, 그 내용에 실제로 존재하는 고유 구간으로 다시 편집하세요. 실패한 oldText를 그대로 반복하지 마세요. .git, node_modules, 심볼릭 링크에 접근하지 마세요. JSON에 추론 전문을 포함하지 마세요.';
           const inventory = step === 0 ? `\n파일 목록:\n${files}` : '';
-          const answer = await this.call(record, 'worker', `${protocol}\n목표: ${run.task}\n계획: ${plan}\n회차 ${round}/${run.rounds} · 단계 ${step + 1}/16\n이전 작업: ${previousSummary}\n판정 피드백: ${feedback}${inventory}\n아래 기록은 이번 회차의 최근 실제 작업 결과입니다. 이미 읽은 내용과 성공한 변경을 활용하세요. 같은 파일을 변경 없이 반복해서 읽지 마세요. 필요한 수정이 끝났으면 done과 실제 변경 요약을 반환하세요.\n최근 도구 결과:\n${history}\n\n앞선 단계를 다시 하지 말고 다음 작업을 반환하세요.`);
+          const answer = await this.call(record, 'worker', `${protocol}\n목표: ${run.task}\n계획: ${plan}\n회차 ${round}/${run.rounds} · 단계 ${step + 1}/16\n이전 작업: ${previousSummary}\n판정 피드백: ${feedback}${inventory}\n아래 기록은 이번 회차의 최신 작업 상태입니다. 같은 파일의 과거 내용은 최신 상태로 교체되어 있습니다. 내용이 생략된 파일이 필요하면 read로 다시 확인하세요. 필요한 수정이 끝났으면 done과 실제 변경 요약을 반환하세요.\n최근 도구 결과:\n${formatWorkerHistory(history)}\n\n앞선 단계를 다시 하지 말고 다음 작업을 반환하세요.`);
           let action;
-          try { action = parseHarnessJson(answer); } catch (error) { history = appendWorkerHistory(history, `응답 오류: ${error.message} JSON 객체만 반환하세요.`); await this.event(record, '응답 형식 재요청 / Retry format', error.message); continue; }
+          try { action = parseHarnessJson(answer); } catch (error) { await recordWorkerFailure(history, run.workspace, step + 1, `응답 오류: ${error.message} JSON 객체만 반환하세요.`, []); await this.event(record, '응답 형식 재요청 / Retry format', error.message); continue; }
           const completion = action.done === true && typeof action.summary === 'string' && action.summary.trim();
           if (completion && (!Object.hasOwn(action, 'operations') || (Array.isArray(action.operations) && action.operations.length === 0))) {
             previousSummary = action.summary.slice(0, 8000); finished = true; break;
@@ -408,7 +485,7 @@ export class HarnessEngine {
           if (repeatedReads >= 2) throw fail('모델이 같은 읽기 작업을 반복하여 실행을 멈췄습니다. 작업 목표나 구현 모델을 변경해 주세요.');
           try {
             const results = await applyWorkspaceOperations(run.workspace, action.operations, signal);
-            history = appendWorkerHistory(history, `단계 ${step + 1} 실행 완료: ${JSON.stringify(action.operations.map(({ type, path }) => ({ type, path })))}\n실제 도구 결과: ${JSON.stringify(results)}`);
+            recordWorkerResults(history, step + 1, action.operations, results);
             await this.event(record, '파일 작업 / File operations', action.operations.map((op) => `${op.type}: ${op.path || '.'}`).join('\n'));
             if (completion) { previousSummary = action.summary.slice(0, 8000); finished = true; break; }
           } catch (error) {
@@ -425,7 +502,7 @@ export class HarnessEngine {
                 toolFeedback += `\n최신 파일 내용입니다. 이 내용에서 고유한 oldText를 다시 선택하세요.\n${excerpt}`;
               } catch { /* Keep the original tool failure if current file context cannot be read safely. */ }
             }
-            history = appendWorkerHistory(history, `도구 오류: ${toolFeedback}`);
+            await recordWorkerFailure(history, run.workspace, step + 1, toolFeedback, action.operations);
             await this.event(record, '작업 수정 요청 / Tool feedback', toolFeedback);
           }
         }

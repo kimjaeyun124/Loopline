@@ -529,6 +529,53 @@ test('automatic verification retries malformed and incomplete judge responses', 
   assert.equal(run.events.filter((event) => event.title.startsWith('검증 응답 재요청')).length, 2);
 });
 
+test('automatic verification retries an invalid judge review without losing the proposed command', async (t) => {
+  const f = await fixture(t), script = modelScript(complete);
+  let verificationPlans = 0, commandReviews = 0, verifications = 0;
+  const engine = new HarnessEngine({ directory: f.data, verify: async (_workspace, command) => {
+    assert.equal(command, 'node --test'); verifications++; return pass();
+  }, invoke: async (selection, prompt, ...rest) => {
+    if (startsWithText(prompt, '검증 방법을')) {
+      verificationPlans++;
+      return JSON.stringify({ verifyCommand: 'node --test', reason: 'Run the project tests with real assertions.' });
+    }
+    if (isJudgementPrompt(prompt) && prompt.questions.command) {
+      commandReviews++;
+      if (commandReviews === 1) return JSON.stringify({ answers: {} });
+    }
+    return script(selection, prompt, ...rest);
+  } });
+  const run = await settled(engine, (await engine.create({ ...f.input, verifyCommand: undefined })).id);
+  assert.equal(run.status, 'completed', run.summary);
+  assert.equal(verificationPlans, 2);
+  assert.equal(commandReviews, 2);
+  assert.equal(verifications, 1);
+  assert.equal(run.events.filter((event) => event.title.startsWith('검증 판정 재요청')).length, 1);
+  assert.equal(run.events.filter((event) => event.title.startsWith('검증 자동 구성')).length, 1);
+});
+
+test('automatic verification does not retry judge transport failures as malformed decisions', async (t) => {
+  const f = await fixture(t), script = modelScript(complete);
+  let verificationPlans = 0, commandReviews = 0;
+  const engine = new HarnessEngine({ directory: f.data, verify: () => assert.fail('Transport failures must not run verification'), invoke: async (selection, prompt, ...rest) => {
+    if (startsWithText(prompt, '검증 방법을')) {
+      verificationPlans++;
+      return JSON.stringify({ verifyCommand: 'node --test', reason: 'Run the project tests.' });
+    }
+    if (isJudgementPrompt(prompt) && prompt.questions.command) {
+      commandReviews++;
+      throw new Error('judge connection failed');
+    }
+    return script(selection, prompt, ...rest);
+  } });
+  const run = await settled(engine, (await engine.create({ ...f.input, verifyCommand: undefined })).id);
+  assert.equal(run.status, 'failed');
+  assert.match(run.summary, /judge connection failed/);
+  assert.equal(verificationPlans, 1);
+  assert.equal(commandReviews, 1);
+  assert.equal(run.events.some((event) => event.title.startsWith('검증 판정 재요청')), false);
+});
+
 test('automatic verification stops safely after eight invalid judge responses', async (t) => {
   const f = await fixture(t), script = modelScript(complete);
   let verificationResponses = 0;

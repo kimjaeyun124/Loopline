@@ -404,7 +404,10 @@ export class HarnessEngine {
             await this.event(record, '파일 작업 / File operations', action.operations.map((op) => `${op.type}: ${op.path || '.'}`).join('\n'));
           } catch (error) {
             let toolFeedback = error.message;
-            const failedEdit = action.operations?.find((op) => op?.type === 'edit' && error.message.includes(`: ${op.path}`));
+            const editOperations = Array.isArray(action.operations)
+              ? action.operations.filter((op) => op?.type === 'edit' && typeof op.path === 'string')
+              : [];
+            const failedEdit = editOperations.find((op) => error.message.includes(`: ${op.path}`)) || editOperations.at(-1);
             if (failedEdit) {
               try {
                 const path = await workspacePath(run.workspace, failedEdit.path);

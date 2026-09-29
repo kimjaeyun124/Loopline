@@ -388,12 +388,15 @@ export class HarnessEngine {
         let history = '', lastReadAction = '', repeatedReads = 0;
         let finished = false;
         for (let step = 0; step < 16; step++) {
-          const protocol = '기본 CLI 도구 대신 Harness의 JSON 작업 도구만 사용하세요. 마크다운 없이 JSON 객체 하나만 반환하세요. 파일 경로는 작업 공간 기준 상대 경로입니다. 허용 형식: {"operations":[{"type":"list","path":"."},{"type":"read","path":"src/file.js"},{"type":"write","path":"new.txt","content":"full text"},{"type":"edit","path":"src/file.js","oldText":"unique exact text","newText":"replacement"},{"type":"delete","path":"old.txt"}]} 또는 모든 변경을 마친 뒤 {"done":true,"summary":"실제 변경 요약"}. 먼저 필요한 파일을 읽고 수정하세요. 서로 독립적인 파일 작업은 operations 배열에 묶어 호출 횟수를 줄이세요. 새 프로젝트라면 오프라인 검증 가능한 테스트도 작성하세요. 검증 명령은 판정 모델이 정하고 Harness가 실행합니다. 편집 도구가 치환할 내용을 찾지 못하면 오류에 포함된 최신 파일 내용을 읽고, 그 내용에 실제로 존재하는 고유 구간으로 다시 편집하세요. 실패한 oldText를 그대로 반복하지 마세요. .git, node_modules, 심볼릭 링크에 접근하지 마세요. JSON에 추론 전문을 포함하지 마세요.';
+          const protocol = '기본 CLI 도구 대신 Harness의 JSON 작업 도구만 사용하세요. 마크다운 없이 JSON 객체 하나만 반환하세요. 파일 경로는 작업 공간 기준 상대 경로입니다. 허용 형식: {"operations":[{"type":"list","path":"."},{"type":"read","path":"src/file.js"},{"type":"write","path":"new.txt","content":"full text"},{"type":"edit","path":"src/file.js","oldText":"unique exact text","newText":"replacement"},{"type":"delete","path":"old.txt"}]} 또는 모든 변경을 마친 뒤 {"done":true,"summary":"실제 변경 요약"}. 마지막 파일 작업과 완료 요약은 {"operations":[...],"done":true,"summary":"실제 변경 요약"}처럼 한 번에 반환해 추가 호출을 줄일 수 있습니다. 작업 도구가 성공한 경우에만 완료 처리됩니다. 먼저 필요한 파일을 읽고 수정하세요. 서로 독립적인 파일 작업은 operations 배열에 묶어 호출 횟수를 줄이세요. 새 프로젝트라면 오프라인 검증 가능한 테스트도 작성하세요. 검증 명령은 판정 모델이 정하고 Harness가 실행합니다. 편집 도구가 치환할 내용을 찾지 못하면 오류에 포함된 최신 파일 내용을 읽고, 그 내용에 실제로 존재하는 고유 구간으로 다시 편집하세요. 실패한 oldText를 그대로 반복하지 마세요. .git, node_modules, 심볼릭 링크에 접근하지 마세요. JSON에 추론 전문을 포함하지 마세요.';
           const inventory = step === 0 ? `\n파일 목록:\n${files}` : '';
           const answer = await this.call(record, 'worker', `${protocol}\n목표: ${run.task}\n계획: ${plan}\n회차 ${round}/${run.rounds} · 단계 ${step + 1}/16\n이전 작업: ${previousSummary}\n판정 피드백: ${feedback}${inventory}\n아래 기록은 이번 회차의 최근 실제 작업 결과입니다. 이미 읽은 내용과 성공한 변경을 활용하세요. 같은 파일을 변경 없이 반복해서 읽지 마세요. 필요한 수정이 끝났으면 done과 실제 변경 요약을 반환하세요.\n최근 도구 결과:\n${history}\n\n앞선 단계를 다시 하지 말고 다음 작업을 반환하세요.`);
           let action;
           try { action = parseHarnessJson(answer); } catch (error) { history = appendWorkerHistory(history, `응답 오류: ${error.message} JSON 객체만 반환하세요.`); await this.event(record, '응답 형식 재요청 / Retry format', error.message); continue; }
-          if (action.done === true && typeof action.summary === 'string' && action.summary.trim()) { previousSummary = action.summary.slice(0, 8000); finished = true; break; }
+          const completion = action.done === true && typeof action.summary === 'string' && action.summary.trim();
+          if (completion && (!Object.hasOwn(action, 'operations') || (Array.isArray(action.operations) && action.operations.length === 0))) {
+            previousSummary = action.summary.slice(0, 8000); finished = true; break;
+          }
           const readAction = Array.isArray(action.operations) && action.operations.every((op) => ['read', 'list'].includes(op?.type)) ? JSON.stringify(action.operations) : '';
           repeatedReads = readAction && readAction === lastReadAction ? repeatedReads + 1 : 0;
           lastReadAction = readAction;
@@ -402,6 +405,7 @@ export class HarnessEngine {
             const results = await applyWorkspaceOperations(run.workspace, action.operations, signal);
             history = appendWorkerHistory(history, `단계 ${step + 1} 실행 완료: ${JSON.stringify(action.operations.map(({ type, path }) => ({ type, path })))}\n실제 도구 결과: ${JSON.stringify(results)}`);
             await this.event(record, '파일 작업 / File operations', action.operations.map((op) => `${op.type}: ${op.path || '.'}`).join('\n'));
+            if (completion) { previousSummary = action.summary.slice(0, 8000); finished = true; break; }
           } catch (error) {
             let toolFeedback = error.message;
             const editOperations = Array.isArray(action.operations)

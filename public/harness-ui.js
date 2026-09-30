@@ -1,4 +1,4 @@
-import { modelEffortCapability } from './model-capabilities.mjs';
+import { modelEffortCapability, modelSelectionStrength } from './model-capabilities.mjs';
 import { DEFAULT_LOOP_PRIORITIES, LOOP_PRIORITY_DIMENSIONS, normalizeLoopPriorities, recommendLoopEffort, selectAutomaticLoopModel } from './loop-policy.mjs';
 
 const KEY = 'loopline.harness.v1';
@@ -106,14 +106,14 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
   function modelOptions(models, selected = '') {
     const query = search.value.trim().toLocaleLowerCase();
     const visible = models.filter((model) => modelKey(model) === selected
-      || `${model.label} ${model.id} ${model.source}`.toLocaleLowerCase().includes(query));
+      || `${model.label} ${model.id} ${model.source} ${modelSelectionStrength(model)}`.toLocaleLowerCase().includes(query));
     const groups = new Map();
     for (const model of visible) {
       const group = model.source || '연결된 모델';
       if (!groups.has(group)) groups.set(group, []);
       groups.get(group).push(model);
     }
-    return [...groups].map(([source, items]) => `<optgroup label="${escape(source)}">${items.map((model) => `<option value="${escape(modelKey(model))}"${selected === modelKey(model) ? ' selected' : ''}>${escape(model.label)}${Number.isFinite(model.remainingPercent) ? ` · 한도 ${Math.max(0, model.remainingPercent)}%` : ''}</option>`).join('')}</optgroup>`).join('')
+    return [...groups].map(([source, items]) => `<optgroup label="${escape(source)}">${items.map((model) => `<option value="${escape(modelKey(model))}"${selected === modelKey(model) ? ' selected' : ''}>${escape(model.label)}${modelSelectionStrength(model) ? ` · ${escape(modelSelectionStrength(model))}` : ''}${Number.isFinite(model.remainingPercent) ? ` · 한도 ${Math.max(0, model.remainingPercent)}%` : ''}</option>`).join('')}</optgroup>`).join('')
       || '<option disabled>검색 결과 없음</option>';
   }
   function renderRoles() {
@@ -146,7 +146,7 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
           ${unavailableEffort ? `<option selected value="${escape(config.roles[role].effort)}">${escape(config.roles[role].effort)} · 지원 확인 필요</option>` : ''}
           ${supported.map((value) => `<option value="${escape(value)}"${config.roles[role].effort === value ? ' selected' : ''}>${escape(value)}</option>`).join('')}</select></label>
         <div class="harness-role-summary"><strong>${!config.roles[role].model ? '기본 후보 · ' : ''}${model ? escape(model.label) : '사용 가능한 모델 없음'}</strong><span>${model ? escape(budgetLabel(model)) : '연결과 잔여 한도를 확인하세요.'}</span></div>
-        <small>${model ? `${escape(effortLabel)} · ${escape(roleGuidance[role])}` : '모델을 연결하거나 직접 선택해 주세요.'}</small>
+        <small>${model ? `${escape(modelSelectionStrength(model) || effortLabel)} · ${escape(effortLabel)} · ${escape(roleGuidance[role])}` : '모델을 연결하거나 직접 선택해 주세요.'}</small>
         <details class="harness-fallbacks" data-fallback-details="${role}"${expandedFallbacks.has(role) ? ' open' : ''}>
           <summary class="harness-fallback-heading"><strong>한도 소진 시 대체 순서</strong><span>${fallbackModels.length}개 · 펼쳐서 편집</span></summary>
           <section aria-label="${title} 대체 모델 우선순위"><ol>${fallbackList || '<li class="harness-fallback-empty">대체 모델이 없습니다.</li>'}</ol>

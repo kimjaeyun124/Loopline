@@ -6,7 +6,7 @@ import { createChatGptUI } from './chatgpt-ui.js';
 import { createModelVisibilityUI } from './model-visibility-ui.js';
 import { createAccountMenuUI } from './account-menu-ui.js';
 import { createUsageActivityUI } from './usage-activity-ui.js';
-import { modelEffortCapability } from './model-capabilities.mjs';
+import { modelEffortCapability, modelSelectionStrength } from './model-capabilities.mjs';
 import { renderMarkdown } from './markdown.js';
 import { createHarnessUI } from './harness-ui.js';
 
@@ -1327,10 +1327,11 @@ function renderModelOptions() {
   }
   const scopedModels = modelCatalog().filter(isSelectedProvider);
   const visibleModels = scopedModels.filter(modelVisibilityUI.isVisible);
-  const models = visibleModels.filter((model) => `${model.label} ${model.id} ${model.source}`.toLocaleLowerCase().includes(query));
+  const models = visibleModels.filter((model) => `${model.label} ${model.id} ${model.source} ${modelSelectionStrength(model)}`.toLocaleLowerCase().includes(query));
   const modelRows = models.slice(0, 200).map((model) => {
     const selected = modelKey(model) === selectedModelKey();
-    return `<button class="model-option${selected ? ' selected' : ''}" type="button" role="option" aria-selected="${selected}" data-model-key="${escapeHtml(modelKey(model))}"${!model.connected || model.decisionOnly || state.busy ? ' disabled' : ''}><span><strong>${escapeHtml(model.label)}</strong><small>${escapeHtml(model.source)}${model.decisionOnly ? ' · Loop 판정 전용' : ''}${!model.connected ? ' · 연결 필요' : ''}</small></span><span class="model-check" aria-hidden="true">${selected ? icon('check') : ''}</span></button>`;
+    const strength = modelSelectionStrength(model);
+    return `<button class="model-option${selected ? ' selected' : ''}" type="button" role="option" aria-selected="${selected}" data-model-key="${escapeHtml(modelKey(model))}"${!model.connected || model.decisionOnly || state.busy ? ' disabled' : ''}><span><strong>${escapeHtml(model.label)}</strong><small>${escapeHtml(model.source)}${model.decisionOnly ? ' · Loop 판정 전용' : ''}${!model.connected ? ' · 연결 필요' : ''}</small>${strength ? `<small class="model-strength">${escapeHtml(strength)}</small>` : ''}</span><span class="model-check" aria-hidden="true">${selected ? icon('check') : ''}</span></button>`;
   }).join('') || (visibleModels.length
     ? '<p class="model-empty">일치하는 모델이 없습니다.<br>검색어를 바꾸거나 아래 표시 설정을 확인하세요.</p>'
     : scopedModels.length

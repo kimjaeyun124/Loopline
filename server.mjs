@@ -372,6 +372,7 @@ async function readOpenAiProviderStatus(accountId = 'default') {
         .map((item) => ({
           id: item.id || item.model,
           label: item.displayName || item.id || item.model,
+          description: typeof item.description === 'string' ? item.description : '',
           defaultReasoningEffort: item.defaultReasoningEffort || null,
           supportedReasoningEfforts: item.supportedReasoningEfforts || [],
           defaultServiceTier: item.defaultServiceTier || null,

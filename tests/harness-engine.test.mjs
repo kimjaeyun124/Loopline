@@ -618,7 +618,7 @@ test('restored unfinished runs are marked interrupted without restarting model c
   assert.equal((await engine.get(id)).status, 'interrupted');
 });
 
-test('LangGraph saves the active stage and resumes an interrupted run after engine reload', async (t) => {
+test('LangGraph automatically resumes the saved stage after engine restart', async (t) => {
   const f = await fixture(t);
   let markWorkerStarted;
   const workerStarted = new Promise((resolve) => { markWorkerStarted = resolve; });
@@ -634,31 +634,114 @@ test('LangGraph saves the active stage and resumes an interrupted run after engi
   const firstEngine = new HarnessEngine({ directory: f.data, verify: pass, invoke });
   const created = await firstEngine.create(f.input);
   await workerStarted;
-  await firstEngine.stop(created.id);
-  await firstEngine.runs.get(created.id).execution;
+  await firstEngine.shutdown();
+  assert.equal((await firstEngine.get(created.id)).status, 'interrupted');
   assert.equal((await firstEngine.get(created.id)).canResume, true);
 
   const recordPath = join(f.data, 'harness', `${created.id}.json`);
   const saved = JSON.parse(await readFile(recordPath, 'utf8'));
   assert.equal(saved.graphCheckpoint.activeNode, 'round');
   assert.equal(saved.graphCheckpoint.threadId, created.id);
+  // A hard process exit leaves the last durable state as running.
   saved.status = 'running';
+  delete saved.shutdownRequested;
   await writeFile(recordPath, JSON.stringify(saved));
 
   holdWorker = false;
   const restoredEngine = new HarnessEngine({ directory: f.data, verify: pass, invoke });
-  const interrupted = await restoredEngine.get(created.id);
-  assert.equal(interrupted.status, 'interrupted');
-  assert.equal(interrupted.canResume, true);
-  assert.equal(Object.hasOwn(interrupted, 'graphCheckpoint'), false);
-  await restoredEngine.resume(created.id);
+  assert.deepEqual(await restoredEngine.recoverInterruptedRuns(), [created.id]);
   await restoredEngine.runs.get(created.id).execution;
 
   const completed = await restoredEngine.get(created.id);
   assert.equal(completed.status, 'completed', completed.summary);
+  assert.equal(completed.autoResumeAttempts, 1);
   assert.equal(completed.workflowEngine, 'langgraph');
   assert.ok(completed.events.some((event) => event.title.includes('Loop 이어하기')));
   assert.ok(completed.events.some((event) => event.title.includes('LangGraph 단계 저장')));
+});
+
+test('startup recovery preserves an explicit user stop', async (t) => {
+  const f = await fixture(t); let markWorkerStarted; let calls = 0;
+  const workerStarted = new Promise((resolve) => { markWorkerStarted = resolve; });
+  const invoke = (_selection, prompt, _instructions, signal) => {
+    calls++;
+    if (typeof prompt === 'string' && prompt.startsWith('기본 CLI 도구')) {
+      markWorkerStarted();
+      return new Promise((_resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+    }
+    return modelScript(complete)(_selection, prompt, _instructions, signal);
+  };
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke });
+  const created = await engine.create(f.input);
+  await workerStarted;
+  await engine.stop(created.id);
+  await engine.runs.get(created.id).execution;
+
+  const restarted = new HarnessEngine({ directory: f.data, invoke: () => assert.fail('Explicitly stopped run must not restart') });
+  assert.deepEqual(await restarted.recoverInterruptedRuns(), []);
+  const stopped = await restarted.get(created.id);
+  assert.equal(stopped.status, 'stopped');
+  assert.equal(stopped.canResume, true);
+  assert.equal(calls, 2);
+});
+
+test('startup recovery reconnects saved MCP tools and respects safety and restart limits', async (t) => {
+  const f = await fixture(t); let markWorkerStarted; let holdWorker = true; let connected = true; let connectCalls = 0;
+  const workerStarted = new Promise((resolve) => { markWorkerStarted = resolve; });
+  const serverId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+  const tool = { serverId, name: 'read_status', serverName: 'QA MCP', description: 'Read status', inputSchema: { type: 'object' } };
+  const mcpConnections = {
+    toolsForLoop: async (selection) => selection.map(() => tool),
+    selectedTools: async (selection) => {
+      if (!connected) throw new Error('MCP disconnected');
+      return selection.map(() => tool);
+    },
+    connect: async () => { connectCalls++; connected = true; },
+  };
+  const script = modelScript(complete);
+  const invoke = async (selection, prompt, instructions, signal, ...rest) => {
+    if (holdWorker && typeof prompt === 'string' && prompt.startsWith('기본 CLI 도구')) {
+      markWorkerStarted();
+      return new Promise((_resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+    }
+    return script(selection, prompt, instructions, signal, ...rest);
+  };
+  const firstEngine = new HarnessEngine({ directory: f.data, verify: pass, invoke, mcpConnections });
+  const created = await firstEngine.create({ ...f.input, roles: { ...f.input.roles, judge: { ...f.input.roles.judge, decisionOnly: true } }, mcpTools: [{ serverId, name: tool.name }] });
+  await workerStarted;
+  await firstEngine.stop(created.id);
+  await firstEngine.runs.get(created.id).execution;
+
+  const recordPath = join(f.data, 'harness', `${created.id}.json`);
+  const saved = JSON.parse(await readFile(recordPath, 'utf8'));
+  saved.status = 'running'; delete saved.userStopRequested;
+  await writeFile(recordPath, JSON.stringify(saved));
+  connected = false; holdWorker = false;
+
+  const restoredEngine = new HarnessEngine({ directory: f.data, verify: pass, invoke, mcpConnections });
+  assert.deepEqual(await restoredEngine.recoverInterruptedRuns(), [created.id]);
+  await restoredEngine.runs.get(created.id).execution;
+  const recovered = await restoredEngine.get(created.id);
+  assert.equal(recovered.status, 'completed', recovered.summary);
+  assert.equal(connectCalls, 1);
+
+  const blockedId = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+  const cappedId = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
+  const interruptedRun = (id, overrides = {}) => ({
+    id, status: 'running', events: [], mcpSideEffectPossible: false, mcpTools: [],
+    graphCheckpoint: { version: 1, threadId: id, nextNode: 'round', activeNode: null, state: { completedRounds: 0 } },
+    ...overrides,
+  });
+  await writeFile(join(f.data, 'harness', `${blockedId}.json`), JSON.stringify(interruptedRun(blockedId, { mcpSideEffectPossible: true })));
+  await writeFile(join(f.data, 'harness', `${cappedId}.json`), JSON.stringify(interruptedRun(cappedId, { autoResumeAttempts: 3 })));
+  const safetyEngine = new HarnessEngine({ directory: f.data, invoke: () => assert.fail('Unsafe or capped run must not call a model') });
+  assert.deepEqual(await safetyEngine.recoverInterruptedRuns(), []);
+  const unsafe = await safetyEngine.get(blockedId);
+  const capped = await safetyEngine.get(cappedId);
+  assert.equal(unsafe.status, 'interrupted'); assert.equal(unsafe.canResume, false);
+  assert.ok(unsafe.events.some((event) => event.title.includes('자동 이어하기 보류')));
+  assert.equal(capped.status, 'interrupted'); assert.equal(capped.canResume, true);
+  assert.ok(capped.events.some((event) => event.title.includes('한도 도달')));
 });
 
 test('snapshot and auto-apply do not invoke repository-configured external filters', async (t) => {

@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { runCommand } from '../../harness-engine.mjs';
 
 // Local model fixtures exercise the real HTTP relay without credentials or external services.
-export async function startFixture({ delay = 0, codexMock = false, codexDeleteFailures = 1, codexDeleteErrorMessage = '', remainingTokens = null, limitTokens = null, mcpWorkerTool = '', failModelOnce = null } = {}) {
+export async function startFixture({ delay = 0, codexMock = false, codexDelay = 20, codexDeleteFailures = 1, codexDeleteErrorMessage = '', remainingTokens = null, limitTokens = null, mcpWorkerTool = '', failModelOnce = null } = {}) {
   const directory = await mkdtemp(join(tmpdir(), 'loopline-harness-http-'));
   const source = join(directory, 'project'), data = join(directory, 'data');
   await mkdir(source); await mkdir(data);
@@ -79,6 +79,7 @@ export async function startFixture({ delay = 0, codexMock = false, codexDeleteFa
   await runCommand('git', ['add', '.'], { cwd: source });
   await runCommand('git', ['-c', 'core.hooksPath=/dev/null', '-c', 'commit.gpgsign=false', '-c', 'user.name=QA', '-c', 'user.email=qa@localhost', 'commit', '-m', 'QA fixture'], { cwd: source });
   let codexCommand = '';
+  let currentCodexDelay = codexDelay;
   const codexLog = join(data, 'codex-mock.jsonl');
   if (codexMock) {
     codexCommand = join(directory, 'codex-mock.mjs');
@@ -117,6 +118,14 @@ for await (const line of input) {
     else if (text.includes('검증 방법을 결정하세요')) answer = text.includes('"content":')
       ? JSON.stringify({ verifyCommand: 'test "$(cat file.txt)" = "updated 2"', reason: 'file.txt의 실제 내용을 확인합니다.' })
       : JSON.stringify({ operations: [{ type: 'read', path: 'file.txt' }] });
+    else if (text.includes('기본 CLI 도구 대신 Harness의 JSON 작업 도구만')) {
+      const history = text.split('최근 도구 결과:\\n')[1] || '';
+      answer = history.includes('"completed":true')
+        ? JSON.stringify({ done: true, summary: 'QA 파일 변경 완료' })
+        : history.includes('"content":')
+          ? JSON.stringify({ operations: [{ type: 'write', path: 'file.txt', content: 'updated 1\\n' }] })
+          : JSON.stringify({ operations: [{ type: 'read', path: 'file.txt' }] });
+    }
     else if (text.includes('구현 계획과 검증 기준')) answer = 'QA 계획: 파일을 수정하고 실제 내용을 검증합니다.';
     else if (text.includes('독립적으로 평가하세요')) answer = JSON.stringify({ decision: 'complete', summary: '임시 대화 정리 QA 완료', feedback: '' });
     else if (text.includes('최근 도구 결과:')) answer = JSON.stringify({ done: true, summary: '임시 대화 정리 QA 변경 완료' });
@@ -124,7 +133,7 @@ for await (const line of input) {
     setTimeout(() => {
       process.stdout.write(JSON.stringify({ method: 'item/agentMessage/delta', params: { threadId: request.params.threadId, turnId, itemId: 'qa-message', delta: answer } }) + '\\n');
       process.stdout.write(JSON.stringify({ method: 'turn/completed', params: { threadId: request.params.threadId, turn: { id: turnId, status: 'completed' } } }) + '\\n');
-    }, text.includes('codex-delay-qa') ? 20_000 : 20);
+    }, text.includes('codex-delay-qa') ? Number(process.env.CODEX_MOCK_DELAY_MS) || 20 : 20);
     result = { turn: { id: turnId, status: 'inProgress' } };
   }
   if (request.method === 'thread/delete' && request.params.threadId?.startsWith('qa-thread-') && deleteFailuresRemaining > 0) {
@@ -141,18 +150,23 @@ for await (const line of input) {
 `);
     await chmod(codexCommand, 0o700);
   }
-  const child = spawn(process.execPath, ['server.mjs'], {
-    cwd: fileURLToPath(new URL('../../', import.meta.url)),
-    env: { ...process.env, PORT: '0', HOST: '127.0.0.1', MOSAIC_USER_DATA_DIR: data, CODEX_HOME: join(directory, 'codex'), ...(codexMock ? { CODEX_CLI: codexCommand, CODEX_MOCK_LOG: codexLog } : {}), PATH: '/usr/bin:/bin:/usr/sbin:/sbin' },
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
-  const url = await new Promise((resolve, reject) => {
-    let output = '';
-    const timer = setTimeout(() => reject(new Error('QA server startup timed out')), 10000);
-    child.once('exit', () => { clearTimeout(timer); reject(new Error('QA server exited')); });
-    child.stdout.on('data', (part) => { output += part; const match = output.match(/MOSAIC_SERVER_READY=(http:\/\/\S+)/); if (match) { clearTimeout(timer); resolve(match[1]); } });
-    child.stderr.on('data', () => {});
-  });
+  const launchServer = async () => {
+    const processHandle = spawn(process.execPath, ['server.mjs'], {
+      cwd: fileURLToPath(new URL('../../', import.meta.url)),
+      env: { ...process.env, PORT: '0', HOST: '127.0.0.1', MOSAIC_USER_DATA_DIR: data, CODEX_HOME: join(directory, 'codex'), ...(codexMock ? { CODEX_CLI: codexCommand, CODEX_MOCK_LOG: codexLog, CODEX_MOCK_DELAY_MS: String(currentCodexDelay) } : {}), PATH: '/usr/bin:/bin:/usr/sbin:/sbin' },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    const serverUrl = await new Promise((resolve, reject) => {
+      let output = '';
+      const timer = setTimeout(() => reject(new Error('QA server startup timed out')), 10000);
+      processHandle.once('exit', () => { clearTimeout(timer); reject(new Error('QA server exited')); });
+      processHandle.stdout.on('data', (part) => { output += part; const match = output.match(/MOSAIC_SERVER_READY=(http:\/\/\S+)/); if (match) { clearTimeout(timer); resolve(match[1]); } });
+      processHandle.stderr.on('data', () => {});
+    });
+    return { child: processHandle, url: serverUrl };
+  };
+  let child, url;
+  ({ child, url } = await launchServer());
   const request = async (path, body) => {
     const response = await fetch(url + path, body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     const result = await response.json();
@@ -162,14 +176,24 @@ for await (const line of input) {
   const { connection } = await request('/api/connections', { name: 'Harness QA · 시뮬레이션', baseUrl: `http://127.0.0.1:${mock.address().port}/v1`, apiKey: 'local-test-only' });
   const selection = { provider: 'api', source: connection.name, model: 'qa-worker', label: 'QA Worker', connectionId: connection.id, reasoningEffort: 'high' };
   const input = { task: 'file.txt를 updated 2로 수정하세요.', workspace: source, rounds: 2, verifyCommand: 'test "$(cat file.txt)" = "updated 2"', roles: { planner: selection, worker: { ...selection, reasoningEffort: 'medium' }, judge: { ...selection, model: 'jev-qa', reasoningEffort: null } } };
+  const restart = async (signal = 'SIGKILL') => {
+    const previous = child;
+    const exit = previous.exitCode === null ? once(previous, 'exit') : Promise.resolve();
+    previous.kill(signal);
+    await exit;
+    ({ child, url } = await launchServer());
+    return url;
+  };
   const close = async () => {
-    const exit = once(child, 'exit'); child.kill('SIGTERM');
-    const timer = setTimeout(() => child.kill('SIGKILL'), 5000);
-    await exit; clearTimeout(timer);
+    if (child.exitCode === null) {
+      const exit = once(child, 'exit'); child.kill('SIGTERM');
+      const timer = setTimeout(() => child.kill('SIGKILL'), 5000);
+      await exit; clearTimeout(timer);
+    }
     mock.closeAllConnections(); await new Promise((resolve) => mock.close(resolve));
     await rm(directory, { recursive: true, force: true });
   };
-  return { url, source, data, calls, input, request, close, codexLog };
+  return { get url() { return url; }, source, data, calls, input, request, restart, close, codexLog, setCodexDelay(value) { currentCodexDelay = value; } };
 }
 
 if (process.argv.includes('--visible')) {

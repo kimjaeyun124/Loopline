@@ -25,7 +25,7 @@ test('HTTP relay preserves an upstream 503 so Harness uses the next planner mode
   const created = await f.request('/api/harness/runs', { ...f.input, roles: { ...f.input.roles, planner } });
   const run = await until(async () => { const value = await f.request(`/api/harness/runs/${created.id}`); return value.finishedAt ? value : null; });
 
-  assert.equal(run.status, 'completed', run.summary);
+  assert.equal(run.status, 'completed', JSON.stringify(run, null, 2));
   assert.equal(run.applied, true);
   assert.equal(run.stageModels.planner.id, 'qa-worker-backup');
   assert.deepEqual(f.calls.slice(0, 2).map((call) => call.model), ['qa-worker', 'qa-worker-backup']);
@@ -77,6 +77,34 @@ test('HTTP stop aborts streaming request and releases the source for a new run',
   const next = await f.request('/api/harness/runs', f.input);
   const result = await until(async () => { const value = await f.request(`/api/harness/runs/${next.id}`); return value.finishedAt ? value : null; });
   assert.equal(result.status, 'completed', result.summary);
+});
+
+test('server restart automatically continues an in-flight Harness run from persisted state', async (t) => {
+  const f = await startFixture({ codexMock: true, codexDelay: 20_000 }); t.after(f.close);
+  const selection = { provider: 'openai', model: 'qa-codex', reasoningEffort: 'medium' };
+  const created = await f.request('/api/harness/runs', {
+    task: 'codex-delay-qa', workspace: f.source, rounds: 1, verifyCommand: 'true',
+    roles: { planner: selection, worker: selection, judge: selection },
+  });
+  await until(async () => {
+    try { return (await readFile(f.codexLog, 'utf8')).includes('"method":"turn/start"') ? true : null; }
+    catch { return null; }
+  });
+
+  f.setCodexDelay(20);
+  await f.restart('SIGTERM');
+  const run = await until(async () => {
+    const value = await f.request(`/api/harness/runs/${created.id}`);
+    return value.status === 'completed' || value.status === 'failed' ? value : null;
+  });
+
+  assert.equal(run.status, 'completed', run.summary);
+  assert.equal(run.applied, true);
+  assert.equal(run.autoResumeAttempts, 1);
+  assert.ok(run.events.some((event) => event.title.includes('Loop 이어하기')));
+  const calls = (await readFile(f.codexLog, 'utf8')).trim().split('\n').map(JSON.parse);
+  assert.ok(calls.filter((call) => call.method === 'turn/start').length > 1, 'the restarted server should send new model requests');
+  assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'updated 1\n');
 });
 
 test('HTTP automatic setup creates a project and has the judge approve the planned verification command', async (t) => {

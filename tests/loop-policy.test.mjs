@@ -1,11 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { classifyLoopTask, DEFAULT_LOOP_PRIORITIES, normalizeLoopPriorities, recommendLoopEffort, selectAutomaticLoopModel } from '../public/loop-policy.mjs';
+import { automaticLoopStartRounds, classifyLoopTask, DEFAULT_LOOP_PRIORITIES, extendAutomaticLoopRounds, MAX_LOOP_ROUNDS, normalizeLoopPriorities, recommendLoopEffort, selectAutomaticLoopModel } from '../public/loop-policy.mjs';
 
 test('loop complexity keeps small requests light and raises effort for broad engineering changes', () => {
   assert.equal(classifyLoopTask('Export a small constant and test its value.'), 'simple');
   assert.equal(classifyLoopTask('데이터베이스 마이그레이션과 동시성 문제를 포함한 구조 변경을 진행해 주세요.'), 'complex');
   assert.equal(classifyLoopTask('- one\n- two\n- three\n- four'), 'complex');
+});
+
+test('automatic loop starts with task-sized rounds and extends in bounded quality-first steps', () => {
+  assert.equal(MAX_LOOP_ROUNDS, 10);
+  assert.equal(automaticLoopStartRounds('Export a small constant.'), 4);
+  assert.equal(automaticLoopStartRounds('Implement a database migration and concurrency-safe cache.'), 6);
+  assert.equal(extendAutomaticLoopRounds(4), 6);
+  assert.equal(extendAutomaticLoopRounds(8), 10);
+  assert.equal(extendAutomaticLoopRounds(10), 10);
+  assert.equal(extendAutomaticLoopRounds(6, 5), 6);
 });
 
 test('automatic effort puts quality and compute first by default and follows resource priorities when reordered', () => {

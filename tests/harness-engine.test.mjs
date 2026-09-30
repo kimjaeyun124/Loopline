@@ -195,6 +195,82 @@ test('round feedback reaches worker, dirty user files survive and accepted patch
   assert.ok(!run.events.some((event) => event.status === 'running'));
 });
 
+test('automatic Harness starts from task complexity and extends only when the judge asks for revisions', async (t) => {
+  const f = await fixture(t);
+  let reviews = 0, initialPlanPrompt = '';
+  const script = modelScript(() => ++reviews <= 4
+    ? { decision: 'revise', summary: 'Needs another pass', feedback: 'Continue to satisfy the criteria.' }
+    : complete());
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (selection, prompt, ...rest) => {
+    if (startsWithText(prompt, '목표:')) initialPlanPrompt = prompt;
+    return script(selection, prompt, ...rest);
+  } });
+  const created = await engine.create({ ...f.input, rounds: 0 });
+  assert.equal(created.autoRounds, true);
+  assert.equal(created.rounds, 4);
+  assert.equal(created.roundCeiling, 10);
+  assert.doesNotMatch(JSON.stringify(created), /qualityTriedWorkerModels/);
+  const run = await settled(engine, created.id);
+  assert.equal(run.status, 'completed', run.summary);
+  assert.equal(run.round, 5);
+  assert.equal(run.rounds, 6);
+  assert.match(initialPlanPrompt, /완료 기준과 실제 검증 기준/);
+  assert.ok(run.events.some((event) => event.title.includes('자동 회차 연장')));
+});
+
+test('two unchanged judged revisions replan and move implementation to the next saved model', async (t) => {
+  const f = await fixture(t), worker = { ...f.input.roles.worker, fallbacks: [{ ...f.input.roles.worker, model: 'worker-backup', label: 'Backup worker' }] };
+  let reviews = 0, replans = 0;
+  const workerModels = [];
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (selection, prompt) => {
+    if (isJudgementPrompt(prompt)) return judgementResponse(prompt, ++reviews <= 3 ? 'revise' : 'complete');
+    if (hasText(prompt, '구현 계획과 검증 기준')) return 'Plan: implement and verify.';
+    if (hasText(prompt, 'Loop가 ')) { replans++; return 'Replanned: use an alternate implementation and verify its behavior.'; }
+    if (hasText(prompt, '최근 도구 결과:')) {
+      workerModels.push(selection.model);
+      const step = Number(prompt.match(/단계 (\d+)\/16/)?.[1] || 1);
+      if (step === 1) return JSON.stringify({ operations: [{ type: 'read', path: 'file.txt' }] });
+      if (step === 2) return JSON.stringify({ operations: [{ type: 'write', path: 'file.txt', content: selection.model === 'worker-backup' ? 'improved\n' : 'same\n' }] });
+      return JSON.stringify({ done: true, summary: 'Updated file.txt.' });
+    }
+    return 'Plan: implement and verify.';
+  } });
+  const run = await settled(engine, (await engine.create({ ...f.input, rounds: 5, roles: { ...f.input.roles, worker } })).id);
+  assert.equal(run.status, 'completed', run.summary);
+  assert.equal(replans, 1);
+  assert.ok(workerModels.includes('worker-backup'));
+  assert.equal(run.stageModels.worker.id, 'worker-backup');
+  assert.ok(run.events.some((event) => event.title.includes('품질 정체 후 모델 교체')));
+  assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'improved\n');
+});
+
+test('automatic Harness stops repeated unchanged work after replan instead of spending all ten rounds', async (t) => {
+  const f = await fixture(t);
+  let reviews = 0, replans = 0;
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (_selection, prompt) => {
+    if (isJudgementPrompt(prompt)) { reviews++; return judgementResponse(prompt, 'revise'); }
+    if (hasText(prompt, '구현 계획과 검증 기준')) return 'Plan: implement and verify.';
+    if (hasText(prompt, 'Loop가 ')) { replans++; return `Replanned attempt ${replans}: try a simpler change.`; }
+    if (hasText(prompt, '최근 도구 결과:')) {
+      const step = Number(prompt.match(/단계 (\d+)\/16/)?.[1] || 1);
+      if (step === 1) return JSON.stringify({ operations: [{ type: 'read', path: 'file.txt' }] });
+      if (step === 2) return JSON.stringify({ operations: [{ type: 'write', path: 'file.txt', content: 'same\n' }] });
+      return JSON.stringify({ done: true, summary: 'Updated file.txt.' });
+    }
+    return 'Plan: implement and verify.';
+  } });
+  const run = await settled(engine, (await engine.create({ ...f.input, rounds: 0 })).id);
+  assert.equal(run.status, 'limit');
+  assert.equal(run.round, 5);
+  assert.equal(run.rounds, 6);
+  assert.equal(reviews, 5);
+  assert.equal(replans, 2);
+  assert.match(run.summary, /진행이 감지되지 않았습니다/);
+  assert.equal(run.applied, undefined);
+  assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'original\n');
+  assert.ok(await engine.patch(run.id));
+});
+
 test('worker combines the final file operation and completion to reduce model calls', async (t) => {
   async function runWorker(combineCompletion) {
     const f = await fixture(t); let workerCalls = 0;

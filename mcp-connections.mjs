@@ -2,11 +2,13 @@ import { randomUUID } from 'node:crypto';
 import { access, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { delimiter, isAbsolute, join } from 'node:path';
+import { homedir } from 'node:os';
 
 const fail = (message, status = 400, code = '') => Object.assign(new Error(message), { status, ...(code ? { code } : {}) });
 const MAX_SERVERS = 32;
 const MAX_TOOLS = 128;
-const MAX_LOOP_TOOLS = 24;
+const MAX_LOOP_TOOLS = 64;
+const MAX_LOOP_TOOL_DEFINITIONS = 96_000;
 const MAX_TOOL_SCHEMA = 8_000;
 const MAX_TOOL_OUTPUT = 24_000;
 const MAX_CALLS = 8;
@@ -19,6 +21,18 @@ async function findExecutable(command, searchPath = process.env.PATH || '') {
   for (const directory of searchPath.split(delimiter).filter(Boolean)) {
     const candidate = join(directory, command);
     try { await access(candidate, constants.X_OK); return candidate; } catch {}
+  }
+  return '';
+}
+
+async function findPaperExecutable(searchPath = process.env.PATH || '') {
+  const onPath = await findExecutable('paper', searchPath);
+  if (onPath) return onPath;
+  if (process.platform !== 'darwin') return '';
+  const appBinary = join('Contents', 'Resources', 'app.asar.unpacked', 'dist', 'cli-bin', `darwin-${process.arch}`, 'paper');
+  for (const root of [join(homedir(), 'Applications'), '/Applications']) {
+    const candidate = await findExecutable(join(root, 'Paper.app', appBinary), '');
+    if (candidate) return candidate;
   }
   return '';
 }
@@ -327,7 +341,7 @@ export class McpConnections {
       const executable = typeof command === 'string' && command.trim()
         ? await findExecutable(command.trim(), this.#searchPath)
         : savedPaper?.command && await findExecutable(savedPaper.command, this.#searchPath)
-          || await findExecutable('paper', this.#searchPath);
+          || await findPaperExecutable(this.#searchPath);
       if (!executable) throw fail('Paper CLI를 찾지 못했습니다. Paper Desktop의 MCP 패널에서 CLI 경로를 선택해 주세요.', 409, 'PAPER_CLI_REQUIRED');
       input = { name: 'Paper Desktop', transport: 'stdio', command: executable, args: ['mcp'], autoRun: true, preset: kind };
     }
@@ -415,7 +429,7 @@ export class McpConnections {
   async selectedTools(selection) {
     await this.#ready;
     if (selection == null) return [];
-    if (!Array.isArray(selection) || selection.length > 24) throw fail('Loop에서 사용할 MCP 도구는 최대 24개까지 선택할 수 있습니다.');
+    if (!Array.isArray(selection) || selection.length > MAX_LOOP_TOOLS) throw fail(`Loop에서 사용할 MCP 도구는 최대 ${MAX_LOOP_TOOLS}개까지 선택할 수 있습니다.`);
     const chosen = [];
     const seen = new Set();
     for (const item of selection) {
@@ -428,7 +442,7 @@ export class McpConnections {
       if (!tool) throw fail(`선택한 MCP 도구가 연결되지 않았습니다: ${item.name}`, 409);
       chosen.push(tool);
     }
-    if (JSON.stringify(chosen).length > 32_000) throw fail('선택한 MCP 도구의 설명과 입력 규격이 너무 큽니다. Loop 설정에서 도구 수를 줄여 주세요.');
+    if (JSON.stringify(chosen).length > MAX_LOOP_TOOL_DEFINITIONS) throw fail('선택한 MCP 도구의 설명과 입력 규격이 너무 큽니다. Loop 설정에서 자동 사용 연결을 줄여 주세요.');
     return chosen;
   }
 
@@ -444,7 +458,7 @@ export class McpConnections {
     }
     const chosen = [...new Map([...automatic, ...explicit].map((tool) => [`${tool.serverId}\0${tool.name}`, tool])).values()];
     if (chosen.length > MAX_LOOP_TOOLS) throw fail(`자동 사용 도구가 ${MAX_LOOP_TOOLS}개를 넘었습니다. MCP 연결 설정에서 자동 사용 연결을 줄여 주세요.`, 409);
-    if (JSON.stringify(chosen).length > 32_000) throw fail('자동 사용 MCP 도구의 입력 규격이 너무 큽니다. 연결별 자동 사용을 조정해 주세요.', 409);
+    if (JSON.stringify(chosen).length > MAX_LOOP_TOOL_DEFINITIONS) throw fail('자동 사용 MCP 도구의 입력 규격이 너무 큽니다. 연결별 자동 사용을 조정해 주세요.', 409);
     return chosen;
   }
 

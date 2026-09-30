@@ -7,11 +7,12 @@ const ROLES = [['planner', '계획 / Planning'], ['worker', '구현 / Implementa
 const MAX_FALLBACKS = 8;
 const escape = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
-export function createHarnessUI({ state, catalog, modelKey, currentKey, getProject, saveProjects, saveConversations, render, toast, instructions, onComplete }) {
+export function createHarnessUI({ state, catalog, modelKey, currentKey, getProject, saveProjects, saveConversations, render, toast, instructions, onComplete, getMcpTools = () => [], refreshMcpTools = null }) {
   let saved;
   try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { saved = {}; }
   const config = {
     enabled: saved?.enabled !== false, autoApply: saved?.autoApply !== false,
+    mcpTools: Array.isArray(saved?.mcpTools) ? saved.mcpTools.filter((tool) => tool && typeof tool.serverId === 'string' && typeof tool.name === 'string').slice(0, 24) : [],
     priorities: normalizeLoopPriorities(saved?.priorities),
     roles: Object.fromEntries(ROLES.map(([role]) => [role, {
       model: typeof saved?.roles?.[role]?.model === 'string' ? saved.roles[role].model : '',
@@ -22,6 +23,7 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
   };
   const modal = document.querySelector('#harnessModal');
   const fields = document.querySelector('#harnessRoles');
+  const mcpFields = document.querySelector('#harnessMcpTools');
   const priorityFields = document.querySelector('#harnessPriorities');
   const saveStatus = document.querySelector('#harnessSaveStatus');
   const search = document.querySelector('#harnessModelSearch');
@@ -163,10 +165,25 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
       return `<li class="harness-priority-item"><span class="harness-priority-index">${index + 2}</span><strong>${escape(item.label)}</strong><span class="harness-priority-actions"><button type="button" data-priority-move="${id}" data-direction="up" aria-label="${escape(item.label)} 우선순위 올리기"${index === 0 ? ' disabled' : ''}>↑</button><button type="button" data-priority-move="${id}" data-direction="down" aria-label="${escape(item.label)} 우선순위 내리기"${index === movable.length - 1 ? ' disabled' : ''}>↓</button></span></li>`;
     }).join('')}</ol>`;
   }
+  function renderMcpTools() {
+    const available = typeof getMcpTools === 'function' ? getMcpTools() : [];
+    if (!available.length) {
+      mcpFields.innerHTML = `<p class="settings-footnote">연결된 MCP 도구가 없습니다. <button type="button" class="text-button" data-open-mcp-settings>MCP 연결 설정 열기</button></p>${config.mcpTools.length ? '<p class="harness-mcp-warning">저장한 도구 연결이 없습니다. MCP 연결을 다시 열고 Loop 구성을 새로 저장해 주세요.</p>' : ''}`;
+      return;
+    }
+    const keys = new Set(available.map((tool) => JSON.stringify([tool.serverId, tool.name])));
+    const missing = config.mcpTools.filter((tool) => !keys.has(JSON.stringify([tool.serverId, tool.name])));
+    mcpFields.innerHTML = `<div class="harness-mcp-list">${available.map((tool) => {
+      const key = JSON.stringify([tool.serverId, tool.name]);
+      const checked = config.mcpTools.some((savedTool) => savedTool.serverId === tool.serverId && savedTool.name === tool.name);
+      return `<label class="harness-mcp-tool"><input type="checkbox" data-harness-mcp-tool="${escape(key)}"${checked ? ' checked' : ''}${!checked && config.mcpTools.length >= 24 ? ' disabled' : ''} /><span><strong>${escape(tool.name)}</strong><small>${escape(tool.serverName)}${tool.description ? ` · ${escape(tool.description)}` : ''}</small></span></label>`;
+    }).join('')}</div>${missing.length ? `<p class="harness-mcp-warning">이전에 고른 도구 ${missing.length}개가 현재 연결에서 보이지 않습니다. 해당 MCP 서버에 다시 연결한 뒤 선택을 갱신하세요.</p>` : ''}`;
+  }
   function open() {
     if (state.busy) return toast('실행이 끝난 뒤 구성을 변경해 주세요.');
     document.querySelector('#harnessAutoApply').checked = config.autoApply;
-    search.value = ''; ensureFallbackPriority(); renderPriorities(); renderRoles(); modal.hidden = false; document.querySelector('#harnessClose').focus();
+    search.value = ''; ensureFallbackPriority(); renderPriorities(); renderRoles(); renderMcpTools(); modal.hidden = false; document.querySelector('#harnessClose').focus();
+    if (typeof refreshMcpTools === 'function') void Promise.resolve(refreshMcpTools({ quiet: true })).then(renderMcpTools);
   }
   function close() { modal.hidden = true; document.querySelector('#harnessConfigure').focus(); }
   search.addEventListener('input', renderRoles);
@@ -182,6 +199,25 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
     if (index < 0 || next < 0 || next >= config.priorities.length) return;
     [config.priorities[index], config.priorities[next]] = [config.priorities[next], config.priorities[index]];
     save(); renderPriorities();
+  });
+  mcpFields.addEventListener('change', (event) => {
+    const checkbox = event.target.closest('[data-harness-mcp-tool]');
+    if (!checkbox) return;
+    let serverId, name;
+    try { [serverId, name] = JSON.parse(checkbox.dataset.harnessMcpTool); } catch { checkbox.checked = false; return; }
+    const index = config.mcpTools.findIndex((tool) => tool.serverId === serverId && tool.name === name);
+    if (checkbox.checked && index < 0) {
+      if (config.mcpTools.length >= 24) { checkbox.checked = false; toast('Loop에 사용할 MCP 도구는 최대 24개까지 선택할 수 있습니다.'); return; }
+      config.mcpTools.push({ serverId, name });
+    } else if (!checkbox.checked && index >= 0) config.mcpTools.splice(index, 1);
+    save(); renderMcpTools();
+  });
+  mcpFields.addEventListener('click', (event) => {
+    if (event.target.closest('[data-open-mcp-settings]')) {
+      close();
+      document.querySelector('#settingsButtonTop').click();
+      document.querySelector('#mcpTab').click();
+    }
   });
   document.querySelector('#harnessUseAutomatic').addEventListener('click', () => {
     for (const [role] of ROLES) {
@@ -334,7 +370,7 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
     starting = true; stopRequested = false;
     state.busy = true; state.loopEngineeringRunning = true; render();
     try {
-      const run = await request('/api/harness/runs', { task, roles, priorities: config.priorities, workspace, rounds: state.loopEngineeringRounds, autoApply: config.autoApply, instructions: project ? `${project.instructions || ''}\n${project.knowledge || ''}` : '' });
+      const run = await request('/api/harness/runs', { task, roles, priorities: config.priorities, workspace, rounds: state.loopEngineeringRounds, autoApply: config.autoApply, mcpTools: config.mcpTools, instructions: project ? `${project.instructions || ''}\n${project.knowledge || ''}` : '' });
       activeRunId = run.id;
       update(run, message, conversation);
       if (stopRequested) await stop();

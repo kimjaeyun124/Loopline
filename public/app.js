@@ -1,6 +1,7 @@
 import { icon } from './icons.js';
 import { parseProviderExport } from './export-importer.js';
 import { createApiConnectionsUI } from './api-connections-ui.js';
+import { createMcpConnectionsUI } from './mcp-connections-ui.js';
 import { createHistoryImportUI } from './history-import-ui.js';
 import { createChatGptUI } from './chatgpt-ui.js';
 import { createModelVisibilityUI } from './model-visibility-ui.js';
@@ -165,6 +166,7 @@ let modelMenuMode = 'providers';
 let workedForInterval = null;
 let workedForMessageId = null;
 const apiConnectionsUI = createApiConnectionsUI({ onChange: refreshApiConnections, showToast });
+const mcpConnectionsUI = createMcpConnectionsUI({ toast: showToast });
 const accountMenuUI = createAccountMenuUI({
   onOpen: () => { closeModelMenu(); void refreshStatus(); },
   onUsage: () => showSettings('usage'),
@@ -1019,6 +1021,7 @@ function activityDisplayDetail(activity) {
 
 function activityIconName(activity) {
   const label = `${activity.title} ${activity.detail}`;
+  if (/MCP/.test(label)) return 'plug';
   if (/명령|도구 실행|실행/.test(label)) return 'terminal';
   if (/파일|읽기|변경/.test(label)) return 'pen';
   if (/검색/.test(label)) return 'search';
@@ -3034,7 +3037,7 @@ function resizeInput() {
 }
 
 function selectSettingsTab(tab) {
-  const name = ['usage', 'accounts', 'agents', 'models', 'history', 'instructions', 'appearance'].includes(tab) ? tab : 'accounts';
+  const name = ['usage', 'accounts', 'agents', 'mcp', 'models', 'history', 'instructions', 'appearance'].includes(tab) ? tab : 'accounts';
   document.querySelectorAll('[data-settings-tab]').forEach((button) => {
     const selected = button.dataset.settingsTab === name;
     button.setAttribute('aria-selected', String(selected));
@@ -3044,6 +3047,7 @@ function selectSettingsTab(tab) {
   document.querySelector('#refreshStatus').hidden = ['history', 'instructions', 'appearance'].includes(name);
   document.querySelector('#refreshStatus').textContent = name === 'usage' ? '사용량 새로고침' : '연결 상태 새로고침';
   if (name === 'models') modelVisibilityUI.render();
+  if (name === 'mcp') void mcpConnectionsUI.refresh();
   if (name === 'usage') { accountMenuUI.renderUsage(); usageActivityUI.show(); }
   else usageActivityUI.hide();
 }
@@ -3254,6 +3258,7 @@ document.querySelector('#doneSettings').addEventListener('click', hideSettings);
 document.querySelector('#refreshStatus').addEventListener('click', () => {
   void refreshStatus();
   if (!document.querySelector('#usagePanel').hidden) usageActivityUI.refresh();
+  if (!document.querySelector('#mcpPanel').hidden) void mcpConnectionsUI.refresh();
 });
 document.querySelector('#addAiConnection').addEventListener('click', openProviderConnectionModal);
 document.querySelector('#closeProviderConnection').addEventListener('click', () => closeProviderConnectionModal(true));
@@ -3615,6 +3620,7 @@ document.querySelectorAll('.suggestion').forEach((button) => {
 
 const harnessUI = createHarnessUI({ state, catalog: modelCatalog, modelKey, currentKey: selectedModelKey, getProject: project,
   saveProjects, saveConversations, render, toast: showToast, instructions: activeAgentInstructions,
+  getMcpTools: mcpConnectionsUI.tools, refreshMcpTools: mcpConnectionsUI.refresh,
   onComplete: (conversation) => queueMicrotask(() => startNextQueuedMessage(conversation)) });
 loadPreferences();
 applySidebarWidth();

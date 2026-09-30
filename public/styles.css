@@ -299,6 +299,39 @@ kbd { margin-left: auto; color: var(--muted); font-family: inherit; font-size: 1
 .activity-inspector-markdown > :last-child { margin-bottom: 0; }
 .activity-inspector-empty, .activity-inspector-note { color: var(--muted); font-size: 11px; line-height: 1.6; }
 .activity-inspector-note { margin: 16px 0 0; padding: 10px; border-radius: 9px; background: var(--soft); }
+.mcp-server-list { display: flex; flex-direction: column; gap: 10px; }
+.mcp-empty { margin: 0; padding: 18px; border: 1px dashed var(--line-strong); border-radius: 12px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.mcp-server-card { padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--canvas); }
+.mcp-server-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.mcp-server-heading > div { display: flex; min-width: 0; flex-direction: column; gap: 5px; }
+.mcp-server-heading strong { font-size: 13px; font-weight: 600; }
+.mcp-server-heading small { color: var(--muted); font-size: 10px; line-height: 1.5; overflow-wrap: anywhere; }
+.mcp-connection-state { flex: 0 0 auto; color: var(--muted); font-size: 10px; }
+.mcp-connection-state.connected { color: var(--green); }
+.mcp-server-error, .harness-mcp-warning { color: var(--danger); font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+.mcp-server-actions { display: flex; gap: 7px; margin-top: 12px; }
+.mcp-server-actions > button:not(.primary-button) { min-height: 32px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: transparent; color: var(--secondary); font-size: 10px; cursor: pointer; }
+.mcp-tool-list { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+.mcp-tool-list summary { color: var(--secondary); font-size: 10px; cursor: pointer; }
+.mcp-tool-list ul { display: grid; gap: 8px; margin: 10px 0 0; padding-left: 16px; }
+.mcp-tool-list li { color: var(--ink); font-size: 10px; }
+.mcp-tool-list li small { display: block; margin-top: 3px; color: var(--muted); line-height: 1.45; overflow-wrap: anywhere; }
+.mcp-editor { max-height: min(760px, calc(100dvh - 48px)); overflow: auto; }
+.mcp-editor .project-field { margin-top: 12px; }
+.mcp-editor textarea { resize: vertical; }
+.mcp-editor-note { margin: 8px 0; color: var(--muted); font-size: 10px; line-height: 1.5; }
+.harness-mcp { margin: 18px 0; padding: 14px; border: 1px solid var(--line); border-radius: 11px; }
+.harness-mcp h3 { margin: 0; font-size: 13px; }
+.harness-mcp > div:first-child p { margin: 5px 0 11px; color: var(--muted); font-size: 10px; line-height: 1.5; }
+.harness-mcp-list { display: grid; gap: 4px; max-height: 220px; overflow: auto; }
+.harness-mcp-tool { display: flex; align-items: flex-start; gap: 9px; padding: 8px; border-radius: 8px; background: var(--soft); cursor: pointer; }
+.harness-mcp-tool input { width: 14px; height: 14px; flex: 0 0 auto; margin: 2px 0 0; accent-color: var(--accent); }
+.harness-mcp-tool > span { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+.harness-mcp-tool strong { font-size: 11px; font-weight: 550; }
+.harness-mcp-tool small { color: var(--muted); font-size: 9px; line-height: 1.45; overflow-wrap: anywhere; }
+.harness-mcp .settings-footnote { margin: 0; font-size: 10px; }
+.harness-mcp .text-button { margin-left: 5px; color: var(--accent); font-size: inherit; }
+.harness-mcp-warning { margin: 8px 0 0; }
 @keyframes activity-inspector-enter { from { transform: translateX(8px); opacity: .7; } to { transform: translateX(0); opacity: 1; } }
 .assistant-activity-list { display: flex; flex-direction: column; gap: 0; margin: 0; padding: 9px 0 2px 3px; list-style: none; }
 .assistant-activity-list li { display: grid; grid-template-columns: 10px minmax(0, 1fr); gap: 8px; min-height: 38px; padding: 2px 0 9px; }

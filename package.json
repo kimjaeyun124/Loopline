@@ -8,7 +8,8 @@
     "start": "node server.mjs",
     "desktop": "electron .",
     "build:langgraph": "esbuild harness-graph-runtime.mjs --bundle --platform=node --format=esm --outfile=dist/langgraph-runtime.bundle.mjs",
-    "desktop:package": "npm run build:langgraph && electron-builder --mac dir --arm64"
+    "build:mcp": "esbuild mcp-runtime-entry.mjs --bundle --platform=node --format=esm --outfile=dist/mcp-runtime.bundle.mjs",
+    "desktop:package": "npm run build:langgraph && npm run build:mcp && electron-builder --mac dir --arm64"
   },
   "productName": "Loopline",
   "build": {
@@ -46,6 +47,14 @@
         "to": "app-server/api-connections.mjs"
       },
       {
+        "from": "mcp-connections.mjs",
+        "to": "app-server/mcp-connections.mjs"
+      },
+      {
+        "from": "dist/mcp-runtime.bundle.mjs",
+        "to": "app-server/mcp-runtime.bundle.mjs"
+      },
+      {
         "from": "conversation-history.mjs",
         "to": "app-server/conversation-history.mjs"
       },
@@ -81,6 +90,7 @@
     "esbuild": "^0.28.2"
   },
   "dependencies": {
-    "@langchain/langgraph": "^1.4.18"
+    "@langchain/langgraph": "^1.4.18",
+    "@modelcontextprotocol/client": "^2.2.0"
   }
 }

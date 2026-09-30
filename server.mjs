@@ -10,6 +10,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CodexAppServer } from './codex-app-server.mjs';
 import { ApiConnections } from './api-connections.mjs';
+import { McpConnections } from './mcp-connections.mjs';
 import { ConversationHistory } from './conversation-history.mjs';
 import { TokenUsageStore } from './token-usage.mjs';
 import { accountActivity, localActivity } from './usage-activity.mjs';
@@ -32,7 +33,8 @@ const defaultCodexHome = resolve(process.env.CODEX_HOME || join(homedir(), '.cod
 const port = Number(process.env.PORT || 4173);
 const host = process.env.HOST || '127.0.0.1';
 const apiConnections = new ApiConnections(userDataDir);
-const harness = new HarnessEngine({ directory: userDataDir, invoke: invokeHarnessModel });
+const mcpConnections = new McpConnections(userDataDir);
+const harness = new HarnessEngine({ directory: userDataDir, invoke: invokeHarnessModel, mcpConnections });
 const tokenUsageStore = new TokenUsageStore(userDataDir);
 const conversationHistory = new ConversationHistory({ codexHome: defaultCodexHome });
 
@@ -1979,6 +1981,21 @@ const server = createServer(async (req, res) => {
   if (!allowedOrigin(req)) return json(res, 403, { error: '허용되지 않은 요청 출처입니다.' });
   const url = new URL(req.url, 'http://' + (req.headers.host || '127.0.0.1'));
 
+  if (url.pathname.startsWith('/api/mcp/servers')) {
+    try {
+      if (req.method === 'GET' && url.pathname === '/api/mcp/servers') return json(res, 200, await mcpConnections.list());
+      if (req.method === 'POST' && url.pathname === '/api/mcp/servers') return json(res, 201, await mcpConnections.save(await readJson(req)));
+      const connectMatch = url.pathname.match(/^\/api\/mcp\/servers\/([a-f0-9-]{36})\/connect$/);
+      if (req.method === 'POST' && connectMatch) return json(res, 200, await mcpConnections.connect(connectMatch[1]));
+      const disconnectMatch = url.pathname.match(/^\/api\/mcp\/servers\/([a-f0-9-]{36})\/disconnect$/);
+      if (req.method === 'POST' && disconnectMatch) return json(res, 200, await mcpConnections.disconnect(disconnectMatch[1]));
+      const serverMatch = url.pathname.match(/^\/api\/mcp\/servers\/([a-f0-9-]{36})$/);
+      if (req.method === 'PUT' && serverMatch) return json(res, 200, await mcpConnections.save(await readJson(req), serverMatch[1]));
+      if (req.method === 'DELETE' && serverMatch) return json(res, 200, await mcpConnections.delete(serverMatch[1]));
+      return json(res, 404, { error: 'MCP 연결을 찾을 수 없습니다.' });
+    } catch (error) { return json(res, error.status || 500, { error: error.message || 'MCP 연결을 처리하지 못했습니다.' }); }
+  }
+
   if (url.pathname.startsWith('/api/harness/runs')) {
     try {
       if (req.method === 'POST' && url.pathname === '/api/harness/runs') {
@@ -2246,6 +2263,7 @@ async function shutdown() {
   isShuttingDown = true;
   server.close();
   await harness.shutdown();
+  await mcpConnections.close();
   for (const context of codexAccountContexts.values()) {
     for (const active of context.activeTurns.values()) {
       finalizeCodexTurn(active, { error: 'Loopline 서버가 종료되었습니다.' });

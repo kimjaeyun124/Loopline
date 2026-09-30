@@ -481,8 +481,9 @@ kbd { margin-left: auto; color: var(--muted); font-family: inherit; font-size: 1
 .composer.loop-engineering-active .composer-loop-secondary { grid-area: secondary; display: flex; min-width: 0; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 4px 8px; padding-top: 3px; border-top: 1px solid var(--line); }
 .composer.loop-engineering-active .composer-loop-secondary > * { min-height: 32px; }
 .composer.loop-engineering-active .composer-submit-actions { align-self: flex-end; margin-bottom: 1px; }
-.composer.loop-engineering-harness .composer-left { grid-template-columns: minmax(0, 1fr); grid-template-areas: "loop"; grid-template-rows: auto; }
-.composer.loop-engineering-harness .composer-loop-secondary { display: none; }
+.composer.loop-engineering-harness .composer-left { grid-template-columns: minmax(0, 1fr); grid-template-areas: "loop" "secondary"; grid-template-rows: auto auto; }
+.composer.loop-engineering-harness .composer-loop-secondary { grid-area: secondary; display: flex; min-width: 0; align-items: center; justify-content: flex-start; gap: 4px 8px; padding-top: 0; border-top: 0; }
+.composer.loop-engineering-harness .composer-loop-secondary > :not(#promptSkillsButton) { display: none; }
 .composer.loop-engineering-harness .loop-engineering-control { min-height: 36px; }
 #codexAccountSelect { max-width: 150px; }
 #codexAccountSelect[hidden] { display: none; }
@@ -550,6 +551,31 @@ kbd { margin-left: auto; color: var(--muted); font-family: inherit; font-size: 1
 .settings-modal, .project-modal { width: min(100%, 720px); max-height: calc(100dvh - 64px); overflow: auto; padding: 28px; border: 1px solid var(--line); border-radius: 18px; background: var(--canvas); box-shadow: 0 24px 80px #1414142e; }
 .project-modal { width: min(100%, 500px); }
 .project-import-modal { width: min(100%, 520px); }
+.prompt-skills-modal { width: min(100%, 720px); }
+.prompt-skills-intro, .prompt-skills-note { color: var(--muted); font-size: 11px; line-height: 1.6; }
+.prompt-skills-intro { margin: 10px 0 16px; }
+.prompt-skills-note { margin: 14px 0 0; }
+.prompt-skills-toolbar { display: flex; align-items: center; gap: 8px; }
+.prompt-skills-toolbar input { min-width: 0; min-height: 38px; flex: 1; padding: 9px 11px; border: 1px solid var(--line); border-radius: 8px; background: var(--canvas); color: var(--ink); font-size: 12px; }
+.prompt-skills-list { display: flex; max-height: min(42vh, 420px); flex-direction: column; gap: 8px; margin-top: 14px; overflow-y: auto; }
+.prompt-skill-card { display: flex; min-width: 0; align-items: center; gap: 14px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--sidebar); }
+.prompt-skill-copy { min-width: 0; flex: 1; }
+.prompt-skill-heading { display: flex; min-width: 0; align-items: center; gap: 8px; }
+.prompt-skill-heading strong { overflow: hidden; color: var(--ink); font-size: 12px; font-weight: 550; text-overflow: ellipsis; white-space: nowrap; }
+.prompt-skill-source { flex-shrink: 0; padding: 3px 6px; border: 1px solid var(--line); border-radius: 10px; color: var(--muted); font-size: 9px; }
+.prompt-skill-copy p { margin: 6px 0; color: var(--secondary); font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+.prompt-skill-copy small { color: var(--muted); font-size: 9px; }
+.prompt-skill-actions { display: flex; flex-shrink: 0; align-items: center; gap: 3px; }
+.prompt-skill-actions .secondary-button { min-height: 30px; padding: 0 9px; font-size: 10px; }
+.prompt-skill-actions .icon-button { width: 29px; height: 29px; }
+.prompt-skill-actions .icon-button .ui-icon { width: 14px; height: 14px; }
+.prompt-skill-editor { margin-top: 14px; padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--sidebar); }
+.prompt-skill-editor h3 { margin: 0; font-size: 13px; }
+.prompt-skill-editor .project-field { margin-top: 12px; }
+.prompt-skill-editor .project-field textarea { min-height: 120px; }
+.prompt-skill-editor-actions { display: flex; justify-content: flex-end; gap: 7px; margin-top: 12px; }
+.prompt-skills-empty { margin: 16px 0 0; color: var(--muted); font-size: 11px; line-height: 1.6; text-align: center; }
+.prompt-skills-empty:empty { display: none; }
 .project-field { display: flex; flex-direction: column; gap: 7px; margin-top: 17px; color: var(--ink); font-size: 12px; font-weight: 550; }
 .project-field small { color: var(--muted); font-size: 9px; font-weight: 400; }
 .project-field input, .project-field textarea, .project-field select { width: 100%; padding: 10px 11px; border: 1px solid var(--line); border-radius: 8px; background: var(--canvas); color: var(--ink); font-size: 13px; outline: none; }
@@ -955,6 +981,13 @@ kbd { margin-left: auto; color: var(--muted); font-family: inherit; font-size: 1
   .modal-actions { justify-content: stretch; }
   .modal-actions button { flex: 1; }
   .search-backdrop { padding: 10vh 12px 12px; }
+}
+
+@media (max-width: 540px) {
+  .prompt-skills-modal { padding: 20px; }
+  .prompt-skills-toolbar { align-items: stretch; flex-direction: column; }
+  .prompt-skill-card { align-items: stretch; flex-direction: column; gap: 9px; }
+  .prompt-skill-actions { justify-content: flex-end; }
 }
 
 @media (max-width: 680px) {

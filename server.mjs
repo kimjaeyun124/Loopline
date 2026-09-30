@@ -1952,6 +1952,8 @@ async function serveFile(res, pathname) {
     '/model-visibility-ui.js': ['model-visibility-ui.js', 'text/javascript; charset=utf-8'],
     '/account-menu-ui.js': ['account-menu-ui.js', 'text/javascript; charset=utf-8'],
     '/usage-activity-ui.js': ['usage-activity-ui.js', 'text/javascript; charset=utf-8'],
+    '/prompt-skills-ui.js': ['prompt-skills-ui.js', 'text/javascript; charset=utf-8'],
+    '/prompt-skills.mjs': ['prompt-skills.mjs', 'text/javascript; charset=utf-8'],
     '/model-capabilities.mjs': ['model-capabilities.mjs', 'text/javascript; charset=utf-8'],
     '/loop-policy.mjs': ['loop-policy.mjs', 'text/javascript; charset=utf-8'],
     '/harness-ui.js': ['harness-ui.js', 'text/javascript; charset=utf-8'],

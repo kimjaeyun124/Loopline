@@ -9,6 +9,7 @@ import { createUsageActivityUI } from './usage-activity-ui.js';
 import { modelEffortCapability, modelSelectionStrength } from './model-capabilities.mjs';
 import { renderMarkdown } from './markdown.js';
 import { createHarnessUI } from './harness-ui.js';
+import { createPromptSkillsUI } from './prompt-skills-ui.js';
 
 const PROVIDERS = {
   openai: {
@@ -176,6 +177,17 @@ const usageActivityUI = createUsageActivityUI({
   getAccounts: () => state.codexAccounts.filter((account) => account.linked),
   getActiveAccountId: () => state.activeCodexAccountId,
   formatAccountName: codexAccountDisplayName,
+});
+const promptSkillsUI = createPromptSkillsUI({
+  getConversations: () => state.conversations,
+  getDraft: () => elements.messageInput.value,
+  setDraft: (value) => {
+    elements.messageInput.value = value;
+    resizeInput();
+    renderSendButtonState(modelCatalog().find((model) => modelKey(model) === selectedModelKey())?.connected === true);
+    elements.messageInput.focus();
+  },
+  showToast,
 });
 const modelVisibilityUI = createModelVisibilityUI({
   getModels: modelCatalog,
@@ -2668,7 +2680,7 @@ async function sendLoopEngineering(value, queuedMessageId = null) {
     ? conversation.messages.find((item) => item.id === queuedMessageId && item.role === 'user' && item.queued)
     : null;
   if (queuedMessageId && !queuedMessage) return;
-
+  promptSkillsUI.recordUse(message);
   const reasoning = reasoningSettings();
   if (conversation.provider !== state.provider && state.provider === 'openai') conversation.codexThreadId = null;
   conversation.provider = state.provider;
@@ -2869,6 +2881,7 @@ async function sendHarness(value, queuedMessageId) {
   updateConversationTitle(conversation, value);
   const queued = queuedMessageId && conversation.messages.find((message) => message.id === queuedMessageId && message.queued);
   if (queuedMessageId && !queued) return;
+  promptSkillsUI.recordUse(value.trim());
   if (queued) { queued.queued = false; delete queued.queueOptions; }
   else conversation.messages.push({ id: crypto.randomUUID(), role: 'user', content: value.trim() });
   const message = { id: crypto.randomUUID(), role: 'assistant', content: '', pending: true, startedAt: Date.now(), activityExpanded: true, activityMode: 'native', activities: [] };
@@ -2914,6 +2927,7 @@ async function sendMessage(value, queuedMessageId = null) {
     ? conversation.messages.find((item) => item.id === queuedMessageId && item.role === 'user' && item.queued)
     : null;
   if (queuedMessageId && !queuedMessage) return;
+  promptSkillsUI.recordUse(message);
   if (conversation.provider !== state.provider && state.provider === 'openai') conversation.codexThreadId = null;
   conversation.provider = state.provider;
   conversation.model = state.model;

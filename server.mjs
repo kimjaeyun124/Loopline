@@ -1981,6 +1981,7 @@ async function serveFile(res, pathname) {
     '/loopline-icon.svg': ['loopline-icon.svg', 'image/svg+xml'],
     '/export-importer.js': ['export-importer.js', 'text/javascript; charset=utf-8'],
     '/api-connections-ui.js': ['api-connections-ui.js', 'text/javascript; charset=utf-8'],
+    '/mcp-connections-ui.js': ['mcp-connections-ui.js', 'text/javascript; charset=utf-8'],
     '/history-import-ui.js': ['history-import-ui.js', 'text/javascript; charset=utf-8'],
     '/chatgpt-ui.js': ['chatgpt-ui.js', 'text/javascript; charset=utf-8'],
     '/model-visibility-ui.js': ['model-visibility-ui.js', 'text/javascript; charset=utf-8'],

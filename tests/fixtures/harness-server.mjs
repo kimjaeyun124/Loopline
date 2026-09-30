@@ -8,21 +8,28 @@ import { fileURLToPath } from 'node:url';
 import { runCommand } from '../../harness-engine.mjs';
 
 // Local model fixtures exercise the real HTTP relay without credentials or external services.
-export async function startFixture({ delay = 0, codexMock = false, codexDeleteFailures = 1, remainingTokens = null, limitTokens = null, mcpWorkerTool = '' } = {}) {
+export async function startFixture({ delay = 0, codexMock = false, codexDeleteFailures = 1, remainingTokens = null, limitTokens = null, mcpWorkerTool = '', failModelOnce = null } = {}) {
   const directory = await mkdtemp(join(tmpdir(), 'loopline-harness-http-'));
   const source = join(directory, 'project'), data = join(directory, 'data');
   await mkdir(source); await mkdir(data);
   const calls = [];
+  const failedModels = new Set();
   const mock = createServer(async (req, res) => {
     if (req.url === '/v1/models') {
       res.setHeader('Content-Type', 'application/json');
       return res.end(JSON.stringify({ data: [
         { id: 'qa-worker', name: '작업 모델 · QA 시뮬레이션', supported_reasoning_efforts: ['medium', 'high'] },
+        ...(failModelOnce ? [{ id: 'qa-worker-backup', name: '대체 작업 모델 · QA 시뮬레이션', supported_reasoning_efforts: ['medium', 'high'] }] : []),
         { id: 'jev-qa', name: 'Jev · QA 시뮬레이션' },
       ] }));
     }
     const parts = []; for await (const part of req) parts.push(part);
     const body = JSON.parse(Buffer.concat(parts)); calls.push(body);
+    if (failModelOnce && body.model === failModelOnce.model && !failedModels.has(body.model)) {
+      failedModels.add(body.model);
+      res.writeHead(failModelOnce.status, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: { message: 'Temporary fixture failure' } }));
+    }
     const prompt = body.messages.filter((item) => item.role === 'user').map((item) => item.content).join('');
     let structuredPrompt = null;
     try {

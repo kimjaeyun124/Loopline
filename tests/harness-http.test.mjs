@@ -18,6 +18,21 @@ test('the browser can load the provider-neutral automatic loop routing policy', 
   assert.match(await response.text(), /selectAutomaticLoopModel/);
 });
 
+test('HTTP relay preserves an upstream 503 so Harness uses the next planner model', async (t) => {
+  const f = await startFixture({ failModelOnce: { model: 'qa-worker', status: 503 } }); t.after(f.close);
+  const primary = f.input.roles.planner;
+  const planner = { ...primary, fallbacks: [{ ...primary, model: 'qa-worker-backup', label: 'QA backup' }] };
+  const created = await f.request('/api/harness/runs', { ...f.input, roles: { ...f.input.roles, planner } });
+  const run = await until(async () => { const value = await f.request(`/api/harness/runs/${created.id}`); return value.finishedAt ? value : null; });
+
+  assert.equal(run.status, 'completed', run.summary);
+  assert.equal(run.applied, true);
+  assert.equal(run.stageModels.planner.id, 'qa-worker-backup');
+  assert.deepEqual(f.calls.slice(0, 2).map((call) => call.model), ['qa-worker', 'qa-worker-backup']);
+  assert.ok(run.events.some((event) => event.title.includes('모델 일시 오류')
+    && event.model?.id === 'qa-worker' && event.detail.includes('HTTP 503')));
+});
+
 test('HTTP harness relays roles and supported effort, records usage and completes two verified rounds', async (t) => {
   const f = await startFixture({ remainingTokens: 75, limitTokens: 400 }); t.after(f.close);
   const created = await f.request('/api/harness/runs', f.input);

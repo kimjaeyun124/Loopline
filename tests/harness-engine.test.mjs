@@ -728,6 +728,42 @@ test('automatic verification can choose another command when the selected comman
   assert.equal(verifications, 2);
 });
 
+test('verification-plan rejection uses the next saved planner and then applies only after approval', async (t) => {
+  const f = await fixture(t), script = modelScript(complete), plannerCalls = [];
+  let commandReviews = 0, verifiedCommand = '';
+  const planner = { ...f.input.roles.planner, fallbacks: [
+    { ...f.input.roles.planner, model: 'verification-backup', label: 'Verification backup' },
+  ] };
+  const engine = new HarnessEngine({ directory: f.data, verify: async (_workspace, command) => {
+    verifiedCommand = command;
+    return pass();
+  }, invoke: async (selection, prompt, ...rest) => {
+    if (startsWithText(prompt, '검증 방법을')) {
+      plannerCalls.push(selection.model);
+      return selection.model === 'fixture-model'
+        ? JSON.stringify({ verifyCommand: 'true', reason: 'Run a command.' })
+        : JSON.stringify({ verifyCommand: 'test "$(cat file.txt)" = "updated 1"', reason: 'Assert the generated file contents.' });
+    }
+    if (isJudgementPrompt(prompt) && prompt.questions.command) {
+      commandReviews++;
+      return commandReviews === 1
+        ? judgementResponse(prompt, 'revise', 'true에는 실제 assertion이 없습니다.')
+        : judgementResponse(prompt);
+    }
+    return script(selection, prompt, ...rest);
+  } });
+  const run = await settled(engine, (await engine.create({
+    ...f.input, verifyCommand: undefined, roles: { ...f.input.roles, planner },
+  })).id);
+  assert.equal(run.status, 'completed', run.summary);
+  assert.deepEqual(plannerCalls, ['fixture-model', 'verification-backup']);
+  assert.equal(commandReviews, 2);
+  assert.equal(verifiedCommand, 'test "$(cat file.txt)" = "updated 1"');
+  assert.equal(run.stageModels.planner.id, 'verification-backup');
+  assert.ok(run.events.some((event) => event.title.startsWith('검증 계획 대체 모델')));
+  assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'updated 1\n');
+});
+
 test('restored unfinished runs are marked interrupted without restarting model calls', async (t) => {
   const f = await fixture(t); const id = '12345678-1234-1234-1234-123456789abc';
   await mkdir(join(f.data, 'harness'));
@@ -1038,7 +1074,7 @@ test('automatic verification retries malformed and incomplete judge responses', 
   assert.equal(run.events.filter((event) => event.title.startsWith('검증 응답 재요청')).length, 2);
 });
 
-test('automatic verification retries an invalid judge review without losing the proposed command', async (t) => {
+test('automatic verification retries one invalid judge review without replanning the command', async (t) => {
   const f = await fixture(t), script = modelScript(complete);
   let verificationPlans = 0, commandReviews = 0, verifications = 0;
   const engine = new HarnessEngine({ directory: f.data, verify: async (_workspace, command) => {
@@ -1056,7 +1092,7 @@ test('automatic verification retries an invalid judge review without losing the 
   } });
   const run = await settled(engine, (await engine.create({ ...f.input, verifyCommand: undefined })).id);
   assert.equal(run.status, 'completed', run.summary);
-  assert.equal(verificationPlans, 2);
+  assert.equal(verificationPlans, 1);
   assert.equal(commandReviews, 2);
   assert.equal(verifications, 1);
   assert.equal(run.events.filter((event) => event.title.startsWith('검증 판정 재요청')).length, 1);
@@ -1085,7 +1121,7 @@ test('automatic verification does not retry judge transport failures as malforme
   assert.equal(run.events.some((event) => event.title.startsWith('검증 판정 재요청')), false);
 });
 
-test('automatic verification stops safely after eight invalid judge responses', async (t) => {
+test('automatic verification bounds repeated malformed plans without wasting eight requests', async (t) => {
   const f = await fixture(t), script = modelScript(complete);
   let verificationResponses = 0;
   const engine = new HarnessEngine({ directory: f.data, verify: () => assert.fail('Invalid verification must not run'), invoke: async (selection, prompt, ...rest) => {
@@ -1094,9 +1130,9 @@ test('automatic verification stops safely after eight invalid judge responses', 
     return script(selection, prompt, ...rest);
   } });
   const run = await settled(engine, (await engine.create({ ...f.input, workspace: undefined, verifyCommand: undefined })).id);
-  assert.equal(run.status, 'failed'); assert.match(run.summary, /검증 준비 한도\(8회\)/);
-  assert.equal(verificationResponses, 8);
-  assert.equal(run.events.filter((event) => event.title.startsWith('검증 응답 재요청')).length, 8);
+  assert.equal(run.status, 'failed'); assert.match(run.summary, /검증 명령 또는 선택 근거/);
+  assert.equal(verificationResponses, 3);
+  assert.equal(run.events.filter((event) => event.title.startsWith('검증 응답 재요청')).length, 3);
   assert.equal(run.applied, undefined);
 });
 
@@ -1121,7 +1157,7 @@ test('failed edit feedback includes current file contents so the worker can reba
   assert.ok(run.events.some((event) => event.title.startsWith('작업 수정 요청') && event.detail.includes('original\n')));
 });
 
-test('failed edit in a batch returns the latest contents after earlier edits were applied', async (t) => {
+test('failed edit in a batch leaves earlier edits unapplied and provides the original content', async (t) => {
   const f = await fixture(t); let step = 0, receivedLatestFile = false;
   const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (_selection, prompt) => {
     if (hasText(prompt, '구현 계획과 검증 기준')) return 'Read and update file.txt.';
@@ -1133,8 +1169,8 @@ test('failed edit in a batch returns the latest contents after earlier edits wer
       { type: 'edit', path: 'file.txt', oldText: 'original\n', newText: 'stale replacement\n' },
     ] });
     if (step === 3) {
-      receivedLatestFile = hasText(prompt, '최신 파일 내용입니다') && hasText(prompt, 'partially updated\n');
-      return JSON.stringify({ operations: [{ type: 'edit', path: 'file.txt', oldText: 'partially updated\n', newText: 'updated\n' }] });
+      receivedLatestFile = hasText(prompt, '최신 파일 내용입니다') && hasText(prompt, 'original\n');
+      return JSON.stringify({ operations: [{ type: 'edit', path: 'file.txt', oldText: 'original\n', newText: 'updated\n' }] });
     }
     return JSON.stringify({ done: true, summary: 'Rebased the failed edit on the latest file contents.' });
   } });
@@ -1142,7 +1178,46 @@ test('failed edit in a batch returns the latest contents after earlier edits wer
   assert.equal(run.status, 'completed', run.summary);
   assert.equal(receivedLatestFile, true);
   assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'updated\n');
-  assert.ok(run.events.some((event) => event.title.startsWith('작업 수정 요청') && event.detail.includes('partially updated\n')));
+  assert.ok(run.events.some((event) => event.title.startsWith('작업 수정 요청') && event.detail.includes('original\n')));
+});
+
+test('repeated identical malformed worker output stops safely after one correction attempt', async (t) => {
+  const f = await fixture(t); let workerCalls = 0;
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (_selection, prompt) => {
+    if (hasText(prompt, '구현 계획과 검증 기준')) return 'Read and update file.txt.';
+    if (isJudgementPrompt(prompt)) return judgementResponse(prompt);
+    workerCalls++;
+    return 'The same non-JSON response';
+  } });
+  const run = await settled(engine, (await engine.create({ ...f.input, rounds: 1 })).id);
+  assert.equal(run.status, 'failed');
+  assert.equal(workerCalls, 2);
+  assert.match(run.summary, /응답 형식이 연속으로 반복/);
+  assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'original\n');
+  assert.ok(run.events.some((event) => event.title.startsWith('응답 형식 재요청')));
+});
+
+test('repeated edit failures switch to the next saved worker before further attempts', async (t) => {
+  const f = await fixture(t); let workerCalls = 0; const workerModels = [];
+  const worker = { ...f.input.roles.worker, model: 'worker-edit-primary', fallbacks: [
+    { ...f.input.roles.worker, model: 'worker-edit-backup', label: 'Edit recovery worker' },
+  ] };
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (selection, prompt) => {
+    if (hasText(prompt, '구현 계획과 검증 기준')) return 'Read and update file.txt.';
+    if (isJudgementPrompt(prompt)) return judgementResponse(prompt);
+    workerCalls++; workerModels.push(selection.model);
+    if (workerCalls === 1) return JSON.stringify({ operations: [{ type: 'read', path: 'file.txt' }] });
+    if (workerCalls <= 3) return JSON.stringify({ operations: [{ type: 'edit', path: 'file.txt', oldText: 'stale text', newText: 'updated\n' }] });
+    assert.equal(selection.model, 'worker-edit-backup');
+    assert.ok(hasText(prompt, '최신 파일 내용입니다') && hasText(prompt, 'original\n'));
+    return JSON.stringify({ operations: [{ type: 'edit', path: 'file.txt', oldText: 'original\n', newText: 'updated\n' }], done: true, summary: 'Rebased using the next worker model.' });
+  } });
+  const run = await settled(engine, (await engine.create({ ...f.input, roles: { ...f.input.roles, worker }, rounds: 1 })).id);
+  assert.equal(run.status, 'completed', run.summary);
+  assert.deepEqual(workerModels, ['worker-edit-primary', 'worker-edit-primary', 'worker-edit-primary', 'worker-edit-backup']);
+  assert.equal(run.stageModels.worker.id, 'worker-edit-backup');
+  assert.ok(run.events.some((event) => event.title.startsWith('편집 오류 반복 · 대체 모델 전환')));
+  assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'updated\n');
 });
 
 test('malformed operations response returns tool feedback instead of throwing in the error handler', async (t) => {

@@ -17,7 +17,21 @@ async function setup(t, reply = () => Response.json(valid())) {
   });
   const api = new ApiConnections(dir);
   const connection = await api.connect({ name: 'Jev', baseUrl: 'https://api.typesafe.ai/v1', apiKey: 'test-only-secret' });
-  return { dir, api, connection, calls, evaluate: (signal = new AbortController().signal, onUsage) => api.evaluate(connection.id, 'jev-latest', { state: { diff: 'QA' }, questions: { goal: question } }, { signal, onUsage }) };
+  return { dir, api, connection, calls, evaluate: (signal = new AbortController().signal, onUsage, timeoutMs) => api.evaluate(connection.id, 'jev-latest', { state: { diff: 'QA' }, questions: { goal: question } }, { signal, onUsage, timeoutMs }) };
+}
+
+async function setupChatConnection(t, reply) {
+  const dir = await mkdtemp(join(tmpdir(), 'loopline-api-timeout-test-'));
+  const calls = [];
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  t.mock.method(globalThis, 'fetch', async (url, options) => {
+    calls.push({ url, options });
+    if (url.endsWith('/models')) return Response.json({ data: [{ id: 'qa-model', name: 'QA model' }] });
+    return reply(options);
+  });
+  const api = new ApiConnections(dir);
+  const connection = await api.connect({ name: 'QA API', baseUrl: 'https://api.example.test/v1', apiKey: 'test-only-secret' });
+  return { api, connection, calls };
 }
 test('Jev native protocol preserves typed answers, accounts usage and never saves the session key', async (t) => {
   const f = await setup(t); let usage;
@@ -45,5 +59,29 @@ test('Jev cancellation propagates and releases connection for removal', async (t
   const f = await setup(t, (options) => new Promise((resolve, reject) => { started(); options.signal.addEventListener('abort', () => reject(options.signal.reason), { once: true }); }));
   const controller = new AbortController(); const pending = f.evaluate(controller.signal); await ready;
   controller.abort(new Error('QA stopped')); await assert.rejects(pending, /QA stopped/);
+  await f.api.remove(f.connection.id);
+});
+
+test('Jev supports a longer Harness timeout while retaining cancellation', async (t) => {
+  const f = await setup(t, (options) => new Promise((resolve, reject) => {
+    options.signal.addEventListener('abort', () => reject(options.signal.reason), { once: true });
+  }));
+  await assert.rejects(f.evaluate(new AbortController().signal, undefined, 25), /Jev 판정 시간이 초과되었습니다/);
+  await f.api.remove(f.connection.id);
+});
+
+test('OpenAI-compatible model calls enforce the supplied Harness timeout', async (t) => {
+  let started;
+  const ready = new Promise((resolve) => { started = resolve; });
+  const f = await setupChatConnection(t, (options) => new Promise((resolve, reject) => {
+    started(); options.signal.addEventListener('abort', () => reject(options.signal.reason), { once: true });
+  }));
+  const controller = new AbortController();
+  const pending = f.api.chat(f.connection.id, 'qa-model', [{ role: 'user', content: 'slow request' }], {
+    signal: controller.signal, timeoutMs: 25, onDelta() {},
+  });
+  await ready;
+  await assert.rejects(pending, /API 응답 시간이 초과되었습니다/);
+  assert.equal(controller.signal.aborted, false, 'the configured timeout must not be mistaken for user cancellation');
   await f.api.remove(f.connection.id);
 });

@@ -8,6 +8,7 @@ import { createModelVisibilityUI } from './model-visibility-ui.js';
 import { createAccountMenuUI } from './account-menu-ui.js';
 import { createUsageActivityUI } from './usage-activity-ui.js';
 import { modelEffortCapability, modelSelectionStrength } from './model-capabilities.mjs';
+import { automaticLoopStartRounds, extendAutomaticLoopRounds, MAX_LOOP_ROUNDS } from './loop-policy.mjs';
 import { renderMarkdown } from './markdown.js';
 import { createHarnessUI } from './harness-ui.js';
 import { createPromptSkillsUI } from './prompt-skills-ui.js';
@@ -72,7 +73,7 @@ const state = {
   keyStorage: 'session',
   fastMode: false,
   loopEngineeringEnabled: false,
-  loopEngineeringRounds: 3,
+  loopEngineeringRounds: 0,
   loopEngineeringRunning: false,
   loopStopRequested: false,
   reasoningEfforts: {},
@@ -445,8 +446,9 @@ function loadPreferences() {
     if (typeof preferences.activeProjectId === 'string') state.activeProjectId = preferences.activeProjectId;
     if (typeof preferences.fastMode === 'boolean') state.fastMode = preferences.fastMode;
     if (typeof preferences.loopEngineeringEnabled === 'boolean') state.loopEngineeringEnabled = preferences.loopEngineeringEnabled;
-    if (Number.isInteger(preferences.loopEngineeringRounds) && preferences.loopEngineeringRounds >= 2 && preferences.loopEngineeringRounds <= 10) {
-      state.loopEngineeringRounds = preferences.loopEngineeringRounds;
+    if (Number.isInteger(preferences.loopEngineeringRounds) && preferences.loopEngineeringRounds >= 0 && preferences.loopEngineeringRounds <= MAX_LOOP_ROUNDS) {
+      const migrateOldDefault = preferences.loopEngineeringSettingsVersion !== 2 && preferences.loopEngineeringRounds === 3;
+      state.loopEngineeringRounds = migrateOldDefault ? 0 : preferences.loopEngineeringRounds;
     }
     if (preferences.agentInstructions && typeof preferences.agentInstructions === 'object' && !Array.isArray(preferences.agentInstructions)) {
       const saved = preferences.agentInstructions;
@@ -492,6 +494,7 @@ function savePreferences() {
     fastMode: state.fastMode,
     loopEngineeringEnabled: state.loopEngineeringEnabled,
     loopEngineeringRounds: state.loopEngineeringRounds,
+    loopEngineeringSettingsVersion: 2,
     agentInstructions: state.agentInstructions,
     reasoningEffort: reasoningSettings().selectedEffort,
     reasoningEfforts: state.reasoningEfforts,
@@ -1332,7 +1335,7 @@ function renderModelOptions() {
   const query = elements.modelSearch.value.trim().toLocaleLowerCase();
   const loopMatches = !query || 'loop engineering 루프 반복 실행'.includes(query);
   const loopOption = loopMatches
-    ? `<button class="model-option loop-engineering-option${state.loopEngineeringEnabled ? ' selected' : ''}" type="button" role="option" aria-selected="${state.loopEngineeringEnabled}" data-loop-engineering="true"${state.busy ? ' disabled' : ''}><span><strong>Loop Engineering</strong><small>${harnessUI.enabled() ? '계획·구현·판정 모델로' : '선택한 모델로'} 최대 ${state.loopEngineeringRounds}회 실행</small></span><span class="model-check" aria-hidden="true">${state.loopEngineeringEnabled ? icon('check') : icon('chevron-right')}</span></button>`
+    ? `<button class="model-option loop-engineering-option${state.loopEngineeringEnabled ? ' selected' : ''}" type="button" role="option" aria-selected="${state.loopEngineeringEnabled}" data-loop-engineering="true"${state.busy ? ' disabled' : ''}><span><strong>Loop Engineering</strong><small>${harnessUI.enabled() ? '계획·구현·판정 모델로' : '선택한 모델로'} ${state.loopEngineeringRounds ? `최대 ${state.loopEngineeringRounds}회` : '자동 회차 · 최대 10회'}</small></span><span class="model-check" aria-hidden="true">${state.loopEngineeringEnabled ? icon('check') : icon('chevron-right')}</span></button>`
     : '';
   if (selectingProvider) {
     const providers = providerCatalog().filter((item) => item.label.toLocaleLowerCase().includes(query));
@@ -2720,7 +2723,9 @@ async function sendLoopEngineering(value, queuedMessageId = null) {
   closeModelMenu();
   render();
 
-  const maxRounds = state.loopEngineeringRounds;
+  const autoRounds = state.loopEngineeringRounds === 0;
+  const originalTask = conversation.messages.find((item) => item.id === loopTaskMessageId)?.content || message;
+  let maxRounds = autoRounds ? automaticLoopStartRounds(originalTask) : state.loopEngineeringRounds;
   const projectInstructions = activeProjectInstructions();
   const baseAgentInstructions = activeAgentInstructions();
   let shouldContinueQueue = false;
@@ -2852,12 +2857,17 @@ async function sendLoopEngineering(value, queuedMessageId = null) {
       } else {
         requestActivity.detail = signaledComplete
           ? '목표가 완료되어 루프를 조기 종료했습니다.'
-          : round === maxRounds ? '설정한 최대 회차를 완료했습니다.' : '회차 결과를 확인했습니다. 다음 회차에서 이어서 개선합니다.';
+          : round === maxRounds ? (autoRounds ? '자동 최대 회차를 완료했습니다.' : '설정한 최대 회차를 완료했습니다.') : '회차 결과를 확인했습니다. 다음 회차에서 이어서 개선합니다.';
       }
       saveConversations();
       render();
 
       if (assistantMessage.error || state.loopStopRequested || signaledComplete) break;
+      if (round === maxRounds && autoRounds && maxRounds < MAX_LOOP_ROUNDS && !signaledComplete && !assistantMessage.error && !state.loopStopRequested) {
+        maxRounds = extendAutomaticLoopRounds(maxRounds);
+        requestActivity.detail = `완료 기준에 아직 도달하지 않아 자동 회차를 ${maxRounds}회까지 늘립니다.`;
+        saveConversations(); render();
+      }
       if (round < maxRounds) await new Promise((resolve) => setTimeout(resolve, 0));
     }
     shouldContinueQueue = !state.loopStopRequested && !lastAssistantMessage?.error;
@@ -3579,7 +3589,7 @@ elements.stopResponseButton.addEventListener('click', () => {
 });
 elements.loopEngineeringRounds.addEventListener('change', (event) => {
   const rounds = Number.parseInt(event.target.value, 10);
-  if (state.busy || !Number.isInteger(rounds) || rounds < 2 || rounds > 10) return;
+  if (state.busy || !Number.isInteger(rounds) || rounds < 0 || rounds > MAX_LOOP_ROUNDS || (rounds === 1)) return;
   state.loopEngineeringRounds = rounds;
   savePreferences();
   renderModelOptions();

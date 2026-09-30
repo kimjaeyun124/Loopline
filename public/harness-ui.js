@@ -313,7 +313,7 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
       ...(event.status !== 'running' && event.detail && !event.model && !event.title.startsWith('파일 작업') ? { kind: 'commentary', text: `**${event.title}**\n\n${event.detail}` } : {}),
     }));
     message.error = ['failed', 'blocked', 'interrupted'].includes(run.status);
-    message.content = pending ? `Harness · ${run.round}/${run.rounds}회차 · ${run.status === 'stopping' ? '중지 중' : ({ selecting: '판정 모델이 주·대체 모델 순위 선택', prepare: '작업 공간 준비', configuring: '판정 모델이 실행 환경 구성', planning: '계획 작성', working: '파일 작업', verifying: '검증', judging: '판정', applying: '프로젝트 반영' })[run.stage] || run.stage}`
+    message.content = pending ? `Harness · ${run.round}/${run.rounds}회차${run.autoRounds ? ' · 자동 최대 10회' : ''} · ${run.status === 'stopping' ? '중지 중' : ({ selecting: '판정 모델이 주·대체 모델 순위 선택', prepare: '작업 공간 준비', configuring: '판정 모델이 실행 환경 구성', planning: '계획 작성', working: '파일 작업', verifying: '검증', judging: '판정', applying: '프로젝트 반영' })[run.stage] || run.stage}`
       : `${run.summary || '실행을 마쳤습니다.'}${run.applied ? '\n\n프로젝트에 변경을 자동 반영했습니다.' : ''}${run.source ? `\n\n프로젝트: \`${run.source}\`` : ''}${run.workspace && run.status !== 'completed' ? `\n\n작업 공간: \`${run.workspace}\`` : ''}${run.patchAvailable ? `\n\n[변경 패치 내려받기](${location.origin}/api/harness/runs/${run.id}/patch)` : ''}`;
     if (run.source) {
       conversation.harnessWorkspace = run.source;

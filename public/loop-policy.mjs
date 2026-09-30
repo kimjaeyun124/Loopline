@@ -1,4 +1,5 @@
 const DEEP_TASK = /\b(?:architecture|architectural|refactor(?:ing)?|migration|migrate|security|concurrency|database|performance|optimization|integration|distributed|race condition|multi[- ]file)\b|아키텍처|구조 변경|리팩토링|마이그레이션|보안|동시성|경쟁 조건|데이터베이스|성능|최적화|통합|대규모|여러\s*파일/i;
+export const MAX_LOOP_ROUNDS = 10;
 export const LOOP_PRIORITY_DIMENSIONS = Object.freeze([
   { id: 'quality', label: '결과 품질' },
   { id: 'reasoning', label: '추론 투입량' },
@@ -18,6 +19,15 @@ export function classifyLoopTask(task) {
   const text = String(task || '').trim();
   const checklistItems = text.split('\n').filter((line) => /^\s*(?:[-*•]|\d+[.)])\s/.test(line)).length;
   return text.length >= 600 || DEEP_TASK.test(text) || checklistItems >= 4 ? 'complex' : 'simple';
+}
+
+export function automaticLoopStartRounds(task) {
+  return classifyLoopTask(task) === 'complex' ? 6 : 4;
+}
+
+export function extendAutomaticLoopRounds(current, ceiling = MAX_LOOP_ROUNDS) {
+  if (!Number.isInteger(current) || current < 1 || !Number.isInteger(ceiling) || ceiling < current) return current;
+  return Math.min(ceiling, current + 2);
 }
 
 export function recommendLoopEffort(role, supportedEfforts, task, priorities = DEFAULT_LOOP_PRIORITIES) {

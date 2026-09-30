@@ -11,6 +11,7 @@ const MAX_FILE = 160_000;
 const MAX_PATCH = 2_000_000;
 const MAX_WORKER_HISTORY = 32_000;
 const MAX_PROJECT_FILE_LIST = 8_000;
+const MAX_VERIFICATION_EVIDENCE = 18_000;
 const MAX_MODEL_FALLBACKS = 8;
 const TERMINAL = new Set(['completed', 'reviewed', 'stopped', 'failed', 'limit', 'blocked', 'interrupted']);
 const gitArgs = ['-c', 'core.hooksPath=/dev/null', '-c', 'core.fsmonitor=false'];
@@ -987,6 +988,26 @@ export class HarnessEngine {
     await git(run.workspace, ['add', '-A'], controller.signal);
     const diff = await git(run.workspace, ['diff', '--cached', '--no-ext-diff', run.baseline, '--'], controller.signal);
     history = `실제 변경 파일 내용 (diff):\n${diff.slice(0, 40_000)}${diff.length > 40_000 ? '\n일부 생략됨. 필요한 파일은 read로 추가 확인하세요.' : ''}`;
+    const verificationPaths = files.split('\n').filter(Boolean).filter((path) => {
+      const normalized = path.replaceAll('\\', '/');
+      return normalized === 'package.json'
+        || /(?:^|\/)(?:tests?|__tests__|specs?)(?:\/|$)/i.test(normalized)
+        || /\.(?:test|spec)\.[cm]?[jt]sx?$/i.test(normalized);
+    }).sort((a, b) => Number(a !== 'package.json') - Number(b !== 'package.json')).slice(0, 12);
+    if (verificationPaths.length) {
+      const inspected = await applyWorkspaceOperations(run.workspace, verificationPaths.map((path) => ({ type: 'read', path })), controller.signal);
+      let remaining = MAX_VERIFICATION_EVIDENCE;
+      const evidence = [];
+      for (const file of inspected) {
+        if (remaining <= 0) break;
+        const limit = Math.min(8_000, remaining);
+        const content = file.content.length <= limit ? file.content
+          : `${file.content.slice(0, Math.ceil(limit * 0.75))}\n[일부 생략 / trimmed]\n${file.content.slice(-Math.floor(limit * 0.25))}`;
+        evidence.push(`검증 파일 ${file.path}:\n${content}`);
+        remaining -= content.length;
+      }
+      history += `\n\n판정용 검증 파일 전체 근거:\n${evidence.join('\n\n')}`;
+    }
     await this.event(record, '검증 근거 수집 / Collect verification evidence', '작성된 소스와 테스트의 실제 변경 내용을 계획 모델과 판정 역할에 전달합니다.');
     let lastResponseIssue = '';
     for (let step = 0; step < 8; step++) {

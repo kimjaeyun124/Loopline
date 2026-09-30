@@ -1,9 +1,10 @@
 import { spawn } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
-import { mkdir, readFile, writeFile, rename, realpath, lstat, readdir, copyFile, unlink, access } from 'node:fs/promises';
+import { mkdir, readFile, writeFile, rename, realpath, lstat, readdir, copyFile, unlink, access, rm } from 'node:fs/promises';
 import { dirname, join, isAbsolute } from 'node:path';
 import { homedir } from 'node:os';
 import { normalizeLoopPriorities } from './public/loop-policy.mjs';
+import { createHarnessWorkflow } from './harness-graph.mjs';
 
 const MAX_FILE = 160_000;
 const MAX_PATCH = 2_000_000;
@@ -369,7 +370,11 @@ export class HarnessEngine {
         return [role, { ...modelDetails(role, selection), reasoningEffort: selection.reasoningEffort || '' }];
       })),
       managedProject: !source, automaticVerification: !input.verifyCommand?.trim(), verifyCommand: input.verifyCommand?.trim() || '', instructions: typeof input.instructions === 'string' ? input.instructions.slice(0, 24_000) : '',
-      autoApply: input.autoApply !== false, events: [], createdAt: Date.now(), summary: '', patchAvailable: false };
+      autoApply: input.autoApply !== false, events: [], createdAt: Date.now(), summary: '', patchAvailable: false,
+      workflowEngine: 'langgraph',
+      graphCheckpoint: { version: 1, threadId: id, nextNode: 'select', activeNode: null, state: {
+        nextNode: 'select', completedRounds: 0, plan: '', files: '', previousSummary: '', feedback: '', reselectVerification: false, decision: '', summary: '',
+      } } };
     const record = { run, controller: new AbortController(), writes: Promise.resolve() };
     if (source) this.sources.add(source); this.runs.set(id, record);
     try { await this.persist(record); } catch (error) { this.sources.delete(source); this.runs.delete(id); throw error; }
@@ -377,7 +382,13 @@ export class HarnessEngine {
     return this.publicRun(run);
   }
 
-  publicRun(run) { const { instructions, fingerprint, baseline, ...visible } = run; return visible; }
+  publicRun(run) {
+    const { instructions, fingerprint, baseline, graphCheckpoint, ...visible } = run;
+    visible.canResume = ['interrupted', 'stopped'].includes(run.status)
+      && Boolean(graphCheckpoint && (graphCheckpoint.activeNode !== 'apply' || !run.applyStarted || run.applied)
+        && ['select', 'prepare', 'round', 'apply', 'finish'].includes(graphCheckpoint.activeNode || graphCheckpoint.nextNode));
+    return visible;
+  }
   async getPromptDetails(runId, eventId) {
     const record = await this.record(runId);
     if (!record.run.events.some((event) => event.id === eventId)) throw fail('이 단계의 입력 기록을 찾을 수 없습니다.', 404);
@@ -416,6 +427,23 @@ export class HarnessEngine {
     return record;
   }
   async get(id) { return this.publicRun((await this.record(id)).run); }
+  async resume(id) {
+    const record = await this.record(id);
+    const { run } = record;
+    if (!['interrupted', 'stopped'].includes(run.status) || !this.publicRun(run).canResume) {
+      throw fail('이 실행은 안전하게 이어갈 수 없습니다. 작업 공간과 저장된 패치를 확인한 뒤 새 실행을 시작해 주세요.', 409);
+    }
+    if (run.source && this.sources.has(run.source)) throw fail('이 프로젝트에서 다른 Loop 실행이 진행 중입니다.', 409);
+    if (run.source) this.sources.add(run.source);
+    record.controller = new AbortController();
+    run.status = 'running'; run.finishedAt = null; run.summary = '';
+    const checkpoint = run.graphCheckpoint;
+    const resumeNode = checkpoint.activeNode || checkpoint.nextNode;
+    checkpoint.nextNode = resumeNode; checkpoint.activeNode = null;
+    await this.event(record, 'Loop 이어하기 / Resume workflow', `LangGraph가 저장된 ${resumeNode} 단계부터 실행을 이어갑니다.`, 'completed');
+    record.execution = this.execute(record).catch(() => {});
+    return this.publicRun(run);
+  }
   async stop(id) {
     const record = await this.record(id);
     if (!TERMINAL.has(record.run.status)) { record.controller.abort(new Error('사용자가 실행을 중지했습니다.')); record.run.status = 'stopping'; await this.persist(record); }
@@ -648,132 +676,48 @@ export class HarnessEngine {
     }
   }
 
+  async graphNodeStarted(record, node, state) {
+    const run = record.run;
+    run.graphCheckpoint = { version: 1, threadId: run.id, nextNode: node, activeNode: node, state: this.graphState(state) };
+    await this.persist(record);
+  }
+  async graphCheckpoint(record, nextNode, state) {
+    const run = record.run;
+    run.graphCheckpoint = { version: 1, threadId: run.id, nextNode, activeNode: null, state: this.graphState(state) };
+    await this.persist(record);
+    await this.event(record, 'LangGraph 단계 저장 / Workflow checkpoint', `다음 단계: ${nextNode} · 완료 회차 ${state.completedRounds || 0}/${run.rounds}`);
+  }
+  graphState(state = {}) {
+    return {
+      nextNode: state.nextNode || 'select', completedRounds: Number.isInteger(state.completedRounds) ? state.completedRounds : 0,
+      plan: String(state.plan || '').slice(0, 6000), files: String(state.files || '').slice(0, MAX_PROJECT_FILE_LIST),
+      previousSummary: String(state.previousSummary || '').slice(0, 8000), feedback: String(state.feedback || '').slice(0, 8000),
+      reselectVerification: state.reselectVerification === true, decision: String(state.decision || '').slice(0, 40),
+      summary: String(state.summary || '').slice(0, 8000),
+    };
+  }
   async execute(record) {
     const { run, controller } = record;
     const signal = controller.signal;
     try {
-      await this.selectModels(record);
-      if (!run.source) {
-        run.stage = 'configuring';
-        const setup = parseHarnessJson(await this.call(record, 'planner', `새 프로젝트의 작업 폴더 이름을 제안하세요. 실제 도구를 실행하지 마세요. 목표: ${run.task}\nJSON 객체만 반환하세요: {"folderName":"짧은 영문 소문자-숫자-하이픈 이름","reason":"선택 이유"}. 폴더는 앱이 관리하는 프로젝트 공간 안에 생성됩니다.`));
-        if (typeof setup.folderName !== 'string' || !/^[a-z0-9][a-z0-9-]{0,63}$/.test(setup.folderName)) throw fail('판정 모델의 프로젝트 폴더 이름이 올바르지 않습니다.');
-        const verdict = await this.decide(record, { task: run.task, proposal: setup }, {
-          folder: { label: '폴더 이름 / Folder name', question: 'Does the proposed folder name reasonably identify this task?', pass: 'A short relevant name.', revise: 'Propose a short folder name relevant to this task.' },
-        });
-        if (verdict.decision !== 'complete') throw fail('판정 역할이 프로젝트 이름을 승인하지 않았습니다. 목표를 구체화해 다시 실행해 주세요.');
-        // The model names a new project; it cannot choose an arbitrary directory on the Mac.
-        const source = join(this.directory, 'projects', run.id, setup.folderName);
-        await mkdir(source, { recursive: true, mode: 0o700 });
-        await git(source, ['init'], signal);
-        await git(source, ['-c', 'user.name=Loopline', '-c', 'user.email=loopline@localhost', '-c', 'commit.gpgsign=false', 'commit', '--allow-empty', '-m', 'Loopline project'], signal);
-        run.source = await realpath(source); this.sources.add(run.source);
-        await this.event(record, '프로젝트 자동 생성 / Project created', `${run.source}\n${String(setup.reason || '').slice(0, 1000)}`);
-      }
-      const snapshot = await snapshotFingerprint(run.source, signal);
-      run.fingerprint = snapshot.fingerprint;
-      const directory = join(this.directory, run.id);
-      await mkdir(directory, { recursive: true });
-      run.workspace = join(directory, 'workspace');
-      run.runtime = join(directory, 'runtime'); await mkdir(run.runtime);
-      await git(run.source, ['worktree', 'add', '--detach', run.workspace, snapshot.head], signal);
-      if (snapshot.diff) {
-        const patch = join(directory, 'initial.patch'); await writeFile(patch, snapshot.diff);
-        await git(run.workspace, ['apply', '--binary', patch], signal);
-      }
-      for (const name of snapshot.untracked) {
-        const target = await workspacePath(run.workspace, name, true); await mkdir(dirname(target), { recursive: true });
-        await copyFile(await workspacePath(run.source, name), target);
-      }
-      if ((await snapshotFingerprint(run.source, signal)).fingerprint !== snapshot.fingerprint) throw fail('작업 폴더가 준비 중 변경되었습니다. 다시 실행해 주세요.');
-      await git(run.workspace, ['add', '-A'], signal);
-      await git(run.workspace, ['-c', 'user.name=Loopline', '-c', 'user.email=loopline@localhost', '-c', 'commit.gpgsign=false', 'commit', '--allow-empty', '-m', 'Loopline workspace snapshot'], signal);
-      run.baseline = (await git(run.workspace, ['rev-parse', 'HEAD'], signal)).trim();
-      await this.event(record, '작업 공간 준비 / Workspace ready', '원본 변경 사항을 별도 작업 공간으로 복사했습니다. 회차별 승인은 요청하지 않습니다.');
-      const fileInventory = await git(run.workspace, ['ls-files'], signal);
-      const files = boundedFileInventory(fileInventory);
-      const localInstructions = await additionalWorkspaceInstructions(run.workspace, run.instructions);
-      run.instructions = [run.instructions.trim(), localInstructions].filter(Boolean).join('\n\n').slice(0, 44_000);
-      run.stage = 'planning';
-      const plan = String(await this.call(record, 'planner', `목표: ${run.task}\n파일 목록:\n${files}\n작업을 수행할 모델을 위한 짧은 구현 계획과 검증 기준을 작성하세요. 실제 도구를 실행하지 마세요. 핵심만 1,200자 이내로 작성하세요.`)).trim().slice(0, 6_000);
-      await this.event(record, '구현 계획 / Implementation plan', plan);
-      let feedback = '', previousSummary = '', reselectVerification = false;
-      for (let round = 1; round <= run.rounds; round++) {
-        aborted(signal); run.round = round; run.stage = 'working';
-        const history = createWorkerHistory(); let lastReadAction = '', repeatedReads = 0;
-        let finished = false;
-        for (let step = 0; step < 16; step++) {
-          const protocol = '기본 CLI 도구 대신 Harness의 JSON 작업 도구만 사용하세요. 마크다운 없이 JSON 객체 하나만 반환하세요. 파일 경로는 작업 공간 기준 상대 경로입니다. 허용 형식: {"operations":[{"type":"list","path":"."},{"type":"read","path":"src/file.js"},{"type":"write","path":"new.txt","content":"full text"},{"type":"edit","path":"src/file.js","oldText":"unique exact text","newText":"replacement"},{"type":"delete","path":"old.txt"}]} 또는 모든 변경을 마친 뒤 {"done":true,"summary":"실제 변경 요약"}. 마지막 파일 작업과 완료 요약은 {"operations":[...],"done":true,"summary":"실제 변경 요약"}처럼 한 번에 반환해 추가 호출을 줄일 수 있습니다. 작업 도구가 성공한 경우에만 완료 처리됩니다. 먼저 필요한 파일을 읽고 수정하세요. 서로 독립적인 파일 작업은 operations 배열에 묶어 호출 횟수를 줄이세요. 새 프로젝트라면 오프라인 검증 가능한 테스트도 작성하세요. 검증 명령은 판정 모델이 정하고 Harness가 실행합니다. 편집 도구가 치환할 내용을 찾지 못하면 오류에 포함된 최신 파일 내용을 읽고, 그 내용에 실제로 존재하는 고유 구간으로 다시 편집하세요. 실패한 oldText를 그대로 반복하지 마세요. .git, node_modules, 심볼릭 링크에 접근하지 마세요. JSON에 추론 전문을 포함하지 마세요.';
-          const inventory = step === 0 ? `\n파일 목록:\n${files}` : '';
-          const answer = await this.call(record, 'worker', `${protocol}\n목표: ${run.task}\n계획: ${plan}\n회차 ${round}/${run.rounds} · 단계 ${step + 1}/16\n이전 작업: ${previousSummary}\n판정 피드백: ${feedback}${inventory}\n아래 기록은 이번 회차의 최신 작업 상태입니다. 같은 파일의 과거 내용은 최신 상태로 교체되어 있습니다. 내용이 생략된 파일이 필요하면 read로 다시 확인하세요. 필요한 수정이 끝났으면 done과 실제 변경 요약을 반환하세요.\n최근 도구 결과:\n${formatWorkerHistory(history)}\n\n앞선 단계를 다시 하지 말고 다음 작업을 반환하세요.`);
-          let action;
-          try { action = parseHarnessJson(answer); } catch (error) { await recordWorkerFailure(history, run.workspace, step + 1, `응답 오류: ${error.message} JSON 객체만 반환하세요.`, []); await this.event(record, '응답 형식 재요청 / Retry format', error.message); continue; }
-          const completion = action.done === true && typeof action.summary === 'string' && action.summary.trim();
-          if (completion && (!Object.hasOwn(action, 'operations') || (Array.isArray(action.operations) && action.operations.length === 0))) {
-            previousSummary = action.summary.slice(0, 8000); finished = true; break;
-          }
-          const readAction = Array.isArray(action.operations) && action.operations.every((op) => ['read', 'list'].includes(op?.type)) ? JSON.stringify(action.operations) : '';
-          repeatedReads = readAction && readAction === lastReadAction ? repeatedReads + 1 : 0;
-          lastReadAction = readAction;
-          if (repeatedReads >= 2) throw fail('모델이 같은 읽기 작업을 반복하여 실행을 멈췄습니다. 작업 목표나 구현 모델을 변경해 주세요.');
-          try {
-            const results = await applyWorkspaceOperations(run.workspace, action.operations, signal);
-            recordWorkerResults(history, step + 1, action.operations, results);
-            await this.event(record, '파일 작업 / File operations', action.operations.map((op) => `${op.type}: ${op.path || '.'}`).join('\n'));
-            if (completion) { previousSummary = action.summary.slice(0, 8000); finished = true; break; }
-          } catch (error) {
-            let toolFeedback = error.message;
-            const editOperations = Array.isArray(action.operations)
-              ? action.operations.filter((op) => op?.type === 'edit' && typeof op.path === 'string')
-              : [];
-            const failedEdit = editOperations.find((op) => error.message.includes(`: ${op.path}`)) || editOperations.at(-1);
-            if (failedEdit) {
-              try {
-                const path = await workspacePath(run.workspace, failedEdit.path);
-                const current = await readFile(path, 'utf8');
-                const excerpt = current.length > 8_000 ? `${current.slice(0, 4_000)}\n…[중간 생략 / middle omitted]…\n${current.slice(-4_000)}` : current;
-                toolFeedback += `\n최신 파일 내용입니다. 이 내용에서 고유한 oldText를 다시 선택하세요.\n${excerpt}`;
-              } catch { /* Keep the original tool failure if current file context cannot be read safely. */ }
-            }
-            await recordWorkerFailure(history, run.workspace, step + 1, toolFeedback, action.operations);
-            await this.event(record, '작업 수정 요청 / Tool feedback', toolFeedback);
-          }
-        }
-        if (!finished) throw fail('한 회차의 작업 도구 호출 한도(16회)에 도달했습니다. 목표를 작게 나누어 다시 실행해 주세요.');
-        await this.event(record, '회차 변경 요약 / Round summary', previousSummary);
-        if (run.automaticVerification && (!run.verifyCommand || reselectVerification)) {
-          await this.configureVerification(record, plan, previousSummary);
-          reselectVerification = false;
-        }
-        run.stage = 'verifying'; await this.event(record, '검증 / Verification', run.verifyCommand, 'running');
-        const verifyEvent = run.events.at(-1);
-        const verification = await this.verify(run.workspace, run.verifyCommand, run.runtime, signal);
-        aborted(signal); verifyEvent.status = verification.code === 0 ? 'completed' : 'failed';
-        verifyEvent.detail = `${run.verifyCommand}\n종료 코드: ${verification.code}\n${verification.output}\n${verification.error}`.slice(-12_000);
-        run.verificationPassed = verification.code === 0;
-        reselectVerification = run.automaticVerification && verificationCommandUnavailable(verification);
-        await git(run.workspace, ['add', '-A'], signal);
-        const patch = await git(run.workspace, ['diff', '--cached', '--no-ext-diff', '--binary', run.baseline, '--'], signal);
-        await writeFile(join(directory, 'final.patch'), patch, { mode: 0o600 }); run.patchAvailable = Boolean(patch);
-        run.stage = 'judging';
-        const verdict = await this.decide(record, {
-          task: run.task, plan, summary: previousSummary, verifyCommand: run.verifyCommand,
-          verification, diff: patch.slice(0, 60_000), diffTruncated: patch.length > 60_000,
-        }, {
-          goal: { label: '목표 충족 / Goal', question: 'Does the actual diff implement the requested task?', pass: 'The diff satisfies the task.', revise: 'Fix the missing or incorrect implementation against the original task; inspect the diff and do not rely on the summary alone.' },
-          verification: { label: '검증 충족 / Verification', question: 'Does the actual verification command and successful output provide meaningful evidence for the requested behavior?', pass: verification.code === 0 ? 'Relevant behavior is tested and the command exits successfully.' : 'The verification command exits successfully and tests relevant behavior.', revise: 'Fix failures and add meaningful behavior checks; do not replace verification with an unconditional successful command.' },
-        });
-        if (!['complete', 'revise', 'stop'].includes(verdict.decision) || typeof verdict.summary !== 'string' || typeof verdict.feedback !== 'string') throw fail('판정 모델의 결과 형식이 올바르지 않아 실행을 멈췄습니다.');
-        await this.event(record, '판정 결과 / Review result', `${verdict.decision}: ${verdict.summary}\n${verdict.feedback}`);
-        run.summary = verdict.summary; feedback = verdict.feedback;
-        if (verdict.decision === 'stop') { run.status = 'blocked'; break; }
-        if (verdict.decision === 'complete' && verification.code === 0 && patch.length <= 60_000) {
-          if (run.autoApply && patch) { run.stage = 'applying'; await this.apply(record, signal); }
-          run.status = run.autoApply ? 'completed' : 'reviewed'; break;
-        }
-        if (verdict.decision === 'complete') feedback += '\n검증이 통과하지 않았거나 변경이 너무 커 전체 검토할 수 없습니다. 이 문제를 먼저 해결하세요.';
-        if (round === run.rounds) { run.status = 'limit'; run.summary = '최대 회차에 도달했습니다. 목표 완료로 판정되지 않아 원본에는 반영하지 않았습니다.'; }
-      }
-      run.stage = 'finished';
+      const checkpoint = run.graphCheckpoint || { version: 1, threadId: run.id, nextNode: 'select', activeNode: null, state: this.graphState() };
+      const firstNode = checkpoint.activeNode || checkpoint.nextNode || 'select';
+      if (!['select', 'prepare', 'round', 'apply', 'finish'].includes(firstNode)) throw fail('저장된 Loop 단계가 올바르지 않아 이어서 실행할 수 없습니다.');
+      run.workflowEngine = 'langgraph';
+      if (!run.graphCheckpoint) await this.graphCheckpoint(record, firstNode, checkpoint.state);
+      await this.event(record, 'LangGraph Loop 시작 / Workflow started', `StateGraph · 단계 복구 위치: ${firstNode}`, 'completed');
+      const workflow = await createHarnessWorkflow({
+        select: async () => { run.stage = 'selecting'; await this.selectModels(record); return {}; },
+        prepare: (state) => this.prepareWorkflow(record, state),
+        round: (state) => this.runWorkflowRound(record, state),
+        apply: (state) => this.applyWorkflow(record, state),
+        finish: (state) => this.finishWorkflow(record, state),
+      }, {
+        onNodeStart: (node, state) => this.graphNodeStarted(record, node, state),
+        onCheckpoint: (nextNode, state) => this.graphCheckpoint(record, nextNode, state),
+      });
+      await workflow.invoke({ ...this.graphState(checkpoint.state), nextNode: firstNode }, { configurable: { thread_id: run.id } });
+      if (run.status === 'running') throw fail('Loop 흐름이 완료 상태를 만들지 않고 끝났습니다.');
     } catch (error) {
       run.status = signal.aborted ? 'stopped' : 'failed'; run.summary = error.message || 'Harness 실행에 실패했습니다.';
       for (const event of run.events) if (event.status === 'running') event.status = signal.aborted ? 'stopped' : 'failed';
@@ -782,6 +726,173 @@ export class HarnessEngine {
       await this.summarizeModelUsage(record);
       await this.event(record, run.status === 'completed' ? '완료 / Completed' : '실행 종료 / Run finished', run.summary, run.status === 'completed' || run.status === 'reviewed' ? 'completed' : run.status === 'stopped' ? 'stopped' : 'failed');
     }
+  }
+
+  async prepareWorkflow(record) {
+    const { run, controller } = record;
+    const signal = controller.signal;
+    if (!run.source) {
+      run.stage = 'configuring';
+      const setup = parseHarnessJson(await this.call(record, 'planner', `새 프로젝트의 작업 폴더 이름을 제안하세요. 실제 도구를 실행하지 마세요. 목표: ${run.task}\nJSON 객체만 반환하세요: {"folderName":"짧은 영문 소문자-숫자-하이픈 이름","reason":"선택 이유"}. 폴더는 앱이 관리하는 프로젝트 공간 안에 생성됩니다.`));
+      if (typeof setup.folderName !== 'string' || !/^[a-z0-9][a-z0-9-]{0,63}$/.test(setup.folderName)) throw fail('판정 모델의 프로젝트 폴더 이름이 올바르지 않습니다.');
+      const verdict = await this.decide(record, { task: run.task, proposal: setup }, {
+        folder: { label: '폴더 이름 / Folder name', question: 'Does the proposed folder name reasonably identify this task?', pass: 'A short relevant name.', revise: 'Propose a short folder name relevant to this task.' },
+      });
+      if (verdict.decision !== 'complete') throw fail('판정 역할이 프로젝트 이름을 승인하지 않았습니다. 목표를 구체화해 다시 실행해 주세요.');
+      run.proposedFolderName = setup.folderName;
+      run.source = join(this.directory, 'projects', run.id, setup.folderName);
+      await this.persist(record);
+    }
+    if (run.managedProject) {
+      await mkdir(run.source, { recursive: true, mode: 0o700 });
+      await git(run.source, ['init'], signal);
+      const head = await runCommand('git', ['rev-parse', '--verify', 'HEAD'], { cwd: run.source, signal });
+      if (head.code !== 0) {
+        await git(run.source, ['add', '-A'], signal);
+        await git(run.source, ['-c', 'user.name=Loopline', '-c', 'user.email=loopline@localhost', '-c', 'commit.gpgsign=false', 'commit', '--allow-empty', '-m', 'Loopline project'], signal);
+      }
+      run.source = await realpath(run.source);
+      await this.persist(record);
+    }
+    if (!run.source) throw fail('프로젝트 작업 폴더를 준비하지 못했습니다.');
+    this.sources.add(run.source);
+
+    const directory = join(this.directory, run.id);
+    const workspace = join(directory, 'workspace');
+    if (run.workspace === workspace) {
+      try { await git(run.source, ['worktree', 'remove', '--force', workspace], signal); } catch { await rm(workspace, { recursive: true, force: true }); }
+      await git(run.source, ['worktree', 'prune'], signal);
+    }
+    const snapshot = await snapshotFingerprint(run.source, signal);
+    if (run.fingerprint && run.fingerprint !== snapshot.fingerprint) throw fail('작업을 중단한 동안 원본 프로젝트가 변경되어 안전하게 재개할 수 없습니다. 저장된 작업 공간과 패치를 확인해 주세요.');
+    run.fingerprint = snapshot.fingerprint;
+    await mkdir(directory, { recursive: true });
+    run.workspace = workspace;
+    run.runtime = join(directory, 'runtime');
+    await rm(run.runtime, { recursive: true, force: true }); await mkdir(run.runtime, { recursive: true });
+    await this.persist(record);
+    await git(run.source, ['worktree', 'add', '--detach', run.workspace, snapshot.head], signal);
+    if (snapshot.diff) {
+      const patch = join(directory, 'initial.patch'); await writeFile(patch, snapshot.diff);
+      await git(run.workspace, ['apply', '--binary', patch], signal);
+    }
+    for (const name of snapshot.untracked) {
+      const target = await workspacePath(run.workspace, name, true); await mkdir(dirname(target), { recursive: true });
+      await copyFile(await workspacePath(run.source, name), target);
+    }
+    if ((await snapshotFingerprint(run.source, signal)).fingerprint !== snapshot.fingerprint) throw fail('작업 폴더가 준비 중 변경되었습니다. 다시 실행해 주세요.');
+    await git(run.workspace, ['add', '-A'], signal);
+    await git(run.workspace, ['-c', 'user.name=Loopline', '-c', 'user.email=loopline@localhost', '-c', 'commit.gpgsign=false', 'commit', '--allow-empty', '-m', 'Loopline workspace snapshot'], signal);
+    run.baseline = (await git(run.workspace, ['rev-parse', 'HEAD'], signal)).trim();
+    await this.event(record, '작업 공간 준비 / Workspace ready', '원본 변경 사항을 별도 작업 공간으로 복사했습니다. 회차별 승인은 요청하지 않습니다.');
+    const files = boundedFileInventory(await git(run.workspace, ['ls-files'], signal));
+    const localInstructions = await additionalWorkspaceInstructions(run.workspace, run.instructions);
+    run.instructions = [run.instructions.trim(), localInstructions].filter(Boolean).join('\n\n').slice(0, 44_000);
+    run.stage = 'planning';
+    const plan = String(await this.call(record, 'planner', `목표: ${run.task}\n파일 목록:\n${files}\n작업을 수행할 모델을 위한 짧은 구현 계획과 검증 기준을 작성하세요. 실제 도구를 실행하지 마세요. 핵심만 1,200자 이내로 작성하세요.`)).trim().slice(0, 6_000);
+    await this.event(record, '구현 계획 / Implementation plan', plan);
+    return { plan, files, completedRounds: 0, previousSummary: '', feedback: '', reselectVerification: false, decision: '', summary: '' };
+  }
+
+  async runWorkflowRound(record, state) {
+    const { run, controller } = record;
+    const signal = controller.signal;
+    const round = (state.completedRounds || 0) + 1;
+    let { feedback = '', previousSummary = '', reselectVerification = false } = state;
+    aborted(signal); run.round = round; run.stage = 'working';
+    const history = createWorkerHistory(); let lastReadAction = '', repeatedReads = 0;
+    let finished = false;
+    for (let step = 0; step < 16; step++) {
+      const protocol = '기본 CLI 도구 대신 Harness의 JSON 작업 도구만 사용하세요. 마크다운 없이 JSON 객체 하나만 반환하세요. 파일 경로는 작업 공간 기준 상대 경로입니다. 허용 형식: {"operations":[{"type":"list","path":"."},{"type":"read","path":"src/file.js"},{"type":"write","path":"new.txt","content":"full text"},{"type":"edit","path":"src/file.js","oldText":"unique exact text","newText":"replacement"},{"type":"delete","path":"old.txt"}]} 또는 모든 변경을 마친 뒤 {"done":true,"summary":"실제 변경 요약"}. 마지막 파일 작업과 완료 요약은 {"operations":[...],"done":true,"summary":"실제 변경 요약"}처럼 한 번에 반환해 추가 호출을 줄일 수 있습니다. 작업 도구가 성공한 경우에만 완료 처리됩니다. 먼저 필요한 파일을 읽고 수정하세요. 서로 독립적인 파일 작업은 operations 배열에 묶어 호출 횟수를 줄이세요. 새 프로젝트라면 오프라인 검증 가능한 테스트도 작성하세요. 검증 명령은 판정 모델이 정하고 Harness가 실행합니다. 편집 도구가 치환할 내용을 찾지 못하면 오류에 포함된 최신 파일 내용을 읽고, 그 내용에 실제로 존재하는 고유 구간으로 다시 편집하세요. 실패한 oldText를 그대로 반복하지 마세요. .git, node_modules, 심볼릭 링크에 접근하지 마세요. JSON에 추론 전문을 포함하지 마세요.';
+      const inventory = step === 0 ? `\n파일 목록:\n${state.files}` : '';
+      const answer = await this.call(record, 'worker', `${protocol}\n목표: ${run.task}\n계획: ${state.plan}\n회차 ${round}/${run.rounds} · 단계 ${step + 1}/16\n이전 작업: ${previousSummary}\n판정 피드백: ${feedback}${inventory}\n아래 기록은 이번 회차의 최신 작업 상태입니다. 같은 파일의 과거 내용은 최신 상태로 교체되어 있습니다. 내용이 생략된 파일이 필요하면 read로 다시 확인하세요. 필요한 수정이 끝났으면 done과 실제 변경 요약을 반환하세요.\n최근 도구 결과:\n${formatWorkerHistory(history)}\n\n앞선 단계를 다시 하지 말고 다음 작업을 반환하세요.`);
+      let action;
+      try { action = parseHarnessJson(answer); } catch (error) { await recordWorkerFailure(history, run.workspace, step + 1, `응답 오류: ${error.message} JSON 객체만 반환하세요.`, []); await this.event(record, '응답 형식 재요청 / Retry format', error.message); continue; }
+      const completion = action.done === true && typeof action.summary === 'string' && action.summary.trim();
+      if (completion && (!Object.hasOwn(action, 'operations') || (Array.isArray(action.operations) && action.operations.length === 0))) {
+        previousSummary = action.summary.slice(0, 8000); finished = true; break;
+      }
+      const readAction = Array.isArray(action.operations) && action.operations.every((op) => ['read', 'list'].includes(op?.type)) ? JSON.stringify(action.operations) : '';
+      repeatedReads = readAction && readAction === lastReadAction ? repeatedReads + 1 : 0;
+      lastReadAction = readAction;
+      if (repeatedReads >= 2) throw fail('모델이 같은 읽기 작업을 반복하여 실행을 멈췄습니다. 작업 목표나 구현 모델을 변경해 주세요.');
+      try {
+        const results = await applyWorkspaceOperations(run.workspace, action.operations, signal);
+        recordWorkerResults(history, step + 1, action.operations, results);
+        await this.event(record, '파일 작업 / File operations', action.operations.map((op) => `${op.type}: ${op.path || '.'}`).join('\n'));
+        if (completion) { previousSummary = action.summary.slice(0, 8000); finished = true; break; }
+      } catch (error) {
+        let toolFeedback = error.message;
+        const editOperations = Array.isArray(action.operations) ? action.operations.filter((op) => op?.type === 'edit' && typeof op.path === 'string') : [];
+        const failedEdit = editOperations.find((op) => error.message.includes(`: ${op.path}`)) || editOperations.at(-1);
+        if (failedEdit) {
+          try {
+            const path = await workspacePath(run.workspace, failedEdit.path);
+            const current = await readFile(path, 'utf8');
+            const excerpt = current.length > 8_000 ? `${current.slice(0, 4_000)}\n…[중간 생략 / middle omitted]…\n${current.slice(-4_000)}` : current;
+            toolFeedback += `\n최신 파일 내용입니다. 이 내용에서 고유한 oldText를 다시 선택하세요.\n${excerpt}`;
+          } catch { /* Keep the original tool failure if current file context cannot be read safely. */ }
+        }
+        await recordWorkerFailure(history, run.workspace, step + 1, toolFeedback, action.operations);
+        await this.event(record, '작업 수정 요청 / Tool feedback', toolFeedback);
+      }
+    }
+    if (!finished) throw fail('한 회차의 작업 도구 호출 한도(16회)에 도달했습니다. 목표를 작게 나누어 다시 실행해 주세요.');
+    await this.event(record, '회차 변경 요약 / Round summary', previousSummary);
+    if (run.automaticVerification && (!run.verifyCommand || reselectVerification)) {
+      await this.configureVerification(record, state.plan, previousSummary);
+      reselectVerification = false;
+    }
+    run.stage = 'verifying'; await this.event(record, '검증 / Verification', run.verifyCommand, 'running');
+    const verifyEvent = run.events.at(-1);
+    const verification = await this.verify(run.workspace, run.verifyCommand, run.runtime, signal);
+    aborted(signal); verifyEvent.status = verification.code === 0 ? 'completed' : 'failed';
+    verifyEvent.detail = `${run.verifyCommand}\n종료 코드: ${verification.code}\n${verification.output}\n${verification.error}`.slice(-12_000);
+    run.verificationPassed = verification.code === 0;
+    reselectVerification = run.automaticVerification && verificationCommandUnavailable(verification);
+    await git(run.workspace, ['add', '-A'], signal);
+    const patch = await git(run.workspace, ['diff', '--cached', '--no-ext-diff', '--binary', run.baseline, '--'], signal);
+    await writeFile(join(this.directory, run.id, 'final.patch'), patch, { mode: 0o600 }); run.patchAvailable = Boolean(patch);
+    run.stage = 'judging';
+    const verdict = await this.decide(record, {
+      task: run.task, plan: state.plan, summary: previousSummary, verifyCommand: run.verifyCommand,
+      verification, diff: patch.slice(0, 60_000), diffTruncated: patch.length > 60_000,
+    }, {
+      goal: { label: '목표 충족 / Goal', question: 'Does the actual diff implement the requested task?', pass: 'The diff satisfies the task.', revise: 'Fix the missing or incorrect implementation against the original task; inspect the diff and do not rely on the summary alone.' },
+      verification: { label: '검증 충족 / Verification', question: 'Does the actual verification command and successful output provide meaningful evidence for the requested behavior?', pass: verification.code === 0 ? 'Relevant behavior is tested and the command exits successfully.' : 'The verification command exits successfully and tests relevant behavior.', revise: 'Fix failures and add meaningful behavior checks; do not replace verification with an unconditional successful command.' },
+    });
+    if (!['complete', 'revise', 'stop'].includes(verdict.decision) || typeof verdict.summary !== 'string' || typeof verdict.feedback !== 'string') throw fail('판정 모델의 결과 형식이 올바르지 않아 실행을 멈췄습니다.');
+    await this.event(record, '판정 결과 / Review result', `${verdict.decision}: ${verdict.summary}\n${verdict.feedback}`);
+    run.summary = verdict.summary;
+    feedback = verdict.feedback;
+    if (verdict.decision === 'stop') { run.status = 'blocked'; return { completedRounds: round, previousSummary, feedback, reselectVerification, decision: 'stop', summary: run.summary, nextNode: 'finish' }; }
+    if (verdict.decision === 'complete' && verification.code === 0 && patch.length <= 60_000) {
+      return { completedRounds: round, previousSummary, feedback, reselectVerification, decision: 'complete', summary: run.summary, nextNode: 'apply' };
+    }
+    if (verdict.decision === 'complete') feedback += '\n검증이 통과하지 않았거나 변경이 너무 커 전체 검토할 수 없습니다. 이 문제를 먼저 해결하세요.';
+    if (round === run.rounds) { run.status = 'limit'; run.summary = '최대 회차에 도달했습니다. 목표 완료로 판정되지 않아 원본에는 반영하지 않았습니다.'; }
+    return { completedRounds: round, previousSummary, feedback, reselectVerification, decision: 'revise', summary: run.summary, nextNode: run.status === 'limit' ? 'finish' : 'round' };
+  }
+
+  async applyWorkflow(record) {
+    const { run, controller } = record;
+    if (run.status === 'running' && run.autoApply && run.patchAvailable && !run.applied) {
+      aborted(controller.signal);
+      run.stage = 'applying'; await this.persist(record);
+      run.applyStarted = true; await this.persist(record);
+      await this.apply(record, controller.signal);
+      run.applyStarted = false; await this.persist(record);
+    }
+    if (run.status === 'running') run.status = run.autoApply ? 'completed' : 'reviewed';
+    return { decision: 'complete', summary: run.summary };
+  }
+
+  async finishWorkflow(record) {
+    const { run } = record;
+    if (run.status === 'running') { run.status = 'failed'; run.summary = 'Loop 흐름이 완료 상태를 만들지 않고 끝났습니다.'; }
+    run.stage = 'finished';
+    await this.persist(record);
+    return { nextNode: 'done', decision: run.status, summary: run.summary };
   }
 
   async configureVerification(record, plan, summary) {

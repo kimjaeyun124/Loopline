@@ -265,6 +265,7 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
   function update(run, message, conversation) {
     const pending = !DONE.has(run.status);
     message.harnessRunId = run.id; message.harnessStatus = run.status; message.pending = pending;
+    message.harnessCanResume = run.canResume === true;
     if (run.stageModels) message.harnessStageModels = run.stageModels;
     message.startedAt = run.createdAt; message.workedForMs = (run.finishedAt || Date.now()) - run.createdAt;
     message.activityMode = 'native';
@@ -353,5 +354,18 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
       if (message) { await watch(message.harnessRunId, message, conversation); return; }
     }
   }
-  return { enable: () => { config.enabled = true; document.querySelector('#loopExecutionMode').value = 'harness'; save(); }, enabled: () => config.enabled, active: () => starting || Boolean(activeRunId), open, start, stop, resume };
+  async function resumeRun(message, conversation) {
+    if (!message?.harnessRunId || starting || watching) return;
+    starting = true; state.busy = true; state.loopEngineeringRunning = true; render();
+    try {
+      const run = await request(`/api/harness/runs/${message.harnessRunId}/resume`, {});
+      activeRunId = run.id;
+      update(run, message, conversation);
+      await watch(run.id, message, conversation);
+    } catch (error) {
+      state.busy = false; state.loopEngineeringRunning = false; render();
+      toast(error.message);
+    } finally { starting = false; }
+  }
+  return { enable: () => { config.enabled = true; document.querySelector('#loopExecutionMode').value = 'harness'; save(); }, enabled: () => config.enabled, active: () => starting || Boolean(activeRunId), open, start, stop, resume, resumeRun };
 }

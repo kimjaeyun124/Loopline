@@ -240,6 +240,7 @@ function loadConversations() {
             if (typeof message.harnessRunId === 'string') {
               normalized.harnessRunId = message.harnessRunId;
               normalized.harnessStatus = message.harnessStatus || 'running';
+              normalized.harnessCanResume = message.harnessCanResume === true;
               normalized.activityExpanded = message.activityExpanded !== false;
               if (message.harnessStageModels && typeof message.harnessStageModels === 'object') {
                 const stageModels = Object.fromEntries(['planner', 'worker', 'judge'].flatMap((role) => {
@@ -621,6 +622,9 @@ function renderMessages() {
       : assistant ? renderMarkdown(displayContent, { copyDisabled: message.pending }) : escapeHtml(message.content);
     const copyLabel = assistant ? '답변' : '질문';
     const copyButton = `<button class="message-copy-button" type="button" data-copy-message-index="${index}" aria-label="${copyLabel} 복사" title="${copyLabel} 복사">${icon('copy')}<span>복사</span></button>`;
+    const resumeButton = assistant && message.harnessCanResume && message.harnessRunId
+      ? `<button class="message-copy-button" type="button" data-resume-harness="${escapeHtml(message.harnessRunId)}">이어하기 · Resume</button>`
+      : '';
     const queuePosition = message.queued ? queuedMessages.findIndex((item) => item.id === message.id) + 1 : 0;
     const queueControls = message.queued
       ? `<span class="queue-status">대기열 ${Math.max(queuePosition, 1)}</span>${queuePosition === 1 && !state.busy ? '<button class="queue-retry-button" type="button" data-retry-queue="true">다시 시도</button>' : ''}<button class="queue-cancel-button" type="button" data-cancel-queued="${escapeHtml(message.id || '')}" aria-label="대기 메시지 취소">취소</button>`
@@ -649,7 +653,7 @@ function renderMessages() {
             ${taskStatusMarkup}
             <div class="message-content markdown-content">${content}${message.pending && message.content ? '<span class="typing-dots" aria-label="응답 생성 중"><i></i><i></i><i></i></span>' : ''}</div>
           </section>
-          ${!message.pending && message.content ? `<div class="message-actions">${copyButton}</div>` : ''}
+          ${!message.pending && message.content ? `<div class="message-actions">${resumeButton}${copyButton}</div>` : ''}
         </div>
       </article>`;
     }
@@ -3519,6 +3523,13 @@ elements.messages.addEventListener('toggle', (event) => {
   saveConversations();
 }, true);
 elements.messages.addEventListener('click', (event) => {
+  const resumeHarness = event.target.closest('[data-resume-harness]');
+  if (resumeHarness) {
+    const conversation = activeConversation();
+    const message = conversation?.messages.find((item) => item.harnessRunId === resumeHarness.dataset.resumeHarness);
+    if (message && conversation) void harnessUI.resumeRun(message, conversation);
+    return;
+  }
   const activityStep = event.target.closest('[data-open-activity]');
   if (activityStep) {
     state.activityInspector = {

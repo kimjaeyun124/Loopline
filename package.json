@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node server.mjs",
     "desktop": "electron .",
-    "desktop:package": "electron-builder --mac dir --arm64"
+    "build:langgraph": "esbuild harness-graph-runtime.mjs --bundle --platform=node --format=esm --outfile=dist/langgraph-runtime.bundle.mjs",
+    "desktop:package": "npm run build:langgraph && electron-builder --mac dir --arm64"
   },
   "productName": "Loopline",
   "build": {
@@ -23,6 +24,14 @@
       {
         "from": "harness-engine.mjs",
         "to": "app-server/harness-engine.mjs"
+      },
+      {
+        "from": "harness-graph.mjs",
+        "to": "app-server/harness-graph.mjs"
+      },
+      {
+        "from": "dist/langgraph-runtime.bundle.mjs",
+        "to": "app-server/langgraph-runtime.bundle.mjs"
       },
       {
         "from": "server.mjs",
@@ -68,6 +77,10 @@
   },
   "devDependencies": {
     "electron": "^44.4.5",
-    "electron-builder": "^26.15.3"
+    "electron-builder": "^26.15.3",
+    "esbuild": "^0.28.2"
+  },
+  "dependencies": {
+    "@langchain/langgraph": "^1.4.18"
   }
 }

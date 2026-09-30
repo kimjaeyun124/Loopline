@@ -21,7 +21,7 @@ async function until(check, timeout = 20000) {
   throw new Error('MCP QA did not reach the expected state');
 }
 
-async function connectMcp(fixture) {
+async function connectMcp(fixture, { autoRun = false } = {}) {
   const log = join(fixture.data, 'mcp-calls.log');
   const saved = await fixture.request('/api/mcp/servers', {
     name: 'Local MCP QA',
@@ -29,6 +29,7 @@ async function connectMcp(fixture) {
     command: process.execPath,
     args: [mcpServerFile],
     env: { QA_MCP_LOG: log, QA_SECRET_VALUE: 'must-not-be-saved-in-plain-text' },
+    autoRun,
   });
   const connected = await fixture.request(`/api/mcp/servers/${saved.id}/connect`, {});
   return { ...connected, log };
@@ -124,6 +125,43 @@ test('local stdio MCP connects, lists tools, runs an allowlisted tool, and keeps
   const prompt = await fixture.request(`/api/harness/runs/${run.id}/events/${workerEvent.id}/prompt`);
   assert.match(prompt.input, /get_status/);
   assert.match(prompt.input, /MCP/);
+});
+
+test('automatic MCP connection is attached to Loop runs without a manual tool selection', async (t) => {
+  const fixture = await startFixture({ mcpWorkerTool: 'get_status' }); t.after(fixture.close);
+  const server = await connectMcp(fixture, { autoRun: true });
+  assert.equal(server.autoRun, true);
+
+  const created = await fixture.request('/api/harness/runs', { ...fixture.input, mcpTools: [] });
+  const run = await until(async () => {
+    const current = await fixture.request(`/api/harness/runs/${created.id}`);
+    return current.finishedAt ? current : null;
+  });
+  assert.equal(run.status, 'completed', run.summary);
+  assert.equal(run.mcpCalls, 1);
+  assert.equal(await readFile(server.log, 'utf8'), 'get_status\n');
+});
+
+test('Figma quick-connect API saves an automatic local connector and reports when Desktop MCP is unavailable', async (t) => {
+  const fixture = await startFixture(); t.after(fixture.close);
+  await assert.rejects(
+    fixture.request('/api/mcp/quick-connect', { kind: 'figma-desktop' }),
+    (error) => error.status === 502 && /Figma Desktop MCP 서버에 연결할 수 없습니다/.test(error.message),
+  );
+  const { servers } = await fixture.request('/api/mcp/servers');
+  assert.equal(servers.length, 1);
+  assert.equal(servers[0].preset, 'figma-desktop');
+  assert.equal(servers[0].autoRun, true);
+  assert.equal(servers[0].connected, false);
+  assert.match(servers[0].error, /Dev Mode의 MCP 패널/);
+});
+
+test('turning on automatic use connects the MCP provider before the next loop run', async (t) => {
+  const fixture = await startFixture(); t.after(fixture.close);
+  const server = await connectMcp(fixture);
+  const enabled = await fixture.request(`/api/mcp/servers/${server.id}/auto-run`, { enabled: true });
+  assert.equal(enabled.autoRun, true);
+  assert.equal(enabled.connected, true);
 });
 
 test('an MCP tool omitted from the run selection is rejected before any server call', async (t) => {

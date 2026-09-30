@@ -657,6 +657,39 @@ test('judge creates a managed project and configures verification from implement
   assert.equal(next.source, run.source); assert.equal(next.managedProject, false);
 });
 
+test('automatic verification planning and judgement receive the actual test source', async (t) => {
+  const f = await fixture(t), script = modelScript(complete);
+  const testSource = `// MORROW_TEST_ASSERTION_SOURCE\nimport test from 'node:test';\nimport assert from 'node:assert/strict';\ntest('task output is persisted', () => assert.equal('saved', 'saved'));\n`;
+  await writeFile(join(f.source, 'package.json'), JSON.stringify({ scripts: { test: 'node --test' } }));
+  await mkdir(join(f.source, 'tests'));
+  await writeFile(join(f.source, 'tests', 'behavior.test.js'), testSource);
+  await f.git('add', 'package.json', 'tests/behavior.test.js');
+  await f.git('commit', '-m', 'Add verification evidence fixture');
+
+  let verificationPlans = 0, commandReviewEvidence = '';
+  const engine = new HarnessEngine({ directory: f.data, verify: async (_workspace, command) => {
+    assert.equal(command, 'node --test'); return pass();
+  }, invoke: async (selection, prompt, ...rest) => {
+    if (startsWithText(prompt, '검증 방법을')) {
+      verificationPlans++;
+      assert.ok(hasText(prompt, 'MORROW_TEST_ASSERTION_SOURCE'));
+      return JSON.stringify({ verifyCommand: 'node --test', reason: 'Run the test that asserts saved task behavior.' });
+    }
+    if (isJudgementPrompt(prompt) && prompt.questions.command) {
+      commandReviewEvidence = JSON.stringify(prompt.state.inspectedFiles);
+      assert.ok(commandReviewEvidence.includes('MORROW_TEST_ASSERTION_SOURCE'));
+      return judgementResponse(prompt);
+    }
+    return script(selection, prompt, ...rest);
+  } });
+
+  const run = await settled(engine, (await engine.create({ ...f.input, verifyCommand: undefined })).id);
+  assert.equal(run.status, 'completed', run.summary);
+  assert.equal(verificationPlans, 1);
+  assert.ok(commandReviewEvidence.includes('task output is persisted'));
+  assert.equal(run.verifyCommand, 'node --test');
+});
+
 test('automatic verification retries malformed and incomplete judge responses', async (t) => {
   const f = await fixture(t), script = modelScript(complete);
   let verificationResponses = 0;

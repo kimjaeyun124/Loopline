@@ -275,7 +275,7 @@ export class ApiConnections {
     });
   }
 
-  async chat(id, model, messages, { signal, onDelta, onUsage, onBudget, reasoningEffort }) {
+  async chat(id, model, messages, { signal, onDelta, onUsage, onBudget, reasoningEffort, timeoutMs = 180_000 }) {
     await this.#ready;
     await this.#writes;
     const connection = this.#find(id);
@@ -284,7 +284,7 @@ export class ApiConnections {
     if (reasoningEffort && !connection.models.find((item) => item.id === model)?.reasoningEfforts?.includes(reasoningEffort)) throw fail('이 API 모델이 제공한 추론 강도 목록에 없는 값입니다. 자동으로 설정해 주세요.');
     const reasoning = reasoningEffort ? { reasoning_effort: reasoningEffort } : {};
     this.#active.set(id, (this.#active.get(id) || 0) + 1);
-    const timeout = AbortSignal.timeout(180_000);
+    const timeout = AbortSignal.timeout(timeoutMs);
     const requestSignal = AbortSignal.any([signal, timeout]);
     let outputLength = 0;
     const append = (text) => {
@@ -367,12 +367,12 @@ export class ApiConnections {
     }
   }
 
-  async evaluate(id, model, { state, questions }, { signal, onUsage, onBudget }) {
+  async evaluate(id, model, { state, questions }, { signal, onUsage, onBudget, timeoutMs = 60_000 }) {
     await this.#ready; await this.#writes;
     const connection = this.#find(id);
     if (!isTypeSafe(connection) || !connection.models.some((item) => item.id === model)) throw fail('연결된 Jev 판정 모델을 선택해 주세요.');
     this.#active.set(id, (this.#active.get(id) || 0) + 1);
-    const timeout = AbortSignal.timeout(60_000);
+    const timeout = AbortSignal.timeout(timeoutMs);
     const requestSignal = AbortSignal.any([signal, timeout]);
     try {
       const response = await this.#request(connection, await this.#key(connection), 'systemone', {

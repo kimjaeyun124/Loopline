@@ -17,6 +17,7 @@ import { accountActivity, localActivity } from './usage-activity.mjs';
 import { modelEffortCapability } from './public/model-capabilities.mjs';
 
 const root = dirname(fileURLToPath(import.meta.url));
+const HARNESS_MODEL_TIMEOUT_MS = 15 * 60_000;
 const codexProgressInstructions = [
   '실행이 필요한 여러 단계의 작업에서는 중요한 단계가 바뀔 때 사용자에게 보이는 간결한 진행 안내를 별도 commentary 메시지로 작성하세요.',
   '각 안내는 같은 사실을 담은 한국어 한 문장과 자연스러운 영어 번역 한 문장으로 구성하고, 각각 `한국어:`와 `English:`를 붙이세요.',
@@ -1359,7 +1360,7 @@ function handleClaudeJsonLine(line, res, outputState) {
   }
 }
 
-function runClaudeCli(model, prompt, res, reasoningEffort, onUsage) {
+function runClaudeCli(model, prompt, res, reasoningEffort, onUsage, timeoutMs = 120_000) {
   return new Promise((resolve) => {
     let child;
     let stdoutBuffer = '';
@@ -1396,7 +1397,7 @@ function runClaudeCli(model, prompt, res, reasoningEffort, onUsage) {
     const timer = setTimeout(() => {
       timedOut = true;
       child?.kill('SIGTERM');
-    }, 120_000);
+    }, timeoutMs);
 
     (async () => {
       try {
@@ -1810,6 +1811,7 @@ async function relayChat(req, res, internalOptions = {}) {
         const apiMessages = apiSystemMessage ? [{ role: 'system', content: apiSystemMessage }, ...messages] : messages;
         await apiConnections.chat(body.connectionId, model, apiMessages, {
           signal: controller.signal,
+          ...(Number.isSafeInteger(internalOptions.harnessTimeoutMs) ? { timeoutMs: internalOptions.harnessTimeoutMs } : {}),
           reasoningEffort: body.reasoningEffort,
           onDelta: (text) => sendEvent(res, 'delta', { text }),
           onUsage: async (usage, connection) => {
@@ -1873,7 +1875,8 @@ async function relayChat(req, res, internalOptions = {}) {
         model: usedModel,
         turnId: randomUUID(),
         usage,
-      }).then(() => sendEvent(res, 'usage', { usage, model: usedModel })));
+      }).then(() => sendEvent(res, 'usage', { usage, model: usedModel })),
+      Number.isSafeInteger(internalOptions.harnessTimeoutMs) ? internalOptions.harnessTimeoutMs : undefined);
   } catch (error) {
     if (res.destroyed) return;
     if (res.headersSent) {
@@ -1901,6 +1904,7 @@ async function invokeHarnessModel(selection, prompt, instructions, signal, onSig
   if (selection.decisionOnly && selection.provider === 'api') {
     return apiConnections.evaluate(selection.connectionId, selection.model, prompt, {
       signal,
+      timeoutMs: HARNESS_MODEL_TIMEOUT_MS,
       onUsage: async (usage, connection, model) => {
         await recordTokenUsage({ provider: 'api', accountId: `api:${connection.id}`, accountName: connection.name, model, turnId: randomUUID(), usage });
         onSignal({ type: 'usage', usage });
@@ -1958,7 +1962,7 @@ async function invokeHarnessModel(selection, prompt, instructions, signal, onSig
     messages: (`${instructions.length > 24000 ? `추가 프로젝트 지침:\n${instructions.slice(24000)}\n\n` : ''}${promptText}`.match(/[\s\S]{1,35000}/g) || [promptText]).map((content) => ({ role: 'user', content })),
   }))]);
   try {
-    await relayChat(request, response, { ephemeralCodexThread: true });
+    await relayChat(request, response, { ephemeralCodexThread: true, harnessTimeoutMs: HARNESS_MODEL_TIMEOUT_MS });
     if (signal.aborted) throw signal.reason;
     if (failure || !done || !output.trim()) throw Object.assign(new Error(failure || '모델의 완료 응답을 받지 못했습니다.'), {
       quotaExhausted: quotaFailure,

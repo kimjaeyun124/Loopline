@@ -1119,6 +1119,11 @@ function isQuotaExhaustionMessage(error) {
   return /(?:http\s*429|quota.{0,40}(?:exhaust|limit|reach)|(?:usage|rate)\s*limit|사용\s*한도|요청\s*제한|토큰.{0,12}소진)/i.test(String(error?.message || error || ''));
 }
 
+function upstreamStatus(error) {
+  const status = error?.remoteStatus;
+  return Number.isInteger(status) && status >= 100 && status <= 599 ? status : undefined;
+}
+
 function codexBudgetSnapshot(status) {
   const windows = status?.usageSummary?.windows?.filter((window) => window.limitId === 'codex' && Number.isFinite(window.remainingPercent)) || [];
   if (!windows.length) return null;
@@ -1861,10 +1866,18 @@ async function relayChat(req, res, internalOptions = {}) {
   } catch (error) {
     if (res.destroyed) return;
     if (res.headersSent) {
-      sendEvent(res, 'error', { error: error.message || '요청 처리 중 오류가 발생했습니다.', quotaExhausted: isQuotaExhaustionMessage(error) });
+      sendEvent(res, 'error', {
+        error: error.message || '요청 처리 중 오류가 발생했습니다.',
+        quotaExhausted: isQuotaExhaustionMessage(error),
+        ...(upstreamStatus(error) ? { remoteStatus: upstreamStatus(error) } : {}),
+      });
       if (!res.writableEnded) res.end();
     } else {
-      json(res, error.status || 500, { error: error.message || '요청 처리 중 오류가 발생했습니다.' });
+      json(res, error.status || 500, {
+        error: error.message || '요청 처리 중 오류가 발생했습니다.',
+        quotaExhausted: isQuotaExhaustionMessage(error),
+        ...(upstreamStatus(error) ? { remoteStatus: upstreamStatus(error) } : {}),
+      });
     }
   } finally {
     if (reservedContext && reservation) reservedContext.pendingChatRequests.delete(reservation);
@@ -1885,7 +1898,7 @@ async function invokeHarnessModel(selection, prompt, instructions, signal, onSig
     });
   }
   const response = new EventEmitter();
-  let output = '', buffer = '', failure = '', quotaFailure = false, done = false;
+  let output = '', buffer = '', failure = '', quotaFailure = false, remoteStatus = null, done = false;
   response.headersSent = false; response.writableEnded = false; response.destroyed = false;
   response.writeHead = (status) => { response.headersSent = true; response.statusCode = status; };
   response.write = (chunk) => {
@@ -1902,7 +1915,11 @@ async function invokeHarnessModel(selection, prompt, instructions, signal, onSig
       if (event === 'progress' && data.rollbackText && output.endsWith(data.rollbackText)) output = output.slice(0, -data.rollbackText.length);
       if (event === 'usage') onSignal({ type: 'usage', usage: data.usage });
       if (event === 'budget') onSignal({ type: 'budget', ...data });
-      if (event === 'error') { failure = data.error || '모델 호출 실패'; quotaFailure = data.quotaExhausted === true; }
+      if (event === 'error') {
+        failure = data.error || '모델 호출 실패';
+        quotaFailure = data.quotaExhausted === true;
+        remoteStatus = Number.isInteger(data.remoteStatus) ? data.remoteStatus : null;
+      }
       if (event === 'done') done = true;
     }
     return true;
@@ -1913,6 +1930,7 @@ async function invokeHarnessModel(selection, prompt, instructions, signal, onSig
         const payload = JSON.parse(body);
         failure = payload.error || '모델 호출 실패';
         quotaFailure = payload.quotaExhausted === true;
+        remoteStatus = Number.isInteger(payload.remoteStatus) ? payload.remoteStatus : null;
       } catch { failure = '모델 응답 오류'; }
     }
     response.writableEnded = true;
@@ -1931,7 +1949,10 @@ async function invokeHarnessModel(selection, prompt, instructions, signal, onSig
   try {
     await relayChat(request, response, { ephemeralCodexThread: true });
     if (signal.aborted) throw signal.reason;
-    if (failure || !done || !output.trim()) throw Object.assign(new Error(failure || '모델의 완료 응답을 받지 못했습니다.'), { quotaExhausted: quotaFailure });
+    if (failure || !done || !output.trim()) throw Object.assign(new Error(failure || '모델의 완료 응답을 받지 못했습니다.'), {
+      quotaExhausted: quotaFailure,
+      ...(Number.isInteger(remoteStatus) ? { remoteStatus } : {}),
+    });
     return output;
   } finally { signal.removeEventListener('abort', cancel); }
 }

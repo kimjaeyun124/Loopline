@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { runCommand } from '../../harness-engine.mjs';
 
 // Local model fixtures exercise the real HTTP relay without credentials or external services.
-export async function startFixture({ delay = 0, codexMock = false, codexDeleteFailures = 1, remainingTokens = null, limitTokens = null, mcpWorkerTool = '', failModelOnce = null } = {}) {
+export async function startFixture({ delay = 0, codexMock = false, codexDeleteFailures = 1, codexDeleteErrorMessage = '', remainingTokens = null, limitTokens = null, mcpWorkerTool = '', failModelOnce = null } = {}) {
   const directory = await mkdtemp(join(tmpdir(), 'loopline-harness-http-'));
   const source = join(directory, 'project'), data = join(directory, 'data');
   await mkdir(source); await mkdir(data);
@@ -90,6 +90,7 @@ import { createInterface } from 'node:readline';
 let threadNumber = 0;
 let turnNumber = 0;
 let deleteFailuresRemaining = ${Math.max(0, Math.min(10, Number(codexDeleteFailures) || 0))};
+const deleteErrorMessage = ${JSON.stringify(String(codexDeleteErrorMessage || ''))};
 const input = createInterface({ input: process.stdin });
 for await (const line of input) {
   const request = JSON.parse(line);
@@ -129,6 +130,10 @@ for await (const line of input) {
   if (request.method === 'thread/delete' && request.params.threadId?.startsWith('qa-thread-') && deleteFailuresRemaining > 0) {
     deleteFailuresRemaining -= 1;
     process.stdout.write(JSON.stringify({ id: request.id, error: { code: -32001, message: '임시 QA 삭제 실패' } }) + '\\n');
+    continue;
+  }
+  if (request.method === 'thread/delete' && request.params.threadId?.startsWith('qa-thread-') && deleteErrorMessage) {
+    process.stdout.write(JSON.stringify({ id: request.id, error: { code: -32001, message: deleteErrorMessage } }) + '\\n');
     continue;
   }
   process.stdout.write(JSON.stringify({ id: request.id, result }) + '\\n');

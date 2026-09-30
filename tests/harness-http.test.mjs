@@ -118,6 +118,31 @@ test('Harness removes temporary Codex threads after transient delete failures', 
   }
 });
 
+test('Harness treats a non-persisted temporary Codex thread as already cleaned up', async (t) => {
+  const f = await startFixture({
+    codexMock: true,
+    codexDeleteFailures: 0,
+    codexDeleteErrorMessage: 'thread is not persisted and cannot be deleted',
+  }); t.after(f.close);
+  const selection = { provider: 'openai', model: 'qa-codex', reasoningEffort: 'medium' };
+  const created = await f.request('/api/harness/runs', {
+    task: '임시 Codex 대화 정리 동작을 확인합니다.',
+    workspace: f.source,
+    rounds: 1,
+    verifyCommand: 'true',
+    roles: { planner: selection, worker: selection, judge: selection },
+  });
+  const run = await until(async () => { const value = await f.request(`/api/harness/runs/${created.id}`); return value.finishedAt ? value : null; });
+  assert.equal(run.status, 'completed', run.summary);
+
+  const calls = (await readFile(f.codexLog, 'utf8')).trim().split('\n').map(JSON.parse);
+  const starts = calls.filter((call) => call.method === 'thread/start');
+  const deletes = calls.filter((call) => call.method === 'thread/delete');
+  assert.ok(starts.length >= 3);
+  assert.ok(starts.every((call) => call.params.ephemeral === true));
+  assert.equal(deletes.length, starts.length, 'a known non-persisted thread is not retried as a failed deletion');
+});
+
 test('Harness removes its temporary Codex thread after stopping a model call', async (t) => {
   const f = await startFixture({ codexMock: true }); t.after(f.close);
   const selection = { provider: 'openai', model: 'qa-codex', reasoningEffort: 'medium' };

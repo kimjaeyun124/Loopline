@@ -143,6 +143,39 @@ test('Harness treats a non-persisted temporary Codex thread as already cleaned u
   assert.equal(deletes.length, starts.length, 'a known non-persisted thread is not retried as a failed deletion');
 });
 
+test('Harness Codex calls use machine response instructions without changing ordinary chat guidance', async (t) => {
+  const f = await startFixture({ codexMock: true }); t.after(f.close);
+  const selection = { provider: 'openai', model: 'qa-codex', reasoningEffort: 'medium' };
+  const created = await f.request('/api/harness/runs', {
+    task: 'Harness와 일반 대화의 Codex 지침 분리를 확인합니다.',
+    workspace: f.source,
+    rounds: 1,
+    verifyCommand: 'true',
+    roles: { planner: selection, worker: selection, judge: selection },
+  });
+  const run = await until(async () => { const value = await f.request(`/api/harness/runs/${created.id}`); return value.finishedAt ? value : null; });
+  assert.equal(run.status, 'completed', run.summary);
+
+  const chat = await fetch(`${f.url}/api/chat`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ provider: 'openai', model: 'qa-codex', messages: [{ role: 'user', content: '일반 대화 지침 확인' }] }),
+  });
+  assert.equal(chat.status, 200);
+  await chat.text();
+
+  const calls = (await readFile(f.codexLog, 'utf8')).trim().split('\n').map(JSON.parse);
+  const starts = calls.filter((call) => call.method === 'thread/start');
+  const harnessThreads = starts.filter((call) => call.params.ephemeral === true);
+  const regularChat = starts.find((call) => call.params.ephemeral !== true);
+  assert.ok(harnessThreads.length >= 3);
+  assert.ok(harnessThreads.every((call) => call.params.developerInstructions.includes('기계 간 역할 호출')));
+  assert.ok(harnessThreads.every((call) => call.params.developerInstructions.includes('응답 본문과 형식만 반환')));
+  assert.ok(harnessThreads.every((call) => !call.params.developerInstructions.includes('중요한 단계가 바뀔 때')));
+  assert.ok(regularChat.params.developerInstructions.includes('중요한 단계가 바뀔 때'));
+  assert.ok(!regularChat.params.developerInstructions.includes('기계 간 역할 호출'));
+});
+
 test('Harness removes its temporary Codex thread after stopping a model call', async (t) => {
   const f = await startFixture({ codexMock: true }); t.after(f.close);
   const selection = { provider: 'openai', model: 'qa-codex', reasoningEffort: 'medium' };

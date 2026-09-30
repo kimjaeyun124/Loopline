@@ -789,6 +789,33 @@ test('automatic verification planning and judgement receive the actual test sour
   assert.equal(run.verifyCommand, 'node --test');
 });
 
+test('automatic verification limits repeated file inspection and still selects a judged command', async (t) => {
+  const f = await fixture(t), script = modelScript(complete);
+  let verificationResponses = 0, commandReviews = 0;
+  const engine = new HarnessEngine({ directory: f.data, verify: async (_workspace, command) => {
+    assert.equal(command, 'test -f file.txt'); return pass();
+  }, invoke: async (selection, prompt, ...rest) => {
+    if (startsWithText(prompt, '검증 방법을')) {
+      verificationResponses++;
+      if (verificationResponses <= 2) return JSON.stringify({ operations: [{ type: 'read', path: 'file.txt' }] });
+      return JSON.stringify({ verifyCommand: 'test -f file.txt', reason: 'Confirm the requested output exists.' });
+    }
+    if (isJudgementPrompt(prompt) && prompt.questions.command) {
+      commandReviews++;
+      return judgementResponse(prompt);
+    }
+    return script(selection, prompt, ...rest);
+  } });
+
+  const run = await settled(engine, (await engine.create({ ...f.input, verifyCommand: undefined })).id);
+  assert.equal(run.status, 'completed', run.summary);
+  assert.equal(verificationResponses, 3);
+  assert.equal(commandReviews, 1);
+  assert.equal(run.events.filter((event) => event.title.startsWith('검증 파일 확인 / Inspect verification files')).length, 1);
+  assert.equal(run.events.filter((event) => event.title.startsWith('추가 검증 파일 확인 제한')).length, 1);
+  assert.equal(run.verifyCommand, 'test -f file.txt');
+});
+
 test('automatic verification retries malformed and incomplete judge responses', async (t) => {
   const f = await fixture(t), script = modelScript(complete);
   let verificationResponses = 0;

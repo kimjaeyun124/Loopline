@@ -97,7 +97,7 @@ h1, h2, h3, p { margin-top: 0; }
 h1 { margin-bottom: 0; font-size: clamp(29px, 3vw, 36px); line-height: 1.18; letter-spacing: -.035em; }
 .hero-description { margin-bottom: 0; color: var(--muted); font-size: 16px; line-height: 24px; }
 .hero-actions { gap: 10px; flex-shrink: 0; }
-.button { min-height: 42px; padding: 10px 14px; border: 1px solid transparent; border-radius: 10px; background: transparent; cursor: pointer; font-size: 14px; font-weight: 600; transition: background .15s ease, border-color .15s ease, transform .15s ease; }
+.button { display: inline-flex; align-items: center; justify-content: center; min-height: 42px; padding: 10px 14px; border: 1px solid transparent; border-radius: 10px; color: inherit; background: transparent; text-decoration: none; cursor: pointer; font-size: 14px; font-weight: 600; transition: background .15s ease, border-color .15s ease, transform .15s ease; }
 .button:hover { transform: translateY(-1px); }
 .button:focus-visible, .icon-button:focus-visible, .text-button:focus-visible, .event-card:focus-visible, select:focus-visible, input:focus-visible { outline: 3px solid #E7BEA9; outline-offset: 2px; }
 .button-secondary { border-color: #C9CECA; }

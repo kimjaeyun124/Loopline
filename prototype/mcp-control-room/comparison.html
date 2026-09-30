@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f3f4f1">
+    <title>MCP 실연동 QA · Loopline</title>
+    <link rel="stylesheet" href="./comparison.css">
+    <script type="module" src="./comparison.mjs"></script>
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar">
+        <a class="brand" href="./" aria-label="Loopline MCP Control Room으로 이동">
+          <span class="brand-mark">L</span>
+          <span><strong>Loopline</strong><small>MCP QA REPORT</small></span>
+        </a>
+        <nav aria-label="보고서 메뉴">
+          <a href="#mcp-result">연결 검증</a>
+          <a href="#website-compare">웹사이트 비교</a>
+          <a href="#method">검증 기준</a>
+        </nav>
+        <span class="report-date">2026.09.30 · 실제 호출 검증</span>
+      </header>
+
+      <main>
+        <section class="hero">
+          <p class="eyebrow">INTEGRATION QA / PAPER · FIGMA · LOOPLINE</p>
+          <div class="hero-layout">
+            <div>
+              <h1>디자인 MCP가<br><em>Loopline 안에서</em> 작동할까?</h1>
+              <p class="hero-copy">Paper MCP의 실제 읽기 도구를 호출하고, Figma MCP 원격 주소의 인증 응답을 확인했습니다. Codex 연결과 Loopline 앱 경로를 분리해 기록했습니다.</p>
+            </div>
+            <a class="jump-link" href="#mcp-result">결과 요약 <span aria-hidden="true">↓</span></a>
+          </div>
+          <div class="hero-meta"><span><i class="dot dot-amber"></i>통합 검증</span><span>로컬 MCP 어댑터 · 패키지 앱 · Codex MCP</span><span>비밀 키 전송 없음</span></div>
+        </section>
+
+        <section class="status-grid" aria-label="연결 상태 요약">
+          <article class="status-card good">
+            <div class="status-top"><span>Codex MCP</span><span class="status-mark">PASS</span></div>
+            <h2>Paper</h2>
+            <p>파일 목록 · 아트보드 정보 · 화면 이미지 읽기 성공</p>
+            <small>실제 호출 3종</small>
+          </article>
+          <article class="status-card bad">
+            <div class="status-top"><span>Loopline 소스 어댑터</span><span class="status-mark">BLOCKED</span></div>
+            <h2>Paper</h2>
+            <p>Codex 설정의 로컬 명령을 실행할 수 없음</p>
+            <small>spawn paper ENOENT</small>
+          </article>
+          <article class="status-card bad">
+            <div class="status-top"><span>Codex / Loopline MCP</span><span class="status-mark">NOT READY</span></div>
+            <h2>Figma</h2>
+            <p>Codex 도구는 현재 미노출, Loopline은 무인증 요청을 거부함</p>
+            <small>Figma 도구 0개 · Loopline HTTP 401</small>
+          </article>
+          <article class="status-card neutral">
+            <div class="status-top"><span>실행 중 패키지 앱</span><span class="status-mark">OLD BUILD</span></div>
+            <h2>Loopline</h2>
+            <p>MCP 서버 목록 API가 현재 앱에서 없음</p>
+            <small>GET /api/mcp/servers → 404</small>
+          </article>
+        </section>
+
+        <section class="verdict" aria-labelledby="verdict-title">
+          <div class="verdict-icon" aria-hidden="true">!</div>
+          <div>
+            <p class="eyebrow">판정 / VERDICT</p>
+            <h2 id="verdict-title">Codex에서는 Paper가 실제 작동했습니다. Loopline에서는 아직 두 도구 모두 직접 호출되지 않습니다.</h2>
+            <p>Loopline 소스는 stdio와 Streamable HTTP 연결을 지원하지만, 현재 실행 중인 데스크톱 앱은 MCP 기능이 포함되기 전 빌드입니다. 소스 어댑터에서 Paper는 실행 파일을 찾지 못했고, Figma는 인증에서 멈췄습니다.</p>
+          </div>
+          <a href="#mcp-result" class="text-link">호출 기록 보기 <span aria-hidden="true">↗</span></a>
+        </section>
+
+        <section id="mcp-result" class="report-section">
+          <div class="section-heading">
+            <div><p class="eyebrow">01 / MCP CONNECTIVITY</p><h2>실제 호출 기록</h2></div>
+            <button class="quiet-button" id="export-report" type="button">검증 기록 JSON 받기</button>
+          </div>
+          <div class="call-layout">
+            <div class="event-list" id="event-list" role="list" aria-label="MCP 호출과 연결 검사"></div>
+            <article class="event-detail" id="event-detail" aria-live="polite" aria-label="선택한 호출 상세"></article>
+          </div>
+        </section>
+
+        <section class="comparison-section" id="website-compare">
+          <div class="section-heading compare-heading">
+            <div><p class="eyebrow">02 / WEBSITE OUTPUTS · PREVIOUS BENCHMARK</p><h2>같은 웹 과제의 산출물 비교</h2><p class="section-copy">두 화면은 2026-09-30에 같은 요구사항으로 만들었던 ‘오늘의 작업’ 웹사이트입니다. 이번 Paper/Figma 연결 검사와는 별도 실험입니다.</p></div>
+            <div class="saving-summary"><strong id="token-saving">—</strong><span>Loop 보고 토큰 감소</span></div>
+          </div>
+          <div class="site-compare-grid">
+            <article class="site-card">
+              <div class="site-card-heading"><div><p class="eyebrow">SINGLE MODEL</p><h3>GPT-6 Luna Max 단독</h3></div><span class="result-tag fail-tag">자동 반영 실패</span></div>
+              <a class="preview-frame" href="./benchmark-assets/single-desktop.png" target="_blank" rel="noreferrer" aria-label="단독 Harness 웹사이트 화면을 크게 열기"><img src="./benchmark-assets/single-desktop.png" alt="GPT-6 Luna Max 단독 실행으로 만든 오늘의 작업 웹사이트 화면"></a>
+              <dl class="metric-list"><div><dt>모델 구성</dt><dd>GPT-6 Luna Max 전 단계</dd></div><div><dt>완료 / 회차</dt><dd>3회차 뒤 미반영 · 3/3</dd></div><div><dt>시간 · 모델 호출</dt><dd>16분 48초 · 11회</dd></div><div><dt>보고 토큰</dt><dd>310,443</dd></div><div><dt>독립 브라우저 검사</dt><dd>13/14 → 수동 보정 후 14/14</dd></div><div><dt>사람 수정</dt><dd>1회 · 약 2–5분</dd></div></dl>
+            </article>
+            <article class="site-card loop-card">
+              <div class="site-card-heading"><div><p class="eyebrow">MULTI-ROLE LOOP</p><h3>Loop Harness</h3></div><span class="result-tag pass-tag">자동 완료</span></div>
+              <a class="preview-frame" href="./benchmark-assets/loop-desktop.png" target="_blank" rel="noreferrer" aria-label="Loop Harness 웹사이트 화면을 크게 열기"><img src="./benchmark-assets/loop-desktop.png" alt="Loop Harness 실행으로 만든 오늘의 작업 웹사이트 화면"></a>
+              <dl class="metric-list"><div><dt>모델 구성</dt><dd>Luna Max 계획 · Sol 구현 · Jev 판정</dd></div><div><dt>완료 / 회차</dt><dd>자동 반영 완료 · 1/3</dd></div><div><dt>시간 · 모델 호출</dt><dd>6분 26초 · 9회</dd></div><div><dt>보고 토큰</dt><dd>200,910</dd></div><div><dt>독립 브라우저 검사</dt><dd>14/14 자동 반영 직후</dd></div><div><dt>사람 수정</dt><dd>코드 수정 없음 · 약 1–3분 운영 조치</dd></div></dl>
+            </article>
+          </div>
+          <p class="comparison-caveat">이전 1회씩의 웹 제작 측정 결과입니다. Loop는 보고 토큰이 35.3% 적고 소요 시간이 61.7% 짧았지만, 이번 MCP 연결 성공이나 반복 성공률을 뜻하지 않습니다. Loop의 첫 Gemini 시도는 HTTP 503으로 실패했고, 모델 변경 뒤 재실행이 완료됐습니다.</p>
+        </section>
+
+        <section id="method" class="method-section">
+          <div class="section-heading"><div><p class="eyebrow">03 / TEST METHOD</p><h2>검증 기준과 한계</h2></div></div>
+          <div class="method-grid">
+            <article><h3>실제 외부 호출</h3><p>Codex의 Paper MCP로 <code>list_files</code>, <code>get_basic_info</code>, <code>get_screenshot</code>를 호출했습니다. 세 호출 모두 응답을 받았습니다.</p></article>
+            <article><h3>Loopline 어댑터</h3><p>임시 설정만 사용했습니다. Paper는 로컬 실행 파일 부재로 연결 실패, Figma는 무인증 요청에 401을 반환했습니다. 인증값은 읽거나 저장하지 않았습니다.</p></article>
+            <article><h3>실행 중 앱</h3><p>현재 패키지 앱의 로컬 API를 확인했습니다. MCP 목록 경로가 404이고 저장된 Loopline MCP 연결도 없었습니다. 브라우저의 4173 포트는 Python 정적 미리보기입니다.</p></article>
+          </div>
+          <div class="next-step"><span class="next-step-mark">NEXT</span><p><strong>실제 Loopline MCP 호출에 필요한 조건</strong><br>최신 MCP 지원 앱 빌드로 실행하고, Paper 실행 명령 경로를 앱에 제공해야 합니다. Figma는 현재의 고정 Bearer 토큰 입력만으로 OAuth 연결을 이어받을 수 없어 OAuth 흐름이 필요합니다.</p></div>
+        </section>
+      </main>
+      <footer><span>Loopline · MCP Integration QA</span><a href="./QA-REPORT-LOOPLINE-INTEGRATION.md" target="_blank" rel="noreferrer">전체 QA 보고서 <span aria-hidden="true">↗</span></a><span>외부 키·토큰 미수집</span></footer>
+    </div>
+  </body>
+</html>

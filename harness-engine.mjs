@@ -35,6 +35,13 @@ function recoverableModelFailure(error) {
   return /(?:fetch failed|network error|timeout|timed?\s*out|시간.{0,12}초과|일시적인 서버 오류)/i.test(String(error?.message || ''));
 }
 
+function isVisualInterfaceTask(task, files = '') {
+  const request = String(task || '');
+  const inventory = String(files || '');
+  return /(?:website|web\s*app|web\s*page|front[- ]end|dashboard|landing\s*page|user interface|\bui\b|\bux\b|\bscreen\b|웹\s*사이트|웹앱|웹\s*앱|웹페이지|프론트엔드|대시보드|랜딩\s*페이지|인터페이스|화면|디자인)/i.test(request)
+    || /(?:^|\n)[^\n]*\.(?:html?|css|jsx?|tsx?|vue|svelte|astro)(?:\s|$)/im.test(inventory);
+}
+
 function tokenCount(usage) {
   if (!usage || typeof usage !== 'object') return null;
   const total = [usage.totalTokens, usage.total_tokens, usage.usage?.total_tokens]
@@ -848,7 +855,10 @@ export class HarnessEngine {
     const localInstructions = await additionalWorkspaceInstructions(run.workspace, run.instructions);
     run.instructions = [run.instructions.trim(), localInstructions].filter(Boolean).join('\n\n').slice(0, 44_000);
     run.stage = 'planning';
-    const plan = String(await this.call(record, 'planner', `목표: ${run.task}\n파일 목록:\n${files}\n작업을 수행할 모델을 위한 짧은 구현 계획과 검증 기준을 작성하세요. 실제 도구를 실행하지 마세요. 핵심만 1,200자 이내로 작성하세요.`)).trim().slice(0, 6_000);
+    const visualDesignGuidance = isVisualInterfaceTask(run.task, files)
+      ? '\n웹 UI 작업이면 짧은 디자인 브리프를 계획에 포함하세요: 프로젝트에 맞는 고유한 시각 방향, 색상·타이포그래피·간격·위계, 첫 화면 구성, 반응형 변화, 상호작용·접근성 상태. 범용 템플릿을 그대로 쓰지 말고 각 선택을 작업 목적에 맞추세요.'
+      : '';
+    const plan = String(await this.call(record, 'planner', `목표: ${run.task}\n파일 목록:\n${files}\n작업을 수행할 모델을 위한 짧은 구현 계획과 검증 기준을 작성하세요.${visualDesignGuidance} 실제 도구를 실행하지 마세요. 핵심만 1,200자 이내로 작성하세요.`)).trim().slice(0, 6_000);
     await this.event(record, '구현 계획 / Implementation plan', plan);
     return { plan, files, completedRounds: 0, previousSummary: '', feedback: '', reselectVerification: false, decision: '', summary: '' };
   }
@@ -860,11 +870,14 @@ export class HarnessEngine {
     let { feedback = '', previousSummary = '', reselectVerification = false } = state;
     aborted(signal); run.round = round; run.stage = 'working';
     const history = createWorkerHistory(); let lastReadAction = '', repeatedReads = 0;
+    const visualDesignGuidance = isVisualInterfaceTask(run.task, state.files)
+      ? '\n웹 UI 작업 기준: 계획의 디자인 브리프를 실제 화면에 반영하세요. 색상·타입·간격을 일관된 디자인 토큰으로 구성하고, 모바일/데스크톱 레이아웃과 키보드 포커스·입력/빈 상태를 구현하세요. 기본 템플릿이나 임시 텍스트 장식에 기대지 말고 명확한 시각 위계를 만드세요.'
+      : '';
     let finished = false;
     for (let step = 0; step < 16; step++) {
       const protocol = '기본 CLI 도구 대신 Harness의 JSON 작업 도구만 사용하세요. 마크다운 없이 JSON 객체 하나만 반환하세요. 파일 경로는 작업 공간 기준 상대 경로입니다. 허용 형식: {"operations":[{"type":"list","path":"."},{"type":"read","path":"src/file.js"},{"type":"write","path":"new.txt","content":"full text"},{"type":"edit","path":"src/file.js","oldText":"unique exact text","newText":"replacement"},{"type":"delete","path":"old.txt"}]} 또는 모든 변경을 마친 뒤 {"done":true,"summary":"실제 변경 요약"}. 마지막 파일 작업과 완료 요약은 {"operations":[...],"done":true,"summary":"실제 변경 요약"}처럼 한 번에 반환해 추가 호출을 줄일 수 있습니다. 작업 도구가 성공한 경우에만 완료 처리됩니다. 먼저 필요한 파일을 읽고 수정하세요. 서로 독립적인 파일 작업은 operations 배열에 묶어 호출 횟수를 줄이세요. 새 프로젝트라면 오프라인 검증 가능한 테스트도 작성하세요. 검증 명령은 판정 모델이 정하고 Harness가 실행합니다. 편집 도구가 치환할 내용을 찾지 못하면 오류에 포함된 최신 파일 내용을 읽고, 그 내용에 실제로 존재하는 고유 구간으로 다시 편집하세요. 실패한 oldText를 그대로 반복하지 마세요. .git, node_modules, 심볼릭 링크에 접근하지 마세요. JSON에 추론 전문을 포함하지 마세요.';
       const inventory = step === 0 ? `\n파일 목록:\n${state.files}` : '';
-      const answer = await this.call(record, 'worker', `${protocol}\n목표: ${run.task}\n계획: ${state.plan}\n회차 ${round}/${run.rounds} · 단계 ${step + 1}/16\n이전 작업: ${previousSummary}\n판정 피드백: ${feedback}${inventory}\n아래 기록은 이번 회차의 최신 작업 상태입니다. 같은 파일의 과거 내용은 최신 상태로 교체되어 있습니다. 내용이 생략된 파일이 필요하면 read로 다시 확인하세요. 필요한 수정이 끝났으면 done과 실제 변경 요약을 반환하세요.\n최근 도구 결과:\n${formatWorkerHistory(history)}\n\n앞선 단계를 다시 하지 말고 다음 작업을 반환하세요.`);
+      const answer = await this.call(record, 'worker', `${protocol}${visualDesignGuidance}\n목표: ${run.task}\n계획: ${state.plan}\n회차 ${round}/${run.rounds} · 단계 ${step + 1}/16\n이전 작업: ${previousSummary}\n판정 피드백: ${feedback}${inventory}\n아래 기록은 이번 회차의 최신 작업 상태입니다. 같은 파일의 과거 내용은 최신 상태로 교체되어 있습니다. 내용이 생략된 파일이 필요하면 read로 다시 확인하세요. 필요한 수정이 끝났으면 done과 실제 변경 요약을 반환하세요.\n최근 도구 결과:\n${formatWorkerHistory(history)}\n\n앞선 단계를 다시 하지 말고 다음 작업을 반환하세요.`);
       let action;
       try { action = parseHarnessJson(answer); } catch (error) { await recordWorkerFailure(history, run.workspace, step + 1, `응답 오류: ${error.message} JSON 객체만 반환하세요.`, []); await this.event(record, '응답 형식 재요청 / Retry format', error.message); continue; }
       const completion = action.done === true && typeof action.summary === 'string' && action.summary.trim();
@@ -913,13 +926,22 @@ export class HarnessEngine {
     const patch = await git(run.workspace, ['diff', '--cached', '--no-ext-diff', '--binary', run.baseline, '--'], signal);
     await writeFile(join(this.directory, run.id, 'final.patch'), patch, { mode: 0o600 }); run.patchAvailable = Boolean(patch);
     run.stage = 'judging';
+    const reviewChecks = {
+      goal: { label: '목표 충족 / Goal', question: 'Does the actual diff implement the requested task?', pass: 'The diff satisfies the task.', revise: 'Fix the missing or incorrect implementation against the original task; inspect the diff and do not rely on the summary alone.' },
+      verification: { label: '검증 충족 / Verification', question: 'Does the actual verification command and successful output provide meaningful evidence for the requested behavior?', pass: verification.code === 0 ? 'Relevant behavior is tested and the command exits successfully.' : 'The verification command exits successfully and tests relevant behavior.', revise: 'Fix failures and add meaningful behavior checks; do not replace verification with an unconditional successful command.' },
+    };
+    if (isVisualInterfaceTask(run.task, state.files)) {
+      reviewChecks.visualDesign = {
+        label: '시각 설계 / Visual design',
+        question: 'Does the changed interface show a coherent, task-specific visual direction, clear hierarchy and spacing, responsive behavior, and usable focus/input states? Judge only evidence in the actual diff; do not claim to have seen a rendered screenshot.',
+        pass: 'The HTML/CSS changes provide concrete evidence of a distinct visual direction, readable hierarchy, responsive layout, and accessible interaction states.',
+        revise: 'Improve the interface styles and semantics to establish a task-specific visual direction, stronger hierarchy/spacing, responsive layout, and clear keyboard/focus states. Base feedback on the diff, not assumptions about runtime appearance.',
+      };
+    }
     const verdict = await this.decide(record, {
       task: run.task, plan: state.plan, summary: previousSummary, verifyCommand: run.verifyCommand,
       verification, diff: patch.slice(0, 60_000), diffTruncated: patch.length > 60_000,
-    }, {
-      goal: { label: '목표 충족 / Goal', question: 'Does the actual diff implement the requested task?', pass: 'The diff satisfies the task.', revise: 'Fix the missing or incorrect implementation against the original task; inspect the diff and do not rely on the summary alone.' },
-      verification: { label: '검증 충족 / Verification', question: 'Does the actual verification command and successful output provide meaningful evidence for the requested behavior?', pass: verification.code === 0 ? 'Relevant behavior is tested and the command exits successfully.' : 'The verification command exits successfully and tests relevant behavior.', revise: 'Fix failures and add meaningful behavior checks; do not replace verification with an unconditional successful command.' },
-    });
+    }, reviewChecks);
     if (!['complete', 'revise', 'stop'].includes(verdict.decision) || typeof verdict.summary !== 'string' || typeof verdict.feedback !== 'string') throw fail('판정 모델의 결과 형식이 올바르지 않아 실행을 멈췄습니다.');
     await this.event(record, '판정 결과 / Review result', `${verdict.decision}: ${verdict.summary}\n${verdict.feedback}`);
     run.summary = verdict.summary;

@@ -1419,7 +1419,7 @@ export class HarnessEngine {
           'completed', modelDetails('planner', next));
         return true;
       }
-      if (currentAttempts < 2) {
+      if (currentAttempts < 3) {
         await this.event(record, '검증 계획 보완 / Refine verification plan',
           `저장된 대체 계획 모델이 없어 판정 피드백을 반영해 현재 모델에 한 번 더 요청합니다. ${String(reason || '').slice(0, 1000)}`,
           'completed', modelDetails('planner', current));
@@ -1443,7 +1443,7 @@ export class HarnessEngine {
           lastResponseIssue = `응답이 JSON 객체가 아닙니다: ${error.message}`;
           history += `\n검증 응답 오류: ${lastResponseIssue}`;
           await this.event(record, '검증 응답 재요청 / Retry verification response', lastResponseIssue);
-          if (!(await retryVerificationPlan(lastResponseIssue))) throw fail(`검증 계획 모델이 두 번 응답 형식을 지키지 않았고 사용할 대체 모델도 없습니다. ${lastResponseIssue}`);
+          if (!(await retryVerificationPlan(lastResponseIssue))) throw fail(`검증 계획 모델이 허용된 응답 보완 기회를 소진했고 사용할 대체 모델도 없습니다. ${lastResponseIssue}`);
           continue;
         }
         if (Array.isArray(result.operations)) {

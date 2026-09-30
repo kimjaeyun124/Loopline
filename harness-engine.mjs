@@ -32,7 +32,7 @@ function recoverableModelFailure(error) {
   if (error?.invalidJudgeOutput) return false;
   if ([408, 425, 500, 502, 503, 504].includes(error?.remoteStatus) || [408, 425, 500, 502, 503, 504].includes(error?.status)) return true;
   if (['ECONNRESET', 'ETIMEDOUT', 'EAI_AGAIN', 'ECONNREFUSED', 'ENETUNREACH', 'UND_ERR_CONNECT_TIMEOUT'].includes(error?.code)) return true;
-  return /(?:fetch failed|network error|timeout|timed?\s*out|연결 시간 초과|일시적인 서버 오류)/i.test(String(error?.message || ''));
+  return /(?:fetch failed|network error|timeout|timed?\s*out|시간.{0,12}초과|일시적인 서버 오류)/i.test(String(error?.message || ''));
 }
 
 function tokenCount(usage) {

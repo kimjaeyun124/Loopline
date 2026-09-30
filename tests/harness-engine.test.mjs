@@ -222,6 +222,34 @@ test('worker combines the final file operation and completion to reduce model ca
   assert.equal(await readFile(join(combined.source, 'file.txt'), 'utf8'), 'updated\n');
 });
 
+test('visual interface tasks receive design guidance while CLI tasks keep their existing prompts', async (t) => {
+  async function runTask(task) {
+    const f = await fixture(t), script = modelScript(complete);
+    const captured = { plan: '', worker: '', judge: null };
+    const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (selection, prompt, ...rest) => {
+      if (startsWithText(prompt, '목표:')) captured.plan = prompt;
+      if (hasText(prompt, '최근 도구 결과:')) captured.worker = prompt;
+      if (isJudgementPrompt(prompt)) captured.judge = prompt;
+      return script(selection, prompt, ...rest);
+    } });
+    const run = await settled(engine, (await engine.create({ ...f.input, task, rounds: 1 })).id);
+    assert.equal(run.status, 'completed', run.summary);
+    return captured;
+  }
+
+  const website = await runTask('한국어 웹사이트 작업 관리 대시보드를 제작합니다.');
+  assert.match(website.plan, /디자인 브리프/);
+  assert.match(website.plan, /반응형 변화/);
+  assert.match(website.worker, /웹 UI 작업 기준/);
+  assert.match(website.worker, /시각 위계/);
+  assert.ok(Object.hasOwn(website.judge.questions, 'visualDesign'));
+
+  const cli = await runTask('file.txt를 읽고 검증하는 독립형 CLI 유틸리티를 제작합니다.');
+  assert.doesNotMatch(cli.plan, /디자인 브리프/);
+  assert.doesNotMatch(cli.worker, /웹 UI 작업 기준/);
+  assert.ok(!Object.hasOwn(cli.judge.questions, 'visualDesign'));
+});
+
 test('worker context replaces an edited file with its latest contents', async (t) => {
   const f = await fixture(t);
   const previous = 'ORIGINAL_CONTEXT_SENTINEL\n', current = 'CURRENT_CONTEXT_SENTINEL\n';

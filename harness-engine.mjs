@@ -947,7 +947,7 @@ export class HarnessEngine {
     await this.event(record, '판정 결과 / Review result', `${verdict.decision}: ${verdict.summary}\n${verdict.feedback}`);
     run.summary = verdict.summary;
     feedback = verdict.feedback;
-    if (run.automaticVerification && verdict.failedChecks?.includes('verification')) reselectVerification = true;
+    if (run.automaticVerification && verification.code === 0 && verdict.failedChecks?.includes('verification')) reselectVerification = true;
     if (verdict.decision === 'stop') { run.status = 'blocked'; return { completedRounds: round, previousSummary, feedback, reselectVerification, decision: 'stop', summary: run.summary, nextNode: 'finish' }; }
     if (verdict.decision === 'complete' && verification.code === 0 && patch.length <= 60_000) {
       return { completedRounds: round, previousSummary, feedback, reselectVerification, decision: 'complete', summary: run.summary, nextNode: 'apply' };

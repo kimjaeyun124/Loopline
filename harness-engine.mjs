@@ -337,7 +337,7 @@ export class HarnessEngine {
   constructor({ directory, invoke, verify = verifyWorkspace, mcpConnections = null }) {
     this.directory = join(directory, 'harness'); this.invoke = invoke; this.verify = verify; this.mcpConnections = mcpConnections;
     // Prompt text can contain project files, so keep inspection data in memory instead of run logs.
-    this.runs = new Map(); this.sources = new Set(); this.promptDetails = new Map(); this.recoveryPromise = null; this.closing = false;
+    this.runs = new Map(); this.sources = new Set(); this.promptDetails = new Map(); this.recoveryPromise = null; this.recoveryCompleted = false; this.closing = false;
   }
 
   async create(input) {
@@ -454,10 +454,15 @@ export class HarnessEngine {
   }
   async get(id) { return this.publicRun((await this.record(id)).run); }
   async recoverInterruptedRuns() {
+    if (this.closing || this.recoveryCompleted) return [];
     if (this.recoveryPromise) return this.recoveryPromise;
-    this.recoveryPromise = this.recoverStoredRuns();
-    try { return await this.recoveryPromise; }
-    finally { this.recoveryPromise = null; }
+    const recovery = this.recoverStoredRuns();
+    this.recoveryPromise = recovery;
+    try {
+      const recovered = await recovery;
+      this.recoveryCompleted = true;
+      return recovered;
+    } finally { if (this.recoveryPromise === recovery) this.recoveryPromise = null; }
   }
   async recoverStoredRuns() {
     if (this.closing) return [];
@@ -471,7 +476,8 @@ export class HarnessEngine {
       try {
         const saved = JSON.parse(await readFile(join(this.directory, file), 'utf8'));
         if (saved.id !== id || !['running', 'interrupted'].includes(saved.status) || saved.userStopRequested === true) continue;
-        if (this.runs.has(id)) continue;
+        const existing = this.runs.get(id);
+        if (existing && existing.run.status !== 'interrupted') continue;
         const record = await this.record(id);
         const { run } = record;
         if (run.status !== 'interrupted' || run.userStopRequested === true) continue;

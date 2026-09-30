@@ -2036,6 +2036,7 @@ const server = createServer(async (req, res) => {
 
   if (url.pathname.startsWith('/api/harness/runs')) {
     try {
+      await harness.recoverInterruptedRuns();
       if (req.method === 'POST' && url.pathname === '/api/harness/runs') {
         const input = await readJson(req);
         const { connections } = await apiConnections.list();
@@ -2056,7 +2057,11 @@ const server = createServer(async (req, res) => {
       const match = url.pathname.match(/^\/api\/harness\/runs\/([a-f0-9-]{36})(?:\/(stop|resume|patch))?$/);
       if (!match) return json(res, 404, { error: '실행을 찾을 수 없습니다.' });
       if (req.method === 'POST' && match[2] === 'stop') return json(res, 200, await harness.stop(match[1]));
-      if (req.method === 'POST' && match[2] === 'resume') return json(res, 202, await harness.resume(match[1]));
+      if (req.method === 'POST' && match[2] === 'resume') {
+        const current = await harness.get(match[1]);
+        if (['running', 'stopping'].includes(current.status)) return json(res, 202, current);
+        return json(res, 202, await harness.resume(match[1]));
+      }
       if (req.method === 'GET' && match[2] === 'patch') {
         const patch = await harness.patch(match[1]);
         res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Content-Disposition': 'attachment; filename="harness.patch"', 'Cache-Control': 'no-store' });

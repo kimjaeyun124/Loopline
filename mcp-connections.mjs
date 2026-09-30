@@ -1,13 +1,27 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
-import { isAbsolute, join } from 'node:path';
+import { access, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { constants } from 'node:fs';
+import { delimiter, isAbsolute, join } from 'node:path';
 
-const fail = (message, status = 400) => Object.assign(new Error(message), { status });
+const fail = (message, status = 400, code = '') => Object.assign(new Error(message), { status, ...(code ? { code } : {}) });
 const MAX_SERVERS = 32;
 const MAX_TOOLS = 128;
+const MAX_LOOP_TOOLS = 24;
 const MAX_TOOL_SCHEMA = 8_000;
 const MAX_TOOL_OUTPUT = 24_000;
 const MAX_CALLS = 8;
+const FIGMA_DESKTOP_MCP_URL = 'http://127.0.0.1:3845/mcp';
+
+async function findExecutable(command, searchPath = process.env.PATH || '') {
+  if (isAbsolute(command)) {
+    try { await access(command, constants.X_OK); return command; } catch { return ''; }
+  }
+  for (const directory of searchPath.split(delimiter).filter(Boolean)) {
+    const candidate = join(directory, command);
+    try { await access(candidate, constants.X_OK); return candidate; } catch {}
+  }
+  return '';
+}
 
 function desktopSecrets() {
   if (process.env.MOSAIC_DESKTOP !== '1' || !process.parentPort) return null;
@@ -42,7 +56,7 @@ function normalizeServer(input) {
     if (!Array.isArray(args) || args.length > 40 || args.some((arg) => typeof arg !== 'string' || arg.length > 1024 || /\0/.test(arg))) throw fail('MCP 실행 인자는 최대 40개까지 지정할 수 있습니다.');
     const cwd = input.cwd == null || input.cwd === '' ? '' : input.cwd;
     if (typeof cwd !== 'string' || cwd.length > 2000 || (cwd && !isAbsolute(cwd))) throw fail('작업 폴더는 전체 경로로 입력해 주세요.');
-    return { name, transport: 'stdio', command, cwd, secrets: { args, env: normalizeEnv(input.env) } };
+    return { name, transport: 'stdio', command, cwd, autoRun: input.autoRun === true, secrets: { args, env: normalizeEnv(input.env) } };
   }
   let url;
   if (typeof input.url !== 'string' || input.url.length > 2000) throw fail('MCP 서버 주소는 2,000자 이내로 입력해 주세요.');
@@ -52,7 +66,7 @@ function normalizeServer(input) {
   if (url.username || url.password || url.search || url.hash) throw fail('MCP 주소에 로그인 정보, 쿼리 또는 #을 포함할 수 없습니다.');
   const token = input.token == null ? '' : input.token;
   if (typeof token !== 'string' || token.length > 8192 || /[\r\n\0]/.test(token)) throw fail('Bearer 토큰을 확인해 주세요.');
-  return { name, transport: 'http', url: url.href, secrets: { token: token.trim() } };
+  return { name, transport: 'http', url: url.href, autoRun: input.autoRun === true, secrets: { token: token.trim() } };
 }
 
 function normalizeEnv(value) {
@@ -77,7 +91,23 @@ function safeTool(tool, server) {
     name: tool.name,
     description: typeof tool.description === 'string' ? tool.description.slice(0, 4000) : '',
     inputSchema: schema,
+    annotations: tool.annotations && typeof tool.annotations === 'object' && !Array.isArray(tool.annotations)
+      ? Object.fromEntries(['readOnlyHint', 'destructiveHint', 'idempotentHint']
+        .filter((key) => typeof tool.annotations[key] === 'boolean')
+        .map((key) => [key, tool.annotations[key]]))
+      : {},
   };
+}
+
+function connectionError(server, error) {
+  const message = String(error?.message || 'MCP 서버에 연결하지 못했습니다.');
+  if (server.preset === 'figma-desktop' && /ECONNREFUSED|fetch failed|timed out|timeout|\b(401|403|404)\b/i.test(message)) {
+    return 'Figma Desktop MCP 서버에 연결할 수 없습니다. Figma에서 디자인 파일을 열고 Dev Mode의 MCP 패널에서 Desktop MCP server를 켠 뒤 다시 연결해 주세요.';
+  }
+  if (server.preset === 'paper-desktop' && /ENOENT|EACCES|not found|permission denied/i.test(message)) {
+    return 'Paper CLI를 실행하지 못했습니다. Paper Desktop을 열고 MCP 패널에서 실행 파일 경로를 다시 선택해 주세요.';
+  }
+  return message.slice(0, 500);
 }
 
 export class McpConnections {
@@ -86,16 +116,22 @@ export class McpConnections {
   #servers = [];
   #configs = new Map();
   #active = new Map();
+  #connecting = new Map();
   #inUse = new Map();
   #writes = Promise.resolve();
   #ready;
   #secrets = desktopSecrets();
   #runtime;
+  #figmaDesktopUrl;
+  #searchPath;
+  #closing = false;
 
-  constructor(directory, { runtime } = {}) {
+  constructor(directory, { runtime, figmaDesktopUrl = FIGMA_DESKTOP_MCP_URL, searchPath } = {}) {
     this.#directory = directory;
     this.#file = join(directory, 'mcp-connections.json');
     this.#runtime = runtime;
+    this.#figmaDesktopUrl = figmaDesktopUrl;
+    this.#searchPath = searchPath;
     this.#ready = this.#load();
     this.#ready.catch(() => {});
   }
@@ -155,6 +191,9 @@ export class McpConnections {
       id: server.id,
       name: server.name,
       transport: server.transport,
+      preset: server.preset || '',
+      autoRun: server.autoRun === true,
+      connecting: this.#connecting.has(server.id),
       ...(server.transport === 'stdio' ? { command: server.command, cwd: server.cwd || '' } : { url: server.url }),
       connected: Boolean(active),
       needsConfiguration: !this.#configs.has(server.id) && (!this.#secrets || !server.encryptedConfig),
@@ -198,6 +237,8 @@ export class McpConnections {
         id: nextId,
         name: normalized.name,
         transport: normalized.transport,
+        preset: ['paper-desktop', 'figma-desktop'].includes(input.preset) ? input.preset : (current?.preset || ''),
+        autoRun: normalized.autoRun || Boolean(current && input.autoRun !== false && current.autoRun === true),
         ...(normalized.transport === 'stdio' ? { command: normalized.command, cwd: normalized.cwd } : { url: normalized.url }),
         encryptedConfig,
         updatedAt: Date.now(),
@@ -210,6 +251,16 @@ export class McpConnections {
   }
 
   async connect(id) {
+    await this.#ready;
+    if (this.#closing) throw fail('MCP 연결 관리자가 종료 중입니다.', 503);
+    if (this.#connecting.has(id)) return this.#connecting.get(id);
+    const operation = this.#connect(id);
+    this.#connecting.set(id, operation);
+    try { return await operation; }
+    finally { if (this.#connecting.get(id) === operation) this.#connecting.delete(id); }
+  }
+
+  async #connect(id) {
     await this.#ready;
     const server = this.#find(id);
     await this.#close(id);
@@ -240,21 +291,87 @@ export class McpConnections {
       const result = await client.listTools(undefined, { timeout: 15_000, cacheMode: 'refresh' });
       if (!Array.isArray(result.tools) || result.tools.length > MAX_TOOLS) throw fail(`MCP 서버는 도구를 ${MAX_TOOLS}개 이하로 제공해야 합니다.`);
       const tools = result.tools.map((tool) => safeTool(tool, server)).filter(Boolean);
+      if (this.#closing) throw fail('MCP 연결 관리자가 종료 중입니다.', 503);
       this.#active.set(id, { client, transport, tools });
+      transport.onclose = () => {
+        if (this.#active.get(id)?.transport !== transport) return;
+        this.#active.delete(id);
+        server.lastError = 'MCP 연결이 끊겼습니다. 연결을 다시 시도해 주세요.';
+        void this.#persistMetadata().catch(() => {});
+      };
       server.lastError = '';
       await this.#persistMetadata();
       return this.#public(server);
     } catch (error) {
       if (client) await client.close().catch(() => {});
       else await transport?.close?.().catch(() => {});
-      server.lastError = String(error?.message || 'MCP 서버에 연결하지 못했습니다.').slice(0, 500);
+      server.lastError = connectionError(server, error);
       await this.#persistMetadata().catch(() => {});
-      throw fail(`MCP 연결 실패: ${server.lastError}`, 502);
+      const code = server.preset === 'paper-desktop' && ['ENOENT', 'EACCES'].includes(error?.code) ? 'PAPER_CLI_REQUIRED' : error?.code || '';
+      throw fail(`MCP 연결 실패: ${server.lastError}`, 502, code);
     }
   }
 
   async #persistMetadata() {
     await this.#save(this.#servers);
+  }
+
+  async quickConnect(kind, { command = '' } = {}) {
+    await this.#ready;
+    if (!['paper-desktop', 'figma-desktop'].includes(kind)) throw fail('지원하지 않는 빠른 연결입니다.');
+    let input;
+    if (kind === 'figma-desktop') {
+      input = { name: 'Figma Desktop', transport: 'http', url: this.#figmaDesktopUrl, autoRun: true, preset: kind };
+    } else {
+      const savedPaper = this.#servers.find((server) => server.preset === kind);
+      const executable = typeof command === 'string' && command.trim()
+        ? await findExecutable(command.trim(), this.#searchPath)
+        : savedPaper?.command && await findExecutable(savedPaper.command, this.#searchPath)
+          || await findExecutable('paper', this.#searchPath);
+      if (!executable) throw fail('Paper CLI를 찾지 못했습니다. Paper Desktop의 MCP 패널에서 CLI 경로를 선택해 주세요.', 409, 'PAPER_CLI_REQUIRED');
+      input = { name: 'Paper Desktop', transport: 'stdio', command: executable, args: ['mcp'], autoRun: true, preset: kind };
+    }
+    let existing = this.#servers.find((server) => server.preset === kind)
+      || (kind === 'figma-desktop' && this.#servers.find((server) => server.transport === 'http' && server.url === input.url));
+    if (!existing && kind === 'paper-desktop') {
+      for (const server of this.#servers) {
+        if (server.transport !== 'stdio' || server.command !== input.command || server.name !== input.name) continue;
+        const config = await this.#runtimeConfig(server).catch(() => null);
+        if (config?.secrets?.args?.includes('mcp')) { existing = server; break; }
+      }
+    }
+    const saved = await this.save(input, existing?.id || '');
+    return this.connect(saved.id);
+  }
+
+  async setAutoRun(id, enabled) {
+    if (typeof enabled !== 'boolean') throw fail('Loop 자동 사용 설정이 올바르지 않습니다.');
+    const server = await this.#mutate(async () => {
+      const server = this.#find(id);
+      this.#assertIdle(id);
+      server.autoRun = enabled;
+      await this.#persistMetadata();
+      return this.#public(server);
+    });
+    if (!enabled || server.connected) return server;
+    try { return await this.connect(id); }
+    catch { return this.#public(this.#find(id)); }
+  }
+
+  async connectOnStartup() {
+    await this.#ready;
+    const results = [];
+    for (const server of this.#servers.filter((item) => item.autoRun === true)) {
+      if (this.#closing) break;
+      let connected = false;
+      for (let attempt = 0; attempt < 3 && !connected && !this.#closing; attempt++) {
+        if (attempt) await new Promise((resolve) => setTimeout(resolve, attempt * 1_000));
+        try { await this.connect(server.id); connected = true; }
+        catch { /* Keep the last connection error visible and retry on the next app launch. */ }
+      }
+      results.push({ id: server.id, connected });
+    }
+    return results;
   }
 
   async delete(id) {
@@ -278,6 +395,7 @@ export class McpConnections {
 
   #assertIdle(id) {
     if ((this.#inUse.get(id) || 0) > 0) throw fail('Loop에서 MCP 도구를 실행 중입니다. 단계가 끝난 뒤 연결을 변경해 주세요.', 409);
+    if (this.#connecting.has(id)) throw fail('MCP 서버에 연결 중입니다. 연결이 끝난 뒤 다시 시도해 주세요.', 409);
   }
 
   async #close(id) {
@@ -289,6 +407,8 @@ export class McpConnections {
   }
 
   async close() {
+    this.#closing = true;
+    await Promise.allSettled([...this.#connecting.values()]);
     await Promise.all([...this.#active.keys()].map((id) => this.#close(id)));
   }
 
@@ -309,6 +429,22 @@ export class McpConnections {
       chosen.push(tool);
     }
     if (JSON.stringify(chosen).length > 32_000) throw fail('선택한 MCP 도구의 설명과 입력 규격이 너무 큽니다. Loop 설정에서 도구 수를 줄여 주세요.');
+    return chosen;
+  }
+
+  async toolsForLoop(selection = []) {
+    const autoServers = this.#servers.filter((server) => server.autoRun === true);
+    for (const server of autoServers) if (!this.#active.has(server.id)) await this.connect(server.id);
+    const explicit = await this.selectedTools(selection);
+    const automatic = [];
+    for (const server of this.#servers) {
+      if (server.autoRun !== true) continue;
+      const active = this.#active.get(server.id);
+      if (active) automatic.push(...active.tools);
+    }
+    const chosen = [...new Map([...automatic, ...explicit].map((tool) => [`${tool.serverId}\0${tool.name}`, tool])).values()];
+    if (chosen.length > MAX_LOOP_TOOLS) throw fail(`자동 사용 도구가 ${MAX_LOOP_TOOLS}개를 넘었습니다. MCP 연결 설정에서 자동 사용 연결을 줄여 주세요.`, 409);
+    if (JSON.stringify(chosen).length > 32_000) throw fail('자동 사용 MCP 도구의 입력 규격이 너무 큽니다. 연결별 자동 사용을 조정해 주세요.', 409);
     return chosen;
   }
 

@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld('looplineAppearance', {
 });
 contextBridge.exposeInMainWorld('looplineWorkspace', {
   chooseFolder: () => ipcRenderer.invoke('loopline:choose-workspace'),
+  chooseMcpCommand: () => ipcRenderer.invoke('loopline:choose-mcp-command'),
 });
 
 for (const [name, service] of [['looplineChatGpt', 'chatgpt'], ['looplineGemini', 'gemini']]) {

@@ -167,16 +167,18 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
   }
   function renderMcpTools() {
     const available = typeof getMcpTools === 'function' ? getMcpTools() : [];
+    const automaticCount = available.filter((tool) => tool.autoRun).length;
     if (!available.length) {
-      mcpFields.innerHTML = `<p class="settings-footnote">연결된 MCP 도구가 없습니다. <button type="button" class="text-button" data-open-mcp-settings>MCP 연결 설정 열기</button></p>${config.mcpTools.length ? '<p class="harness-mcp-warning">저장한 도구 연결이 없습니다. MCP 연결을 다시 열고 Loop 구성을 새로 저장해 주세요.</p>' : ''}`;
+      mcpFields.innerHTML = `<p class="settings-footnote">사용 가능한 MCP 도구가 없습니다. Paper 또는 Figma를 연결 설정에서 자동 사용으로 켜면 다음 Loop 실행부터 포함됩니다. <button type="button" class="text-button" data-open-mcp-settings>MCP 연결 설정 열기</button></p>${config.mcpTools.length ? '<p class="harness-mcp-warning">저장한 도구 연결이 없습니다. MCP 연결을 다시 열고 Loop 구성을 새로 저장해 주세요.</p>' : ''}`;
       return;
     }
     const keys = new Set(available.map((tool) => JSON.stringify([tool.serverId, tool.name])));
     const missing = config.mcpTools.filter((tool) => !keys.has(JSON.stringify([tool.serverId, tool.name])));
-    mcpFields.innerHTML = `<div class="harness-mcp-list">${available.map((tool) => {
+    mcpFields.innerHTML = `<p class="settings-footnote">${automaticCount}개 도구가 연결 설정에 따라 자동 제공됩니다. 호출은 각 Loop 단계에서 확인할 수 있습니다.</p><div class="harness-mcp-list">${available.map((tool) => {
       const key = JSON.stringify([tool.serverId, tool.name]);
       const checked = config.mcpTools.some((savedTool) => savedTool.serverId === tool.serverId && savedTool.name === tool.name);
-      return `<label class="harness-mcp-tool"><input type="checkbox" data-harness-mcp-tool="${escape(key)}"${checked ? ' checked' : ''}${!checked && config.mcpTools.length >= 24 ? ' disabled' : ''} /><span><strong>${escape(tool.name)}</strong><small>${escape(tool.serverName)}${tool.description ? ` · ${escape(tool.description)}` : ''}</small></span></label>`;
+      const automatic = tool.autoRun === true;
+      return `<label class="harness-mcp-tool"><input type="checkbox" data-harness-mcp-tool="${escape(key)}"${automatic || checked ? ' checked' : ''}${automatic ? ' disabled title="연결 설정에서 자동 제공됩니다."' : !checked && config.mcpTools.length + automaticCount >= 24 ? ' disabled' : ''} /><span><strong>${escape(tool.name)}${automatic ? ' · 자동' : ''}</strong><small>${escape(tool.serverName)}${tool.description ? ` · ${escape(tool.description)}` : ''}</small></span></label>`;
     }).join('')}</div>${missing.length ? `<p class="harness-mcp-warning">이전에 고른 도구 ${missing.length}개가 현재 연결에서 보이지 않습니다. 해당 MCP 서버에 다시 연결한 뒤 선택을 갱신하세요.</p>` : ''}`;
   }
   function open() {
@@ -207,7 +209,8 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
     try { [serverId, name] = JSON.parse(checkbox.dataset.harnessMcpTool); } catch { checkbox.checked = false; return; }
     const index = config.mcpTools.findIndex((tool) => tool.serverId === serverId && tool.name === name);
     if (checkbox.checked && index < 0) {
-      if (config.mcpTools.length >= 24) { checkbox.checked = false; toast('Loop에 사용할 MCP 도구는 최대 24개까지 선택할 수 있습니다.'); return; }
+      const automaticCount = (typeof getMcpTools === 'function' ? getMcpTools() : []).filter((tool) => tool.autoRun).length;
+      if (config.mcpTools.length + automaticCount >= 24) { checkbox.checked = false; toast('자동 제공 도구를 포함해 Loop에는 최대 24개 MCP 도구를 사용할 수 있습니다.'); return; }
       config.mcpTools.push({ serverId, name });
     } else if (!checkbox.checked && index >= 0) config.mcpTools.splice(index, 1);
     save(); renderMcpTools();

@@ -262,6 +262,11 @@ async function createMainWindow(url) {
     const result = await dialog.showOpenDialog(window, { title: 'Harness 프로젝트 폴더', properties: ['openDirectory'] });
     return result.canceled ? null : result.filePaths[0] || null;
   });
+  ipcMain.handle('loopline:choose-mcp-command', async (event) => {
+    if (!trustedSender(event)) return null;
+    const result = await dialog.showOpenDialog(window, { title: 'Paper MCP 실행 파일 선택', properties: ['openFile'] });
+    return result.canceled ? null : result.filePaths[0] || null;
+  });
   for (const [service, view] of Object.entries(views)) {
     const channel = `loopline-${service}`;
     const handlers = {

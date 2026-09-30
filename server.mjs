@@ -2002,19 +2002,25 @@ const server = createServer(async (req, res) => {
   if (!allowedOrigin(req)) return json(res, 403, { error: '허용되지 않은 요청 출처입니다.' });
   const url = new URL(req.url, 'http://' + (req.headers.host || '127.0.0.1'));
 
-  if (url.pathname.startsWith('/api/mcp/servers')) {
+  if (url.pathname.startsWith('/api/mcp/')) {
     try {
       if (req.method === 'GET' && url.pathname === '/api/mcp/servers') return json(res, 200, await mcpConnections.list());
       if (req.method === 'POST' && url.pathname === '/api/mcp/servers') return json(res, 201, await mcpConnections.save(await readJson(req)));
+      if (req.method === 'POST' && url.pathname === '/api/mcp/quick-connect') {
+        const body = await readJson(req);
+        return json(res, 200, await mcpConnections.quickConnect(body.kind, { command: body.command }));
+      }
       const connectMatch = url.pathname.match(/^\/api\/mcp\/servers\/([a-f0-9-]{36})\/connect$/);
       if (req.method === 'POST' && connectMatch) return json(res, 200, await mcpConnections.connect(connectMatch[1]));
       const disconnectMatch = url.pathname.match(/^\/api\/mcp\/servers\/([a-f0-9-]{36})\/disconnect$/);
       if (req.method === 'POST' && disconnectMatch) return json(res, 200, await mcpConnections.disconnect(disconnectMatch[1]));
+      const autoRunMatch = url.pathname.match(/^\/api\/mcp\/servers\/([a-f0-9-]{36})\/auto-run$/);
+      if (req.method === 'POST' && autoRunMatch) return json(res, 200, await mcpConnections.setAutoRun(autoRunMatch[1], (await readJson(req)).enabled));
       const serverMatch = url.pathname.match(/^\/api\/mcp\/servers\/([a-f0-9-]{36})$/);
       if (req.method === 'PUT' && serverMatch) return json(res, 200, await mcpConnections.save(await readJson(req), serverMatch[1]));
       if (req.method === 'DELETE' && serverMatch) return json(res, 200, await mcpConnections.delete(serverMatch[1]));
       return json(res, 404, { error: 'MCP 연결을 찾을 수 없습니다.' });
-    } catch (error) { return json(res, error.status || 500, { error: error.message || 'MCP 연결을 처리하지 못했습니다.' }); }
+    } catch (error) { return json(res, error.status || 500, { error: error.message || 'MCP 연결을 처리하지 못했습니다.', ...(error.code ? { code: error.code } : {}) }); }
   }
 
   if (url.pathname.startsWith('/api/harness/runs')) {
@@ -2276,6 +2282,7 @@ server.listen(port, host, () => {
     console.log('Loopline 실행 중: ' + serverUrl);
     console.log('종료하려면 Ctrl+C를 누르세요.');
   }
+  void mcpConnections.connectOnStartup().catch(() => {});
 });
 
 let isShuttingDown = false;

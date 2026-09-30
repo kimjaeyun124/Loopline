@@ -332,7 +332,7 @@ export class HarnessEngine {
     if (input.workspace && (typeof input.workspace !== 'string' || !isAbsolute(input.workspace))) throw fail('프로젝트 작업 폴더가 올바르지 않습니다.');
     if (input.verifyCommand != null && (typeof input.verifyCommand !== 'string' || input.verifyCommand.length > 1000)) throw fail('프로젝트 검증 명령이 올바르지 않습니다.');
     if (!Number.isInteger(input.rounds) || input.rounds < 1 || input.rounds > 10) throw fail('회차는 1~10 사이로 지정해 주세요.');
-    const mcpDefinitions = this.mcpConnections ? await this.mcpConnections.selectedTools(input.mcpTools || []) : [];
+    const mcpDefinitions = this.mcpConnections ? await this.mcpConnections.toolsForLoop(input.mcpTools || []) : [];
     if (!this.mcpConnections && Array.isArray(input.mcpTools) && input.mcpTools.length) throw fail('MCP 연결 관리자를 사용할 수 없습니다.', 503);
     const mcpTools = mcpDefinitions.map(({ serverId, name }) => ({ serverId, name }));
     const roles = {}, modelPriority = {};

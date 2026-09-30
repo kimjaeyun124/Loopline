@@ -13,6 +13,7 @@ const MAX_WORKER_HISTORY = 32_000;
 const MAX_PROJECT_FILE_LIST = 8_000;
 const MAX_VERIFICATION_EVIDENCE = 18_000;
 const MAX_MODEL_FALLBACKS = 8;
+const MAX_AUTOMATIC_RECOVERIES = 3;
 const TERMINAL = new Set(['completed', 'reviewed', 'stopped', 'failed', 'limit', 'blocked', 'interrupted']);
 const gitArgs = ['-c', 'core.hooksPath=/dev/null', '-c', 'core.fsmonitor=false'];
 const fail = (message, status = 400) => Object.assign(new Error(message), { status });
@@ -336,7 +337,7 @@ export class HarnessEngine {
   constructor({ directory, invoke, verify = verifyWorkspace, mcpConnections = null }) {
     this.directory = join(directory, 'harness'); this.invoke = invoke; this.verify = verify; this.mcpConnections = mcpConnections;
     // Prompt text can contain project files, so keep inspection data in memory instead of run logs.
-    this.runs = new Map(); this.sources = new Set(); this.promptDetails = new Map();
+    this.runs = new Map(); this.sources = new Set(); this.promptDetails = new Map(); this.recoveryPromise = null; this.closing = false;
   }
 
   async create(input) {
@@ -405,6 +406,7 @@ export class HarnessEngine {
 
   publicRun(run) {
     const { instructions, fingerprint, baseline, graphCheckpoint, qualityTriedWorkerModels, ...visible } = run;
+    visible.autoResumeAttempts = Number.isInteger(run.autoResumeAttempts) ? run.autoResumeAttempts : 0;
     visible.canResume = ['interrupted', 'stopped'].includes(run.status)
       && !run.mcpSideEffectPossible
       && Boolean(graphCheckpoint && (graphCheckpoint.activeNode !== 'apply' || !run.applyStarted || run.applied)
@@ -440,7 +442,9 @@ export class HarnessEngine {
     const interrupted = !TERMINAL.has(run.status);
     if (interrupted) {
       run.status = 'interrupted'; run.finishedAt = Date.now();
-      run.summary = '앱이 종료되어 실행이 중단되었습니다. 보관된 작업 공간에서 변경을 확인할 수 있습니다.';
+      run.summary = run.userStopRequested === true
+        ? '사용자가 중지를 요청한 실행입니다. 저장된 작업 공간에서 변경을 확인할 수 있습니다.'
+        : '앱이 종료되어 실행이 중단되었습니다. 보관된 작업 공간에서 변경을 확인할 수 있습니다.';
       for (const event of run.events) if (event.status === 'running') event.status = 'stopped';
     }
     const record = { run, controller: new AbortController(), writes: Promise.resolve() };
@@ -449,7 +453,85 @@ export class HarnessEngine {
     return record;
   }
   async get(id) { return this.publicRun((await this.record(id)).run); }
+  async recoverInterruptedRuns() {
+    if (this.recoveryPromise) return this.recoveryPromise;
+    this.recoveryPromise = this.recoverStoredRuns();
+    try { return await this.recoveryPromise; }
+    finally { this.recoveryPromise = null; }
+  }
+  async recoverStoredRuns() {
+    if (this.closing) return [];
+    let files;
+    try { files = await readdir(this.directory); }
+    catch (error) { if (error.code === 'ENOENT') return []; throw error; }
+    const recovered = [];
+    for (const file of files.filter((name) => /^[a-f0-9-]{36}\.json$/.test(name))) {
+      if (this.closing) break;
+      const id = file.slice(0, -5);
+      try {
+        const saved = JSON.parse(await readFile(join(this.directory, file), 'utf8'));
+        if (saved.id !== id || !['running', 'interrupted'].includes(saved.status) || saved.userStopRequested === true) continue;
+        if (this.runs.has(id)) continue;
+        const record = await this.record(id);
+        const { run } = record;
+        if (run.status !== 'interrupted' || run.userStopRequested === true) continue;
+        if (!this.publicRun(run).canResume) {
+          if (!run.autoResumeBlocked) {
+            run.autoResumeBlocked = true;
+            await this.event(record, '자동 이어하기 보류 / Automatic resume paused',
+              '저장된 체크포인트에 외부 작업 부작용 가능성 또는 안전하지 않은 파일 반영 단계가 있어 자동 재개하지 않았습니다. 작업 상태를 확인해 주세요.');
+          }
+          continue;
+        }
+        if ((run.mcpTools || []).length) {
+          try {
+            if (!this.mcpConnections) throw fail('MCP 연결 관리자를 사용할 수 없습니다.');
+            for (const serverId of new Set(run.mcpTools.map((tool) => tool.serverId).filter((value) => typeof value === 'string'))) {
+              await this.mcpConnections.connect(serverId);
+            }
+            await this.mcpConnections.selectedTools(run.mcpTools);
+          } catch {
+            if (!run.autoResumeBlocked) {
+              run.autoResumeBlocked = true;
+              await this.event(record, 'MCP 연결 대기 / Waiting for MCP connection',
+                '실행에 저장된 MCP 도구가 다시 연결되지 않아 자동 재개를 보류했습니다. MCP를 연결하면 수동으로 이어갈 수 있습니다.');
+            }
+            continue;
+          }
+        }
+        if (this.closing) break;
+        if (run.source && this.sources.has(run.source)) continue;
+        const attempts = Number.isInteger(run.autoResumeAttempts) ? run.autoResumeAttempts : 0;
+        if (attempts >= MAX_AUTOMATIC_RECOVERIES) {
+          if (!run.autoResumePaused) {
+            run.autoResumePaused = true;
+            await this.event(record, '자동 이어하기 한도 도달 / Automatic resume limit reached',
+              `앱 재시작 후 자동 이어하기 ${MAX_AUTOMATIC_RECOVERIES}회가 모두 사용되었습니다. 추가 모델 호출을 막기 위해 자동 재개를 멈췄습니다. 안전한 실행이면 이어하기 버튼으로 계속할 수 있습니다.`);
+          }
+          continue;
+        }
+        run.autoResumeAttempts = attempts + 1;
+        run.autoResumeBlocked = false;
+        run.autoResumePaused = false;
+        await this.persist(record);
+        try {
+          await this.resume(id);
+          recovered.push(id);
+        } catch (error) {
+          if (run.status === 'running') {
+            run.status = 'interrupted'; run.finishedAt = Date.now();
+            run.summary = '자동 이어하기를 시작하지 못했습니다. 연결과 저장된 작업 상태를 확인해 주세요.';
+          }
+          await this.event(record, '자동 이어하기 실패 / Automatic resume failed', String(error?.message || '실행을 다시 시작하지 못했습니다.').slice(0, 1000), 'failed');
+        }
+      } catch {
+        // A malformed or unreadable record must not prevent other saved runs from recovering.
+      }
+    }
+    return recovered;
+  }
   async resume(id) {
+    if (this.closing) throw fail('앱이 종료 중이라 실행을 이어갈 수 없습니다.', 503);
     const record = await this.record(id);
     const { run } = record;
     if (!['interrupted', 'stopped'].includes(run.status) || !this.publicRun(run).canResume) {
@@ -458,6 +540,8 @@ export class HarnessEngine {
     if (run.source && this.sources.has(run.source)) throw fail('이 프로젝트에서 다른 Loop 실행이 진행 중입니다.', 409);
     if (run.source) this.sources.add(run.source);
     record.controller = new AbortController();
+    delete run.shutdownRequested;
+    delete run.userStopRequested;
     run.status = 'running'; run.finishedAt = null; run.summary = '';
     const checkpoint = run.graphCheckpoint;
     const resumeNode = checkpoint.activeNode || checkpoint.nextNode;
@@ -468,7 +552,11 @@ export class HarnessEngine {
   }
   async stop(id) {
     const record = await this.record(id);
-    if (!TERMINAL.has(record.run.status)) { record.controller.abort(new Error('사용자가 실행을 중지했습니다.')); record.run.status = 'stopping'; await this.persist(record); }
+    if (!TERMINAL.has(record.run.status)) {
+      record.run.userStopRequested = true;
+      record.controller.abort(new Error('사용자가 실행을 중지했습니다.'));
+      record.run.status = 'stopping'; await this.persist(record);
+    }
     return this.publicRun(record.run);
   }
   async event(record, title, detail = '', status = 'completed', model = null) {
@@ -795,7 +883,10 @@ export class HarnessEngine {
       await workflow.invoke({ ...this.graphState(checkpoint.state), nextNode: firstNode }, { configurable: { thread_id: run.id } });
       if (run.status === 'running') throw fail('Loop 흐름이 완료 상태를 만들지 않고 끝났습니다.');
     } catch (error) {
-      run.status = signal.aborted ? 'stopped' : 'failed'; run.summary = error.message || 'Harness 실행에 실패했습니다.';
+      run.status = run.shutdownRequested ? 'interrupted' : signal.aborted ? 'stopped' : 'failed';
+      run.summary = run.shutdownRequested
+        ? '앱 종료로 실행이 일시 중단되었습니다. 다시 시작하면 안전한 지점부터 자동으로 이어갑니다.'
+        : error.message || 'Harness 실행에 실패했습니다.';
       for (const event of run.events) if (event.status === 'running') event.status = signal.aborted ? 'stopped' : 'failed';
     } finally {
       run.finishedAt = Date.now(); this.sources.delete(run.source);
@@ -1179,7 +1270,25 @@ export class HarnessEngine {
   }
   async patch(id) { await this.record(id); return readFile(join(this.directory, id, 'final.patch'), 'utf8').catch(() => ''); }
   async shutdown() {
-    for (const record of this.runs.values()) if (!TERMINAL.has(record.run.status)) record.controller.abort(new Error('앱이 종료되어 실행을 중지했습니다.'));
+    this.closing = true;
+    await this.recoveryPromise?.catch(() => {});
+    const writes = [];
+    for (const record of this.runs.values()) {
+      const { run } = record;
+      if (TERMINAL.has(run.status)) continue;
+      if (run.userStopRequested === true) {
+        record.controller.abort(new Error('사용자가 실행을 중지했습니다.'));
+        continue;
+      }
+      run.shutdownRequested = true;
+      run.status = 'interrupted';
+      run.finishedAt = Date.now();
+      run.summary = '앱 종료로 실행이 일시 중단되었습니다. 다시 시작하면 안전한 지점부터 자동으로 이어갑니다.';
+      for (const event of run.events) if (event.status === 'running') event.status = 'stopped';
+      record.controller.abort(new Error('앱이 종료되어 실행을 일시 중단했습니다.'));
+      writes.push(this.persist(record));
+    }
+    await Promise.allSettled(writes);
     await Promise.allSettled([...this.runs.values()].map((record) => record.execution));
   }
 }

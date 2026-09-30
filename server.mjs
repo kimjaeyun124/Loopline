@@ -2293,7 +2293,13 @@ server.listen(port, host, () => {
     console.log('Loopline 실행 중: ' + serverUrl);
     console.log('종료하려면 Ctrl+C를 누르세요.');
   }
-  void mcpConnections.connectOnStartup().catch(() => {});
+  void mcpConnections.connectOnStartup()
+    .catch(() => [])
+    .then(() => harness.recoverInterruptedRuns())
+    .then((recovered) => {
+      if (recovered.length) console.log(`LOOP_AUTO_RESUMED=${recovered.length}`);
+    })
+    .catch((error) => console.error('Loop 자동 이어하기 복구 실패:', error.message || error));
 });
 
 let isShuttingDown = false;

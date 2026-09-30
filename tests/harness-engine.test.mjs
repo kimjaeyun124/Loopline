@@ -423,7 +423,11 @@ test('automatic verification command is reused after a passing check requests an
     if (isJudgementPrompt(prompt)) {
       if (prompt.questions.command) return judgementResponse(prompt);
       reviews++;
-      return judgementResponse(prompt, reviews === 1 ? 'revise' : 'complete', reviews === 1 ? 'Continue the requested work.' : '');
+      const answers = Object.fromEntries(Object.keys(prompt.questions).map((id) => [id, {
+        choice: id === 'goal' && reviews === 1 ? 'revise' : 'pass',
+        reason: id === 'goal' && reviews === 1 ? 'Continue the requested work.' : 'The verification evidence is sufficient.',
+      }]));
+      return JSON.stringify({ answers });
     }
     return script(selection, prompt, ...rest);
   } });
@@ -844,7 +848,7 @@ test('native Jev judges Luna proposals and uncertain verdicts continue to a seco
   } });
   const run = await settled(engine, (await engine.create({ ...f.input, workspace: undefined, verifyCommand: undefined,
     roles: { ...f.input.roles, judge: { ...f.input.roles.judge, decisionOnly: true } } })).id);
-  assert.equal(run.status, 'completed', run.summary); assert.equal(run.round, 2); assert.equal(typedCalls, 4);
+  assert.equal(run.status, 'completed', run.summary); assert.equal(run.round, 2); assert.equal(typedCalls, 5);
   assert.ok(run.events.some((e) => e.title.includes('Live Jev decision') && e.detail.includes('uncertain')));
   assert.equal(await readFile(join(run.source, 'file.txt'), 'utf8'), 'updated 2\n');
 });

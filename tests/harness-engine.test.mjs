@@ -96,6 +96,30 @@ test('a temporary provider failure switches to the next configured model and com
   assert.ok(run.events.some((event) => event.title.includes('모델 일시 오류') && event.model?.id === 'fixture-model'));
 });
 
+test('a Korean Codex request timeout switches to the next saved worker model', async (t) => {
+  const f = await fixture(t), script = modelScript(complete), workerModels = [];
+  let timedOut = false;
+  const worker = { ...f.input.roles.worker, model: 'worker-primary', label: 'Primary worker', fallbacks: [
+    { ...f.input.roles.worker, model: 'worker-fallback', label: 'Fallback worker' },
+  ] };
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (selection, prompt, ...rest) => {
+    if (hasText(prompt, '최근 도구 결과:')) {
+      workerModels.push(selection.model);
+      if (selection.model === 'worker-primary' && !timedOut) {
+        timedOut = true;
+        throw new Error('요청 시간이 초과되었습니다.');
+      }
+    }
+    return script(selection, prompt, ...rest);
+  } });
+  const run = await settled(engine, (await engine.create({ ...f.input, roles: { ...f.input.roles, worker } })).id);
+  assert.equal(run.status, 'completed', run.summary);
+  assert.equal(run.stageModels.worker.id, 'worker-fallback');
+  assert.deepEqual(workerModels.slice(0, 2), ['worker-primary', 'worker-fallback']);
+  assert.ok(run.events.some((event) => event.title.includes('모델 일시 오류') && event.model?.id === 'worker-primary'));
+  assert.ok(run.events.some((event) => event.title.includes('우선순위 모델 전환') && event.model?.id === 'worker-fallback'));
+});
+
 test('HTTP 429 fails over in the saved order but authentication errors do not', async (t) => {
   const f = await fixture(t), plannerCalls = [];
   const primary = { ...f.input.roles.planner, fallbacks: [

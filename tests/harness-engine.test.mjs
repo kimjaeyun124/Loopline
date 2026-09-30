@@ -618,7 +618,7 @@ test('cancellation terminates a running verification command', async () => {
   try { await assert.rejects(process, /stop verification/); } finally { clearTimeout(timer); }
 });
 
-test('repeated identical reads stop early instead of consuming every tool step', async (t) => {
+test('repeated identical reads give one recovery hint before stopping a stubborn model', async (t) => {
   const f = await fixture(t); let calls = 0;
   const engine = new HarnessEngine({ directory: f.data, invoke: async (_model, prompt) => {
     calls++;
@@ -626,8 +626,30 @@ test('repeated identical reads stop early instead of consuming every tool step',
     return JSON.stringify({ operations: [{ type: 'read', path: 'file.txt' }] });
   } });
   const run = await settled(engine, (await engine.create(f.input)).id);
-  assert.equal(run.status, 'failed'); assert.match(run.summary, /같은 읽기 작업/); assert.equal(calls, 4);
+  assert.equal(run.status, 'failed'); assert.match(run.summary, /안내를 따르지 않아/); assert.equal(calls, 5);
+  assert.equal(run.events.filter((event) => event.title.startsWith('중복 읽기 안내')).length, 1);
   assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'original\n');
+});
+
+test('the worker continues with an edit after repeated-read feedback includes current file contents', async (t) => {
+  const f = await fixture(t); let workerCalls = 0, sawCurrentContent = false;
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (_model, prompt) => {
+    if (hasText(prompt, '구현 계획과 검증 기준')) return 'Read file.txt, update it, then verify.';
+    if (isJudgementPrompt(prompt)) return judgementResponse(prompt);
+    workerCalls++;
+    if (workerCalls <= 3) return JSON.stringify({ operations: [{ type: 'read', path: 'file.txt' }] });
+    if (hasText(prompt, '같은 파일 읽기가 이미 성공했습니다')) {
+      sawCurrentContent = hasText(prompt, 'original\n');
+      return JSON.stringify({ operations: [{ type: 'edit', path: 'file.txt', oldText: 'original\n', newText: 'updated\n' }] });
+    }
+    return JSON.stringify({ done: true, summary: 'Updated file.txt after using the existing read result.' });
+  } });
+  const run = await settled(engine, (await engine.create(f.input)).id);
+  assert.equal(run.status, 'completed', run.summary);
+  assert.equal(workerCalls, 5);
+  assert.equal(sawCurrentContent, true);
+  assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'updated\n');
+  assert.ok(run.events.some((event) => event.title.startsWith('중복 읽기 안내')));
 });
 
 test('judge creates a managed project and configures verification from implemented files', async (t) => {

@@ -1498,7 +1498,9 @@ async function deleteEphemeralCodexThread(context, client, threadId) {
       return;
     } catch (error) {
       lastError = error;
-      if (/not found|does not exist|already deleted/i.test(error.message || '')) {
+      // Ephemeral Harness turns are not persisted, so the app-server correctly rejects deleting them.
+      // Treat that response as already cleaned up instead of retrying an impossible delete.
+      if (/not found|does not exist|already deleted|not persisted/i.test(error.message || '')) {
         context.loadedThreads.delete(threadId);
         return;
       }

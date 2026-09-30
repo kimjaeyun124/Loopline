@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#F2F3F1">
+    <title>MCP Control Room · Loopline</title>
+    <link rel="stylesheet" href="./styles.css">
+    <script type="module" src="./app.mjs"></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand-lockup">
+          <div class="brand-mark" aria-hidden="true">L</div>
+          <div class="brand-copy">
+            <strong>Loopline</strong>
+            <span>MCP Control Room</span>
+          </div>
+        </div>
+        <div class="topbar-status">
+          <span class="demo-pill"><span class="status-dot"></span>로컬 데모 · 샘플</span>
+          <div class="avatar" aria-label="사용자 계정">AG</div>
+        </div>
+      </header>
+
+      <main>
+        <section class="hero" aria-labelledby="page-title">
+          <div class="hero-copy">
+            <p class="eyebrow">MCP WORKSPACE / LOCAL QA</p>
+            <h1 id="page-title">연결과 실행을 한눈에</h1>
+            <p class="hero-description">MCP 연결 상태부터 Loop 단계별 도구 호출까지 추적합니다.</p>
+          </div>
+          <div class="hero-actions">
+            <button class="button button-secondary" id="export-button" type="button">실행 기록 내보내기</button>
+            <button class="button button-primary" id="add-connection-button" type="button">+ 연결 추가</button>
+          </div>
+        </section>
+
+        <section class="metrics" aria-label="요약 지표">
+          <article class="metric-card">
+            <div><p class="metric-label">MCP 연결</p><strong class="metric-value" id="connection-count">01</strong></div>
+            <span class="metric-state"><span class="status-dot"></span>Paper 확인됨</span>
+          </article>
+          <article class="metric-card">
+            <div><p class="metric-label">허용 도구 (예시)</p><strong class="metric-value">08</strong></div>
+            <span class="metric-tag">샘플 설정</span>
+          </article>
+          <article class="metric-card">
+            <div><p class="metric-label">오늘 호출 (예시)</p><strong class="metric-value">06</strong></div>
+            <div class="metric-summary"><strong>100% 성공</strong><span>데모 기록</span></div>
+          </article>
+        </section>
+
+        <section class="workspace" aria-label="MCP 실행 대시보드">
+          <aside class="connections-panel panel" aria-labelledby="connections-title">
+            <div class="section-heading">
+              <div>
+                <h2 id="connections-title">MCP 연결</h2>
+                <p>연결 상태와 접근 범위</p>
+              </div>
+              <button class="icon-button" id="add-connection-icon" type="button" aria-label="MCP 연결 추가">+</button>
+            </div>
+            <div class="connection-list" id="connection-list"></div>
+            <div class="access-note">
+              <span class="note-rail" aria-hidden="true"></span>
+              <div><strong>도구 접근 범위</strong><p>실행에서 허용한 도구만 전달하고 요청과 응답을 기록합니다.</p></div>
+            </div>
+          </aside>
+
+          <section class="run-panel panel" aria-labelledby="runs-title">
+            <div class="section-heading run-heading">
+              <div>
+                <h2 id="runs-title">최근 실행</h2>
+                <p>MCP 도구 호출과 Loop 단계 기록</p>
+              </div>
+              <div class="run-heading-actions">
+                <span class="sample-count">샘플 기록 · 3개 이벤트</span>
+                <button class="text-button" id="show-all-events" type="button">모두 보기 →</button>
+              </div>
+            </div>
+
+            <div class="stage-list" aria-label="샘플 Loop 단계">
+              <article class="stage-card">
+                <div class="stage-meta"><span>01 · 계획</span><strong>완료</strong></div>
+                <strong class="stage-model">GPT-6-Luna Max</strong>
+                <span class="stage-description">요청을 작업 단계로 정리</span>
+              </article>
+              <article class="stage-card">
+                <div class="stage-meta"><span>02 · 구현</span><strong>완료</strong></div>
+                <strong class="stage-model">GPT-6-Sol</strong>
+                <span class="stage-description">화면과 상호작용 구성</span>
+              </article>
+              <article class="stage-card">
+                <div class="stage-meta"><span>03 · 판정</span><strong>통과</strong></div>
+                <strong class="stage-model">Jev</strong>
+                <span class="stage-description">결과와 근거 확인</span>
+              </article>
+            </div>
+
+            <div class="execution-body">
+              <section class="activity-section" aria-labelledby="activity-title">
+                <div class="activity-heading">
+                  <h3 id="activity-title">실행 이벤트</h3>
+                  <div class="activity-controls">
+                    <span id="event-count">최근 3개</span>
+                    <label class="visually-hidden" for="event-filter">이벤트 필터</label>
+                    <select id="event-filter" aria-label="이벤트 필터">
+                      <option value="all">전체</option>
+                      <option value="completed">완료</option>
+                      <option value="attention">확인 필요</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="event-list" id="event-list"></div>
+              </section>
+
+              <aside class="detail-panel" id="event-detail" aria-live="polite" aria-label="선택한 이벤트 상세"></aside>
+            </div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <dialog class="connection-dialog" id="connection-dialog" aria-labelledby="dialog-title">
+      <form id="connection-form" novalidate>
+        <div class="dialog-heading">
+          <div><p class="eyebrow">LOCAL DEMO</p><h2 id="dialog-title">연결 추가</h2></div>
+          <button class="icon-button" id="close-dialog" type="button" aria-label="닫기">×</button>
+        </div>
+        <p class="dialog-description">입력한 정보는 데모 목록에만 추가됩니다. 실제 MCP 서버에는 연결하지 않습니다.</p>
+        <label class="form-field">표시 이름<input id="connection-name" name="name" required placeholder="예: 내부 문서 도구"></label>
+        <label class="form-field">연결 방식<select id="connection-transport" name="transport"><option value="stdio">로컬 명령 (stdio)</option><option value="streamable-http">Streamable HTTP</option></select></label>
+        <label class="form-field" id="command-field">명령<input id="connection-command" name="command" placeholder="예: node ./server.mjs"></label>
+        <label class="form-field hidden" id="url-field">서버 주소<input id="connection-url" name="url" type="url" placeholder="https://example.com/mcp"></label>
+        <p class="form-error" id="form-error" role="alert"></p>
+        <div class="dialog-actions"><button class="button button-secondary" id="cancel-dialog" type="button">취소</button><button class="button button-primary" type="submit">데모에 추가</button></div>
+      </form>
+    </dialog>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  </body>
+</html>

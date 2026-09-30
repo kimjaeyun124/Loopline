@@ -1036,7 +1036,9 @@ export class HarnessEngine {
 
     if (round >= ceiling) {
       run.status = 'limit';
-      run.summary = '자동 최대 회차에 도달했습니다. 완료 판정을 통과하지 못해 원본에는 반영하지 않았습니다.';
+      run.summary = run.autoRounds
+        ? '자동 최대 회차에 도달했습니다. 완료 판정을 통과하지 못해 원본에는 반영하지 않았습니다.'
+        : '설정한 최대 회차에 도달했습니다. 완료 판정을 통과하지 못해 원본에는 반영하지 않았습니다.';
     }
     return { completedRounds: round, plan, previousSummary, feedback, reselectVerification, decision: 'revise', summary: run.summary, nextNode: run.status === 'limit' ? 'finish' : 'round' };
   }

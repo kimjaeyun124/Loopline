@@ -18,6 +18,22 @@ test('the browser can load the provider-neutral automatic loop routing policy', 
   assert.match(await response.text(), /selectAutomaticLoopModel/);
 });
 
+test('the browser can load every module imported by its app entry point', async (t) => {
+  const f = await startFixture(); t.after(f.close);
+  const appSource = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const modules = [...appSource.matchAll(/^import\s+.+?\s+from\s+['"]([^'"]+)['"];?\s*$/gm)]
+    .map(([, specifier]) => specifier);
+  assert.ok(modules.length > 0, 'the app entry point should declare first-party modules');
+
+  for (const specifier of modules) {
+    const pathname = new URL(specifier, 'http://127.0.0.1').pathname;
+    const response = await fetch(`${f.url}${pathname}`);
+    assert.equal(response.status, 200, `app.js import ${specifier} should be served`);
+    assert.match(response.headers.get('content-type') || '', /javascript/,
+      `app.js import ${specifier} should have a JavaScript content type`);
+  }
+});
+
 test('HTTP relay preserves an upstream 503 so Harness uses the next planner model', async (t) => {
   const f = await startFixture({ failModelOnce: { model: 'qa-worker', status: 503 } }); t.after(f.close);
   const primary = f.input.roles.planner;

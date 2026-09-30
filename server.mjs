@@ -24,6 +24,11 @@ const codexProgressInstructions = [
   '최종 답변과 진행 안내를 분리하세요. 내부 추론이나 비공개 분석을 공개하지 말고, 사용자에게 이해 가능한 목표·현재 상태·확인 결과만 전달하세요.',
   '단순 질문에는 진행 안내를 덧붙이지 말고, 같은 내용을 반복하거나 도구 호출마다 설명하지 마세요. 확인되지 않은 진행 상황은 만들어내지 마세요.',
 ].join('\n');
+const harnessCodexInstructions = [
+  '이 호출은 Loopline Harness의 기계 간 역할 호출입니다.',
+  '가장 최근 사용자 메시지가 요구한 응답 본문과 형식만 반환하세요. 사용자에게 보이는 진행 안내, 머리말, 마크다운 코드 펜스, 별도 결론을 덧붙이지 마세요.',
+  '파일 작업과 검증은 Harness가 수행하므로 Codex 도구를 실행하지 마세요.',
+].join('\n');
 const publicDir = join(root, 'public');
 const userDataDir = resolve(process.env.MOSAIC_USER_DATA_DIR || join(homedir(), '.mosaic-desk'));
 const codexAccountsDir = join(userDataDir, 'codex-accounts');
@@ -1441,7 +1446,7 @@ function validCodexThreadId(value) {
   return typeof value === 'string' && value.length <= 160 && /^[A-Za-z0-9_-]+$/.test(value);
 }
 
-async function ensureCodexThread(context, requestedId, model, ephemeral = false) {
+async function ensureCodexThread(context, requestedId, model, ephemeral = false, developerInstructions = codexProgressInstructions) {
   const client = await getCodexAppServer(context);
   const cwd = await codexSandboxDir(context);
   if (requestedId && !validCodexThreadId(requestedId)) {
@@ -1455,7 +1460,7 @@ async function ensureCodexThread(context, requestedId, model, ephemeral = false)
         cwd,
         approvalPolicy: 'never',
         sandbox: 'read-only',
-        developerInstructions: codexProgressInstructions,
+        developerInstructions,
       });
       context.loadedThreads.add(requestedId);
     }
@@ -1467,7 +1472,7 @@ async function ensureCodexThread(context, requestedId, model, ephemeral = false)
     cwd,
     approvalPolicy: 'never',
     sandbox: 'read-only',
-    developerInstructions: codexProgressInstructions,
+    developerInstructions,
     serviceName: 'mosaic_desk',
     // Harness role calls are recorded in Loopline; keep their Codex threads out of chat history.
     ...(ephemeral ? { ephemeral: true } : {}),
@@ -1569,7 +1574,7 @@ async function codexFallbackCandidates(excludedAccountIds, model, reasoningEffor
   });
 }
 
-async function runCodexTurnAttempt(context, model, messages, requestedThreadId, res, instructions, fastMode, accountStatus, reasoningEffort, ephemeralCodexThread = false) {
+async function runCodexTurnAttempt(context, model, messages, requestedThreadId, res, instructions, fastMode, accountStatus, reasoningEffort, ephemeralCodexThread = false, developerInstructions = codexProgressInstructions) {
   const client = await getCodexAppServer(context);
   const modelInfo = accountStatus.models?.find((item) => item.id === model);
   const supportedEfforts = modelInfo?.supportedReasoningEfforts
@@ -1588,7 +1593,7 @@ async function runCodexTurnAttempt(context, model, messages, requestedThreadId, 
     : null;
   let thread;
   try {
-    thread = await ensureCodexThread(context, requestedThreadId, model, ephemeralCodexThread);
+    thread = await ensureCodexThread(context, requestedThreadId, model, ephemeralCodexThread, developerInstructions);
   } catch (error) {
     return { error: error.message || 'Codex 대화를 열지 못했습니다.', rateLimited: isUsageLimitError(error) };
   }
@@ -1680,7 +1685,7 @@ async function runCodexTurnAttempt(context, model, messages, requestedThreadId, 
   return result;
 }
 
-async function runCodexTurn(requestedAccountId, model, messages, requestedThreadId, res, instructions = '', fastMode = false, reasoningEffort = null, ephemeralCodexThread = false) {
+async function runCodexTurn(requestedAccountId, model, messages, requestedThreadId, res, instructions = '', fastMode = false, reasoningEffort = null, ephemeralCodexThread = false, developerInstructions = codexProgressInstructions) {
   let candidates;
   try {
     candidates = await codexTurnCandidates(requestedAccountId, model, reasoningEffort);
@@ -1712,7 +1717,7 @@ async function runCodexTurn(requestedAccountId, model, messages, requestedThread
     context.pendingChatRequests.add(reservation);
     let result;
     try {
-      result = await runCodexTurnAttempt(context, model, messages, threadId, res, instructions, fastMode, accountStatus, reasoningEffort, ephemeralCodexThread);
+      result = await runCodexTurnAttempt(context, model, messages, threadId, res, instructions, fastMode, accountStatus, reasoningEffort, ephemeralCodexThread, developerInstructions);
     } finally {
       context.pendingChatRequests.delete(reservation);
     }
@@ -1855,7 +1860,11 @@ async function relayChat(req, res, internalOptions = {}) {
       'X-Accel-Buffering': 'no',
       'X-Content-Type-Options': 'nosniff',
     });
-    if (provider === 'openai') await runCodexTurn(codexAccountId, model, messages, body.codexThreadId, res, instructions, body.fastMode === true, body.reasoningEffort, internalOptions.ephemeralCodexThread === true);
+    if (provider === 'openai') {
+      const ephemeralCodexThread = internalOptions.ephemeralCodexThread === true;
+      const developerInstructions = ephemeralCodexThread ? harnessCodexInstructions : codexProgressInstructions;
+      await runCodexTurn(codexAccountId, model, messages, body.codexThreadId, res, instructions, body.fastMode === true, body.reasoningEffort, ephemeralCodexThread, developerInstructions);
+    }
     else await runClaudeCli(model, conversationPrompt(messages, instructions), res, body.reasoningEffort,
       (usage, usedModel) => recordTokenUsage({
         provider: 'claude',

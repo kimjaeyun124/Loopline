@@ -435,6 +435,39 @@ test('automatic verification command is reused after a passing check requests an
   assert.equal(run.events.filter((event) => event.title.startsWith('검증 자동 구성')).length, 1);
 });
 
+test('an insufficient judge verification verdict replans the command for the next round', async (t) => {
+  const f = await fixture(t), script = modelScript(complete);
+  let verificationPlans = 0, reviews = 0;
+  const verifiedCommands = [];
+  const engine = new HarnessEngine({ directory: f.data, verify: async (_workspace, command) => {
+    verifiedCommands.push(command);
+    return pass();
+  }, invoke: async (selection, prompt, ...rest) => {
+    if (startsWithText(prompt, '검증 방법을')) {
+      const verifyCommand = verificationPlans++ === 0 ? 'test -f file.txt' : 'test -s file.txt';
+      return JSON.stringify({ verifyCommand, reason: 'Check the latest implementation evidence.' });
+    }
+    if (isJudgementPrompt(prompt)) {
+      if (prompt.questions.command) return judgementResponse(prompt);
+      const answers = Object.fromEntries(Object.keys(prompt.questions).map((id) => [id, {
+        choice: id === 'verification' && reviews === 0 ? 'revise' : 'pass',
+        reason: id === 'verification' && reviews === 0 ? 'The first check does not cover the behavior tests.' : 'The available evidence is sufficient.',
+      }]));
+      reviews++;
+      return JSON.stringify({ answers });
+    }
+    return script(selection, prompt, ...rest);
+  } });
+
+  const run = await settled(engine, (await engine.create({ ...f.input, verifyCommand: undefined, rounds: 2 })).id);
+  assert.equal(run.status, 'completed', run.summary);
+  assert.equal(run.round, 2);
+  assert.equal(reviews, 2);
+  assert.equal(verificationPlans, 2);
+  assert.deepEqual(verifiedCommands, ['test -f file.txt', 'test -s file.txt']);
+  assert.equal(run.events.filter((event) => event.title.startsWith('검증 자동 구성')).length, 2);
+});
+
 test('automatic verification keeps the same command after a test assertion fails', async (t) => {
   const f = await fixture(t), script = modelScript(complete);
   let verificationPlans = 0, reviews = 0, verifications = 0;

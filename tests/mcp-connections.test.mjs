@@ -1,8 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { createServer } from 'node:http';
+import { once } from 'node:events';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { McpConnections } from '../mcp-connections.mjs';
 import { startFixture } from './fixtures/harness-server.mjs';
 
 const mcpServerFile = fileURLToPath(new URL('./fixtures/mcp-stdio-server.mjs', import.meta.url));
@@ -29,6 +33,68 @@ async function connectMcp(fixture) {
   const connected = await fixture.request(`/api/mcp/servers/${saved.id}/connect`, {});
   return { ...connected, log };
 }
+
+test('remote Streamable HTTP MCP uses the saved Bearer token without exposing it in connection metadata', async (t) => {
+  const token = 'qa-mcp-bearer-token';
+  const calls = [];
+  const server = createServer(async (req, res) => {
+    calls.push({ method: req.method, authorization: req.headers.authorization || '' });
+    if (req.method === 'GET') {
+      if (req.headers.authorization !== `Bearer ${token}`) { res.writeHead(401, { 'WWW-Authenticate': 'Bearer' }).end(); return; }
+      res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' });
+      res.write(': connected\n\n');
+      return;
+    }
+    const chunks = [];
+    for await (const chunk of req) chunks.push(chunk);
+    const message = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+    calls.push({ method: message.method, authorization: req.headers.authorization || '' });
+    if (req.headers.authorization !== `Bearer ${token}`) {
+      res.writeHead(401, { 'WWW-Authenticate': 'Bearer' }).end();
+      return;
+    }
+    if (message.method.startsWith('notifications/')) {
+      res.writeHead(202).end();
+      return;
+    }
+    const result = message.method === 'initialize'
+      ? { protocolVersion: message.params.protocolVersion, capabilities: { tools: {} }, serverInfo: { name: 'remote-qa', version: '1.0.0' } }
+      : message.method === 'tools/list'
+        ? { tools: [{ name: 'remote_status', description: 'Remote QA status.', inputSchema: { type: 'object', properties: {} } }] }
+        : message.method === 'tools/call'
+          ? { content: [{ type: 'text', text: 'REMOTE_MCP_OK' }] }
+          : {};
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ jsonrpc: '2.0', id: message.id, result }));
+  });
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const directory = await mkdtemp(join(tmpdir(), 'loopline-mcp-http-'));
+  const manager = new McpConnections(directory);
+  t.after(async () => {
+    await manager.close();
+    server.closeAllConnections();
+    await new Promise((resolve) => server.close(resolve));
+    await rm(directory, { recursive: true, force: true });
+  });
+
+  const address = server.address();
+  const saved = await manager.save({
+    name: 'Remote MCP QA',
+    transport: 'http',
+    url: `http://127.0.0.1:${address.port}/mcp`,
+    token,
+  });
+  const connected = await manager.connect(saved.id);
+  assert.equal(connected.connected, true);
+  assert.deepEqual(connected.tools.map((tool) => tool.name), ['remote_status']);
+  const result = await manager.callTool(saved.id, 'remote_status', {});
+  assert.match(result.output, /REMOTE_MCP_OK/);
+  assert.ok(calls.length >= 3);
+  assert.ok(calls.every((item) => item.authorization === `Bearer ${token}`));
+  const metadata = await readFile(join(directory, 'mcp-connections.json'), 'utf8');
+  assert.equal(metadata.includes(token), false);
+});
 
 test('local stdio MCP connects, lists tools, runs an allowlisted tool, and keeps environment secrets out of metadata', async (t) => {
   const fixture = await startFixture({ mcpWorkerTool: 'get_status' }); t.after(fixture.close);

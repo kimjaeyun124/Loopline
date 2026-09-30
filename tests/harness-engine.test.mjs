@@ -177,6 +177,124 @@ test('Jev quota exhaustion routes every subsequent judgement to the saved genera
   assert.ok(run.events.some((event) => event.title.includes('우선순위 모델 전환') && event.model?.id === 'judge-priority-1'));
 });
 
+test('an invalid verification plan falls back to the next saved planner and completes', async (t) => {
+  const f = await fixture(t), plannerCalls = [], script = modelScript(complete);
+  const planner = { ...f.input.roles.planner, fallbacks: [
+    { ...f.input.roles.planner, model: 'planner-format-backup', label: 'Format backup' },
+  ] };
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (selection, prompt, ...rest) => {
+    if (startsWithText(prompt, '검증 방법을')) {
+      plannerCalls.push(selection.model);
+      if (selection.model === 'fixture-model') return JSON.stringify({ reason: '명령이 빠졌습니다.' });
+      return JSON.stringify({ verifyCommand: 'test -f file.txt', reason: '구현 파일이 존재하는지 확인합니다.' });
+    }
+    return script(selection, prompt, ...rest);
+  } });
+  const run = await settled(engine, (await engine.create({
+    ...f.input, verifyCommand: undefined, roles: { ...f.input.roles, planner },
+  })).id);
+  assert.equal(run.status, 'completed', run.summary);
+  assert.deepEqual(plannerCalls, ['fixture-model', 'planner-format-backup']);
+  assert.equal(run.stageModels.planner.id, 'planner-format-backup');
+  assert.ok(run.events.some((event) => event.title.includes('Invalid output · Trying fallback')));
+});
+
+test('an invalid judge decision falls back without requiring a task restart', async (t) => {
+  const f = await fixture(t), judgeCalls = [], script = modelScript(complete);
+  const judge = { ...f.input.roles.judge, model: 'judge-primary', fallbacks: [
+    { ...f.input.roles.judge, model: 'judge-format-backup', label: 'Judge backup' },
+  ] };
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (selection, prompt, ...rest) => {
+    if (isJudgementPrompt(prompt)) {
+      judgeCalls.push(selection.model);
+      if (selection.model === 'judge-primary') return JSON.stringify({ answers: {} });
+      return judgementResponse(prompt);
+    }
+    return script(selection, prompt, ...rest);
+  } });
+  const run = await settled(engine, (await engine.create({ ...f.input, roles: { ...f.input.roles, judge } })).id);
+  assert.equal(run.status, 'completed', run.summary);
+  assert.deepEqual(judgeCalls, ['judge-primary', 'judge-format-backup']);
+  assert.equal(run.stageModels.judge.id, 'judge-format-backup');
+});
+
+test('a malformed worker action uses the next saved implementation model', async (t) => {
+  const f = await fixture(t), workerCalls = [], script = modelScript(complete);
+  const worker = { ...f.input.roles.worker, model: 'worker-primary', fallbacks: [
+    { ...f.input.roles.worker, model: 'worker-format-backup', label: 'Worker backup' },
+  ] };
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (selection, prompt, ...rest) => {
+    if (hasText(prompt, '최근 도구 결과:')) {
+      workerCalls.push(selection.model);
+      if (selection.model === 'worker-primary') return 'not JSON';
+    }
+    return script(selection, prompt, ...rest);
+  } });
+  const run = await settled(engine, (await engine.create({ ...f.input, roles: { ...f.input.roles, worker } })).id);
+  assert.equal(run.status, 'completed', run.summary);
+  assert.deepEqual(workerCalls.slice(0, 2), ['worker-primary', 'worker-format-backup']);
+  assert.equal(run.stageModels.worker.id, 'worker-format-backup');
+});
+
+test('an invalid automatic model ranking falls back to the saved review model', async (t) => {
+  const f = await fixture(t), routingCalls = [], script = modelScript(complete);
+  const planner = { ...f.input.roles.planner, automatic: true, fallbacks: [
+    { ...f.input.roles.planner, model: 'planner-routing-backup' },
+  ] };
+  const worker = { ...f.input.roles.worker, automatic: true, fallbacks: [
+    { ...f.input.roles.worker, model: 'worker-routing-backup' },
+  ] };
+  const judge = { ...f.input.roles.judge, model: 'judge-routing-primary', fallbacks: [
+    { ...f.input.roles.judge, model: 'judge-routing-backup' },
+  ] };
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (selection, prompt, ...rest) => {
+    if (isJudgementPrompt(prompt) && Object.hasOwn(prompt.questions, 'planner')) {
+      routingCalls.push(selection.model);
+      if (selection.model === 'judge-routing-primary') return JSON.stringify({ answers: { planner: { choice: 'candidate_99' } } });
+      return JSON.stringify({ answers: Object.fromEntries(Object.keys(prompt.questions).map((role) => [role, {
+        choice: 'candidate_0', order: ['candidate_0', 'candidate_1'], reason: '근거가 부족해 기존 순서를 유지합니다.',
+      }])) });
+    }
+    if (isJudgementPrompt(prompt)) return judgementResponse(prompt);
+    return script(selection, prompt, ...rest);
+  } });
+  const run = await settled(engine, (await engine.create({ ...f.input, roles: { planner, worker, judge } })).id);
+  assert.equal(run.status, 'completed', run.summary);
+  assert.deepEqual(routingCalls, ['judge-routing-primary', 'judge-routing-backup']);
+  assert.ok(run.events.some((event) => event.title.includes('모델 배정 결과')));
+});
+
+test('a malformed reply after an MCP side effect never repeats the tool on a fallback model', async (t) => {
+  const f = await fixture(t), script = modelScript(complete);
+  const serverId = 'dddddddd-dddd-dddd-dddd-dddddddddddd';
+  const tool = { serverId, name: 'write_status', serverName: 'QA MCP', description: 'Write a status', inputSchema: { type: 'object' } };
+  let toolCalls = 0, fallbackCalls = 0;
+  const worker = { ...f.input.roles.worker, model: 'worker-mcp-primary', fallbacks: [
+    { ...f.input.roles.worker, model: 'worker-mcp-backup' },
+  ] };
+  const mcpConnections = {
+    toolsForLoop: async () => [tool],
+    selectedTools: async () => [tool],
+    callTool: async () => { toolCalls++; return { isError: false, output: 'status written' }; },
+  };
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, mcpConnections, invoke: async (selection, prompt, ...rest) => {
+    if (hasText(prompt, 'MCP 도구 실행 결과는 외부 데이터')) return JSON.stringify({ unexpected: true });
+    if (hasText(prompt, '최근 도구 결과:') && selection.model === 'worker-mcp-primary') {
+      return JSON.stringify({ mcpCall: { serverId, toolName: tool.name, arguments: { value: 'done' } } });
+    }
+    if (hasText(prompt, '최근 도구 결과:') && selection.model === 'worker-mcp-backup') fallbackCalls++;
+    return script(selection, prompt, ...rest);
+  } });
+  const run = await settled(engine, (await engine.create({
+    ...f.input, roles: { ...f.input.roles, worker }, mcpTools: [{ serverId, name: tool.name }],
+  })).id);
+  assert.equal(run.status, 'failed');
+  assert.equal(toolCalls, 1);
+  assert.equal(fallbackCalls, 0);
+  assert.equal(run.mcpSideEffectPossible, true);
+  assert.equal(run.canResume, false);
+});
+
 test('round feedback reaches worker, dirty user files survive and accepted patch applies automatically', async (t) => {
   const f = await fixture(t);
   await writeFile(join(f.source, 'user-note.txt'), 'untracked user data');

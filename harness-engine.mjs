@@ -871,7 +871,7 @@ export class HarnessEngine {
     const round = (state.completedRounds || 0) + 1;
     let { feedback = '', previousSummary = '', reselectVerification = false } = state;
     aborted(signal); run.round = round; run.stage = 'working';
-    const history = createWorkerHistory(); let lastReadAction = '', repeatedReads = 0;
+    const history = createWorkerHistory(); let lastReadAction = '', repeatedReads = 0, repeatedReadFeedbackSent = false;
     const visualDesignGuidance = isVisualInterfaceTask(run.task, state.files)
       ? '\n웹 UI 작업 기준: 계획의 디자인 브리프를 실제 화면에 반영하세요. 색상·타입·간격을 일관된 디자인 토큰으로 구성하고, 모바일/데스크톱 레이아웃과 키보드 포커스·입력/빈 상태를 구현하세요. 기본 템플릿이나 임시 텍스트 장식에 기대지 말고 명확한 시각 위계를 만드세요.'
       : '';
@@ -887,9 +887,20 @@ export class HarnessEngine {
         previousSummary = action.summary.slice(0, 8000); finished = true; break;
       }
       const readAction = Array.isArray(action.operations) && action.operations.every((op) => ['read', 'list'].includes(op?.type)) ? JSON.stringify(action.operations) : '';
-      repeatedReads = readAction && readAction === lastReadAction ? repeatedReads + 1 : 0;
+      const repeatedRead = readAction && readAction === lastReadAction;
+      repeatedReads = repeatedRead ? repeatedReads + 1 : 0;
+      if (!repeatedRead) repeatedReadFeedbackSent = false;
       lastReadAction = readAction;
-      if (repeatedReads >= 2) throw fail('모델이 같은 읽기 작업을 반복하여 실행을 멈췄습니다. 작업 목표나 구현 모델을 변경해 주세요.');
+      if (repeatedReads >= 2 && !completion) {
+        if (repeatedReadFeedbackSent) throw fail('모델이 같은 읽기 작업을 반복한 뒤 안내를 따르지 않아 실행을 멈췄습니다.');
+        repeatedReadFeedbackSent = true;
+        const detail = '같은 파일 읽기가 이미 성공했습니다. 현재 내용은 최근 도구 결과에 있습니다. 다시 읽지 말고 그 내용을 기준으로 필요한 edit/write를 하거나, 수정이 끝났으면 done으로 완료하세요.';
+        const paths = [...new Set(action.operations.map((operation) => typeof operation.path === 'string' ? operation.path : '.'))];
+        history.errors.push({ step: step + 1, paths, detail });
+        history.errors = history.errors.slice(-3);
+        await this.event(record, '중복 읽기 안내 / Repeated read guidance', detail);
+        continue;
+      }
       try {
         const results = await applyWorkspaceOperations(run.workspace, action.operations, signal);
         recordWorkerResults(history, step + 1, action.operations, results);

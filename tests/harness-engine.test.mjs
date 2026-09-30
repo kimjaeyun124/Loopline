@@ -396,6 +396,7 @@ test('failed verification cannot be overridden by a complete verdict', async (t)
   const engine = new HarnessEngine({ directory: f.data, invoke: modelScript(complete), verify: async () => ({ code: 1, output: '', error: 'FAIL' }) });
   const run = await settled(engine, (await engine.create({ ...f.input, rounds: 1 })).id);
   assert.equal(run.status, 'limit'); assert.equal(run.applied, undefined);
+  assert.match(run.summary, /설정한 최대 회차/);
   assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'original\n');
 });
 

@@ -1644,9 +1644,9 @@ async function runCodexTurnAttempt(context, model, messages, requestedThreadId, 
   };
   active.onResponseClose = onResponseClose;
   res.on('close', onResponseClose);
-  // Harness roles can spend several minutes planning or returning structured file operations.
-  // Keep ordinary chat responsive while giving these isolated turns enough time to finish.
-  const turnTimeoutMs = ephemeralCodexThread ? 10 * 60_000 : 120_000;
+  // Harness roles may need extra time at maximum reasoning effort; ordinary chat stays responsive.
+  // Users can still stop a running Harness call from the Loop timeline.
+  const turnTimeoutMs = ephemeralCodexThread ? 15 * 60_000 : 120_000;
   active.timer = setTimeout(() => {
     if (active.turnId) client.request('turn/interrupt', { threadId: active.threadId, turnId: active.turnId }, 10_000).catch(() => {});
     finalizeCodexTurn(active, { error: '요청 시간이 초과되었습니다.' });

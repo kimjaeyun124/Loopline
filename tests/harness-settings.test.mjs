@@ -54,6 +54,20 @@ test('model settings survive a fresh UI instance without workspace inputs', (t) 
   assert.deepEqual(reloaded.saved().roles.worker, { model: 'jev-test', effort: 'high', fallbacks: [] });
 });
 
+test('Loop role model choices show and search by model strengths', (t) => {
+  const model = {
+    provider: 'openai', id: 'gpt-6-luna', label: 'GPT-6-Luna', source: 'Codex', connected: true,
+    description: 'Fast and affordable model for easier tasks.',
+    supportedReasoningEfforts: [{ reasoningEffort: 'medium' }],
+  };
+  const s = setup(t, { models: [model] }); s.ui.open();
+  assert.match(s.fields.innerHTML, /GPT-6-Luna · 가벼운 작업 · 빠르고 효율적/);
+  assert.match(s.fields.innerHTML, /가벼운 작업 · 빠르고 효율적/);
+  s.node('#harnessModelSearch').value = '빠르고 효율적';
+  s.node('#harnessModelSearch').fire('input');
+  assert.match(s.fields.innerHTML, /value="gpt-6-luna"/);
+});
+
 test('loop compute priorities are reorderable, persisted, and keep completion locked at the top', (t) => {
   const s = setup(t); s.ui.open();
   assert.match(s.node('#harnessPriorities').innerHTML, /완료 안정성/);

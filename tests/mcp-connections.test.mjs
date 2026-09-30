@@ -21,14 +21,14 @@ async function until(check, timeout = 20000) {
   throw new Error('MCP QA did not reach the expected state');
 }
 
-async function connectMcp(fixture, { autoRun = false } = {}) {
+async function connectMcp(fixture, { autoRun = false, extraTools = 0 } = {}) {
   const log = join(fixture.data, 'mcp-calls.log');
   const saved = await fixture.request('/api/mcp/servers', {
     name: 'Local MCP QA',
     transport: 'stdio',
     command: process.execPath,
     args: [mcpServerFile],
-    env: { QA_MCP_LOG: log, QA_SECRET_VALUE: 'must-not-be-saved-in-plain-text' },
+    env: { QA_MCP_LOG: log, QA_SECRET_VALUE: 'must-not-be-saved-in-plain-text', QA_MCP_EXTRA_TOOL_COUNT: String(extraTools) },
     autoRun,
   });
   const connected = await fixture.request(`/api/mcp/servers/${saved.id}/connect`, {});
@@ -140,6 +140,21 @@ test('automatic MCP connection is attached to Loop runs without a manual tool se
   assert.equal(run.status, 'completed', run.summary);
   assert.equal(run.mcpCalls, 1);
   assert.equal(await readFile(server.log, 'utf8'), 'get_status\n');
+});
+
+test('Loop automatically handles a Paper-sized catalog with more than 24 tools and 32KB of definitions', async (t) => {
+  const fixture = await startFixture({ mcpWorkerTool: 'get_status' }); t.after(fixture.close);
+  const server = await connectMcp(fixture, { autoRun: true, extraTools: 35 });
+  assert.equal(server.tools.length, 37);
+  assert.ok(Buffer.byteLength(JSON.stringify(server.tools)) > 32_000);
+
+  const created = await fixture.request('/api/harness/runs', { ...fixture.input, mcpTools: [] });
+  const run = await until(async () => {
+    const current = await fixture.request(`/api/harness/runs/${created.id}`);
+    return current.finishedAt ? current : null;
+  });
+  assert.equal(run.status, 'completed', run.summary);
+  assert.equal(run.mcpCalls, 1);
 });
 
 test('Figma quick-connect API saves an automatic local connector and reports when Desktop MCP is unavailable', async (t) => {

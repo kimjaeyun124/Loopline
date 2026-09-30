@@ -25,9 +25,15 @@ for await (const line of input) {
       serverInfo: { name: 'loopline-qa-mcp', version: '1.0.0' },
     };
   } else if (request.method === 'tools/list') {
+    const extraCount = Math.max(0, Math.min(120, Number(process.env.QA_MCP_EXTRA_TOOL_COUNT) || 0));
     result = { tools: [
       { name: 'get_status', description: 'Return a fixed local QA status.', inputSchema: { type: 'object', properties: {} } },
       { name: 'slow', description: 'Wait until cancelled for stop-flow QA.', inputSchema: { type: 'object', properties: { delayMs: { type: 'number' } } } },
+      ...Array.from({ length: extraCount }, (_, index) => ({
+        name: `extra_${index + 1}`,
+        description: 'Additional MCP QA tool description. '.repeat(24),
+        inputSchema: { type: 'object', properties: { input: { type: 'string' } } },
+      })),
     ] };
   } else if (request.method === 'tools/call') {
     const name = request.params?.name;

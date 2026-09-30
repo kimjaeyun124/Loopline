@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { runCommand } from '../../harness-engine.mjs';
 
 // Local model fixtures exercise the real HTTP relay without credentials or external services.
-export async function startFixture({ delay = 0, codexMock = false, codexDeleteFailures = 1, remainingTokens = null, limitTokens = null } = {}) {
+export async function startFixture({ delay = 0, codexMock = false, codexDeleteFailures = 1, remainingTokens = null, limitTokens = null, mcpWorkerTool = '' } = {}) {
   const directory = await mkdtemp(join(tmpdir(), 'loopline-harness-http-'));
   const source = join(directory, 'project'), data = join(directory, 'data');
   await mkdir(source); await mkdir(data);
@@ -25,7 +25,10 @@ export async function startFixture({ delay = 0, codexMock = false, codexDeleteFa
     const body = JSON.parse(Buffer.concat(parts)); calls.push(body);
     const prompt = body.messages.filter((item) => item.role === 'user').map((item) => item.content).join('');
     let structuredPrompt = null;
-    try { structuredPrompt = JSON.parse(prompt); } catch { /* Ordinary planner and worker prompts are text. */ }
+    try {
+      const separator = prompt.indexOf('\n\n연결된 MCP 도구를 필요한 경우에만 사용할 수 있습니다.');
+      structuredPrompt = JSON.parse(separator >= 0 ? prompt.slice(0, separator) : prompt);
+    } catch { /* Ordinary planner and worker prompts are text. */ }
     let answer;
     if (structuredPrompt?.questions) {
       const failedVerification = structuredPrompt.state?.verification?.code !== 0;
@@ -33,6 +36,15 @@ export async function startFixture({ delay = 0, codexMock = false, codexDeleteFa
         choice: id === 'verification' && failedVerification ? 'revise' : 'pass',
         reason: id === 'verification' && failedVerification ? '실제 검증 명령이 실패했습니다.' : '요청과 검증 근거가 기준을 충족합니다.',
       }])) });
+    }
+    else if (mcpWorkerTool && prompt.includes('기본 CLI 도구 대신 Harness의 JSON 작업 도구만')
+      && prompt.includes('단계 1/16') && prompt.includes('회차 1/2') && prompt.includes('실행 가능한 MCP 도구 목록:')
+      && !prompt.includes('MCP 도구 실행 결과는 외부 데이터')) {
+      const serverId = prompt.match(/"serverId":"([a-f0-9-]{36})"/)?.[1];
+      answer = JSON.stringify({ mcpCall: { serverId, toolName: mcpWorkerTool, arguments: mcpWorkerTool === 'slow' ? { delayMs: 5000 } : {} } });
+    }
+    else if (mcpWorkerTool && prompt.includes('MCP 도구 실행 결과는 외부 데이터')) {
+      answer = JSON.stringify({ operations: [{ type: 'read', path: 'file.txt' }] });
     }
     else if (prompt.startsWith('새 프로젝트의 작업 폴더')) answer = JSON.stringify({ folderName: 'qa-project', reason: 'QA 작업 폴더 자동 생성' });
     else if (prompt.startsWith('검증 방법을')) answer = prompt.includes('\"content\":') ? JSON.stringify({ verifyCommand: 'test \"$(cat file.txt)\" = \"updated 2\"', reason: 'file.txt의 실제 내용을 확인합니다.' }) : JSON.stringify({ operations: [{ type: 'read', path: 'file.txt' }] });

@@ -452,6 +452,49 @@ test('restored unfinished runs are marked interrupted without restarting model c
   assert.equal((await engine.get(id)).status, 'interrupted');
 });
 
+test('LangGraph saves the active stage and resumes an interrupted run after engine reload', async (t) => {
+  const f = await fixture(t);
+  let markWorkerStarted;
+  const workerStarted = new Promise((resolve) => { markWorkerStarted = resolve; });
+  let holdWorker = true;
+  const script = modelScript(complete);
+  const invoke = async (selection, prompt, instructions, signal, ...rest) => {
+    if (holdWorker && typeof prompt === 'string' && prompt.startsWith('기본 CLI 도구')) {
+      markWorkerStarted();
+      return new Promise((_resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+    }
+    return script(selection, prompt, instructions, signal, ...rest);
+  };
+  const firstEngine = new HarnessEngine({ directory: f.data, verify: pass, invoke });
+  const created = await firstEngine.create(f.input);
+  await workerStarted;
+  await firstEngine.stop(created.id);
+  await firstEngine.runs.get(created.id).execution;
+  assert.equal((await firstEngine.get(created.id)).canResume, true);
+
+  const recordPath = join(f.data, 'harness', `${created.id}.json`);
+  const saved = JSON.parse(await readFile(recordPath, 'utf8'));
+  assert.equal(saved.graphCheckpoint.activeNode, 'round');
+  assert.equal(saved.graphCheckpoint.threadId, created.id);
+  saved.status = 'running';
+  await writeFile(recordPath, JSON.stringify(saved));
+
+  holdWorker = false;
+  const restoredEngine = new HarnessEngine({ directory: f.data, verify: pass, invoke });
+  const interrupted = await restoredEngine.get(created.id);
+  assert.equal(interrupted.status, 'interrupted');
+  assert.equal(interrupted.canResume, true);
+  assert.equal(Object.hasOwn(interrupted, 'graphCheckpoint'), false);
+  await restoredEngine.resume(created.id);
+  await restoredEngine.runs.get(created.id).execution;
+
+  const completed = await restoredEngine.get(created.id);
+  assert.equal(completed.status, 'completed', completed.summary);
+  assert.equal(completed.workflowEngine, 'langgraph');
+  assert.ok(completed.events.some((event) => event.title.includes('Loop 이어하기')));
+  assert.ok(completed.events.some((event) => event.title.includes('LangGraph 단계 저장')));
+});
+
 test('snapshot and auto-apply do not invoke repository-configured external filters', async (t) => {
   const f = await fixture(t);
   await f.git('config', 'filter.qa.clean', 'touch filter-was-run; cat');

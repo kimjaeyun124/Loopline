@@ -3,14 +3,15 @@ import { isDeepStrictEqual } from 'node:util';
 
 export const QA_CATEGORIES = ['input', 'save', 'empty', 'keyboard'];
 const ACTIONS = new Set(['reset', 'reload', 'fill', 'click', 'press', 'visible', 'hidden', 'text', 'value', 'count', 'focused', 'focus-visible']);
+const KEYS = new Set(['Tab', 'Enter', 'Escape', 'ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Space', 'Backspace']);
 export const BROWSER_QA_EXECUTOR = Object.freeze({
   viewports: [{ id: 'desktop', width: 1440, height: 900 }, { id: 'mobile', width: 390, height: 844 }],
   actions: [...ACTIONS],
+  keys: [...KEYS],
   fixedChecks: [{ id: 'layout', after: 'every planned check and the final state', criteria: ['nonblank rendered page', 'no horizontal overflow', 'requested viewport width'] }],
   focusVisibleEvidence: 'focus-visible asserts keyboard focus plus a visible outline or a box shadow that changed from its unfocused style; focused alone asserts only the active element.',
   textEvidence: 'text asserts rendered, visible text. A document title or head metadata is not visible page text; use a visible heading for page-title UI assertions.',
 });
-const KEYS = new Set(['Tab', 'Enter', 'Escape', 'ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Space', 'Backspace']);
 export function needsBrowserQa(task, files = '') {
   return /(?:website|web\s*(?:app|page|site)|front[- ]end|dashboard|landing\s*page|\bUI\b|웹\s*(?:사이트|앱|페이지)|프론트엔드|대시보드|랜딩|화면|디자인)/i.test(task)
     || /(?:^|\n).*\.(?:html|jsx|tsx|vue|svelte|astro)(?:\n|$)/i.test(files);
@@ -46,7 +47,7 @@ export function validateBrowserPlan(plan) {
       // clear cases before freezing a contract the implementation cannot meet.
       if (['text', 'visible', 'fill', 'click', 'focused', 'focus-visible'].includes(step.action)
         && /^(?:html\s*(?:>\s*)?)?(?:head\s*(?:>\s*)?)?(?:head|title|meta|link|script|style)$/i.test(step.selector.trim())) invalid(`${check.id}: ${step.action} ${step.selector}는 표시되는 화면 요소를 검사할 수 없습니다. text는 가시성도 확인하므로 문서 메타데이터 대신 화면의 heading 등 실제 표시 요소를 검사하세요.`);
-      if (step.action === 'press' && !KEYS.has(step.key)) invalid('허용되지 않은 키 입력입니다.');
+      if (step.action === 'press' && !KEYS.has(step.key)) invalid(`${check.id}: 허용되지 않은 키 입력 ${JSON.stringify(step.key)?.slice(0, 180)}입니다. 허용 키: ${[...KEYS].join(', ')}. 지원하는 실제 키 입력과 후속 assertion으로 보완하세요.`);
       if (['fill', 'text', 'value'].includes(step.action) && (typeof step.value !== 'string' || step.value.length > 2000)) invalid('검사 값이 올바르지 않습니다.');
       if (step.action === 'count' && (!Number.isSafeInteger(step.value) || step.value < 0 || step.value > 1000)) invalid('검사 개수가 올바르지 않습니다.');
     }

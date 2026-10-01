@@ -361,6 +361,8 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
     ensureFallbackPriority();
     const roleSelection = (role, model, primary) => ({
       provider: model.provider, source: model.source, model: model.id, label: model.label,
+      description: typeof model.description === 'string' ? model.description.slice(0, 600) : '',
+      supportedReasoningEfforts: efforts(model),
       connectionId: model.connectionId,
       ...(model.provider === 'openai' ? {
         codexAccountId: model.codexAccountId || state.activeCodexAccountId,

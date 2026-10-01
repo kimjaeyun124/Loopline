@@ -17,6 +17,7 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
     priorities: normalizeLoopPriorities(saved?.priorities),
     roles: Object.fromEntries(ROLES.map(([role]) => [role, {
       model: typeof saved?.roles?.[role]?.model === 'string' ? saved.roles[role].model : '',
+      nativePlugins: saved?.roles?.[role]?.nativePlugins !== false, loopMcp: saved?.roles?.[role]?.loopMcp !== false,
       effort: typeof saved?.roles?.[role]?.effort === 'string' ? saved.roles[role].effort : '',
       fallbacks: Array.isArray(saved?.roles?.[role]?.fallbacks) ? saved.roles[role].fallbacks.filter((value) => typeof value === 'string').slice(0, MAX_FALLBACKS) : [],
       fallbacksConfigured: Array.isArray(saved?.roles?.[role]?.fallbacks),
@@ -33,7 +34,7 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
   const save = () => {
     try {
       const persisted = { ...config, priorities: normalizeLoopPriorities(config.priorities), roles: Object.fromEntries(ROLES.map(([role]) => [role, {
-        model: config.roles[role].model, effort: config.roles[role].effort, fallbacks: config.roles[role].fallbacks.slice(0, MAX_FALLBACKS),
+        model: config.roles[role].model, effort: config.roles[role].effort, nativePlugins: config.roles[role].nativePlugins, loopMcp: config.roles[role].loopMcp, fallbacks: config.roles[role].fallbacks.slice(0, MAX_FALLBACKS),
       }])) };
       localStorage.setItem(KEY, JSON.stringify(persisted));
       saveStatus.textContent = '자동 저장됨 · 다음 실행부터 적용';
@@ -150,6 +151,7 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
           ${supported.map((value) => `<option value="${escape(value)}"${config.roles[role].effort === value ? ' selected' : ''}>${escape(value)}</option>`).join('')}</select></label>
         <div class="harness-role-summary"><strong>${!config.roles[role].model ? '기본 후보 · ' : ''}${model ? escape(model.label) : '사용 가능한 모델 없음'}</strong><span>${model ? escape(budgetLabel(model)) : '연결과 잔여 한도를 확인하세요.'}</span></div>
         <small>${model ? `${escape(modelSelectionStrength(model) || effortLabel)} · ${escape(effortLabel)} · ${escape(roleGuidance[role])}` : '모델을 연결하거나 직접 선택해 주세요.'}</small>
+        <div class="harness-agent-tools"><label><input type="checkbox" data-harness-native="${role}"${config.roles[role].nativePlugins ? ' checked' : ''}> 이 Agent의 Plugin·Skill·MCP 사용</label><label><input type="checkbox" data-harness-shared="${role}"${config.roles[role].loopMcp ? ' checked' : ''}> Loopline MCP 사용</label><small>Codex·Claude의 기존 연결을 사용합니다. API 모델은 Loopline MCP를 사용하며 Jev 판정에는 도구를 전달하지 않습니다.</small></div>
         <details class="harness-fallbacks" data-fallback-details="${role}"${expandedFallbacks.has(role) ? ' open' : ''}>
           <summary class="harness-fallback-heading"><strong>한도 소진 시 대체 순서</strong><span>${fallbackModels.length}개 · 펼쳐서 편집</span></summary>
           <section aria-label="${title} 대체 모델 우선순위"><ol>${fallbackList || '<li class="harness-fallback-empty">대체 모델이 없습니다.</li>'}</ol>
@@ -230,6 +232,8 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
     search.value = ''; save(); renderRoles();
   });
   fields.addEventListener('change', (event) => {
+    const native = event.target.dataset.harnessNative, shared = event.target.dataset.harnessShared;
+    if (native || shared) { config.roles[native || shared][native ? 'nativePlugins' : 'loopMcp'] = event.target.checked; save(); return; }
     // Choosing an add candidate must survive until the Add button is pressed.
     if (!event.target.dataset.harnessRole && !event.target.dataset.harnessEffort) return;
     if (event.target.dataset.harnessRole) {
@@ -361,7 +365,7 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
       } : {}),
       ...(model.decisionOnly ? { decisionOnly: true } : {}),
       reasoningEffort: primary ? resolveEffort(role, model, task) : resolveFallbackEffort(role, model, task),
-      instructions: instructions(model.provider),
+      instructions: instructions(model.provider), nativePlugins: config.roles[role].nativePlugins, loopMcp: config.roles[role].loopMcp,
     });
     for (const [role] of ROLES) {
       const model = choose(role);

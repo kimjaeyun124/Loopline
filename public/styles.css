@@ -1122,3 +1122,5 @@ kbd { margin-left: auto; color: var(--muted); font-family: inherit; font-size: 1
   .activity-inspector { position: fixed; z-index: 10; top: var(--app-header-height); right: 0; bottom: 0; width: min(92vw, 440px); min-width: 0; max-height: calc(100dvh - var(--app-header-height)); border-left: 1px solid var(--line-strong); box-shadow: -14px 0 38px #0004; }
 }
 @media (prefers-reduced-motion: reduce) { .activity-inspector { animation: none; } }
+
+.harness-agent-tools{grid-column:1/-1;display:grid;gap:10px;padding:12px 0}.harness-agent-tools label{display:flex;gap:8px;align-items:center;font-size:13px}.harness-agent-tools input{accent-color:var(--text-primary)}

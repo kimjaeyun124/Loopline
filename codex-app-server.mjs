@@ -3,11 +3,12 @@ import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
 
 export class CodexAppServer extends EventEmitter {
-  constructor({ command = 'codex', cwd, env }) {
+  constructor({ command = 'codex', cwd, env, inheritMcp = false }) {
     super();
     this.command = command;
     this.cwd = cwd;
     this.env = env;
+    this.inheritMcp = inheritMcp;
     this.child = null;
     this.ready = false;
     this.startPromise = null;
@@ -38,7 +39,7 @@ export class CodexAppServer extends EventEmitter {
         'app-server',
         '--listen', 'stdio://',
         '--enable', 'fast_mode',
-        '-c', 'mcp_servers={}',
+        ...(this.inheritMcp ? [] : ['-c', 'mcp_servers={}']),
       ], {
         cwd: this.cwd,
         env: this.env,

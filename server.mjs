@@ -4,13 +4,14 @@ import { EventEmitter } from 'node:events';
 import { Readable } from 'node:stream';
 import { HarnessEngine } from './harness-engine.mjs';
 import { randomUUID } from 'node:crypto';
-import { mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CodexAppServer } from './codex-app-server.mjs';
 import { ApiConnections } from './api-connections.mjs';
 import { McpConnections } from './mcp-connections.mjs';
+import { AgentPlugins } from './agent-plugins.mjs';
 import { ConversationHistory } from './conversation-history.mjs';
 import { TokenUsageStore } from './token-usage.mjs';
 import { accountActivity, localActivity } from './usage-activity.mjs';
@@ -40,7 +41,16 @@ const port = Number(process.env.PORT || 4173);
 const host = process.env.HOST || '127.0.0.1';
 const apiConnections = new ApiConnections(userDataDir);
 const mcpConnections = new McpConnections(userDataDir);
-const harness = new HarnessEngine({ directory: userDataDir, invoke: invokeHarnessModel, mcpConnections });
+const agentPlugins = new AgentPlugins({ codexClient: async (accountId) => {
+  const context = await getCodexAccountContext(accountId);
+  const env = cliEnvironment('openai'); env.CODEX_HOME = context.account.home;
+  const desktopCli = '/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex';
+  const pluginCommand = process.env.CODEX_CLI || (await access(desktopCli).then(() => desktopCli).catch(() => providers.openai.command));
+  const client = new CodexAppServer({ command: pluginCommand, cwd: await codexSandboxDir(context), env, inheritMcp: true });
+  client.on('serverRequest', ({ id }) => client.respondError(id, -32601, '기존 인증이 필요한 Plugin 요청을 자동 승인할 수 없습니다.'));
+  return client;
+} });
+const harness = new HarnessEngine({ directory: userDataDir, invoke: invokeHarnessModel, mcpConnections, agentPlugins });
 const tokenUsageStore = new TokenUsageStore(userDataDir);
 const conversationHistory = new ConversationHistory({ codexHome: defaultCodexHome });
 
@@ -2319,6 +2329,7 @@ async function shutdown() {
   server.close();
   await harness.shutdown();
   await mcpConnections.close();
+  await agentPlugins.close();
   for (const context of codexAccountContexts.values()) {
     for (const active of context.activeTurns.values()) {
       finalizeCodexTurn(active, { error: 'Loopline 서버가 종료되었습니다.' });

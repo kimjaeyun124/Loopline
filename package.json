@@ -69,6 +69,10 @@
       {
         "from": "public",
         "to": "app-server/public"
+      },
+      {
+        "from": "agent-plugins.mjs",
+        "to": "app-server/agent-plugins.mjs"
       }
     ],
     "mac": {

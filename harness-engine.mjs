@@ -464,8 +464,8 @@ export async function verifyWorkspace(workspace, command, runtime, signal) {
 }
 
 export class HarnessEngine {
-  constructor({ directory, invoke, verify = verifyWorkspace, mcpConnections = null }) {
-    this.directory = join(directory, 'harness'); this.invoke = invoke; this.verify = verify; this.mcpConnections = mcpConnections;
+  constructor({ directory, invoke, verify = verifyWorkspace, mcpConnections = null, agentPlugins = null }) {
+    this.directory = join(directory, 'harness'); this.invoke = invoke; this.verify = verify; this.mcpConnections = mcpConnections; this.agentPlugins = agentPlugins;
     // Prompt text can contain project files, so keep inspection data in memory instead of run logs.
     this.runs = new Map(); this.sources = new Set(); this.promptDetails = new Map(); this.recoveryPromise = null; this.recoveryCompleted = false; this.closing = false;
   }
@@ -728,10 +728,18 @@ export class HarnessEngine {
         continue;
       }
       const event = await this.event(record, title || `${role === 'planner' ? '계획 / Planning' : role === 'judge' ? '판정 / Review' : '구현 / Implementation'}`, `${run.round}/${run.rounds} · 추론 강도 / Effort: ${selection.reasoningEffort || '자동'} · ${budgetDescription(budget)}`, 'running', model);
-      const selectedTools = selection.decisionOnly ? [] : (run.mcpTools || []).filter((tool) => tool && typeof tool.serverId === 'string' && typeof tool.name === 'string');
+      const selectedTools = selection.decisionOnly || selection.loopMcp === false ? [] : (run.mcpTools || []).filter((tool) => tool && typeof tool.serverId === 'string' && typeof tool.name === 'string');
       let toolDefinitions = [];
       try { toolDefinitions = selectedTools.length && this.mcpConnections ? await this.mcpConnections.selectedTools(selectedTools) : []; }
       catch (error) { event.status = 'failed'; event.detail += ` · ${String(error?.message || 'MCP 연결을 확인해 주세요.').slice(0, 500)}`; await this.persist(record); throw error; }
+      const pluginContext = { runId: run.id, cwd: run.workspace || run.source };
+      if (!selection.decisionOnly && this.agentPlugins && selection.nativePlugins !== false) {
+        try { toolDefinitions.push(...await this.agentPlugins.toolsFor(selection, pluginContext)); }
+        catch (error) {
+          event.detail += ' · Plugin 검색 불가';
+          await this.event(record, 'Plugin 연결 확인 / Plugin unavailable', error.message, 'failed', model);
+        }
+      }
       const inputText = typeof prompt === 'string' ? prompt : JSON.stringify(prompt, null, 2);
       const mcpInstructions = toolDefinitions.length ? [
         '연결된 MCP 도구를 필요한 경우에만 사용할 수 있습니다. 호출은 JSON 하나로만 반환하세요: {"mcpCall":{"serverId":"연결 ID","toolName":"도구 이름","arguments":{}}}. 도구가 필요하지 않으면 원래 요청에서 요구한 형식으로 답하세요.',
@@ -766,7 +774,7 @@ export class HarnessEngine {
             try { parsed = parseHarnessJson(answer); } catch { parsed = null; }
           }
           if (!parsed || typeof parsed !== 'object' || !Object.hasOwn(parsed, 'mcpCall')) break;
-          if (!toolDefinitions.length || !this.mcpConnections) throw fail('현재 Loop 실행에서 선택하지 않은 MCP 도구 호출은 허용되지 않습니다.', 403);
+          if (!toolDefinitions.length) throw fail('현재 Loop 실행에서 선택하지 않은 MCP 도구 호출은 허용되지 않습니다.', 403);
           const request = parsed.mcpCall;
           if (!request || typeof request.serverId !== 'string' || typeof request.toolName !== 'string'
             || !toolDefinitions.some((tool) => tool.serverId === request.serverId && tool.name === request.toolName)) {
@@ -774,7 +782,9 @@ export class HarnessEngine {
           }
           if (++toolCalls > MAX_MCP_CALLS) throw fail(`한 번의 모델 단계에서 MCP 도구를 ${MAX_MCP_CALLS}회 넘게 호출할 수 없습니다.`, 429);
           aborted(record.controller.signal);
-          run.mcpSideEffectPossible = true;
+          // Catalog searches and Skill reads cannot mutate external state. Actual calls remain guarded.
+          const definition = toolDefinitions.find((t) => t.serverId === request.serverId && t.name === request.toolName);
+          if (!definition.native || !['search', 'read_skill'].includes(request.arguments?.action)) run.mcpSideEffectPossible = true;
           run.mcpCalls = (run.mcpCalls || 0) + 1;
           await this.persist(record);
           const tool = toolDefinitions.find((item) => item.serverId === request.serverId && item.name === request.toolName);
@@ -783,7 +793,9 @@ export class HarnessEngine {
             `${tool.serverName} · 요청 입력 / Arguments\n${safeArguments}`, 'running', model);
           dispatchedMcpCall = true;
           try {
-            const result = await this.mcpConnections.callTool(request.serverId, request.toolName, request.arguments || {}, record.controller.signal);
+            const result = tool.native
+              ? await this.agentPlugins.call(selection, pluginContext, request.arguments || {}, record.controller.signal)
+              : await this.mcpConnections.callTool(request.serverId, request.toolName, request.arguments || {}, record.controller.signal);
             aborted(record.controller.signal);
             toolEvent.status = result.isError ? 'failed' : 'completed';
             toolEvent.detail = `${tool.serverName} · ${tool.name}\n요청 입력 / Arguments\n${safeArguments}\n\n응답 / Result${result.isError ? ' · 도구 오류' : ''}\n${result.output}`.slice(0, 12_000);
@@ -1096,6 +1108,7 @@ export class HarnessEngine {
       for (const event of run.events) if (event.status === 'running') event.status = signal.aborted ? 'stopped' : 'failed';
     } finally {
       run.finishedAt = Date.now(); this.sources.delete(run.source);
+      await this.agentPlugins?.release(run.id).catch(() => {});
       await this.summarizeModelUsage(record);
       await this.event(record, run.status === 'completed' ? '완료 / Completed' : '실행 종료 / Run finished', run.summary, run.status === 'completed' || run.status === 'reviewed' ? 'completed' : run.status === 'stopped' ? 'stopped' : 'failed');
     }

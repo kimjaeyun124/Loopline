@@ -1253,7 +1253,7 @@ test('the worker continues with an edit after repeated-read feedback includes cu
     if (isJudgementPrompt(prompt)) return judgementResponse(prompt);
     workerCalls++;
     if (workerCalls <= 3) return JSON.stringify({ operations: [{ type: 'read', path: 'file.txt' }] });
-    if (hasText(prompt, '같은 파일 읽기가 이미 성공했습니다')) {
+    if (hasText(prompt, '같은 파일 또는 목록의 읽기 요청이 반복')) {
       sawCurrentContent = hasText(prompt, 'original\n');
       return JSON.stringify({ operations: [{ type: 'edit', path: 'file.txt', oldText: 'original\n', newText: 'updated\n' }] });
     }
@@ -1265,6 +1265,107 @@ test('the worker continues with an edit after repeated-read feedback includes cu
   assert.equal(sawCurrentContent, true);
   assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'updated\n');
   assert.ok(run.events.some((event) => event.title.startsWith('중복 읽기 안내')));
+});
+
+test('reordered and subset reads recover through the saved worker while retaining the verification veto', async (t) => {
+  for (const verificationPassed of [true, false]) await t.test(verificationPassed ? 'verified recovery applies' : 'failed verification never applies', async t => {
+    const f = await fixture(t), models = []; let steps = 0;
+    const worker = { ...f.input.roles.worker, model: 'read-primary', fallbacks: [{ ...f.input.roles.worker, model: 'read-backup' }] };
+    const engine = new HarnessEngine({ directory: f.data, verify: async () => ({ code: verificationPassed ? 0 : 1, output: 'actual fixture verification' }), invoke: async (selection, prompt) => {
+      if (hasText(prompt, '구현 계획과 검증 기준')) return 'Update file.txt.';
+      if (isJudgementPrompt(prompt)) return judgementResponse(prompt);
+      models.push(selection.model); steps++;
+      assert.ok(hasText(prompt, 'done은 담당 파일·테스트·문서 작성을 마쳤다는 뜻'));
+      if (steps === 1) return JSON.stringify({ operations: [{ type: 'list', path: '.' }, { type: 'read', path: 'file.txt' }] });
+      if (steps === 2) return JSON.stringify({ operations: [{ type: 'read', path: 'file.txt' }, { type: 'list', path: '.' }] });
+      if (steps === 3) return JSON.stringify({ operations: [{ type: 'list', path: '.' }] });
+      if (steps === 4) return JSON.stringify({ operations: [{ type: 'read', path: 'file.txt' }] });
+      assert.equal(selection.model, 'read-backup'); assert.match(promptText(prompt), /original(?:\\n|\n)/);
+      return JSON.stringify({ operations: [{ type: 'write', path: 'file.txt', content: 'updated\n' }], done: true, summary: 'Files ready for independent verification.' });
+    } });
+    const r = await settled(engine, (await engine.create({ ...f.input, rounds: 1, roles: { ...f.input.roles, worker } })).id);
+    assert.deepEqual(models, ['read-primary', 'read-primary', 'read-primary', 'read-primary', 'read-backup']);
+    assert.equal(r.events.filter(e => e.title.startsWith('중복 읽기 안내')).length, 1);
+    assert.equal(r.events.filter(e => e.title.startsWith('읽기 정체 · 대체 모델 전환')).length, 1);
+    assert.equal(r.status, verificationPassed ? 'completed' : 'limit', r.summary);
+    assert.equal(r.applied === true, verificationPassed);
+    assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), verificationPassed ? 'updated\n' : 'original\n');
+  });
+});
+
+test('failed reads of an uncreated file give creation guidance and do not evade progress recovery', async t => {
+  const f = await fixture(t); let steps = 0; const models = [];
+  const worker = { ...f.input.roles.worker, model: 'missing-primary', fallbacks: [{ ...f.input.roles.worker, model: 'missing-backup' }] };
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (selection, prompt) => {
+    if (hasText(prompt, '구현 계획과 검증 기준')) return 'Update file.txt and write documentation.';
+    if (isJudgementPrompt(prompt)) return judgementResponse(prompt);
+    models.push(selection.model); steps++;
+    if (steps <= 4) {
+      if (steps === 2) assert.ok(hasText(prompt, '요청한 파일이 아직 없습니다') && hasText(prompt, 'write로 생성'));
+      return JSON.stringify({ operations: [{ type: 'read', path: 'README.md' }] });
+    }
+    assert.equal(selection.model, 'missing-backup');
+    return JSON.stringify({ operations: [{ type: 'write', path: 'README.md', content: 'Offline instructions.\n' }, { type: 'write', path: 'file.txt', content: 'updated\n' }], done: true, summary: 'Created missing documentation and updated file.' });
+  } });
+  const r = await settled(engine, (await engine.create({ ...f.input, rounds: 1, roles: { ...f.input.roles, worker } })).id);
+  assert.equal(r.status, 'completed', r.summary); assert.equal(models.length, 5);
+  assert.equal(await readFile(join(f.source, 'README.md'), 'utf8'), 'Offline instructions.\n');
+});
+
+test('fresh file inspections and inspections following mutations are legitimate progress', async t => {
+  const f = await fixture(t); let steps = 0;
+  for (let i = 0; i < 5; i++) await writeFile(join(f.source, `section-${i}.txt`), `section ${i}\n`);
+  await f.git('add', '.'); await f.git('commit', '-m', 'context fixture');
+  const worker = { ...f.input.roles.worker, model: 'progress-primary', fallbacks: [{ ...f.input.roles.worker, model: 'unused-backup' }] };
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (selection, prompt) => {
+    if (hasText(prompt, '구현 계획과 검증 기준')) return 'Inspect and update.';
+    if (isJudgementPrompt(prompt)) return judgementResponse(prompt);
+    assert.equal(selection.model, 'progress-primary'); steps++;
+    if (steps <= 5) return JSON.stringify({ operations: [{ type: 'read', path: `section-${steps - 1}.txt` }] });
+    if (steps === 6) return JSON.stringify({ operations: [{ type: 'write', path: 'file.txt', content: 'intermediate\n' }] });
+    if (steps <= 8) return JSON.stringify({ operations: [{ type: 'read', path: 'file.txt' }] });
+    if (steps === 9) return JSON.stringify({ operations: [{ type: 'write', path: 'file.txt', content: 'updated\n' }] });
+    if (steps <= 11) return JSON.stringify({ operations: [{ type: 'read', path: 'file.txt' }] });
+    return JSON.stringify({ done: true, summary: 'All inspections and changes completed.' });
+  } });
+  const r = await settled(engine, (await engine.create({ ...f.input, rounds: 1, roles: { ...f.input.roles, worker } })).id);
+  assert.equal(r.status, 'completed', r.summary); assert.equal(steps, 12);
+  assert.ok(!r.events.some(e => /중복 읽기 안내|읽기 정체/.test(e.title)));
+});
+
+test('large current files cannot hide inventory and the latest operation metadata', async t => {
+  const f = await fixture(t); let steps = 0;
+  await writeFile(join(f.source, 'file.txt'), 'large source '.repeat(3000));
+  await f.git('add', '.'); await f.git('commit', '-m', 'large context fixture');
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (_selection, prompt) => {
+    if (hasText(prompt, '구현 계획과 검증 기준')) return 'Update large source.';
+    if (isJudgementPrompt(prompt)) return judgementResponse(prompt);
+    steps++;
+    if (steps === 1) return JSON.stringify({ operations: [{ type: 'list', path: '.' }] });
+    if (steps === 2) return JSON.stringify({ operations: [{ type: 'read', path: 'file.txt' }] });
+    const context = promptText(prompt).split('최근 도구 결과:').at(-1);
+    assert.ok(context.indexOf('현재 디렉터리 목록:') >= 0 && context.indexOf('현재 디렉터리 목록:') < context.indexOf('현재 파일 상태:'));
+    assert.ok(context.indexOf('최근 작업 기록:') >= 0 && context.indexOf('최근 작업 기록:') < context.indexOf('현재 파일 상태:'));
+    return JSON.stringify({ operations: [{ type: 'write', path: 'file.txt', content: 'updated\n' }], done: true, summary: 'Updated using visible inventory.' });
+  } });
+  const r = await settled(engine, (await engine.create({ ...f.input, rounds: 1 })).id);
+  assert.equal(r.status, 'completed', r.summary);
+});
+
+test('read stagnation after an external MCP side effect never changes or replays the worker', async t => {
+  const f = await fixture(t); let steps = 0;
+  const worker = { ...f.input.roles.worker, model: 'side-effect-worker', fallbacks: [{ ...f.input.roles.worker, model: 'never-dispatched-backup' }] };
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (selection, prompt) => {
+    if (hasText(prompt, '구현 계획과 검증 기준')) return 'Inspect then update.';
+    if (isJudgementPrompt(prompt)) return judgementResponse(prompt);
+    assert.equal(selection.model, 'side-effect-worker'); steps++;
+    engine.runs.values().next().value.run.mcpSideEffectPossible = true;
+    return JSON.stringify({ operations: [{ type: 'read', path: 'file.txt' }] });
+  } });
+  const r = await settled(engine, (await engine.create({ ...f.input, rounds: 1, roles: { ...f.input.roles, worker } })).id);
+  assert.equal(r.status, 'failed'); assert.equal(steps, 4);
+  assert.ok(!r.events.some(e => e.title.startsWith('읽기 정체 · 대체 모델 전환')));
+  assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'original\n');
 });
 
 test('judge creates a managed project and configures verification from implemented files', async (t) => {

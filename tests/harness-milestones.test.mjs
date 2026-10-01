@@ -143,6 +143,94 @@ test('completion criteria hash excludes execution state and completed evidence i
   tasks[0].criteria[0] = 'altered'; assert.notEqual(milestoneContract(tasks), initial);
 });
 
+async function sharedReviewFixture(t, { failed = false, manyFiles = false } = {}) {
+  const root = await directory(t), workspace = join(root, 'workspace'); await mkdir(workspace);
+  const git = async (...args) => {
+    const result = await runCommand('git', ['-c', 'core.hooksPath=/dev/null', '-c', 'user.name=QA', '-c', 'user.email=qa@localhost', '-c', 'commit.gpgsign=false', ...args], { cwd: workspace });
+    assert.equal(result.code, 0, result.error); return result.output.trim();
+  };
+  await git('init'); await mkdir(join(workspace, 'test'));
+  const originalPackage = JSON.stringify({ type: 'module', scripts: { test: 'node --test test/core.test.mjs' } });
+  const coreTest = "import test from 'node:test'; import assert from 'node:assert/strict'; test('actual core behavior', () => assert.equal(2 + 2, 4));\n";
+  await writeFile(join(workspace, 'package.json'), originalPackage);
+  await writeFile(join(workspace, 'core.js'), 'export const value = 4;\n');
+  await writeFile(join(workspace, 'test/core.test.mjs'), coreTest);
+  await git('add', '.'); await git('commit', '-m', 'core snapshot'); const baseline = await git('rev-parse', 'HEAD');
+  const tasks = validateMilestones({ tasks: [
+    { id: 'core', title: '핵심 모듈', dependsOn: [], paths: ['core.js', 'test/core.test.mjs', 'package.json'], criteria: ['핵심 테스트를 실제 실행하고 공유 테스트 설정을 보존한다'], verifyCommand: 'node --test test/core.test.mjs' },
+    { id: 'ui', title: '화면 연결', dependsOn: ['core'], paths: ['index.html', 'test/ui.test.mjs', 'package.json'], criteria: ['화면 테스트와 실제 독립 브라우저 QA를 통과한다'], verifyCommand: 'node --test test/ui.test.mjs' },
+  ] });
+  tasks[0].status = 'completed'; tasks[0].evidence = { reviewed: true, round: 1, verifyCommand: tasks[0].verifyCommand, verificationOutput: 'previous core PASS',
+    files: await milestoneFiles(workspace, ['core.js', 'test/core.test.mjs', 'package.json'], tasks[0]) };
+  await writeFile(join(workspace, 'index.html'), '<html>UI exists</html>');
+  await writeFile(join(workspace, 'test/ui.test.mjs'), coreTest.replace('actual core behavior', 'actual UI contract'));
+  const integratedPackage = JSON.stringify({ type: 'module', scripts: { test: 'node --test test/core.test.mjs test/ui.test.mjs' } });
+  await writeFile(join(workspace, 'package.json'), integratedPackage);
+  if (failed) await writeFile(join(workspace, 'test/core.test.mjs'), coreTest.replace('2 + 2, 4', '2 + 2, 5'));
+  if (manyFiles) {
+    const extraOwned = Array.from({ length: 6 }, (_, index) => `owned-${index}.txt`);
+    tasks[0].paths.push(...extraOwned);
+    for (const path of extraOwned) await writeFile(join(workspace, path), path);
+    await writeFile(join(workspace, 'core.js'), 'x'.repeat(2501));
+    for (let index = 0; index < 100; index++) await writeFile(join(workspace, `other-${index}-${'a'.repeat(90)}.txt`), 'outside review scope');
+  }
+  const record = { controller: new AbortController(), run: { workspace, baseline, task: 'large project website', round: 2, runtime: {}, qaRequired: true, milestones: tasks } };
+  const engine = new HarnessEngine({ directory: root, invoke: async () => assert.fail('Captured judgement only'),
+    verify: async (_workspace, command) => {
+      assert.equal(command, tasks[0].verifyCommand);
+      // Run the fixture as a standalone test command, not a nested runner child.
+      const env = { ...process.env }; delete env.NODE_TEST_CONTEXT;
+      return runCommand(process.execPath, ['--test', 'test/core.test.mjs'], { cwd: workspace, env });
+    } });
+  engine.event = async () => ({});
+  const judgements = [];
+  engine.decide = async (_record, state, questions) => {
+    judgements.push({ state: structuredClone(state), questions: structuredClone(questions) });
+    return { decision: 'complete', summary: 'optimistic fixture judge', feedback: '' };
+  };
+  const before = milestoneContract(tasks), review = await engine.reviewMilestone(record, tasks[0], 'UI files already written');
+  assert.equal(milestoneContract(tasks), before);
+  return { workspace, record, review, judgements, integratedPackage };
+}
+
+test('shared configuration revalidation includes other milestone file presence without treating it as completed evidence', async (t) => {
+  const f = await sharedReviewFixture(t), { state, questions } = f.judgements[0];
+  assert.equal(f.review.passed, true); assert.equal(state.verification.code, 0); assert.match(state.verification.output, /actual core behavior/);
+  assert.ok(state.workspaceInventory.split('\n').includes('test/ui.test.mjs'));
+  assert.equal(state.workspaceInventoryTruncated, false);
+  assert.equal(state.ownedFiles.includes('test/ui.test.mjs'), false);
+  assert.equal(state.actualFiles.some(file => file.path === 'test/ui.test.mjs'), false);
+  assert.ok(state.actualFiles.every(file => file.contentTruncated === false));
+  assert.equal(state.actualFilesTruncated, false);
+  const ui = state.relatedMilestones.find(task => task.id === 'ui'), core = state.relatedMilestones.find(task => task.id === 'core');
+  assert.equal(ui.status, 'pending'); assert.equal(Object.hasOwn(ui, 'evidence'), false);
+  assert.equal(core.status, 'needs-review'); assert.equal(Object.hasOwn(core, 'evidence'), false);
+  assert.match(questions.milestone.question, /absence from them is not evidence/);
+  assert.match(questions.milestone.question, /do not replace the current verification/);
+  assert.equal(Object.hasOwn(state, 'integrationVerification'), false);
+  assert.equal(f.record.run.milestones[0].status, 'completed'); assert.equal(f.record.run.milestones[1].status, 'pending');
+  assert.equal(await readFile(join(f.workspace, 'package.json'), 'utf8'), f.integratedPackage);
+  assert.notEqual(f.record.run.applied, true); assert.notEqual(f.record.run.browserQaPassed, true);
+});
+
+test('complete shared-file inventory and an optimistic judge cannot override a failed actual partial test', async (t) => {
+  const f = await sharedReviewFixture(t, { failed: true });
+  assert.equal(f.review.verification.code, 1); assert.equal(f.review.passed, false);
+  assert.ok(f.judgements[0].state.workspaceInventory.includes('test/ui.test.mjs'));
+  assert.equal(f.record.run.milestones[0].status, 'needs-review'); assert.notEqual(f.record.run.applied, true);
+  assert.equal(await readFile(join(f.workspace, 'package.json'), 'utf8'), f.integratedPackage);
+});
+
+test('milestone review explicitly marks bounded inventory and scoped file previews as incomplete', async (t) => {
+  const f = await sharedReviewFixture(t, { manyFiles: true }), { state, questions } = f.judgements[0];
+  assert.equal(state.workspaceInventoryTruncated, true); assert.ok(state.workspaceInventory.endsWith('[파일 목록 일부 생략 / File list trimmed]'));
+  assert.equal(state.actualFilesTruncated, true); assert.equal(state.actualFiles.length, 8); assert.equal(state.ownedFiles.length, 9);
+  const preview = state.actualFiles.find(file => file.path === 'core.js');
+  assert.equal(preview.content.length, 2500); assert.equal(preview.contentTruncated, true);
+  assert.match(questions.milestone.question, /truncated inventory cannot establish file absence/);
+  assert.equal(Object.hasOwn(state, 'integrationVerification'), false); assert.notEqual(f.record.run.applied, true);
+});
+
 test('multi-task execution preserves verified parts and applies only after integration verification', async (t) => {
   const root = await directory(t), source = join(root, 'source'); await mkdir(source);
   const git = async (...args) => {

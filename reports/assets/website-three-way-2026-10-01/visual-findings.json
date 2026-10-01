@@ -1,0 +1,22 @@
+{
+  "single": {
+    "mobile": {
+      "issue": "검색 필드와 필터 사이의 과도한 여백",
+      "approxGapPx": 198,
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "evidence": "single-mobile.jpg"
+    }
+  },
+  "loop": {
+    "emptyState": {
+      "issue": "작업이 있는데 빈 목록 안내가 함께 표시됨",
+      "hiddenAttribute": true,
+      "computedDisplay": "grid",
+      "evidence": "loop-desktop.jpg",
+      "commonQaCase": 19
+    }
+  }
+}

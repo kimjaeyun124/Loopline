@@ -1,0 +1,1501 @@
+{
+  "measuredAt": "2026-10-01T01:29:12.594Z",
+  "harnessCommit": "fbe049f",
+  "task": "오늘의 작업: 오프라인 작업 관리 웹사이트",
+  "comparisonType": "동일 Harness에서 역할별 모델 고정 대 다중 모델·Jev 실행",
+  "arms": {
+    "single": {
+      "runId": "1f553b3f-e0b3-448e-93d6-dd87f4ffb630",
+      "status": "completed",
+      "createdAt": "2026-10-01T00:24:39.240Z",
+      "finishedAt": "2026-10-01T00:46:54.578Z",
+      "elapsedMs": 1335338,
+      "round": 1,
+      "rounds": 6,
+      "applied": true,
+      "verificationPassed": true,
+      "reportedTotalTokens": 427343,
+      "reportedCalls": 10,
+      "roleAttemptCount": 10,
+      "unreportedRoleAttempts": 0,
+      "reportedModels": [
+        {
+          "model": "gpt-6-luna",
+          "totalTokens": 427343,
+          "calls": 10
+        }
+      ],
+      "ledger": {
+        "calls": 10,
+        "unavailableCalls": 0,
+        "fieldCoverage": {
+          "totalTokens": {
+            "reportedCalls": 10,
+            "unavailableCalls": 0
+          },
+          "inputTokens": {
+            "reportedCalls": 10,
+            "unavailableCalls": 0
+          },
+          "outputTokens": {
+            "reportedCalls": 10,
+            "unavailableCalls": 0
+          },
+          "cachedInputTokens": {
+            "reportedCalls": 10,
+            "unavailableCalls": 0
+          },
+          "reasoningOutputTokens": {
+            "reportedCalls": 10,
+            "unavailableCalls": 0
+          }
+        },
+        "totalTokens": 427343,
+        "inputTokens": 377012,
+        "outputTokens": 50331,
+        "cachedInputTokens": 99072,
+        "reasoningOutputTokens": 22988,
+        "totalMinusInputAndOutput": 0
+      },
+      "ledgerMatches": true,
+      "perModel": {
+        "gpt-6-luna": {
+          "calls": 10,
+          "unavailableCalls": 0,
+          "fieldCoverage": {
+            "totalTokens": {
+              "reportedCalls": 10,
+              "unavailableCalls": 0
+            },
+            "inputTokens": {
+              "reportedCalls": 10,
+              "unavailableCalls": 0
+            },
+            "outputTokens": {
+              "reportedCalls": 10,
+              "unavailableCalls": 0
+            },
+            "cachedInputTokens": {
+              "reportedCalls": 10,
+              "unavailableCalls": 0
+            },
+            "reasoningOutputTokens": {
+              "reportedCalls": 10,
+              "unavailableCalls": 0
+            }
+          },
+          "totalTokens": 427343,
+          "inputTokens": 377012,
+          "outputTokens": 50331,
+          "cachedInputTokens": 99072,
+          "reasoningOutputTokens": 22988,
+          "totalMinusInputAndOutput": 0,
+          "actualModels": [
+            "gpt-6-luna"
+          ]
+        }
+      },
+      "cliVersion": "0.155.1",
+      "source": "/Users/dgsw59/Library/Application Support/Mosaic Desk/harness/projects/1f553b3f-e0b3-448e-93d6-dd87f4ffb630/today-tasks",
+      "workspace": "/Users/dgsw59/Library/Application Support/Mosaic Desk/harness/1f553b3f-e0b3-448e-93d6-dd87f4ffb630/workspace",
+      "verifyCommand": "npm test && node --check app.js && node --check task-store.js && node --check task-view.js",
+      "events": [
+        {
+          "title": "LangGraph Loop 시작 / Workflow started",
+          "status": "completed",
+          "detail": "StateGraph · 단계 복구 위치: select"
+        },
+        {
+          "title": "LangGraph 단계 저장 / Workflow checkpoint",
+          "status": "completed",
+          "detail": "다음 단계: prepare · 완료 회차 0/6"
+        },
+        {
+          "title": "계획 / Planning",
+          "status": "completed",
+          "model": "gpt-6-luna",
+          "role": "planner",
+          "effort": "max",
+          "detail": "0/6 · 추론 강도 / Effort: max · 잔여 한도 미제공 · 누적 사용 33,788 tokens · 남은 사용 한도 89%"
+        },
+        {
+          "title": "판정 / Review",
+          "status": "completed",
+          "model": "gpt-6-luna",
+          "role": "judge",
+          "effort": "max",
+          "detail": "0/6 · 추론 강도 / Effort: max · 남은 사용 한도 89% · 누적 사용 67,698 tokens · 남은 사용 한도 89%"
+        },
+        {
+          "title": "모델 판정 / Live model decision",
+          "status": "completed",
+          "model": "gpt-6-luna",
+          "role": "judge",
+          "effort": "max",
+          "detail": "gpt-6-luna · gpt-6-luna\n폴더 이름 / Folder name: pass · `today-tasks`는 오늘의 작업 관리 프로젝트를 짧고 알아보기 쉽게 나타냅니다."
+        },
+        {
+          "title": "작업 공간 준비 / Workspace ready",
+          "status": "completed",
+          "detail": "원본 변경 사항을 별도 작업 공간으로 복사했습니다. 회차별 승인은 요청하지 않습니다."
+        },
+        {
+          "title": "계획 / Planning",
+          "status": "completed",
+          "model": "gpt-6-luna",
+          "role": "planner",
+          "effort": "max",
+          "detail": "0/6 · 추론 강도 / Effort: max · 남은 사용 한도 89% · 누적 사용 102,478 tokens · 남은 사용 한도 89%"
+        },
+        {
+          "title": "구현 계획 / Implementation plan",
+          "status": "completed",
+          "detail": "## 요구사항\n\n설치·네트워크 없이 동작하는 한국어 작업 관리 웹앱을 구현한다. 빈 목록에서 시작하고, 작업 추가·완료·삭제·검색·필터·localStorage 복원, 접근성 있는 안내와 키보드 조작을 지원한다.\n\n## 완료 기준\n\n- `index.html`에서 오늘 날짜, 작업 수, 진행률과 작업 관리 UI가 표시된다.\n- 공백 입력은 거부되고, 제목 중복은 독립된 작업으로 관리된다. 입력한 제목은 HTML이 아닌 문자로 표시된다.\n- 검색과 필터가 함께 적용되고, 선택 상태와 주요 결과가 접근성 안내 영역에 전달된다.\n- 모바일 390px부터 데스크톱 1440px까지 가로 넘침이 없고 긴 제목에도 버튼 배치가 유지된다.\n- `package.json`, 실제 로직을 검증하는 Node 내장 테스트, 사용법 README를 제공한다.\n\n## 작업 순서\n\n1. 빈 프로젝트 구조와 Node.js 버전을 확인한다.\n2. 화면과 분리해 테스트 가능한 작업 상태·검색·필터·저장 로직을 구성하고 UI에 연결한다.\n3. 반응형 스타일과 키보드·스크린 리더 상태를 구현한다.\n4. 기능 테스트, 실행법 문서, 검증을 마친다.\n\n**디자인 브리프:** 차분한 뉴트럴 배경에 짙은 먹색 텍스트와 보라색 강조색을 사용한다. 시스템 산세리프 글꼴, 8px 단위 간격, 날짜·요약·진행률·입력·목록 순의 위계를 둔다. 넓은 화면은 간결한 사이드 내비게이션과 본문, 모바일은 한 열로 구성한다. 빈 상태와 검색 결과 없음은 구분하고, 완료 항목은 낮은 대비로 표시하되 읽기 쉽게 유지한다. 모든 조작 요소에 명확한 포커스 표시와 상태 안내를 제공한다.\n\n## 검증 기준\n\n`npm test`에서 추가·공백 거부·완료/취소·중복 작업의 개별 삭제·검색과 필터 조합·저장 복원·HTML 제목의 문자 처리를 검증한다. 실제 사용 환경에서 화면 크기별 넘침, 키보드 조작, 새로고침 복원도 확인한다. **가정:** Node.js 20+와 브라우저 localStorage를 사용할 수 있다. 이 답변에서는 파일 작성이나 도구 실행을 하지 않았다."
+        },
+        {
+          "title": "LangGraph 단계 저장 / Workflow checkpoint",
+          "status": "completed",
+          "detail": "다음 단계: round · 완료 회차 0/6"
+        },
+        {
+          "title": "구현 / Implementation",
+          "status": "completed",
+          "model": "gpt-6-luna",
+          "role": "worker",
+          "effort": "max",
+          "detail": "1/6 · 추론 강도 / Effort: max · 남은 사용 한도 89% · 누적 사용 137,297 tokens · 남은 사용 한도 89%"
+        },
+        {
+          "title": "파일 작업 / File operations",
+          "status": "completed",
+          "detail": "list: ."
+        },
+        {
+          "title": "구현 / Implementation",
+          "status": "completed",
+          "model": "gpt-6-luna",
+          "role": "worker",
+          "effort": "max",
+          "detail": "1/6 · 추론 강도 / Effort: max · 남은 사용 한도 89% · 누적 사용 176,585 tokens · 남은 사용 한도 89%"
+        },
+        {
+          "title": "응답 형식 재요청 / Retry format",
+          "status": "completed",
+          "detail": "모델 응답이 요청한 JSON 형식이 아닙니다."
+        },
+        {
+          "title": "구현 / Implementation",
+          "status": "completed",
+          "model": "gpt-6-luna",
+          "role": "worker",
+          "effort": "max",
+          "detail": "1/6 · 추론 강도 / Effort: max · 남은 사용 한도 89% · 누적 사용 230,135 tokens · 남은 사용 한도 89%"
+        },
+        {
+          "title": "응답 형식 재요청 / Retry format",
+          "status": "completed",
+          "detail": "모델 응답이 요청한 JSON 형식이 아닙니다."
+        },
+        {
+          "title": "구현 / Implementation",
+          "status": "completed",
+          "model": "gpt-6-luna",
+          "role": "worker",
+          "effort": "max",
+          "detail": "1/6 · 추론 강도 / Effort: max · 남은 사용 한도 89% · 누적 사용 287,157 tokens · 남은 사용 한도 88%"
+        },
+        {
+          "title": "파일 작업 / File operations",
+          "status": "completed",
+          "detail": "write: index.html\nwrite: styles.css\nwrite: task-store.js\nwrite: task-view.js\nwrite: app.js\nwrite: package.json\nwrite: tests/task-store.test.js\nwrite: README.md\nwrite: tests/.gitkeep"
+        },
+        {
+          "title": "회차 변경 요약 / Round summary",
+          "status": "completed",
+          "detail": "빈 프로젝트에 오프라인 작업 관리 웹앱의 화면, 반응형 스타일, 작업 상태와 localStorage 처리, Node 내장 테스트, 실행 방법 README를 추가했습니다. 초기 목록은 비어 있으며 검색·필터·완료·삭제·키보드 포커스·라이브 안내를 구현했습니다."
+        },
+        {
+          "title": "검증 근거 수집 / Collect verification evidence",
+          "status": "completed",
+          "detail": "작성된 소스와 테스트의 실제 변경 내용을 계획 모델과 판정 역할에 전달합니다."
+        },
+        {
+          "title": "계획 / Planning",
+          "status": "completed",
+          "model": "gpt-6-luna",
+          "role": "planner",
+          "effort": "max",
+          "detail": "1/6 · 추론 강도 / Effort: max · 남은 사용 한도 88% · 누적 사용 328,582 tokens · 남은 사용 한도 88%"
+        },
+        {
+          "title": "판정 / Review",
+          "status": "completed",
+          "model": "gpt-6-luna",
+          "role": "judge",
+          "effort": "max",
+          "detail": "1/6 · 추론 강도 / Effort: max · 남은 사용 한도 88% · 누적 사용 377,511 tokens · 남은 사용 한도 88%"
+        },
+        {
+          "title": "모델 판정 / Live model decision",
+          "status": "completed",
+          "model": "gpt-6-luna",
+          "role": "judge",
+          "effort": "max",
+          "detail": "gpt-6-luna · gpt-6-luna\n검증 방법 / Verification plan: pass · `npm test`은 Node 내장 테스트 러너로 오프라인에서 실제 assertion을 실행해 작업 추가와 공백 거부, 완료·취소, 중복 제목의 개별 삭제, 검색·필터 조합, 직렬화·복원, HTML 제목의 텍스트 처리를 확인합니다. 이어지는 `node --check` 명령은 앱과 로직 파일의 구문도 검사합니다."
+        },
+        {
+          "title": "검증 자동 구성 / Verification configured",
+          "status": "completed",
+          "detail": "기존 Node 내장 테스트가 추가와 공백 거부, 완료·취소, 중복 제목 작업의 개별 삭제, 검색·필터 조합, 저장 데이터 복원, HTML 제목의 문자 처리를 실제 assertion으로 확인합니다. 이어서 앱과 로직 파일의 JavaScript 구문을 검사합니다.\nnpm test && node --check app.js && node --check task-store.js && node --check task-view.js"
+        },
+        {
+          "title": "검증 / Verification",
+          "status": "completed",
+          "detail": "npm test && node --check app.js && node --check task-store.js && node --check task-view.js\n종료 코드: 0\n\n> today-tasks-offline@1.0.0 test\n> node --test\n\n✔ 작업을 추가할 때 제목 앞뒤 공백을 정리한다 (1.360125ms)\n✔ 공백만 있는 제목은 추가하지 않는다 (0.099083ms)\n✔ 완료 상태를 전환하고 다시 취소할 수 있다 (0.104166ms)\n✔ 같은 제목의 작업은 각각 생성되고 선택한 작업만 삭제한다 (0.103209ms)\n✔ 검색어와 할 일 또는 완료 필터를 함께 적용한다 (0.349916ms)\n✔ 작업을 저장 형식으로 직렬화하고 다시 복원한다 (0.414625ms)\n✔ HTML처럼 보이는 제목은 텍스트로 지정하고 HTML 삽입을 사용하지 않는다 (0.084417ms)\n✔ 요약은 전체, 남은 작업, 완료 작업 수를 계산한다 (0.09675ms)\nℹ tests 8\nℹ suites 0\nℹ pass 8\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 73.508625\n\n"
+        },
+        {
+          "title": "판정 / Review",
+          "status": "completed",
+          "model": "gpt-6-luna",
+          "role": "judge",
+          "effort": "max",
+          "detail": "1/6 · 추론 강도 / Effort: max · 남은 사용 한도 88% · 누적 사용 427,343 tokens · 남은 사용 한도 88%"
+        },
+        {
+          "title": "모델 판정 / Live model decision",
+          "status": "completed",
+          "model": "gpt-6-luna",
+          "role": "judge",
+          "effort": "max",
+          "detail": "gpt-6-luna · gpt-6-luna\n목표 충족 / Goal: pass · diff는 빈 초기 목록, 날짜·요약·진행률, 작업 추가·완료·삭제, 제목 검색과 필터 조합, localStorage 복원, 텍스트 안전 렌더링을 구현합니다. 접근성 이름·라이브 안내·키보드 포커스 처리와 반응형 레이아웃, README도 포함되어 있습니다.\n검증 충족 / Verification: pass · npm test가 성공했고 8개 테스트가 추가·공백 거부·완료 전환·중복 제목의 개별 삭제·검색과 필터 조합·직렬화 및 복원·HTML 유사 제목의 텍스트 처리·요약 계산을 확인합니다. 검증 명령에는 세 JavaScript 파일의 node --check도 포함되어 있습니다.\n시각 설계 / Visual design: pass · CSS에서 뉴트럴 배경과 보라색 강조, 요약 카드·진행률·작업 관리의 위계와 간격을 확인할 수 있습니다. 900px 및 640px 이하 레이아웃 전환, 긴 제목 줄바꿈, focus-visible 표시와 입력 오류 상태도 구체적으로 정의되어 있습니다."
+        },
+        {
+          "title": "판정 결과 / Review result",
+          "status": "completed",
+          "detail": "complete: gpt-6-luna · gpt-6-luna\n목표 충족 / Goal: pass · diff는 빈 초기 목록, 날짜·요약·진행률, 작업 추가·완료·삭제, 제목 검색과 필터 조합, localStorage 복원, 텍스트 안전 렌더링을 구현합니다. 접근성 이름·라이브 안내·키보드 포커스 처리와 반응형 레이아웃, README도 포함되어 있습니다.\n검증 충족 / Verification: pass · npm test가 성공했고 8개 테스트가 추가·공백 거부·완료 전환·중복 제목의 개별 삭제·검색과 필터 조합·직렬화 및 복원·HTML 유사 제목의 텍스트 처리·요약 계산을 확인합니다. 검증 명령에는 세 JavaScript 파일의 node --check도 포함되어 있습니다.\n시각 설계 / Visual design: pass · CSS에서 뉴트럴 배경과 보라색 강조, 요약 카드·진행률·작업 관리의 위계와 간격을 확인할 수 있습니다. 900px 및 640px 이하 레이아웃 전환, 긴 제목 줄바꿈, focus-visible 표시와 입력 오류 상태도 구체적으로 정의되어 있습니다.\n"
+        },
+        {
+          "title": "LangGraph 단계 저장 / Workflow checkpoint",
+          "status": "completed",
+          "detail": "다음 단계: apply · 완료 회차 1/6"
+        },
+        {
+          "title": "프로젝트 반영 / Changes applied",
+          "status": "completed",
+          "detail": "검증 및 판정을 통과한 변경을 자동 반영했습니다."
+        },
+        {
+          "title": "LangGraph 단계 저장 / Workflow checkpoint",
+          "status": "completed",
+          "detail": "다음 단계: finish · 완료 회차 1/6"
+        },
+        {
+          "title": "LangGraph 단계 저장 / Workflow checkpoint",
+          "status": "completed",
+          "detail": "다음 단계: done · 완료 회차 1/6"
+        },
+        {
+          "title": "모델 사용량·잔여 한도 / Model usage and remaining quota",
+          "status": "completed",
+          "detail": "gpt-6-luna: 427,343 tokens · 10회 호출 · 남은 사용 한도 88%"
+        },
+        {
+          "title": "완료 / Completed",
+          "status": "completed",
+          "detail": "gpt-6-luna · gpt-6-luna\n목표 충족 / Goal: pass · diff는 빈 초기 목록, 날짜·요약·진행률, 작업 추가·완료·삭제, 제목 검색과 필터 조합, localStorage 복원, 텍스트 안전 렌더링을 구현합니다. 접근성 이름·라이브 안내·키보드 포커스 처리와 반응형 레이아웃, README도 포함되어 있습니다.\n검증 충족 / Verification: pass · npm test가 성공했고 8개 테스트가 추가·공백 거부·완료 전환·중복 제목의 개별 삭제·검색과 필터 조합·직렬화 및 복원·HTML 유사 제목의 텍스트 처리·요약 계산을 확인합니다. 검증 명령에는 세 JavaScript 파일의 node --check도 포함되어 있습니다.\n시각 설계 / Visual design: pass · CSS에서 뉴트럴 배경과 보라색 강조, 요약 카드·진행률·작업 관리의 위계와 간격을 확인할 수 있습니다. 900px 및 640px 이하 레이아웃 전환, 긴 제목 줄바꿈, focus-visible 표시와 입력 오류 상태도 구체적으로 정의되어 있습니다."
+        }
+      ],
+      "browserQa": {
+        "arm": "single",
+        "baseUrl": "http://127.0.0.1:49903",
+        "startedAt": 1790816831190,
+        "results": [
+          {
+            "id": 1,
+            "name": "초기 제목·날짜·빈 작업 목록",
+            "passed": true,
+            "elapsedMs": 191
+          },
+          {
+            "id": 2,
+            "name": "작업 추가와 제목 앞뒤 공백 정리",
+            "passed": true,
+            "elapsedMs": 419
+          },
+          {
+            "id": 3,
+            "name": "공백 입력 거부와 접근성 안내",
+            "passed": true,
+            "elapsedMs": 416
+          },
+          {
+            "id": 4,
+            "name": "Enter로 작업 추가",
+            "passed": true,
+            "elapsedMs": 138
+          },
+          {
+            "id": 5,
+            "name": "완료 처리와 완료 취소",
+            "passed": true,
+            "elapsedMs": 943
+          },
+          {
+            "id": 6,
+            "name": "전체·할 일·완료 필터와 선택 상태",
+            "passed": true,
+            "elapsedMs": 1808
+          },
+          {
+            "id": 7,
+            "name": "제목 검색 및 결과 없음 안내",
+            "passed": true,
+            "elapsedMs": 722
+          },
+          {
+            "id": 8,
+            "name": "검색과 완료 필터의 동시 적용",
+            "passed": true,
+            "elapsedMs": 1835
+          },
+          {
+            "id": 9,
+            "name": "작업 삭제와 빈 목록 복귀",
+            "passed": true,
+            "elapsedMs": 715
+          },
+          {
+            "id": 10,
+            "name": "같은 제목을 가진 작업의 독립 삭제",
+            "passed": true,
+            "elapsedMs": 974
+          },
+          {
+            "id": 11,
+            "name": "새로고침 후 작업과 완료 상태 복원",
+            "passed": true,
+            "elapsedMs": 727
+          },
+          {
+            "id": 12,
+            "name": "검색·필터 변경의 라이브 안내",
+            "passed": true,
+            "elapsedMs": 697
+          },
+          {
+            "id": 13,
+            "name": "HTML 형태 제목을 문자로 표시",
+            "passed": true,
+            "elapsedMs": 415
+          },
+          {
+            "id": 14,
+            "name": "요약 작업 수와 진행률 갱신",
+            "passed": true,
+            "elapsedMs": 957
+          },
+          {
+            "id": 15,
+            "name": "키보드로 완료·삭제 수행 및 포커스 표시",
+            "passed": true,
+            "elapsedMs": 472
+          },
+          {
+            "id": 16,
+            "name": "390px 모바일에서 긴 제목의 가로 넘침 없음",
+            "passed": true,
+            "elapsedMs": 1656
+          },
+          {
+            "id": 17,
+            "name": "1440px 데스크톱 가로 넘침 없음 및 화면 저장",
+            "passed": true,
+            "elapsedMs": 2405
+          },
+          {
+            "id": 18,
+            "name": "브라우저 실행 오류와 외부 자원 참조 없음",
+            "passed": true,
+            "elapsedMs": 16
+          },
+          {
+            "id": 19,
+            "name": "작업 추가 뒤 빈 상태 안내 숨김",
+            "passed": true,
+            "elapsedMs": 11
+          }
+        ],
+        "passed": 19,
+        "total": 19,
+        "finishedAt": 1790816966694,
+        "success": true,
+        "mobileViewport": {
+          "clientWidth": 390,
+          "height": 844,
+          "scroll": 390,
+          "width": 390
+        },
+        "desktopViewport": {
+          "clientWidth": 1440,
+          "height": 900,
+          "scroll": 1440,
+          "width": 1440
+        }
+      },
+      "inspection": {
+        "command": "npm test",
+        "exitCode": 0,
+        "output": "\n> today-tasks-offline@1.0.0 test\n> node --test\n\n✔ 작업을 추가할 때 제목 앞뒤 공백을 정리한다 (0.977375ms)\n✔ 공백만 있는 제목은 추가하지 않는다 (0.094792ms)\n✔ 완료 상태를 전환하고 다시 취소할 수 있다 (0.122875ms)\n✔ 같은 제목의 작업은 각각 생성되고 선택한 작업만 삭제한다 (0.1015ms)\n✔ 검색어와 할 일 또는 완료 필터를 함께 적용한다 (0.303917ms)\n✔ 작업을 저장 형식으로 직렬화하고 다시 복원한다 (0.210416ms)\n✔ HTML처럼 보이는 제목은 텍스트로 지정하고 HTML 삽입을 사용하지 않는다 (0.1025ms)\n✔ 요약은 전체, 남은 작업, 완료 작업 수를 계산한다 (0.1035ms)\nℹ tests 8\nℹ suites 0\nℹ pass 8\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 67.946625\n",
+        "unchanged": true,
+        "beforeHash": "a13c1d42c7be51846c5544d2c40c92d9366b4080fc62ce2d69c19ed6c673c91e",
+        "afterHash": "a13c1d42c7be51846c5544d2c40c92d9366b4080fc62ce2d69c19ed6c673c91e",
+        "remoteReferences": [],
+        "files": [
+          {
+            "path": "README.md",
+            "bytes": 1272
+          },
+          {
+            "path": "app.js",
+            "bytes": 9278
+          },
+          {
+            "path": "index.html",
+            "bytes": 6595
+          },
+          {
+            "path": "package.json",
+            "bytes": 253
+          },
+          {
+            "path": "styles.css",
+            "bytes": 15903
+          },
+          {
+            "path": "task-store.js",
+            "bytes": 2997
+          },
+          {
+            "path": "task-view.js",
+            "bytes": 302
+          },
+          {
+            "path": "tests/.gitkeep",
+            "bytes": 0
+          },
+          {
+            "path": "tests/task-store.test.js",
+            "bytes": 3725
+          }
+        ]
+      }
+    },
+    "loop": {
+      "runId": "ba35ca76-0349-409a-9c31-34b77b38c257",
+      "status": "completed",
+      "createdAt": "2026-10-01T00:47:01.834Z",
+      "finishedAt": "2026-10-01T00:56:16.025Z",
+      "elapsedMs": 554191,
+      "round": 1,
+      "rounds": 6,
+      "applied": true,
+      "verificationPassed": true,
+      "reportedTotalTokens": 282135,
+      "reportedCalls": 11,
+      "roleAttemptCount": 11,
+      "unreportedRoleAttempts": 0,
+      "reportedModels": [
+        {
+          "model": "jev-latest",
+          "totalTokens": 39218,
+          "calls": 4
+        },
+        {
+          "model": "models/gemini-3-flash-preview",
+          "totalTokens": 68903,
+          "calls": 3
+        },
+        {
+          "model": "gpt-6-sol",
+          "totalTokens": 38162,
+          "calls": 1
+        },
+        {
+          "model": "gpt-6-luna",
+          "totalTokens": 135852,
+          "calls": 3
+        }
+      ],
+      "ledger": {
+        "calls": 11,
+        "unavailableCalls": 0,
+        "fieldCoverage": {
+          "totalTokens": {
+            "reportedCalls": 11,
+            "unavailableCalls": 0
+          },
+          "inputTokens": {
+            "reportedCalls": 11,
+            "unavailableCalls": 0
+          },
+          "outputTokens": {
+            "reportedCalls": 11,
+            "unavailableCalls": 0
+          },
+          "cachedInputTokens": {
+            "reportedCalls": 4,
+            "unavailableCalls": 7
+          },
+          "reasoningOutputTokens": {
+            "reportedCalls": 4,
+            "unavailableCalls": 7
+          }
+        },
+        "totalTokens": 282135,
+        "inputTokens": 241084,
+        "outputTokens": 37592,
+        "cachedInputTokens": 48384,
+        "reasoningOutputTokens": 11336,
+        "totalMinusInputAndOutput": 3459
+      },
+      "ledgerMatches": true,
+      "perModel": {
+        "jev-latest": {
+          "calls": 4,
+          "unavailableCalls": 0,
+          "fieldCoverage": {
+            "totalTokens": {
+              "reportedCalls": 4,
+              "unavailableCalls": 0
+            },
+            "inputTokens": {
+              "reportedCalls": 4,
+              "unavailableCalls": 0
+            },
+            "outputTokens": {
+              "reportedCalls": 4,
+              "unavailableCalls": 0
+            },
+            "cachedInputTokens": {
+              "reportedCalls": 0,
+              "unavailableCalls": 4
+            },
+            "reasoningOutputTokens": {
+              "reportedCalls": 0,
+              "unavailableCalls": 4
+            }
+          },
+          "totalTokens": 39218,
+          "inputTokens": 38915,
+          "outputTokens": 303,
+          "cachedInputTokens": null,
+          "reasoningOutputTokens": null,
+          "totalMinusInputAndOutput": 0,
+          "actualModels": [
+            "jev-1.13.0"
+          ]
+        },
+        "models/gemini-3-flash-preview": {
+          "calls": 3,
+          "unavailableCalls": 0,
+          "fieldCoverage": {
+            "totalTokens": {
+              "reportedCalls": 3,
+              "unavailableCalls": 0
+            },
+            "inputTokens": {
+              "reportedCalls": 3,
+              "unavailableCalls": 0
+            },
+            "outputTokens": {
+              "reportedCalls": 3,
+              "unavailableCalls": 0
+            },
+            "cachedInputTokens": {
+              "reportedCalls": 0,
+              "unavailableCalls": 3
+            },
+            "reasoningOutputTokens": {
+              "reportedCalls": 0,
+              "unavailableCalls": 3
+            }
+          },
+          "totalTokens": 68903,
+          "inputTokens": 51364,
+          "outputTokens": 14080,
+          "cachedInputTokens": null,
+          "reasoningOutputTokens": null,
+          "totalMinusInputAndOutput": 3459,
+          "actualModels": [
+            "models/gemini-3-flash-preview"
+          ]
+        },
+        "gpt-6-sol": {
+          "calls": 1,
+          "unavailableCalls": 0,
+          "fieldCoverage": {
+            "totalTokens": {
+              "reportedCalls": 1,
+              "unavailableCalls": 0
+            },
+            "inputTokens": {
+              "reportedCalls": 1,
+              "unavailableCalls": 0
+            },
+            "outputTokens": {
+              "reportedCalls": 1,
+              "unavailableCalls": 0
+            },
+            "cachedInputTokens": {
+              "reportedCalls": 1,
+              "unavailableCalls": 0
+            },
+            "reasoningOutputTokens": {
+              "reportedCalls": 1,
+              "unavailableCalls": 0
+            }
+          },
+          "totalTokens": 38162,
+          "inputTokens": 36229,
+          "outputTokens": 1933,
+          "cachedInputTokens": 0,
+          "reasoningOutputTokens": 1888,
+          "totalMinusInputAndOutput": 0,
+          "actualModels": [
+            "gpt-6-sol"
+          ]
+        },
+        "gpt-6-luna": {
+          "calls": 3,
+          "unavailableCalls": 0,
+          "fieldCoverage": {
+            "totalTokens": {
+              "reportedCalls": 3,
+              "unavailableCalls": 0
+            },
+            "inputTokens": {
+              "reportedCalls": 3,
+              "unavailableCalls": 0
+            },
+            "outputTokens": {
+              "reportedCalls": 3,
+              "unavailableCalls": 0
+            },
+            "cachedInputTokens": {
+              "reportedCalls": 3,
+              "unavailableCalls": 0
+            },
+            "reasoningOutputTokens": {
+              "reportedCalls": 3,
+              "unavailableCalls": 0
+            }
+          },
+          "totalTokens": 135852,
+          "inputTokens": 114576,
+          "outputTokens": 21276,
+          "cachedInputTokens": 48384,
+          "reasoningOutputTokens": 9448,
+          "totalMinusInputAndOutput": 0,
+          "actualModels": [
+            "gpt-6-luna"
+          ]
+        }
+      },
+      "cliVersion": "0.155.1",
+      "source": "/Users/dgsw59/Library/Application Support/Mosaic Desk/harness/projects/ba35ca76-0349-409a-9c31-34b77b38c257/todays-work-offline",
+      "workspace": "/Users/dgsw59/Library/Application Support/Mosaic Desk/harness/ba35ca76-0349-409a-9c31-34b77b38c257/workspace",
+      "verifyCommand": "npm test && node --check logic.js && node --check script.js",
+      "events": [
+        {
+          "title": "LangGraph Loop 시작 / Workflow started",
+          "status": "completed",
+          "detail": "StateGraph · 단계 복구 위치: select"
+        },
+        {
+          "title": "모델 배정 / Model selection",
+          "status": "completed",
+          "model": "jev-latest",
+          "role": "judge",
+          "effort": "",
+          "detail": "0/6 · 추론 강도 / Effort: 자동 · 잔여 한도 미제공 · 누적 사용 2,952 tokens · 잔여 한도 미제공"
+        },
+        {
+          "title": "모델 배정 결과 / Model assigned",
+          "status": "completed",
+          "model": "models/gemini-3-flash-preview",
+          "role": "planner",
+          "effort": "",
+          "detail": "계획 → 기존 기본 모델 유지"
+        },
+        {
+          "title": "모델 배정 결과 / Model assigned",
+          "status": "completed",
+          "model": "gpt-6-sol",
+          "role": "worker",
+          "effort": "max",
+          "detail": "구현 → 기존 기본 모델 유지"
+        },
+        {
+          "title": "LangGraph 단계 저장 / Workflow checkpoint",
+          "status": "completed",
+          "detail": "다음 단계: prepare · 완료 회차 0/6"
+        },
+        {
+          "title": "계획 / Planning",
+          "status": "completed",
+          "model": "models/gemini-3-flash-preview",
+          "role": "planner",
+          "effort": "",
+          "detail": "0/6 · 추론 강도 / Effort: 자동 · 잔여 한도 미제공 · 누적 사용 14,592 tokens · 잔여 한도 미제공"
+        },
+        {
+          "title": "판정 / Review",
+          "status": "completed",
+          "model": "jev-latest",
+          "role": "judge",
+          "effort": "",
+          "detail": "0/6 · 추론 강도 / Effort: 자동 · 잔여 한도 미제공 · 누적 사용 4,490 tokens · 잔여 한도 미제공"
+        },
+        {
+          "title": "Jev 실제 판정 / Live Jev decision",
+          "status": "completed",
+          "model": "jev-1.13.0",
+          "role": "judge",
+          "effort": "",
+          "detail": "Jev · jev-1.13.0\n폴더 이름 / Folder name: pass · 신뢰도 / Confidence 95.0%"
+        },
+        {
+          "title": "작업 공간 준비 / Workspace ready",
+          "status": "completed",
+          "detail": "원본 변경 사항을 별도 작업 공간으로 복사했습니다. 회차별 승인은 요청하지 않습니다."
+        },
+        {
+          "title": "계획 / Planning",
+          "status": "completed",
+          "model": "models/gemini-3-flash-preview",
+          "role": "planner",
+          "effort": "",
+          "detail": "0/6 · 추론 강도 / Effort: 자동 · 잔여 한도 미제공 · 누적 사용 37,807 tokens · 잔여 한도 미제공"
+        },
+        {
+          "title": "구현 계획 / Implementation plan",
+          "status": "completed",
+          "detail": "### 구현 계획 및 검증 기준\n\n**1. 요구사항**\n- HTML/CSS/JS 및 Node.js 내장 기능만 사용 (외부 라이브러리/CDN 금지).\n- 주요 기능: 작업 추가/삭제/토글, 필터링, 실시간 검색, 통계 및 진행률, `localStorage` 저장.\n- 접근성: ARIA 속성, 실시간 영역(Live Region), 키보드 내비게이션, 시각적 포커스.\n- 반응형: 390px ~ 1440px 대응, 긴 제목 처리.\n\n**2. 완료 기준**\n- 모든 핵심 기능이 버그 없이 동작함.\n- `npm test` 실행 시 로직 검증(CRUD, 검색, 필터, 보안)을 모두 통과함.\n- 외부 네트워크 연결 없이 오프라인에서 완벽히 작동함.\n- 요구된 시각 설계(보라색 포인트, 뉴트럴 배경)가 반영됨.\n\n**3. 작업 순서**\n1.  **환경 설정**: `package.json` 작성 및 테스트 환경 구성.\n2.  **핵심 로직(`logic.js`)**: UI와 분리된 작업 관리 기능 개발 (테스트 가능하도록 설계).\n3.  **테스트 작성(`test.js`)**: 요구사항 기반의 로직 검증 코드 작성.\n4.  **UI 개발(`index.html`, `style.css`, `script.js`)**: 시각 설계 및 DOM 연동.\n5.  **검증**: `npm test` 수행 및 코드 리뷰.\n\n**4. 검증 기준**\n- **기능**: 공백 입력 차단, 중복 제목 개별 삭제, 검색/필터 동시 적용 확인.\n- **보안**: HTML 태그 입력 시 스크립트 실행 방지(Text Content 처리).\n- **접근성**: 스크린 리더 안내(Live Region) 및 `aria-pressed` 상태 변화 확인.\n- **반응형**: 모바일 기기 크기에서 레이아웃 깨짐 및 가로 스크롤 발생 여부.\n\n---\n\n### 디자인 브리프\n\n-   **시각 방향**: '초점과 생산성'. 불필요한 장식을 배제하고 작업 내용에 집중할 수 있는 깔끔한 인터페이스.\n-   **색상**: \n    -   Primary: `#7c3aed` (Violet) - 버튼, 진행률, 강조.\n    -   Background: `#f9fafb` (Gray 50).\n    -   Text: `#1f2937` (Gray 800).\n    -   Border: `#e5e7eb` (Gray 200).\n-   **타이포그래피**: 시스템 폰트(Apple SD Gothic Neo, Pretendard, sans-serif). 제목은 굵게(700), 본문은 적절한 높이(1.6) 유지.\n-   **첫 화면**: 상단에 큰 오늘 날짜와 요약 카드(진행률 그래프), 그 아래 검색과 입력창 배치.\n-   **반응형**: \n    -   데스크톱: 요약 정보와 입력창이 상단에 넓게 배치.\n    -   모바일: 모든 요소가 1컬럼으로 수직 정렬, 버튼 크기를 터치하기 쉽게 확장(최소 44px).\n-   **상호작용**: 버튼 호버/포커스 시 보라색 테두리 또는 배경색 변화. 완료된 항목은 취소선과 낮은 투명도로 시각적 구분.\n\n---\n\n### 파일 작성 시작\n\n#### 1. `package.json` 작성\n```json\n{\n  \"name\": \"today-task\",\n  \"version\": \"1.0.0\",\n  \"description\": \"오프라인 작업 관리 웹사이트\",\n  \"main\": \"script.js\",\n  \"scripts\": {\n    \"test\": \"node --test test.js\"\n  },\n  \"keywords\": [],\n  \"author\": \"\",\n  \"license\": \"ISC\"\n}\n```\n\n#### 2. `logic.js` (비즈니스 로직) 작성\n```javascript\nexport class TaskManager {\n  constructor(initialTasks = []) {\n    this.tasks = initialTasks;\n  }\n\n  addTask(title) {\n    const trimmedTitle = title.trim();\n    if (!trimmedTitle) return null;\n    const newTask = {\n      id: Date.now() + Math.random(),\n      title: trimmedTitle,\n      completed: false,\n      createdAt: new Date()\n    };\n    this.tasks.push(newTask);\n    return newTask;\n  }\n\n  toggleTask(id) {\n    const task = this.tasks.find(t => t.id === id);\n    if (task) {\n      task.completed = !task.completed;\n    }\n  }\n\n  deleteTask(id) {\n    this.tasks = this.tasks.filter(t => t.id !== id);\n  }\n\n  getFilteredTasks(filter, searchQuery = '') {\n    return this.tasks.filter(task => {\n      const matchesFilter = \n        filter === 'all' ? true :\n        filter === 'todo' ? !task.completed :\n        filter === 'done' ? task.completed : true;\n      \n      const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase());\n      \n      return matchesFilter && matchesSearch;\n    });\n  }\n\n  getStats() {\n    const total = this.tasks.length;\n    const completed = this.tasks.filter(t => t.completed).length;\n    const remaining = total - completed;\n    const percent = total === 0 ? 0 : Math.round((completed / total) * 100);\n    return { total, completed, remaining, percent };\n  }\n}\n```\n\n#### 3. `test.js` (테스트 코드) 작성\n```javascript\nimport { test } from 'node:test';\nimport assert from 'node:assert';\nimport { TaskManager } from './logic.js';\n\ntest('TaskManager 로직 검증', async (t) => {\n  await t.test('새 작업을 추가할 수 있다 (공백 제거 포함)', () => {\n    const manager = new TaskManager();\n    manager.addTask('  공부하기  ');\n    assert.strictEqual(manager.tasks.length, 1);\n    assert.strictEqual(manager.tasks[0].title, '공부하기');\n  });\n\n  await t.test('공백만 있는 제목은 추가되지 않는다', () => {\n    const manager = new TaskManager();\n    manager.addTask('   ');\n    assert.strictEqual(manager.tasks.length, 0);\n  });\n\n  await t.test('작업 완료 상태를 토글할 수 있다', () => {\n    const manager = new TaskManager();\n    const task = manager.addTask('테스트');\n    manager.toggleTask(task.id);\n    assert.strictEqual(manager.tasks[0].completed, true);\n    manager.toggleTask(task.id);\n    assert.strictEqual(manager.tasks[0].completed, false);\n  });\n\n  await t.test('중복된 제목도 개별 ID로 관리되어 한 개만 삭제된다', () => {\n    const manager = new TaskManager();\n    const t1 = manager.addTask('중복');\n    const t2 = manager.addTask('중복');\n    assert.strictEqual(manager.tasks.length, 2);\n    manager.deleteTask(t1.id);\n    assert.strictEqual(manager.tasks.length, 1);\n    assert.strictEqual(manager.tasks[0].id, t2.id);\n  });\n\n  await t.test('필터와 검색이 동시에 적용된다', () => {\n    const manager = new TaskManager();\n    manager.addTask('사과 사기'); // todo\n    const t2 = manager.addTask('우유 사기'); // done\n    manager.toggleTask(t2.id);\n    manager.addTask('책 읽기'); // todo\n\n    const results = manager.getFilteredTasks('todo', '사기');\n    assert.strictEqual(results.length, 1);\n    assert.strictEqual(results[0].title, '사과 사기');\n  });\n\n  await t.test('통계가 정확히 계산된다', () => {\n    const manager = new TaskManager();\n    manager.addTask('A');\n    const b = manager.addTask('B');\n    manager.toggleTask(b.id);\n    const stats = manager.getStats();\n    assert.strictEqual(stats.total, 2);\n    assert.strictEqual(stats.completed, 1);\n    assert.strictEqual(stats.percent, 50);\n  });\n});\n```\n\n#### 4. `index.html` 작성\n```html\n<!DOCTYPE html>\n<html lang=\"ko\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>오늘의 작업</title>\n    <link rel=\"stylesheet\" href=\"style.css\">\n</head>\n<body>\n    <div id=\"app\">\n        <header>\n            <div class=\"header-content\">\n                <h1>오늘의 작업</h1>\n                <p id=\"today-date\" class=\"date-text\"></p>\n            </div>\n            <div class=\"stats-container\" role=\"region\" aria-label=\"진행 통계\">\n                <div class=\"stats-grid\">\n                    <div class=\"stat-card\">\n                        <span class=\"stat-label\">전체</span>\n                        <span id=\"stat-total\" class=\"stat-value\">0</span>\n                    </div>\n                    <div class=\"stat-card\">\n                   "
+        },
+        {
+          "title": "LangGraph 단계 저장 / Workflow checkpoint",
+          "status": "completed",
+          "detail": "다음 단계: round · 완료 회차 0/6"
+        },
+        {
+          "title": "구현 / Implementation",
+          "status": "failed",
+          "model": "gpt-6-sol",
+          "role": "worker",
+          "effort": "max",
+          "detail": "1/6 · 추론 강도 / Effort: max · 잔여 한도 미제공 · 구현 작업 응답 형식이 올바르지 않습니다: 모델 응답이 요청한 JSON 형식이 아닙니다."
+        },
+        {
+          "title": "응답 형식 오류 · 대체 모델 시도 / Invalid output · Trying fallback",
+          "status": "completed",
+          "model": "gpt-6-sol",
+          "role": "worker",
+          "effort": "max",
+          "detail": "gpt-6-sol이 요청된 응답 구조를 따르지 않아 저장된 다음 우선순위 모델을 시도합니다. 구현 작업 응답 형식이 올바르지 않습니다: 모델 응답이 요청한 JSON 형식이 아닙니다."
+        },
+        {
+          "title": "구현 / Implementation",
+          "status": "completed",
+          "model": "gpt-6-luna",
+          "role": "worker",
+          "effort": "max",
+          "detail": "1/6 · 추론 강도 / Effort: max · 잔여 한도 미제공 · 누적 사용 37,915 tokens · 남은 사용 한도 87%"
+        },
+        {
+          "title": "우선순위 모델 전환 / Priority model selected",
+          "status": "completed",
+          "model": "gpt-6-luna",
+          "role": "worker",
+          "effort": "max",
+          "detail": "worker 역할이 저장된 순서에 따라 gpt-6-luna로 전환했습니다. 남은 사용 한도 87%."
+        },
+        {
+          "title": "파일 작업 / File operations",
+          "status": "completed",
+          "detail": "list: ."
+        },
+        {
+          "title": "구현 / Implementation",
+          "status": "completed",
+          "model": "gpt-6-luna",
+          "role": "worker",
+          "effort": "max",
+          "detail": "1/6 · 추론 강도 / Effort: max · 남은 사용 한도 87% · 누적 사용 92,802 tokens · 남은 사용 한도 87%"
+        },
+        {
+          "title": "파일 작업 / File operations",
+          "status": "completed",
+          "detail": "write: package.json\nwrite: logic.js\nwrite: test.js\nwrite: index.html\nwrite: style.css\nwrite: script.js\nwrite: README.md"
+        },
+        {
+          "title": "회차 변경 요약 / Round summary",
+          "status": "completed",
+          "detail": "오프라인 작업 관리 사이트의 package.json, 작업 로직, Node 내장 테스트, 접근성 있는 반응형 화면, 브라우저 동작 스크립트와 사용법 README를 작성했습니다. 외부 의존성 없이 동작하며 npm test로 기능 로직을 확인하도록 구성했습니다."
+        },
+        {
+          "title": "검증 근거 수집 / Collect verification evidence",
+          "status": "completed",
+          "detail": "작성된 소스와 테스트의 실제 변경 내용을 계획 모델과 판정 역할에 전달합니다."
+        },
+        {
+          "title": "계획 / Planning",
+          "status": "failed",
+          "model": "models/gemini-3-flash-preview",
+          "role": "planner",
+          "effort": "",
+          "detail": "1/6 · 추론 강도 / Effort: 자동 · 잔여 한도 미제공 · 검증 계획 응답 형식이 올바르지 않습니다: 모델 응답이 요청한 JSON 형식이 아닙니다."
+        },
+        {
+          "title": "응답 형식 오류 · 대체 모델 시도 / Invalid output · Trying fallback",
+          "status": "completed",
+          "model": "models/gemini-3-flash-preview",
+          "role": "planner",
+          "effort": "",
+          "detail": "Gemini 3 Flash Preview이 요청된 응답 구조를 따르지 않아 저장된 다음 우선순위 모델을 시도합니다. 검증 계획 응답 형식이 올바르지 않습니다: 모델 응답이 요청한 JSON 형식이 아닙니다."
+        },
+        {
+          "title": "계획 / Planning",
+          "status": "completed",
+          "model": "gpt-6-luna",
+          "role": "planner",
+          "effort": "max",
+          "detail": "1/6 · 추론 강도 / Effort: max · 남은 사용 한도 87% · 누적 사용 135,852 tokens · 남은 사용 한도 87%"
+        },
+        {
+          "title": "우선순위 모델 전환 / Priority model selected",
+          "status": "completed",
+          "model": "gpt-6-luna",
+          "role": "planner",
+          "effort": "max",
+          "detail": "planner 역할이 저장된 순서에 따라 gpt-6-luna로 전환했습니다. 남은 사용 한도 87%."
+        },
+        {
+          "title": "판정 / Review",
+          "status": "completed",
+          "model": "jev-latest",
+          "role": "judge",
+          "effort": "",
+          "detail": "1/6 · 추론 강도 / Effort: 자동 · 잔여 한도 미제공 · 누적 사용 21,594 tokens · 잔여 한도 미제공"
+        },
+        {
+          "title": "Jev 실제 판정 / Live Jev decision",
+          "status": "completed",
+          "model": "jev-1.13.0",
+          "role": "judge",
+          "effort": "",
+          "detail": "Jev · jev-1.13.0\n검증 방법 / Verification plan: pass · 신뢰도 / Confidence 78.0%"
+        },
+        {
+          "title": "검증 자동 구성 / Verification configured",
+          "status": "completed",
+          "detail": "Node 내장 테스트가 작업 추가와 공백 거부, 완료 토글, 중복 작업의 개별 삭제, 검색·필터 동시 적용, 저장·복원, HTML 제목의 문자 취급을 실제 assertion으로 확인합니다. 두 JavaScript 파일의 구문도 Node 내장 검사기로 확인합니다.\nnpm test && node --check logic.js && node --check script.js"
+        },
+        {
+          "title": "검증 / Verification",
+          "status": "completed",
+          "detail": "npm test && node --check logic.js && node --check script.js\n종료 코드: 0\n\n> today-task@1.0.0 test\n> node --test test.js\n\n▶ 작업 관리 기능\n  ✔ 앞뒤 공백을 정리해 새 작업을 추가한다 (6.918667ms)\n  ✔ 공백만 있는 제목은 추가하지 않는다 (0.092459ms)\n  ✔ 작업 완료와 완료 취소를 토글한다 (0.111625ms)\n  ✔ 같은 제목의 작업도 ID로 구분해 하나만 삭제한다 (0.727292ms)\n  ✔ 검색과 상태 필터를 함께 적용한다 (0.256125ms)\n  ✔ 브라우저 저장소에 완료 상태를 저장하고 복원한다 (0.268959ms)\n  ✔ 통계와 진행률을 계산한다 (0.106083ms)\n  ✔ HTML 제목은 마크업이 아닌 문자 그대로 표시한다 (0.104791ms)\n  ✔ 손상된 저장 데이터는 빈 목록으로 복원한다 (0.313208ms)\n✔ 작업 관리 기능 (10.138792ms)\nℹ tests 10\nℹ suites 0\nℹ pass 10\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 78.573791\n\n"
+        },
+        {
+          "title": "판정 / Review",
+          "status": "completed",
+          "model": "jev-latest",
+          "role": "judge",
+          "effort": "",
+          "detail": "1/6 · 추론 강도 / Effort: 자동 · 잔여 한도 미제공 · 누적 사용 39,218 tokens · 잔여 한도 미제공"
+        },
+        {
+          "title": "Jev 실제 판정 / Live Jev decision",
+          "status": "completed",
+          "model": "jev-1.13.0",
+          "role": "judge",
+          "effort": "",
+          "detail": "Jev · jev-1.13.0\n목표 충족 / Goal: pass · 신뢰도 / Confidence 39.0%\n검증 충족 / Verification: pass · 신뢰도 / Confidence 85.0%\n시각 설계 / Visual design: pass · 신뢰도 / Confidence 100.0%"
+        },
+        {
+          "title": "판정 결과 / Review result",
+          "status": "completed",
+          "detail": "complete: Jev · jev-1.13.0\n목표 충족 / Goal: pass · 신뢰도 / Confidence 39.0%\n검증 충족 / Verification: pass · 신뢰도 / Confidence 85.0%\n시각 설계 / Visual design: pass · 신뢰도 / Confidence 100.0%\n"
+        },
+        {
+          "title": "LangGraph 단계 저장 / Workflow checkpoint",
+          "status": "completed",
+          "detail": "다음 단계: apply · 완료 회차 1/6"
+        },
+        {
+          "title": "프로젝트 반영 / Changes applied",
+          "status": "completed",
+          "detail": "검증 및 판정을 통과한 변경을 자동 반영했습니다."
+        },
+        {
+          "title": "LangGraph 단계 저장 / Workflow checkpoint",
+          "status": "completed",
+          "detail": "다음 단계: finish · 완료 회차 1/6"
+        },
+        {
+          "title": "LangGraph 단계 저장 / Workflow checkpoint",
+          "status": "completed",
+          "detail": "다음 단계: done · 완료 회차 1/6"
+        },
+        {
+          "title": "모델 사용량·잔여 한도 / Model usage and remaining quota",
+          "status": "completed",
+          "detail": "Jev latest: 39,218 tokens · 4회 호출 · 잔여 한도 미제공\nGemini 3 Flash Preview: 68,903 tokens · 3회 호출 · 잔여 한도 미제공\ngpt-6-sol: 38,162 tokens · 1회 호출 · 남은 사용 한도 87%\ngpt-6-luna: 135,852 tokens · 3회 호출 · 남은 사용 한도 87%"
+        },
+        {
+          "title": "완료 / Completed",
+          "status": "completed",
+          "detail": "Jev · jev-1.13.0\n목표 충족 / Goal: pass · 신뢰도 / Confidence 39.0%\n검증 충족 / Verification: pass · 신뢰도 / Confidence 85.0%\n시각 설계 / Visual design: pass · 신뢰도 / Confidence 100.0%"
+        }
+      ],
+      "browserQa": {
+        "arm": "loop",
+        "baseUrl": "http://127.0.0.1:49904",
+        "startedAt": 1790816458390,
+        "results": [
+          {
+            "id": 1,
+            "name": "초기 제목·날짜·빈 작업 목록",
+            "passed": true,
+            "elapsedMs": 179
+          },
+          {
+            "id": 2,
+            "name": "작업 추가와 제목 앞뒤 공백 정리",
+            "passed": true,
+            "elapsedMs": 455
+          },
+          {
+            "id": 3,
+            "name": "공백 입력 거부와 접근성 안내",
+            "passed": true,
+            "elapsedMs": 410
+          },
+          {
+            "id": 4,
+            "name": "Enter로 작업 추가",
+            "passed": true,
+            "elapsedMs": 137
+          },
+          {
+            "id": 5,
+            "name": "완료 처리와 완료 취소",
+            "passed": true,
+            "elapsedMs": 1512
+          },
+          {
+            "id": 6,
+            "name": "전체·할 일·완료 필터와 선택 상태",
+            "passed": true,
+            "elapsedMs": 1816
+          },
+          {
+            "id": 7,
+            "name": "제목 검색 및 결과 없음 안내",
+            "passed": true,
+            "elapsedMs": 768
+          },
+          {
+            "id": 8,
+            "name": "검색과 완료 필터의 동시 적용",
+            "passed": true,
+            "elapsedMs": 1850
+          },
+          {
+            "id": 9,
+            "name": "작업 삭제와 빈 목록 복귀",
+            "passed": true,
+            "elapsedMs": 686
+          },
+          {
+            "id": 10,
+            "name": "같은 제목을 가진 작업의 독립 삭제",
+            "passed": true,
+            "elapsedMs": 994
+          },
+          {
+            "id": 11,
+            "name": "새로고침 후 작업과 완료 상태 복원",
+            "passed": true,
+            "elapsedMs": 731
+          },
+          {
+            "id": 12,
+            "name": "검색·필터 변경의 라이브 안내",
+            "passed": true,
+            "elapsedMs": 809
+          },
+          {
+            "id": 13,
+            "name": "HTML 형태 제목을 문자로 표시",
+            "passed": true,
+            "elapsedMs": 477
+          },
+          {
+            "id": 14,
+            "name": "요약 작업 수와 진행률 갱신",
+            "passed": true,
+            "elapsedMs": 1000
+          },
+          {
+            "id": 15,
+            "name": "키보드로 완료·삭제 수행 및 포커스 표시",
+            "passed": true,
+            "elapsedMs": 474
+          },
+          {
+            "id": 16,
+            "name": "390px 모바일에서 긴 제목의 가로 넘침 없음",
+            "passed": true,
+            "elapsedMs": 1566
+          },
+          {
+            "id": 17,
+            "name": "1440px 데스크톱 가로 넘침 없음 및 화면 저장",
+            "passed": true,
+            "elapsedMs": 2409
+          },
+          {
+            "id": 18,
+            "name": "브라우저 실행 오류와 외부 자원 참조 없음",
+            "passed": true,
+            "elapsedMs": 21
+          },
+          {
+            "id": 19,
+            "name": "작업 추가 뒤 빈 상태 안내 숨김",
+            "passed": false,
+            "error": "목록에 작업이 있는데 빈 상태가 보임: [{\"display\":\"grid\",\"text\":\"오늘은 아직 비어 있어요\\n\\n먼저 할 일을 적어 오늘의 목록을 시작해 보세요.\"}]",
+            "elapsedMs": 14
+          }
+        ],
+        "passed": 18,
+        "total": 19,
+        "finishedAt": 1790816992641,
+        "success": false,
+        "mobileViewport": {
+          "clientWidth": 390,
+          "height": 844,
+          "scroll": 390,
+          "width": 390
+        },
+        "desktopViewport": {
+          "clientWidth": 1440,
+          "height": 900,
+          "scroll": 1440,
+          "width": 1440
+        }
+      },
+      "inspection": {
+        "command": "npm test",
+        "exitCode": 0,
+        "output": "\n> today-task@1.0.0 test\n> node --test test.js\n\n▶ 작업 관리 기능\n  ✔ 앞뒤 공백을 정리해 새 작업을 추가한다 (3.679459ms)\n  ✔ 공백만 있는 제목은 추가하지 않는다 (0.085708ms)\n  ✔ 작업 완료와 완료 취소를 토글한다 (0.110416ms)\n  ✔ 같은 제목의 작업도 ID로 구분해 하나만 삭제한다 (0.513584ms)\n  ✔ 검색과 상태 필터를 함께 적용한다 (0.211375ms)\n  ✔ 브라우저 저장소에 완료 상태를 저장하고 복원한다 (0.241416ms)\n  ✔ 통계와 진행률을 계산한다 (0.11075ms)\n  ✔ HTML 제목은 마크업이 아닌 문자 그대로 표시한다 (0.102667ms)\n  ✔ 손상된 저장 데이터는 빈 목록으로 복원한다 (0.109167ms)\n✔ 작업 관리 기능 (6.30575ms)\nℹ tests 10\nℹ suites 0\nℹ pass 10\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 70.148875\n",
+        "unchanged": true,
+        "beforeHash": "edeba2c633b4dbd5d064347e6a5500a80a5532275aa0c76c0749700761bfa724",
+        "afterHash": "edeba2c633b4dbd5d064347e6a5500a80a5532275aa0c76c0749700761bfa724",
+        "remoteReferences": [],
+        "files": [
+          {
+            "path": "README.md",
+            "bytes": 1326
+          },
+          {
+            "path": "index.html",
+            "bytes": 6105
+          },
+          {
+            "path": "logic.js",
+            "bytes": 3969
+          },
+          {
+            "path": "package.json",
+            "bytes": 244
+          },
+          {
+            "path": "script.js",
+            "bytes": 8696
+          },
+          {
+            "path": "style.css",
+            "bytes": 14098
+          },
+          {
+            "path": "test.js",
+            "bytes": 4162
+          }
+        ]
+      }
+    },
+    "sol61": {
+      "runId": "6bed501b-ca8e-4af1-b48d-698693a918c7",
+      "status": "failed",
+      "createdAt": "2026-10-01T01:07:01.801Z",
+      "finishedAt": "2026-10-01T01:24:19.279Z",
+      "elapsedMs": 1037478,
+      "round": 1,
+      "rounds": 6,
+      "applied": false,
+      "verificationPassed": false,
+      "reportedTotalTokens": 97653,
+      "reportedCalls": 4,
+      "roleAttemptCount": 5,
+      "unreportedRoleAttempts": 1,
+      "reportedModels": [
+        {
+          "model": "gpt-6.1-sol",
+          "totalTokens": 97653,
+          "calls": 4
+        }
+      ],
+      "ledger": {
+        "calls": 4,
+        "unavailableCalls": 0,
+        "fieldCoverage": {
+          "totalTokens": {
+            "reportedCalls": 4,
+            "unavailableCalls": 0
+          },
+          "inputTokens": {
+            "reportedCalls": 4,
+            "unavailableCalls": 0
+          },
+          "outputTokens": {
+            "reportedCalls": 4,
+            "unavailableCalls": 0
+          },
+          "cachedInputTokens": {
+            "reportedCalls": 4,
+            "unavailableCalls": 0
+          },
+          "reasoningOutputTokens": {
+            "reportedCalls": 4,
+            "unavailableCalls": 0
+          }
+        },
+        "totalTokens": 97653,
+        "inputTokens": 93994,
+        "outputTokens": 3659,
+        "cachedInputTokens": 0,
+        "reasoningOutputTokens": 2612,
+        "totalMinusInputAndOutput": 0
+      },
+      "ledgerMatches": true,
+      "perModel": {
+        "gpt-6.1-sol": {
+          "calls": 4,
+          "unavailableCalls": 0,
+          "fieldCoverage": {
+            "totalTokens": {
+              "reportedCalls": 4,
+              "unavailableCalls": 0
+            },
+            "inputTokens": {
+              "reportedCalls": 4,
+              "unavailableCalls": 0
+            },
+            "outputTokens": {
+              "reportedCalls": 4,
+              "unavailableCalls": 0
+            },
+            "cachedInputTokens": {
+              "reportedCalls": 4,
+              "unavailableCalls": 0
+            },
+            "reasoningOutputTokens": {
+              "reportedCalls": 4,
+              "unavailableCalls": 0
+            }
+          },
+          "totalTokens": 97653,
+          "inputTokens": 93994,
+          "outputTokens": 3659,
+          "cachedInputTokens": 0,
+          "reasoningOutputTokens": 2612,
+          "totalMinusInputAndOutput": 0,
+          "actualModels": [
+            "gpt-6.1-sol"
+          ]
+        }
+      },
+      "cliVersion": "0.159.0",
+      "source": "/Users/dgsw59/Documents/Codex/2026-09-26/sj/outputs/harness-qa/website-comparison-20261001-latest/backend-sol61-captured/harness/projects/6bed501b-ca8e-4af1-b48d-698693a918c7/today-tasks",
+      "workspace": "/Users/dgsw59/Documents/Codex/2026-09-26/sj/outputs/harness-qa/website-comparison-20261001-latest/backend-sol61-captured/harness/6bed501b-ca8e-4af1-b48d-698693a918c7/workspace",
+      "verifyCommand": "",
+      "events": [
+        {
+          "title": "LangGraph Loop 시작 / Workflow started",
+          "status": "completed",
+          "detail": "StateGraph · 단계 복구 위치: select"
+        },
+        {
+          "title": "LangGraph 단계 저장 / Workflow checkpoint",
+          "status": "completed",
+          "detail": "다음 단계: prepare · 완료 회차 0/6"
+        },
+        {
+          "title": "계획 / Planning",
+          "status": "completed",
+          "model": "gpt-6.1-sol",
+          "role": "planner",
+          "effort": "max",
+          "detail": "0/6 · 추론 강도 / Effort: max · 잔여 한도 미제공 · 누적 사용 23,330 tokens · 남은 사용 한도 86%"
+        },
+        {
+          "title": "판정 / Review",
+          "status": "completed",
+          "model": "gpt-6.1-sol",
+          "role": "judge",
+          "effort": "max",
+          "detail": "0/6 · 추론 강도 / Effort: max · 남은 사용 한도 86% · 누적 사용 46,892 tokens · 남은 사용 한도 86%"
+        },
+        {
+          "title": "모델 판정 / Live model decision",
+          "status": "completed",
+          "model": "gpt-6.1-sol",
+          "role": "judge",
+          "effort": "max",
+          "detail": "GPT-6.1 Sol Max · gpt-6.1-sol\n폴더 이름 / Folder name: pass · today-tasks는 앱 이름 ‘오늘의 작업’과 작업 관리 목적을 명확하게 나타내는 짧은 폴더명입니다. 영문 소문자와 하이픈으로 구성되어 읽기 쉽고 제안된 작업과 관련성이 높습니다."
+        },
+        {
+          "title": "작업 공간 준비 / Workspace ready",
+          "status": "completed",
+          "detail": "원본 변경 사항을 별도 작업 공간으로 복사했습니다. 회차별 승인은 요청하지 않습니다."
+        },
+        {
+          "title": "계획 / Planning",
+          "status": "completed",
+          "model": "gpt-6.1-sol",
+          "role": "planner",
+          "effort": "max",
+          "detail": "0/6 · 추론 강도 / Effort: max · 남은 사용 한도 86% · 누적 사용 72,902 tokens · 남은 사용 한도 86%"
+        },
+        {
+          "title": "구현 계획 / Implementation plan",
+          "status": "completed",
+          "detail": "**요구사항**\n\n- 설치·외부 패키지·네트워크 호출 없이 루트 `index.html`을 직접 열어 실행한다. 초기 데이터는 비우고 제목 `오늘의 작업`, 오늘 날짜, 전체·남은·완료 수와 진행률을 표시한다.\n- Enter/버튼 추가, 앞뒤 공백 정리, 공백 입력 거부, 완료/취소, 고유 ID별 삭제, 제목 검색과 필터 조합, localStorage 저장·복원을 구현한다.\n- 입력 이름은 `새 작업`, `작업 검색`, 추가 버튼은 `추가`로 지정한다. 작업은 listitem이며 버튼 이름에 대상 제목과 `완료 처리`·`완료 취소`·`삭제`를 포함한다. 필터는 aria-pressed, 동작·검색·필터 안내는 role=\"status\" aria-live=\"polite\"로 제공한다.\n\n디자인 브리프: ‘오늘 한 장의 작업 노트’를 방향으로 삼는다. 밝은 배경 `#F7F6FA`, 짙은 글자 `#252333`, 보라 포인트 `#6D4AFF`와 시스템 글꼴을 사용한다. 제목 28px·본문 16px, 8px 간격 단위로 위계를 만든다. 데스크톱은 날짜와 현재 메뉴를 담은 좁은 내비게이션 옆에 요약 카드→진행률→추가→검색·필터→목록을 배치한다. 모바일은 같은 읽기 순서로 세로 배치한다. 빈 상태는 작은 자체 SVG와 추가 안내, 결과 없음은 검색 조정 안내, 완료 항목은 취소선과 상태 표시, 키보드 포커스는 뚜렷한 외곽선으로 구분한다.\n\n**완료 기준**\n\n- 처음에는 수치와 진행률이 0이며, 추가·완료·삭제마다 전체 작업 기준 집계가 정확하다.\n- 중복 제목을 독립적으로 처리하고 새로고침 후 완료 상태까지 복원한다. HTML 형태의 제목도 문자로 표시한다.\n- 작업 없음과 검색 결과 없음을 구분하며, 긴 제목에서도 버튼을 사용할 수 있다. 390×844부터 1440×900까지 가로 넘침이 없다.\n- 코드, `package.json`, Node 내장 기능 테스트, 실행·저장·검증 방법을 설명한 `README.md`가 갖춰진다.\n\n**작업 순서**\n\n1. 빈 프로젝트 구조와 적용 지침을 확인하고 요구사항별 검증 항목을 확정한다.\n2. `tasks.js`에 상태 변경·검색·필터·저장 로직을 작성한다. 브라우저 일반 스크립트와 Node 테스트에서 같은 구현을 사용한다.\n3. `index.html`, `styles.css`, `app.js`에 화면·접근성·DOM 상호작용을 구현한다. 제목 렌더링에는 textContent를 사용한다.\n4. 별도 단계로 `tests/*.test.js`, `package.json`, README를 작성한다. 검증 근거를 기록하고 통과 후 Harness가 최종 판정·자동 반영한다.\n\n**검증 기준**\n\n- `npm test`를 `node --test`에 연결한다. 실제 구현으로 추가, 공백 거부·정리, 완료/취소, 중복 제목의 독립 삭제, 검색·필터 조합, 저장·복원, HTML 제목의 문자 렌더링을 검사한다. Storage·DOM 대역은 외부 패키지 없이 작성한다.\n- 브라우저에서 Enter 추가, 키보드 탐색·완료·삭제, 필터 선택 상태, 라이브 안내, 새로고침 복원, 빈 상태를 확인한다. 지정 화면 크기와 매우 긴 제목으로 가로 넘침을 검사한다.\n- 실제 명령 결과와 화면 확인 결과를 남긴다. Node.js 20+와 Harness의 브라우저 검증 지원은 미확인 가정이며, 실행하지 못한 항목은 미검증으로 표시하고 완료 판정을 보류한다."
+        },
+        {
+          "title": "LangGraph 단계 저장 / Workflow checkpoint",
+          "status": "completed",
+          "detail": "다음 단계: round · 완료 회차 0/6"
+        },
+        {
+          "title": "구현 / Implementation",
+          "status": "completed",
+          "model": "gpt-6.1-sol",
+          "role": "worker",
+          "effort": "max",
+          "detail": "1/6 · 추론 강도 / Effort: max · 남은 사용 한도 86% · 누적 사용 97,653 tokens · 남은 사용 한도 85%"
+        },
+        {
+          "title": "파일 작업 / File operations",
+          "status": "completed",
+          "detail": "list: ."
+        },
+        {
+          "title": "구현 / Implementation",
+          "status": "failed",
+          "model": "gpt-6.1-sol",
+          "role": "worker",
+          "effort": "max",
+          "detail": "1/6 · 추론 강도 / Effort: max · 남은 사용 한도 85% · 요청 시간이 초과되었습니다."
+        },
+        {
+          "title": "모델 일시 오류 / Temporary model error",
+          "status": "completed",
+          "model": "gpt-6.1-sol",
+          "role": "worker",
+          "effort": "max",
+          "detail": "GPT-6.1 Sol Max에서 요청 시간이 초과되었습니다.가 발생해 설정된 다음 우선순위 모델로 전환합니다."
+        },
+        {
+          "title": "모델 사용량·잔여 한도 / Model usage and remaining quota",
+          "status": "completed",
+          "detail": "GPT-6.1 Sol Max: 97,653 tokens · 4회 호출 · 남은 사용 한도 85%"
+        },
+        {
+          "title": "실행 종료 / Run finished",
+          "status": "failed",
+          "detail": "저장한 모델 우선순위를 모두 시도했지만 완료하지 못했습니다. 마지막 응답: 요청 시간이 초과되었습니다."
+        }
+      ],
+      "browserQa": null,
+      "inspection": null
+    }
+  },
+  "sol61PreviousAttempts": [
+    {
+      "runId": "66aa6448-3705-4be5-bd11-1d482eb7ed5d",
+      "status": "failed",
+      "stage": "configuring",
+      "elapsedMs": 24393,
+      "totalTokens": 46865,
+      "calls": 2,
+      "summary": "모델 응답이 요청한 JSON 형식이 아닙니다.",
+      "ledger": {
+        "calls": 2,
+        "unavailableCalls": 0,
+        "fieldCoverage": {
+          "totalTokens": {
+            "reportedCalls": 2,
+            "unavailableCalls": 0
+          },
+          "inputTokens": {
+            "reportedCalls": 2,
+            "unavailableCalls": 0
+          },
+          "outputTokens": {
+            "reportedCalls": 2,
+            "unavailableCalls": 0
+          },
+          "cachedInputTokens": {
+            "reportedCalls": 2,
+            "unavailableCalls": 0
+          },
+          "reasoningOutputTokens": {
+            "reportedCalls": 2,
+            "unavailableCalls": 0
+          }
+        },
+        "totalTokens": 46865,
+        "inputTokens": 46394,
+        "outputTokens": 471,
+        "cachedInputTokens": 0,
+        "reasoningOutputTokens": 342,
+        "totalMinusInputAndOutput": 0
+      }
+    },
+    {
+      "runId": "9e810c1a-8823-473d-aff8-d2aaf347b30d",
+      "status": "failed",
+      "stage": "configuring",
+      "elapsedMs": 28224,
+      "totalTokens": 46832,
+      "calls": 2,
+      "summary": "모델 응답이 요청한 JSON 형식이 아닙니다.",
+      "ledger": {
+        "calls": 2,
+        "unavailableCalls": 0,
+        "fieldCoverage": {
+          "totalTokens": {
+            "reportedCalls": 2,
+            "unavailableCalls": 0
+          },
+          "inputTokens": {
+            "reportedCalls": 2,
+            "unavailableCalls": 0
+          },
+          "outputTokens": {
+            "reportedCalls": 2,
+            "unavailableCalls": 0
+          },
+          "cachedInputTokens": {
+            "reportedCalls": 2,
+            "unavailableCalls": 0
+          },
+          "reasoningOutputTokens": {
+            "reportedCalls": 2,
+            "unavailableCalls": 0
+          }
+        },
+        "totalTokens": 46832,
+        "inputTokens": 46404,
+        "outputTokens": 428,
+        "cachedInputTokens": 0,
+        "reasoningOutputTokens": 287,
+        "totalMinusInputAndOutput": 0
+      }
+    }
+  ],
+  "appRegression": {
+    "date": "2026-10-01",
+    "command": "node --test tests/*.test.mjs",
+    "exitCode": 0,
+    "tests": 129,
+    "passed": 129,
+    "failed": 0,
+    "durationMs": 57615.543334,
+    "harnessCommit": "fbe049f",
+    "sourceChanges": false,
+    "scope": "Loopline 회귀 검사; 웹사이트 독립 QA 점수와 별도"
+  },
+  "visualFindings": {
+    "single": {
+      "mobile": {
+        "issue": "검색 필드와 필터 사이의 과도한 여백",
+        "approxGapPx": 198,
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "evidence": "single-mobile.jpg"
+      }
+    },
+    "loop": {
+      "emptyState": {
+        "issue": "작업이 있는데 빈 목록 안내가 함께 표시됨",
+        "hiddenAttribute": true,
+        "computedDisplay": "grid",
+        "evidence": "loop-desktop.jpg",
+        "commonQaCase": 19
+      }
+    }
+  },
+  "sol61Diagnostic": {
+    "purpose": "초기 폴더 판정 형식 진단",
+    "elapsedMs": 11696,
+    "usage": {
+      "totalTokens": 21213,
+      "inputTokens": 20993,
+      "cachedInputTokens": 13184,
+      "cacheWriteInputTokens": 0,
+      "outputTokens": 220,
+      "reasoningOutputTokens": 141
+    },
+    "turnStatus": "completed",
+    "calls": 1
+  },
+  "loopVsLuna": {
+    "timeReductionPercent": 58.498073147023455,
+    "tokenReductionPercent": 33.97926255958328
+  },
+  "projectCommits": {
+    "single": {
+      "source": "/Users/dgsw59/Library/Application Support/Mosaic Desk/harness/projects/1f553b3f-e0b3-448e-93d6-dd87f4ffb630/today-tasks",
+      "commits": [
+        {
+          "hash": "52f67e5",
+          "message": "feat: Luna Max 비교용 오프라인 작업 관리 사이트 보존"
+        },
+        {
+          "hash": "fc833a5",
+          "message": "test: Luna Max 산출물의 생성 기능 테스트 기록"
+        }
+      ],
+      "clean": true
+    },
+    "loop": {
+      "source": "/Users/dgsw59/Library/Application Support/Mosaic Desk/harness/projects/ba35ca76-0349-409a-9c31-34b77b38c257/todays-work-offline",
+      "commits": [
+        {
+          "hash": "e686437",
+          "message": "feat: Loop 비교용 오프라인 작업 관리 사이트 보존"
+        },
+        {
+          "hash": "e35d0c6",
+          "message": "test: Loop 산출물의 생성 기능 테스트 기록"
+        }
+      ],
+      "clean": true
+    }
+  }
+}

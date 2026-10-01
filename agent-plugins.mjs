@@ -37,6 +37,11 @@ export class AgentPlugins {
     if (selection.provider === 'openai') {
       const client = await this.codexClient(selection.codexAccountId || 'default');
       try {
+        const preview = await client.request('mcpServerStatus/list', { detail: 'toolsAndAuthOnly', limit: 50 }, 60_000);
+        const skillResult = await client.request('skills/list', { cwds: [cwd || this.home] }).catch(() => ({ data: [] }));
+        const skills = (skillResult.data || []).flatMap((group) => group.skills || []).filter((skill) => skill.enabled !== false && typeof skill.path === 'string');
+        // No configured servers means there is no reason to create even an ephemeral chat.
+        if (!(preview.data || []).some((server) => !['disabled'].includes(server.runtimeStatus))) return { client, threadId: null, tools: [], skills, close: () => client.stop() };
         const result = await client.request('thread/start', { cwd: cwd || this.home, ephemeral: true, sandbox: 'read-only', approvalPolicy: 'never' });
         const threadId = result.thread?.id;
         if (!threadId) throw fail('Plugin 임시 연결을 만들지 못했습니다.');
@@ -49,8 +54,6 @@ export class AgentPlugins {
           }
           cursor = list.nextCursor; if (!cursor) break;
         }
-        const skillResult = await client.request('skills/list', { cwds: [cwd || this.home] }).catch(() => ({ data: [] }));
-        const skills = (skillResult.data || []).flatMap((group) => group.skills || []).filter((skill) => skill.enabled !== false && typeof skill.path === 'string');
         return { client, threadId, tools, skills, close: () => client.stop() };
       } catch (error) { client.stop(); throw fail('Codex Plugin 검색에 실패했습니다. CLI 버전과 기존 MCP 인증을 확인해 주세요.'); }
     }

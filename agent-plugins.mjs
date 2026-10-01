@@ -118,7 +118,11 @@ export class AgentPlugins {
     if (args.action === 'search') {
       const query = String(args.query || '').toLowerCase().slice(0, 200);
       const matches = session.tools.filter((t) => `${t.server} ${t.name} ${t.description || ''}`.toLowerCase().includes(query));
-      result = { tools: matches.slice(0, 12).map(({ server, name, description, inputSchema, annotations }) => ({ server, name, description, inputSchema, annotations })), totalMatches: matches.length, skills: session.skills.filter((s) => `${s.name} ${s.description || ''}`.toLowerCase().includes(query)).slice(0, 12).map(({ name, description }) => ({ name, description })), unavailable: session.unavailable || [] };
+      result = { tools: matches.slice(0, 12).map(({ server, name, description, inputSchema, annotations }) => ({ server, name, description: String(description || '').slice(0, 800), inputSchema, annotations })), totalMatches: matches.length, skills: session.skills.filter((s) => `${s.name} ${s.description || ''}`.toLowerCase().includes(query)).slice(0, 12).map(({ name, description }) => ({ name, description: String(description || '').slice(0, 400) })), unavailable: session.unavailable || [] };
+      // Preserve valid JSON and tool identities when a broad search includes large schemas.
+      for (let i = result.tools.length - 1; JSON.stringify(result).length > 24_000 && i >= 0; i--) {
+        delete result.tools[i].inputSchema; result.tools[i].schemaOmitted = 'Search this exact tool name to inspect its arguments.';
+      }
     } else if (args.action === 'read_skill') {
       const skill = session.skills.find((s) => s.name === args.skill);
       if (!skill) throw fail('발견된 목록에 없는 Skill입니다.');
@@ -133,7 +137,8 @@ export class AgentPlugins {
         : await session.clients.get(args.server).callTool({ name: args.tool, arguments: args.arguments || {} }, { signal, timeout: 120_000 });
     } else throw fail('지원하지 않는 Plugin 작업입니다.');
     if (signal?.aborted) throw signal.reason;
-    return { output: JSON.stringify(result).slice(0, 24_000), isError: result?.isError === true };
+    const output = JSON.stringify(result);
+    return { output: output.length > 24_000 ? JSON.stringify({ truncated: true, excerpt: output.slice(0, 22_000) }) : output, isError: result?.isError === true };
   }
 
   async release(runId) {

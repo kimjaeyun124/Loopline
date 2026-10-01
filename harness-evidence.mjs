@@ -23,12 +23,17 @@ export class HarnessEvidence {
       round: call.round || 0, durationMs: call.durationMs || 0, tokens: Number.isSafeInteger(call.tokens) ? call.tokens : null,
       status: plain(call.status), failureKind: plain(call.failureKind),
     }));
+    const recoveryBreakdown = {
+      modelRetries: run.events.filter((event) => /복구|재요청|대체 모델|모델 전환|모델 교체|정체/.test(event.title)).length,
+      browserQaFailures: (run.qaHistory || []).filter((qa) => qa.passed === false).length,
+      milestoneFailures: run.events.filter((event) => event.title.startsWith('부분 작업 수정 / Milestone failed')).length,
+    };
     const result = { version: 1, id: run.id, type: taskType(run.task), finishedAt: run.finishedAt, status: run.status,
       completed: run.status === 'completed' && run.applied === true,
       durationMs: Math.max(0, run.finishedAt - run.createdAt), rounds: run.round,
       verificationPassed: run.verificationPassed === true,
       browserQaRequired: run.qaRequired === true, browserQaPassed: run.browserQaPassed === true,
-      recoveries: run.events.filter((event) => /복구|재요청|대체 모델|모델 전환|모델 교체|정체/.test(event.title)).length,
+      recoveries: sum(Object.values(recoveryBreakdown)), recoveryBreakdown,
       autoResumeAttempts: run.autoResumeAttempts || 0,
       humanIntervention: 'not-measured', calls,
     };

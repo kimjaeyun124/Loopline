@@ -59,7 +59,9 @@ export async function verifyBrowser({ workspace, runId, round, plan }, userData,
       const js = (body, data) => wc.executeJavaScript(`(${body})(${JSON.stringify(data)})`, true);
       // CSS can override the hidden attribute, so assertions must inspect the rendered state.
       const inspect = (step) => js(`(s) => {
-        const list=[...document.querySelectorAll(s.selector)], el=list[0];
+        const list=[...document.querySelectorAll(s.selector)];
+        // Focus assertions concern the matching active element, not DOM order.
+        const el=['focused','focus-visible'].includes(s.action)?list.find(e=>e===document.activeElement):list[0];
         const visible=e=>{if(!e)return false;const c=getComputedStyle(e),r=e.getBoundingClientRect();return c.display!=='none'&&c.visibility!=='hidden'&&r.width>0&&r.height>0};
         if(s.action==='count')return {ok:list.length===s.value,actual:list.length};
         if(s.action==='hidden')return {ok:!visible(el),actual:visible(el)};

@@ -1250,12 +1250,30 @@ export class HarnessEngine {
     const { run } = record;
     if (run.milestones?.length) return;
     let feedback = '';
+    const triedPlannerModels = new Set([selectionKey(run.roles.planner)]);
+    const verificationContract = '\n부분 검증 명령은 그 부분의 담당 파일과 기능을 실제로 검사해야 합니다. 화면 부분의 검증에 앞선 저장 모듈 테스트만 반복하지 마세요. UI 계약이나 통합 동작을 검사하는 테스트 파일과 명령을 해당 부분 paths에 포함하세요. 뒤 단계 파일이 아직 없는 시점에도 앞 부분 검사가 실행되어야 합니다. README 등 문서는 관련 구현 부분에 포함하고 별도의 문서 작업으로 최종 기능 QA를 대체하지 마세요.';
     for (let attempt = 0; attempt < 3; attempt++) {
-      const answer = await this.callValidated(record, 'planner', `큰 프로젝트를 검증 가능한 작은 부분 작업 2~8개로 나누세요. 목표: ${run.task}\n기존 계획: ${plan}\n파일 목록: ${files}\n독립 QA 계약: ${JSON.stringify(run.qaPlan)}\n각 부분 작업은 실제 파일과 동작을 만들고 오프라인에서 단독 검증할 수 있어야 합니다. 뒤 작업에 의존하는 전체 테스트를 앞 단계 검증에 쓰지 말고 해당 부분 테스트를 계획하세요. 파일당 책임과 의존 순서를 명확히 하고 모든 원래 요구사항을 포함하세요. 각 작업의 변경은 판정이 전체 내용을 읽을 수 있도록 60,000자 이내를 목표로 나누세요. paths는 담당 파일 이름 또는 폴더/** 패턴입니다. 임의 전체 경로 **는 금지입니다. 부분 완료로 최종 완료를 대체하지 않으며 마지막에 전체 통합 검증과 브라우저 QA를 수행합니다. JSON만 반환하세요: {"tasks":[{"id":"core","title":"핵심 동작","dependsOn":[],"paths":["src/core.js","tests/core.test.mjs"],"criteria":["핵심 동작을 입력과 출력으로 확인"],"verifyCommand":"node --test tests/core.test.mjs"},{"id":"integration","title":"전체 연결","dependsOn":["core"],"paths":["index.html","tests/integration.test.mjs"],"criteria":["핵심 동작을 화면과 연결해 검사"],"verifyCommand":"node --test tests/integration.test.mjs"}]}\n직전 계획 판정 피드백: ${feedback}`, '부분 작업 계획 / Milestone plan', { validate: (value) => validateMilestones(typeof value === 'string' ? parseHarnessJson(value) : value) });
+      const answer = await this.callValidated(record, 'planner', `큰 프로젝트를 검증 가능한 작은 부분 작업 2~8개로 나누세요. 목표: ${run.task}\n기존 계획: ${plan}\n파일 목록: ${files}\n독립 QA 계약: ${JSON.stringify(run.qaPlan)}\n각 부분 작업은 실제 파일과 동작을 만들고 오프라인에서 단독 검증할 수 있어야 합니다. 뒤 작업에 의존하는 전체 테스트를 앞 단계 검증에 쓰지 말고 해당 부분 테스트를 계획하세요. 파일당 책임과 의존 순서를 명확히 하고 모든 원래 요구사항을 포함하세요. 각 작업의 변경은 판정이 전체 내용을 읽을 수 있도록 60,000자 이내를 목표로 나누세요. paths는 담당 파일 이름 또는 폴더/** 패턴입니다. 임의 전체 경로 **는 금지입니다. 부분 완료로 최종 완료를 대체하지 않으며 마지막에 전체 통합 검증과 브라우저 QA를 수행합니다. JSON만 반환하세요: {"tasks":[{"id":"core","title":"핵심 동작","dependsOn":[],"paths":["src/core.js","tests/core.test.mjs"],"criteria":["핵심 동작을 입력과 출력으로 확인"],"verifyCommand":"node --test tests/core.test.mjs"},{"id":"integration","title":"전체 연결","dependsOn":["core"],"paths":["index.html","tests/integration.test.mjs"],"criteria":["핵심 동작을 화면과 연결해 검사"],"verifyCommand":"node --test tests/integration.test.mjs"}]}\n직전 계획 판정 피드백: ${feedback}${verificationContract}`, '부분 작업 계획 / Milestone plan', { validate: (value) => validateMilestones(typeof value === 'string' ? parseHarnessJson(value) : value) });
       const tasks = validateMilestones(typeof answer === 'string' ? parseHarnessJson(answer) : answer);
+      triedPlannerModels.add(selectionKey(run.roles.planner));
       const verdict = await this.decide(record, { task: run.task, tasks }, { workPlan: { label: '부분 작업 범위', question: 'Does this dependency-ordered plan cover every original requirement, with sensible file ownership, observable acceptance criteria and meaningful independently executable checks for each task?', pass: 'All requirements are covered and each task can be independently verified.', revise: 'Repair missing requirements, dependencies or ineffective per-task verification.' } });
       if (verdict.decision === 'complete') { run.milestones = tasks; break; }
       feedback = verdict.feedback;
+      // A typed judge can reject a feasible-looking plan without a useful prose
+      // critique. Keep its gate, but spend the last bounded attempt on a new planner.
+      if (attempt === 1 && run.roles.planner.automatic === true) {
+        const current = run.roles.planner;
+        const next = run.modelPriority.planner.find((model) => !triedPlannerModels.has(selectionKey(model))
+          && !model.decisionOnly && !knownExhausted(run.modelBudgets[selectionKey(model)], model));
+        if (next) {
+          const nextKey = selectionKey(next);
+          run.roles.planner = { ...next, automatic: true };
+          run.modelPriority.planner = run.modelPriority.planner.filter((model) => selectionKey(model) !== nextKey);
+          if (!run.modelPriority.planner.some((model) => selectionKey(model) === selectionKey(current))) run.modelPriority.planner.push(current);
+          run.stageModels.planner = { ...modelDetails('planner', next), reasoningEffort: next.reasoningEffort || '' };
+          await this.event(record, '계획 판정 복구 · 모델 전환 / Planning review recovery', `부분 작업 계획이 두 번 판정을 통과하지 못해 저장된 다음 후보 ${next.label || next.model}로 마지막 계획 시도를 진행합니다. 완료 기준과 판정 역할은 유지합니다.`, 'completed', modelDetails('planner', next));
+        }
+      }
     }
     if (!run.milestones?.length) throw fail(`부분 작업 계획이 완료 기준을 충족하지 못했습니다. ${feedback}`);
     run.milestoneContract = milestoneContract(run.milestones);

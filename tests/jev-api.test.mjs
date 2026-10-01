@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { ApiConnections } from '../api-connections.mjs';
+import { HarnessEngine } from '../harness-engine.mjs';
 
 const question = { type: 'choice', instructions: 'Does evidence pass?', criteria: { pass: 'yes', revise: 'no', uncertain: 'unknown' } };
 const valid = () => ({ model: 'jev-test-version', answers: { goal: { type: 'choice', choice: 'pass', confidence: 0.95, probabilities: { pass: 0.98, revise: 0.01, uncertain: 0.01 } } }, usage: { input_tokens: 20, output_tokens: 3 } });
@@ -45,10 +47,51 @@ test('Jev native protocol preserves typed answers, accounts usage and never save
   await assert.rejects(f.api.chat(f.connection.id, 'jev-latest', [], { signal: new AbortController().signal }), /판정 전용/);
 });
 test('missing or invalid Jev answers never count as successful decisions', async (t) => {
-  const bad = [{}, { ...valid(), answers: {} }, { ...valid(), answers: { goal: { ...valid().answers.goal, choice: 'invented' } } }, { ...valid(), answers: { goal: { ...valid().answers.goal, probabilities: { pass: 0.1, revise: 0.8, uncertain: 0.1 } } } }];
+  const bad = [null, [], 42, 'pass', {}, { ...valid(), answers: {} }, { ...valid(), answers: { goal: { ...valid().answers.goal, choice: 'invented' } } }, { ...valid(), answers: { goal: { ...valid().answers.goal, probabilities: { pass: 0.1, revise: 0.8, uncertain: 0.1 } } } }];
+  const responses = bad.length;
   const f = await setup(t, () => Response.json(bad.shift()));
-  for (let i = 0; i < 4; i++) await assert.rejects(f.evaluate(), /불완전/);
+  for (let i = 0; i < responses; i++) await assert.rejects(f.evaluate(), (error) => {
+    assert.match(error.message, /불완전/);
+    return error.invalidStructuredOutput === true && error.invalidJudgeOutput === true;
+  });
 });
+test('malformed Jev JSON is a format failure while HTTP outages remain transport failures', async (t) => {
+  let status = 200;
+  const f = await setup(t, () => new Response('Not JSON', { status }));
+  await assert.rejects(f.evaluate(), (error) => error.invalidStructuredOutput === true && error.invalidJudgeOutput === true);
+  status = 503;
+  await assert.rejects(f.evaluate(), (error) => error.remoteStatus === 503 && !error.invalidStructuredOutput);
+});
+
+test('Harness repairs native Jev format once with feedback in the actual systemone request', async (t) => {
+  let reviews = 0;
+  const f = await setup(t, (options) => {
+    reviews++;
+    const body = JSON.parse(options.body);
+    assert.equal(body.questions.goal.criteria.pass, question.criteria.pass);
+    assert.equal(body.questions.goal.criteria.revise, question.criteria.revise);
+    assert.equal(body.questions.goal.criteria.uncertain, 'Evidence is missing or insufficient to decide.');
+    assert.equal(body.state.task, 'QA goal');
+    if (reviews === 1) return Response.json({ ...valid(), answers: {} });
+    assert.match(body.state.responseFormatCorrection, /형식 오류/);
+    return Response.json(valid());
+  });
+  const judge = { provider: 'api', model: 'jev-latest', connectionId: f.connection.id, decisionOnly: true };
+  const record = { controller: new AbortController(), writes: Promise.resolve(), run: {
+    id: randomUUID(), roles: { judge }, modelPriority: { judge: [] }, modelBudgets: {}, modelUsage: {},
+    stageModels: {}, instructions: '', round: 1, rounds: 2, mcpTools: [], events: [],
+  } };
+  const engine = new HarnessEngine({ directory: f.dir, invoke: (selection, prompt, _instructions, signal, onSignal) => f.api.evaluate(
+    selection.connectionId, selection.model, prompt, { signal, onUsage: (usage) => onSignal({ type: 'usage', usage }) },
+  ) });
+  const result = await engine.decide(record, { task: 'QA goal' }, { goal: {
+    label: '목표', question: question.instructions, pass: question.criteria.pass, revise: question.criteria.revise,
+  } });
+  assert.equal(result.decision, 'complete'); assert.equal(reviews, 2);
+  assert.equal(record.run.events.filter((event) => event.title.startsWith('응답 형식 보완')).length, 1);
+  assert.equal(Object.values(record.run.modelUsage).reduce((sum, usage) => sum + usage.totalTokens, 0), 46);
+});
+
 test('Jev authentication failures redact upstream bodies and redirects are refused', async (t) => {
   let status = 401; const f = await setup(t, () => new Response('test-only-secret', { status }));
   await assert.rejects(f.evaluate(), (error) => error.remoteStatus === 401 && !error.message.includes('test-only-secret'));

@@ -53,6 +53,307 @@ function modelScript(judge) {
 const pass = async () => ({ code: 0, output: 'PASS', error: '' });
 const complete = () => ({ decision: 'complete', summary: 'Verified', feedback: '' });
 
+test('managed project setup repairs one malformed folder proposal and review without restarting', async (t) => {
+  const f = await fixture(t), script = modelScript(complete);
+  let proposals = 0, folderReviews = 0, originalReview;
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (selection, prompt, ...rest) => {
+    if (startsWithText(prompt, '새 프로젝트의 작업 폴더')) {
+      proposals++;
+      if (proposals === 1) return 'Use a suitable project name.';
+      assert.ok(hasText(prompt, '직전 응답의 형식 오류'));
+      return JSON.stringify({ folderName: 'completion-recovery', reason: 'Identify this QA task.' });
+    }
+    if (isJudgementPrompt(prompt) && prompt.questions.folder) {
+      folderReviews++;
+      if (folderReviews === 1) { originalReview = prompt; return JSON.stringify({ answers: {} }); }
+      assert.match(prompt.instruction, /형식 오류/);
+      assert.deepEqual(prompt.questions, originalReview.questions);
+      assert.deepEqual(prompt.state, originalReview.state);
+      return judgementResponse(prompt);
+    }
+    return script(selection, prompt, ...rest);
+  } });
+  const run = await settled(engine, (await engine.create({ ...f.input, workspace: undefined })).id);
+  assert.equal(run.status, 'completed', run.summary);
+  assert.equal(run.applied, true);
+  assert.equal(proposals, 2); assert.equal(folderReviews, 2);
+  assert.equal(run.events.filter((event) => event.title.startsWith('응답 형식 보완')).length, 2);
+  assert.equal(await readFile(join(run.source, 'file.txt'), 'utf8'), 'updated 1\n');
+});
+
+test('final review repairs one invalid JSON response while reusing the verified patch', async (t) => {
+  const f = await fixture(t), script = modelScript(complete);
+  let reviews = 0, verifications = 0, workerCalls = 0;
+  const engine = new HarnessEngine({ directory: f.data, verify: async (...args) => {
+    verifications++; return pass(...args);
+  }, invoke: async (selection, prompt, ...rest) => {
+    if (isJudgementPrompt(prompt)) {
+      reviews++;
+      assert.equal(prompt.state.verification.code, 0);
+      assert.match(prompt.state.diff, /updated 1/);
+      if (reviews === 1) return 'The changes look complete.';
+      assert.match(prompt.instruction, /형식 오류/);
+      return judgementResponse(prompt);
+    }
+    if (hasText(prompt, '최근 도구 결과:')) workerCalls++;
+    return script(selection, prompt, ...rest);
+  } });
+  const run = await settled(engine, (await engine.create(f.input)).id);
+  assert.equal(run.status, 'completed', run.summary);
+  assert.equal(run.applied, true);
+  assert.equal(reviews, 2); assert.equal(verifications, 1); assert.equal(workerCalls, 3);
+});
+
+test('persistent invalid initial and final reviews are bounded and never apply changes', async (t) => {
+  for (const managed of [true, false]) await t.test(managed ? 'initial review' : 'final review', async (t) => {
+    const f = await fixture(t), script = modelScript(complete); let reviews = 0;
+    const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: (selection, prompt, ...rest) => {
+      if (isJudgementPrompt(prompt)) { reviews++; return 'Still not JSON.'; }
+      return script(selection, prompt, ...rest);
+    } });
+    const run = await settled(engine, (await engine.create({ ...f.input, ...(managed ? { workspace: undefined } : {}) })).id);
+    assert.equal(run.status, 'failed'); assert.equal(reviews, 2);
+    assert.equal(run.applied, undefined);
+    assert.equal(run.source === null, managed);
+    assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'original\n');
+  });
+});
+
+test('single worker retries one temporary provider failure, preserves progress and records reported usage', async (t) => {
+  const f = await fixture(t); let workerCalls = 0, calls = 0, verifications = 0;
+  const engine = new HarnessEngine({ directory: f.data, verify: async (workspace) => {
+    verifications++;
+    assert.equal(await readFile(join(workspace, 'file.txt'), 'utf8'), 'updated\n');
+    assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'original\n');
+    return pass();
+  }, invoke: async (_selection, prompt, _instructions, _signal, onSignal) => {
+    calls++; onSignal({ type: 'usage', usage: { input_tokens: 10, output_tokens: 5, total_tokens: 15 } });
+    if (hasText(prompt, '구현 계획과 검증 기준')) return 'Update and verify.';
+    if (isJudgementPrompt(prompt)) return judgementResponse(prompt);
+    workerCalls++;
+    assert.ok(hasText(prompt, '12,000자') && hasText(prompt, '파일 변경 2~3개'));
+    if (workerCalls === 1) return JSON.stringify({ operations: [{ type: 'write', path: 'file.txt', content: 'partial\n' }] });
+    if (workerCalls === 2) throw Object.assign(new Error('Provider temporarily unavailable'), { remoteStatus: 503 });
+    assert.ok(hasText(prompt, '필요한 파일 한 개') && hasText(prompt, 'partial\\n'));
+    return JSON.stringify({ operations: [{ type: 'write', path: 'file.txt', content: 'updated\n' }], done: true, summary: 'Completed the saved work.' });
+  } });
+  const run = await settled(engine, (await engine.create(f.input)).id);
+  assert.equal(run.status, 'completed', run.summary); assert.equal(run.applied, true);
+  assert.equal(workerCalls, 3); assert.equal(verifications, 1);
+  assert.equal(run.events.filter((event) => event.title.startsWith('구현 호출 복구')).length, 1);
+  assert.equal(Object.values(run.modelUsage).reduce((total, usage) => total + usage.totalTokens, 0), calls * 15);
+  assert.equal(Object.values(run.modelUsage).reduce((total, usage) => total + usage.calls, 0), calls);
+});
+
+test('repeated temporary worker failures continue in the next round before verification and application', { skip: process.platform !== 'darwin' }, async (t) => {
+  const f = await fixture(t); let firstRoundCalls = 0, secondRoundCalls = 0, verifications = 0, reviews = 0;
+  const engine = new HarnessEngine({ directory: f.data, verify: async (workspace, command, runtime, signal) => {
+    verifications++; assert.equal(await readFile(join(workspace, 'file.txt'), 'utf8'), 'completed\n');
+    return verifyWorkspace(workspace, command, runtime, signal);
+  }, invoke: async (_selection, prompt) => {
+    if (hasText(prompt, '구현 계획과 검증 기준')) return 'Save work in small steps and finish.';
+    if (isJudgementPrompt(prompt)) { reviews++; return judgementResponse(prompt); }
+    const round = Number(prompt.match(/회차 (\d+)\//)?.[1]);
+    if (round === 1) {
+      firstRoundCalls++;
+      if (firstRoundCalls === 1) return JSON.stringify({ operations: [{ type: 'write', path: 'saved.txt', content: 'preserved\n' }] });
+      throw Object.assign(new Error('Temporary transport failure'), { code: 'ETIMEDOUT' });
+    }
+    secondRoundCalls++;
+    assert.equal(verifications, 0); assert.equal(reviews, 0);
+    assert.match(prompt, /파일 목록:\n[\s\S]*saved\.txt/);
+    assert.ok(hasText(prompt, '성공한 작업을 처음부터 반복'));
+    return JSON.stringify({ operations: [{ type: 'write', path: 'file.txt', content: 'completed\n' }], done: true, summary: 'Finished without repeating saved.txt.' });
+  } });
+  const run = await settled(engine, (await engine.create({ ...f.input, verifyCommand: 'test "$(cat file.txt)" = "completed" && test "$(cat saved.txt)" = "preserved"' })).id);
+  assert.equal(run.status, 'completed', run.summary); assert.equal(run.round, 2); assert.equal(run.applied, true);
+  assert.equal(firstRoundCalls, 3); assert.equal(secondRoundCalls, 1);
+  assert.equal(verifications, 1); assert.equal(reviews, 1);
+  assert.equal(await readFile(join(f.source, 'saved.txt'), 'utf8'), 'preserved\n');
+  assert.ok(run.events.some((event) => event.title.startsWith('구현 이어가기')));
+});
+
+test('worker step exhaustion preserves files and completes automatically in the next round', async (t) => {
+  const f = await fixture(t); let workerCalls = 0, verifications = 0;
+  const engine = new HarnessEngine({ directory: f.data, verify: async (workspace) => {
+    verifications++;
+    assert.equal(await readFile(join(workspace, 'part-16.txt'), 'utf8'), 'part 16\n');
+    assert.equal(await readFile(join(workspace, 'file.txt'), 'utf8'), 'completed\n'); return pass();
+  }, invoke: async (_selection, prompt) => {
+    if (hasText(prompt, '구현 계획과 검증 기준')) return 'Create parts, then finish.';
+    if (isJudgementPrompt(prompt)) return judgementResponse(prompt);
+    workerCalls++;
+    const round = Number(prompt.match(/회차 (\d+)\//)?.[1]);
+    const step = Number(prompt.match(/단계 (\d+)\/16/)?.[1]);
+    if (round === 1) return JSON.stringify({ operations: [{ type: 'write', path: `part-${step}.txt`, content: `part ${step}\n` }] });
+    assert.equal(verifications, 0);
+    assert.ok(hasText(prompt, 'part-1.txt') && hasText(prompt, 'part-16.txt') && hasText(prompt, '한도(16회)'));
+    return JSON.stringify({ operations: [{ type: 'write', path: 'file.txt', content: 'completed\n' }], done: true, summary: 'Finished the existing parts.' });
+  } });
+  const run = await settled(engine, (await engine.create(f.input)).id);
+  assert.equal(run.status, 'completed', run.summary); assert.equal(run.round, 2); assert.equal(run.applied, true);
+  assert.equal(workerCalls, 17); assert.equal(verifications, 1);
+  assert.equal(await readFile(join(f.source, 'part-16.txt'), 'utf8'), 'part 16\n');
+});
+
+test('unfinished implementation extends automatic rounds and finishes after the initial limit', async (t) => {
+  const f = await fixture(t); let verifications = 0;
+  const engine = new HarnessEngine({ directory: f.data, verify: async () => { verifications++; return pass(); }, invoke: async (_selection, prompt) => {
+    if (hasText(prompt, '구현 계획과 검증 기준')) return 'Continue until the final part is ready.';
+    if (isJudgementPrompt(prompt)) return judgementResponse(prompt);
+    const round = Number(prompt.match(/회차 (\d+)\//)?.[1]);
+    const step = Number(prompt.match(/단계 (\d+)\/16/)?.[1]);
+    assert.equal(verifications, 0);
+    return JSON.stringify({ operations: [{ type: 'write', path: 'file.txt', content: `round ${round} step ${step}\n` }],
+      ...(round === 5 ? { done: true, summary: 'Completed the remaining part.' } : {}) });
+  } });
+  const run = await settled(engine, (await engine.create({ ...f.input, rounds: 0 })).id);
+  assert.equal(run.status, 'completed', run.summary); assert.equal(run.round, 5); assert.equal(run.rounds, 6);
+  assert.equal(run.applied, true); assert.equal(verifications, 1);
+  assert.ok(run.events.some((event) => event.title.startsWith('자동 회차 연장') && event.detail.includes('4회에서 6회')));
+  assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'round 5 step 1\n');
+});
+
+test('unfinished implementation respects the configured round limit without verification or application', async (t) => {
+  const f = await fixture(t); let workerCalls = 0;
+  const engine = new HarnessEngine({ directory: f.data, verify: () => assert.fail('Incomplete work must not verify'), invoke: async (_selection, prompt) => {
+    if (hasText(prompt, '구현 계획과 검증 기준')) return 'Update in steps.';
+    assert.equal(isJudgementPrompt(prompt), false);
+    workerCalls++; return JSON.stringify({ operations: [{ type: 'write', path: 'file.txt', content: `step ${workerCalls}\n` }] });
+  } });
+  const run = await settled(engine, (await engine.create({ ...f.input, rounds: 1 })).id);
+  assert.equal(run.status, 'limit'); assert.equal(workerCalls, 16); assert.equal(run.patchAvailable, true);
+  assert.equal(run.verificationPassed, false); assert.equal(run.applied, undefined);
+  assert.match(run.summary, /구현이 완료되지 않았습니다/);
+  assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'original\n');
+});
+
+test('authentication and exhausted quota do not enter temporary worker recovery', async (t) => {
+  for (const status of [401, 429]) await t.test(`HTTP ${status}`, async (t) => {
+    const f = await fixture(t); let workerCalls = 0;
+    const engine = new HarnessEngine({ directory: f.data, verify: () => assert.fail('Unexpected verification'), invoke: async (_selection, prompt) => {
+      if (hasText(prompt, '구현 계획과 검증 기준')) return 'Update.';
+      workerCalls++; throw Object.assign(new Error(`HTTP ${status}`), { remoteStatus: status });
+    } });
+    const run = await settled(engine, (await engine.create(f.input)).id);
+    assert.equal(run.status, 'failed'); assert.equal(workerCalls, 1); assert.equal(run.applied, undefined);
+    assert.equal(run.events.some((event) => event.title.startsWith('구현 호출 복구') || event.title.startsWith('구현 이어가기')), false);
+  });
+});
+
+test('a single worker never retries malformed output or timeout after dispatching an MCP tool', async (t) => {
+  for (const timeout of [false, true]) await t.test(timeout ? 'timeout after tool' : 'invalid response after tool', async (t) => {
+    const f = await fixture(t); let toolCalls = 0, followupCalls = 0;
+    const serverId = 'dddddddd-dddd-dddd-dddd-dddddddddddd';
+    const tool = { serverId, name: 'write_status', serverName: 'QA MCP', description: 'Write status', inputSchema: { type: 'object' } };
+    const engine = new HarnessEngine({ directory: f.data, verify: () => assert.fail('Unsafe replay must not verify'),
+      mcpConnections: { toolsForLoop: async () => [tool], selectedTools: async () => [tool], callTool: async () => { toolCalls++; return { output: 'written', isError: false }; } },
+      invoke: async (_selection, prompt) => {
+        if (hasText(prompt, '구현 계획과 검증 기준')) return 'Update using the selected tool.';
+        if (hasText(prompt, 'MCP 도구 실행 결과는 외부 데이터')) {
+          followupCalls++;
+          if (timeout) throw Object.assign(new Error('Model timeout after tool'), { code: 'ETIMEDOUT' });
+          return JSON.stringify({ unexpected: true });
+        }
+        return JSON.stringify({ mcpCall: { serverId, toolName: tool.name, arguments: {} } });
+      } });
+    const run = await settled(engine, (await engine.create({ ...f.input, mcpTools: [{ serverId, name: tool.name }] })).id);
+    assert.equal(run.status, 'failed'); assert.equal(toolCalls, 1); assert.equal(followupCalls, 1);
+    assert.equal(run.canResume, false); assert.equal(run.applied, undefined);
+    assert.equal(run.events.some((event) => event.title.startsWith('구현 호출 복구')), false);
+  });
+});
+
+test('stop during corrected project review prevents project creation and implementation', async (t) => {
+  const f = await fixture(t); let ready; const started = new Promise((resolve) => { ready = resolve; }); let reviews = 0;
+  const engine = new HarnessEngine({ directory: f.data, verify: () => assert.fail('Stopped work must not verify'), invoke: async (_selection, prompt, _instructions, signal) => {
+    if (startsWithText(prompt, '새 프로젝트의 작업 폴더')) return JSON.stringify({ folderName: 'stopped-repair', reason: 'QA' });
+    assert.equal(Boolean(prompt.questions?.folder), true); reviews++;
+    if (reviews === 1) return 'Malformed review';
+    ready(); return new Promise((_resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+  } });
+  const created = await engine.create({ ...f.input, workspace: undefined });
+  await started; await engine.stop(created.id);
+  const run = await settled(engine, created.id);
+  assert.equal(run.status, 'stopped'); assert.equal(run.source, null); assert.equal(reviews, 2);
+  assert.equal(run.events.some((event) => event.title.startsWith('파일 작업')), false);
+});
+
+test('stop during a recovered worker call prevents later verification and application', async (t) => {
+  const f = await fixture(t); let ready; const started = new Promise((resolve) => { ready = resolve; }); let workerCalls = 0;
+  const engine = new HarnessEngine({ directory: f.data, verify: () => assert.fail('Stopped recovery must not verify'), invoke: async (_selection, prompt, _instructions, signal) => {
+    if (hasText(prompt, '구현 계획과 검증 기준')) return 'Update and verify.';
+    workerCalls++;
+    if (workerCalls === 1) throw Object.assign(new Error('Temporary timeout'), { code: 'ETIMEDOUT' });
+    ready(); return new Promise((_resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+  } });
+  const created = await engine.create(f.input);
+  await started; await engine.stop(created.id);
+  const run = await settled(engine, created.id);
+  assert.equal(run.status, 'stopped'); assert.equal(workerCalls, 2); assert.equal(run.applied, undefined);
+  assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'original\n');
+});
+
+test('implementation recovery never replays an earlier completed MCP side effect', async (t) => {
+  for (const timeout of [true, false]) await t.test(timeout ? 'later timeout' : 'step exhaustion', async (t) => {
+    const f = await fixture(t); let toolCalls = 0, workerCalls = 0;
+    const serverId = 'dddddddd-dddd-dddd-dddd-dddddddddddd';
+    const tool = { serverId, name: 'write_status', serverName: 'QA MCP', inputSchema: { type: 'object' } };
+    const engine = new HarnessEngine({ directory: f.data, verify: () => assert.fail('Incomplete MCP work must not verify'),
+      mcpConnections: { toolsForLoop: async () => [tool], selectedTools: async () => [tool], callTool: async () => { toolCalls++; return { output: 'written', isError: false }; } },
+      invoke: async (_selection, prompt) => {
+        if (hasText(prompt, '구현 계획과 검증 기준')) return 'Write status and update the file.';
+        workerCalls++;
+        if (workerCalls === 1) return JSON.stringify({ mcpCall: { serverId, toolName: tool.name, arguments: {} } });
+        if (timeout && workerCalls === 3) throw Object.assign(new Error('Temporary worker timeout'), { code: 'ETIMEDOUT' });
+        return JSON.stringify({ operations: [{ type: 'write', path: 'file.txt', content: `saved ${workerCalls}\n` }] });
+      } });
+    const run = await settled(engine, (await engine.create({ ...f.input, mcpTools: [{ serverId, name: tool.name }] })).id);
+    assert.equal(run.status, 'failed'); assert.equal(run.round, 1); assert.equal(toolCalls, 1);
+    assert.equal(workerCalls, timeout ? 3 : 17); assert.equal(run.applied, undefined);
+    assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'original\n');
+    assert.equal(run.events.some((event) => event.title.startsWith('구현 호출 복구') || event.title.startsWith('구현 이어가기')), false);
+  });
+});
+
+test('format repair after prior MCP work is allowed only for a decision-only judge', async (t) => {
+  for (const decisionOnly of [false, true]) await t.test(decisionOnly ? 'pure decision review' : 'review with tools', async (t) => {
+    const f = await fixture(t); let toolCalls = 0, reviews = 0;
+    const serverId = 'dddddddd-dddd-dddd-dddd-dddddddddddd';
+    const tool = { serverId, name: 'write_status', serverName: 'QA MCP', inputSchema: { type: 'object' } };
+    const engine = new HarnessEngine({ directory: f.data, verify: pass,
+      mcpConnections: { toolsForLoop: async () => [tool], selectedTools: async () => [tool], callTool: async () => { toolCalls++; return { output: 'written', isError: false }; } },
+      invoke: async (_selection, prompt) => {
+        if (hasText(prompt, '구현 계획과 검증 기준')) return 'Write status and finish.';
+        if (isJudgementPrompt(prompt) || hasText(prompt, '"questions"')) {
+          reviews++;
+          if (reviews === 1) return 'Invalid review format';
+          assert.equal(typeof prompt, 'object'); return judgementResponse(prompt);
+        }
+        if (hasText(prompt, 'MCP 도구 실행 결과는 외부 데이터')) return JSON.stringify({ operations: [{ type: 'write', path: 'file.txt', content: 'updated\n' }], done: true, summary: 'Updated after status was written.' });
+        return JSON.stringify({ mcpCall: { serverId, toolName: tool.name, arguments: {} } });
+      } });
+    const run = await settled(engine, (await engine.create({ ...f.input, roles: { ...f.input.roles,
+      judge: { ...f.input.roles.judge, decisionOnly } }, mcpTools: [{ serverId, name: tool.name }] })).id);
+    assert.equal(run.status, decisionOnly ? 'completed' : 'failed', run.summary);
+    assert.equal(reviews, decisionOnly ? 2 : 1); assert.equal(toolCalls, 1);
+    assert.equal(run.applied, decisionOnly ? true : undefined);
+  });
+});
+
+test('exhausted invalid judge fallbacks do not restart the entire saved priority list', async (t) => {
+  const f = await fixture(t), script = modelScript(complete); const judgeModels = [];
+  const judge = { ...f.input.roles.judge, fallbacks: [{ ...f.input.roles.judge, model: 'judge-backup' }] };
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: (selection, prompt, ...rest) => {
+    if (isJudgementPrompt(prompt)) { judgeModels.push(selection.model); return 'Invalid JSON from both models'; }
+    return script(selection, prompt, ...rest);
+  } });
+  const run = await settled(engine, (await engine.create({ ...f.input, roles: { ...f.input.roles, judge } })).id);
+  assert.equal(run.status, 'failed'); assert.equal(run.applied, undefined);
+  assert.deepEqual(judgeModels, ['jev-fixture', 'judge-backup']);
+  assert.equal(run.events.some((event) => event.title.startsWith('응답 형식 보완')), false);
+});
+
 test('a reported zero-token budget skips to the next saved planner and judge priorities', async (t) => {
   const f = await fixture(t), plannerCalls = [];
   const primary = { ...f.input.roles.planner, fallbacks: [

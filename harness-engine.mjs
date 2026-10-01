@@ -1256,7 +1256,17 @@ export class HarnessEngine {
       const answer = await this.callValidated(record, 'planner', `큰 프로젝트를 검증 가능한 작은 부분 작업 2~8개로 나누세요. 목표: ${run.task}\n기존 계획: ${plan}\n파일 목록: ${files}\n독립 QA 계약: ${JSON.stringify(run.qaPlan)}\n각 부분 작업은 실제 파일과 동작을 만들고 오프라인에서 단독 검증할 수 있어야 합니다. 뒤 작업에 의존하는 전체 테스트를 앞 단계 검증에 쓰지 말고 해당 부분 테스트를 계획하세요. 파일당 책임과 의존 순서를 명확히 하고 모든 원래 요구사항을 포함하세요. 각 작업의 변경은 판정이 전체 내용을 읽을 수 있도록 60,000자 이내를 목표로 나누세요. paths는 담당 파일 이름 또는 폴더/** 패턴입니다. 임의 전체 경로 **는 금지입니다. 부분 완료로 최종 완료를 대체하지 않으며 마지막에 전체 통합 검증과 브라우저 QA를 수행합니다. JSON만 반환하세요: {"tasks":[{"id":"core","title":"핵심 동작","dependsOn":[],"paths":["src/core.js","tests/core.test.mjs"],"criteria":["핵심 동작을 입력과 출력으로 확인"],"verifyCommand":"node --test tests/core.test.mjs"},{"id":"integration","title":"전체 연결","dependsOn":["core"],"paths":["index.html","tests/integration.test.mjs"],"criteria":["핵심 동작을 화면과 연결해 검사"],"verifyCommand":"node --test tests/integration.test.mjs"}]}\n직전 계획 판정 피드백: ${feedback}${verificationContract}`, '부분 작업 계획 / Milestone plan', { validate: (value) => validateMilestones(typeof value === 'string' ? parseHarnessJson(value) : value) });
       const tasks = validateMilestones(typeof answer === 'string' ? parseHarnessJson(answer) : answer);
       triedPlannerModels.add(selectionKey(run.roles.planner));
-      const verdict = await this.decide(record, { task: run.task, tasks }, { workPlan: { label: '부분 작업 범위', question: 'Does this dependency-ordered plan cover every original requirement, with sensible file ownership, observable acceptance criteria and meaningful independently executable checks for each task?', pass: 'All requirements are covered and each task can be independently verified.', revise: 'Repair missing requirements, dependencies or ineffective per-task verification.' } });
+      // This gate judges a future verification strategy. Actual files, test results
+      // and browser evidence remain required by the later completion gates.
+      const verdict = await this.decide(record, {
+        phase: 'pre-implementation planning', task: run.task, tasks,
+        ...(run.qaPlan ? { qaPlan: run.qaPlan, executor: BROWSER_QA_EXECUTOR } : {}),
+      }, { workPlan: {
+        label: '부분 작업 범위',
+        question: 'Evaluate this pre-implementation milestone plan. Does it cover every original requirement with sensible file ownership, dependency order, observable acceptance criteria and meaningful independently executable checks for each task? Judge the declared verification strategy, not whether unbuilt files exist or tests already pass. The first task must be testable without later-task files. When state.qaPlan exists, evaluate the proposed Node tests together with that fixed browser QA plan and state.executor: Node tests must meaningfully check logic and integration contracts, while actual DOM behavior, keyboard focus, persistence and layout are independently executed after implementation and before application. Planned browser QA cannot replace meaningful per-task Node tests. Execution evidence will be required by later completion gates.',
+        pass: 'The future implementation plan covers the original requirements and each task has meaningful verification that can run in dependency order; execution evidence is still required after implementation.',
+        revise: 'Repair missing original requirements, invalid dependencies or ineffective per-task verification.',
+      } });
       if (verdict.decision === 'complete') { run.milestones = tasks; break; }
       feedback = verdict.feedback;
       // A typed judge can reject a feasible-looking plan without a useful prose

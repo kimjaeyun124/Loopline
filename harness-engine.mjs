@@ -478,9 +478,6 @@ export class HarnessEngine {
     if (input.workspace && (typeof input.workspace !== 'string' || !isAbsolute(input.workspace))) throw fail('프로젝트 작업 폴더가 올바르지 않습니다.');
     if (input.verifyCommand != null && (typeof input.verifyCommand !== 'string' || input.verifyCommand.length > 1000)) throw fail('프로젝트 검증 명령이 올바르지 않습니다.');
     if (!Number.isInteger(input.rounds) || input.rounds < 0 || input.rounds > MAX_LOOP_ROUNDS) throw fail('회차는 자동 또는 1~10 사이로 지정해 주세요.');
-    const mcpDefinitions = this.mcpConnections ? await this.mcpConnections.toolsForLoop(input.mcpTools || []) : [];
-    if (!this.mcpConnections && Array.isArray(input.mcpTools) && input.mcpTools.length) throw fail('MCP 연결 관리자를 사용할 수 없습니다.', 503);
-    const mcpTools = mcpDefinitions.map(({ serverId, name }) => ({ serverId, name }));
     const roles = {}, modelPriority = {};
     for (const role of ['planner', 'worker', 'judge']) {
       const selection = input.roles?.[role];
@@ -503,6 +500,10 @@ export class HarnessEngine {
       }
     }
     if (['planner', 'worker'].some((role) => roles[role].decisionOnly)) throw fail('Jev는 판정 역할에만 사용할 수 있습니다.');
+    const useSharedTools = Object.keys(roles).some((role) => [roles[role], ...modelPriority[role]].some((selection) => !selection.decisionOnly && selection.loopMcp !== false));
+    const mcpDefinitions = useSharedTools && this.mcpConnections ? await this.mcpConnections.toolsForLoop(input.mcpTools || []) : [];
+    if (useSharedTools && !this.mcpConnections && Array.isArray(input.mcpTools) && input.mcpTools.length) throw fail('MCP 연결 관리자를 사용할 수 없습니다.', 503);
+    const mcpTools = mcpDefinitions.map(({ serverId, name }) => ({ serverId, name }));
     const source = input.workspace ? await realpath(input.workspace) : null;
     if (source) {
       const top = await realpath((await git(source, ['rev-parse', '--show-toplevel'])).trim());

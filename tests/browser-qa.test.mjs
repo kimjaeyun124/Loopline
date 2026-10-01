@@ -9,7 +9,7 @@ import { createServer } from 'node:http';
 import { once } from 'node:events';
 import { runInNewContext } from 'node:vm';
 import { BrowserQaBridge, needsBrowserQa, validateBrowserPlan, BROWSER_QA_EXECUTOR } from '../browser-qa.mjs';
-import { HarnessEngine, runCommand } from '../harness-engine.mjs';
+import { HarnessEngine, runCommand, parseHarnessJson } from '../harness-engine.mjs';
 import { browserPlan, milestonePlan, responseFor } from './fixtures/browser-desktop-qa.mjs';
 import { validateMilestones } from '../harness-milestones.mjs';
 
@@ -44,6 +44,15 @@ test('QA assertions must follow input, reload and keyboard actions', () => {
     plan.checks[1].steps = [...plan.checks[1].steps.filter((step) => step.action !== action), operation];
     assert.throws(() => validateBrowserPlan(plan), /이후의 assertion/);
   }
+});
+
+test('malformed JSON is classified for bounded format repair without accepting prose, arrays or partial objects', () => {
+  for (const answer of ['No JSON here', '{"entry":', '[]', 'null']) {
+    assert.throws(() => parseHarnessJson(answer), error => {
+      assert.equal(error.invalidStructuredOutput, true); assert.match(error.message, /JSON 형식/); return true;
+    });
+  }
+  assert.deepEqual(parseHarnessJson('```json\n{"entry":"index.html"}\n```'), { entry: 'index.html' });
 });
 
 test('QA category errors identify the check, rejected values and supported contract without weakening assertions', () => {
@@ -318,4 +327,45 @@ test('fixed QA format repair receives the precise oversized check and succeeds w
   const created = await engine.create(f.input); await engine.runs.get(created.id).execution;
   const run = await engine.get(created.id); assert.equal(run.status, 'completed', run.summary);
   assert.equal(plans, 2); assert.deepEqual(run.qaPlan, qaPlan); assert.equal(run.roles.planner.model, 'qa');
+});
+
+test('malformed QA JSON enters format repair for fixed models or the saved fallback for automatic models', async (t) => {
+  for (const automatic of [false, true]) await t.test(automatic ? 'saved fallback' : 'fixed model repair', async (t) => {
+    const f = await fixture(t), plans = [];
+    const engine = new HarnessEngine({ directory: f.directory, verify: async () => ({ code: 0, output: 'PASS' }),
+      verifyBrowser: async () => ({ passed: true, checks: [{ id: 'empty', passed: true }], failures: [] }), invoke: async (selection, prompt) => {
+        if (typeof prompt === 'object') return { answers: Object.fromEntries(Object.keys(prompt.questions).map(id => [id, { choice: 'pass' }])) };
+        if (prompt.includes('구현 계획과 검증 기준')) return 'Implement the website';
+        if (prompt.includes('구현 전에 독립 브라우저 QA 계획')) {
+          plans.push(selection.model);
+          if (plans.length === 1) return '{"entry":"index.html","checks":';
+          if (!automatic) assert.match(prompt, /직전 응답의 형식 오류:.*JSON 형식/);
+          return JSON.stringify(qaPlan);
+        }
+        return JSON.stringify({ done: true, summary: 'Implemented', operations: [{ type: 'write', path: 'index.html', content: '<html>verified fixture</html>' }] });
+      } });
+    const created = await engine.create({ ...f.input, roles: { ...f.input.roles, planner: { ...f.input.roles.planner, automatic,
+      ...(automatic ? { fallbacks: [{ provider: 'api', model: 'alternative' }] } : {}) } } });
+    await engine.runs.get(created.id).execution; const run = await engine.get(created.id);
+    assert.equal(run.status, 'completed', run.summary); assert.deepEqual(run.qaPlan, qaPlan);
+    assert.deepEqual(plans, automatic ? ['qa', 'alternative'] : ['qa', 'qa']);
+    assert.equal(run.events.filter(e => e.title.startsWith('응답 형식 보완')).length, automatic ? 0 : 1);
+    assert.equal(run.events.filter(e => e.title.startsWith('응답 형식 오류 · 대체 모델 시도')).length, automatic ? 1 : 0);
+  });
+});
+
+test('repeated malformed QA JSON exhausts the existing repair bound and never starts implementation', async (t) => {
+  const f = await fixture(t); let plans = 0, workerCalls = 0;
+  const engine = new HarnessEngine({ directory: f.directory, verify: async () => assert.fail('No verification before a valid contract'),
+    verifyBrowser: async () => assert.fail('No browser QA before implementation'), invoke: async (_selection, prompt) => {
+      if (typeof prompt === 'object') return { answers: Object.fromEntries(Object.keys(prompt.questions).map(id => [id, { choice: 'pass' }])) };
+      if (prompt.includes('구현 계획과 검증 기준')) return 'Plan';
+      if (prompt.includes('구현 전에 독립 브라우저 QA 계획')) { plans++; return 'Still not JSON'; }
+      workerCalls++; assert.fail('Invalid QA must not reach implementation');
+    } });
+  const created = await engine.create(f.input); await engine.runs.get(created.id).execution;
+  const run = await engine.get(created.id);
+  assert.equal(run.status, 'failed'); assert.equal(plans, 2); assert.equal(workerCalls, 0);
+  assert.equal(run.qaPlan, null); assert.notEqual(run.applied, true);
+  assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'original');
 });

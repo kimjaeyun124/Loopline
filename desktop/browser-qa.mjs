@@ -1,15 +1,19 @@
-import { BrowserWindow } from 'electron';
+import { app, BrowserWindow } from 'electron';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
 import { mkdir, readFile, realpath, stat, writeFile } from 'node:fs/promises';
 import { dirname, extname, join, relative, sep } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { validateBrowserPlan } from '../browser-qa.mjs';
+import { pathToFileURL } from 'node:url';
 
 const mime = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.mjs': 'text/javascript', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.woff2': 'font/woff2' };
 const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const inside = (root, path) => path === root || path.startsWith(root + sep);
 export async function verifyBrowser({ workspace, runId, round, plan }, userData, signal) {
+  // Electron Builder places shared server modules outside app.asar via extraResources.
+  const { validateBrowserPlan } = await import(app.isPackaged
+    ? pathToFileURL(join(process.resourcesPath, 'app-server', 'browser-qa.mjs')).href
+    : new URL('../browser-qa.mjs', import.meta.url).href);
   plan = validateBrowserPlan(plan);
   if (!/^[a-f0-9-]{36}$/.test(runId) || !Number.isInteger(round) || round < 1 || round > 10) throw new Error('브라우저 QA 실행 정보가 올바르지 않습니다.');
   const expected = await realpath(join(userData, 'harness', runId, 'workspace'));

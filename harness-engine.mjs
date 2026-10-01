@@ -7,7 +7,7 @@ import { automaticLoopStartRounds, extendAutomaticLoopRounds, MAX_LOOP_ROUNDS, n
 import { createHarnessWorkflow } from './harness-graph.mjs';
 import { needsMilestones, validateMilestones, matchesMilestone, milestoneContract, milestoneFiles, refreshMilestones, nextMilestone, milestoneCoverage } from './harness-milestones.mjs';
 import { HarnessEvidence, taskType } from './harness-evidence.mjs';
-import { needsBrowserQa, validateBrowserPlan } from './browser-qa.mjs';
+import { needsBrowserQa, validateBrowserPlan, QA_CATEGORIES } from './browser-qa.mjs';
 import { MAX_MCP_CALLS } from './mcp-connections.mjs';
 
 const MAX_FILE = 160_000;
@@ -1310,9 +1310,10 @@ export class HarnessEngine {
     const { run } = record;
     if (run.qaPlan) return;
     const request = `구현 전에 독립 브라우저 QA 계획을 만드세요. 목표: ${run.task}\n구현 계획: ${implementationPlan}\n실행 후 실패 기준을 낮출 수 없습니다. 오프라인 정적/빌드 HTML을 Chromium에서 실제 실행하며 desktop 1440x900, mobile 390x844에서 같은 검사를 실행합니다. 목표의 기능을 검사하고 모든 check에 assertion을 넣으세요. 입력(input)은 fill, 저장(save)은 reload 후 assertion, 빈 상태(empty)는 visible/hidden/count, 키보드(keyboard)는 press와 focused 또는 동작 결과 assertion이 필요합니다. 해당 기능이 목표에 없으면 notApplicable에 기능이 필요 없는 구체적 이유를 적으세요. 모바일 가로 넘침과 빈 화면은 실행기가 별도 검사합니다. 각 검사는 필요한 경우 reset으로 시작해 저장 상태를 초기화하세요. selector는 구현 모델이 그대로 지켜야 하는 화면 계약입니다. JSON만 반환하세요: {"entry":"index.html","checks":[{"id":"empty-state","categories":["empty"],"steps":[{"action":"reset"},{"action":"visible","selector":"#empty-state"}]}],"notApplicable":{}}. 허용 동작: reset, reload, fill(selector,value문자열), click(selector), press(key:Tab/Enter/Escape/ArrowDown/ArrowUp/ArrowLeft/ArrowRight/Space/Backspace), visible/hidden/focused(selector), text/value(selector,value문자열), count(selector,value정수). 임의 JavaScript나 셸은 금지합니다. 검사는 최대16개, 검사별 단계는 최대24개입니다.`;
+    const categoryContract = `\n각 check.categories는 ${JSON.stringify(QA_CATEGORIES)}에 있는 문자열만 담은 배열이어야 합니다. filter, search, delete, mobile, desktop, responsive 등 새 분류 이름은 허용되지 않습니다. 추가 기능 검사는 관련 기본 분류를 사용하거나 categories: []로 작성하되 실제 동작과 assertion을 포함하세요. 네 기본 분류는 각각 실제 검사로 충족하거나 notApplicable에 구체적인 근거를 제시해야 합니다. 검사 ID는 영문 소문자·숫자·하이픈으로 지정하세요.`;
     let feedback = '';
     for (let attempt = 0; attempt < 3; attempt++) {
-      const answer = await this.callValidated(record, 'planner', `${request}\n직전 QA 계획 판정 피드백: ${feedback}`, '독립 QA 계획 / Independent QA plan', { validate: (value) => validateBrowserPlan(typeof value === 'string' ? parseHarnessJson(value) : value) });
+      const answer = await this.callValidated(record, 'planner', `${request}${categoryContract}\n직전 QA 계획 판정 피드백: ${feedback}`, '독립 QA 계획 / Independent QA plan', { validate: (value) => validateBrowserPlan(typeof value === 'string' ? parseHarnessJson(value) : value) });
       const qaPlan = validateBrowserPlan(typeof answer === 'string' ? parseHarnessJson(answer) : answer);
       const verdict = await this.decide(record, { task: run.task, qaPlan }, {
         qaContract: { label: '독립 QA 기준', question: 'Does this pre-implementation QA plan exercise the original requested behaviors, with justified not-applicable categories and meaningful assertions, including persistence after reload and keyboard actions where required?', pass: 'The plan covers the original requirements without weakening acceptance criteria.', revise: 'Add the missing observable behavior checks before implementation.' },

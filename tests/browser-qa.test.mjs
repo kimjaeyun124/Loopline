@@ -43,6 +43,22 @@ test('QA assertions must follow input, reload and keyboard actions', () => {
   }
 });
 
+test('QA category errors identify the check, rejected values and supported contract without weakening assertions', () => {
+  const unknown = structuredClone(qaPlan); unknown.checks[0].categories = ['empty', 'responsive'];
+  assert.throws(() => validateBrowserPlan(unknown), (error) => {
+    assert.equal(error.invalidStructuredOutput, true);
+    assert.match(error.message, /empty:.*responsive/); assert.match(error.message, /input, save, empty, keyboard/);
+    return true;
+  });
+  const notArray = structuredClone(qaPlan); notArray.checks[0].categories = 'empty';
+  assert.throws(() => validateBrowserPlan(notArray), /categories는 배열/);
+  const extra = structuredClone(qaPlan);
+  extra.checks.push({ id: 'filter-result', categories: [], steps: [{ action: 'count', selector: '.task', value: 0 }] });
+  assert.deepEqual(validateBrowserPlan(extra), extra);
+  extra.checks.at(-1).steps = [{ action: 'click', selector: '#filter' }];
+  assert.throws(() => validateBrowserPlan(extra), /실제 assertion/);
+});
+
 test('native QA inspects CSS rendering even when the hidden attribute is overridden', async () => {
   const source = await readFile(new URL('../desktop/browser-qa.mjs', import.meta.url), 'utf8');
   const body = source.match(/const inspect = \(step\) => js\(`([^]*?)`, step\);/)[1];
@@ -110,7 +126,12 @@ test('independent QA vetoes optimistic review, preserves evidence and forwards f
     }, invoke: async (_selection, prompt) => {
       if (typeof prompt === 'object') return { answers: Object.fromEntries(Object.keys(prompt.questions).map((id) => [id, { choice: 'pass', reason: 'Actual evidence' }])) };
       if (prompt.includes('구현 계획과 검증 기준')) return '구현과 QA';
-      if (prompt.includes('구현 전에 독립 브라우저 QA 계획')) return qaPlan;
+      if (prompt.includes('구현 전에 독립 브라우저 QA 계획')) {
+        assert.match(prompt, /\["input","save","empty","keyboard"\]/);
+        assert.match(prompt, /categories: \[\]/);
+        assert.match(prompt, /새 분류 이름은 허용되지 않습니다/);
+        return qaPlan;
+      }
       prompts.push(prompt); workerRounds++;
       return JSON.stringify({ done: true, summary: 'Implemented', operations: [{ type: 'write', path: 'index.html', content: `<html>round ${workerRounds}</html>` }] });
     } });

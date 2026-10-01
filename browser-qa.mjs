@@ -21,10 +21,14 @@ export function validateBrowserPlan(plan) {
     if (!Array.isArray(check.steps) || check.steps.length < 1 || check.steps.length > 24) invalid('검사 단계는 1~24개여야 합니다.');
     const assertions = check.steps.filter((step) => ['visible', 'hidden', 'text', 'value', 'count', 'focused'].includes(step?.action));
     if (!assertions.length) invalid('각 검사에 실제 assertion이 필요합니다.');
-    if (check.categories.includes('input') && !check.steps.some((s) => s.action === 'fill')) invalid('입력 검사에는 실제 입력이 필요합니다.');
-    if (check.categories.includes('save') && !check.steps.some((s) => s.action === 'reload')) invalid('저장 검사에는 새로고침이 필요합니다.');
+    const assertsAfter = (action) => {
+      const index = check.steps.findLastIndex((step) => step.action === action);
+      return index >= 0 && check.steps.slice(index + 1).some((step) => assertions.includes(step));
+    };
+    if (check.categories.includes('input') && !assertsAfter('fill')) invalid('입력 검사에는 실제 입력 이후의 assertion이 필요합니다.');
+    if (check.categories.includes('save') && !assertsAfter('reload')) invalid('저장 검사에는 새로고침 이후의 assertion이 필요합니다.');
     if (check.categories.includes('empty') && !check.steps.some((s) => ['visible', 'hidden', 'count'].includes(s.action))) invalid('빈 상태의 표시 검사가 필요합니다.');
-    if (check.categories.includes('keyboard') && !check.steps.some((s) => s.action === 'press')) invalid('키보드 검사에는 실제 키 입력이 필요합니다.');
+    if (check.categories.includes('keyboard') && !assertsAfter('press')) invalid('키보드 검사에는 실제 키 입력 이후의 assertion이 필요합니다.');
     for (const step of check.steps) {
       if (!step || !ACTIONS.has(step.action)) invalid('허용되지 않은 브라우저 동작입니다.');
       if (!['reset', 'reload', 'press'].includes(step.action) && (typeof step.selector !== 'string' || !step.selector.trim() || step.selector.length > 300)) invalid('검사할 selector가 필요합니다.');

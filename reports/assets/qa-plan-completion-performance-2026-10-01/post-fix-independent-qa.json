@@ -1,0 +1,4928 @@
+{
+  "status": "PASS",
+  "runId": "c4bd6253-d11a-4f15-9be8-f48213e27e6f",
+  "sourceVersion": "e8310cf",
+  "method": "독립 실제 브라우저 UI 검사. 생성 코드 수정 없음.",
+  "requirements": 18,
+  "checks": [
+    {
+      "id": 1,
+      "name": "실제 빈 상태",
+      "status": "PASS",
+      "observations": [
+        {
+          "pass": true,
+          "evidence": {
+            "active": {
+              "focusVisible": false,
+              "id": "",
+              "label": null,
+              "outline": "rgb(25, 41, 65) none 3px",
+              "tag": "BODY",
+              "text": "\n  본문으로 이동\n  \n    \n      F.Focus Desk\n      \n        나의 공간\n        ▤ 작업 데스크\n      \n      하나씩, 차분하게.오"
+            },
+            "counts": [
+              0,
+              0,
+              0
+            ],
+            "empty": {
+              "text": "아직 작업이 없습니다.",
+              "visible": true
+            },
+            "filters": [
+              {
+                "id": "filter-all",
+                "pressed": "true",
+                "text": "전체"
+              },
+              {
+                "id": "filter-todo",
+                "pressed": "false",
+                "text": "할 일"
+              },
+              {
+                "id": "filter-done",
+                "pressed": "false",
+                "text": "완료"
+              }
+            ],
+            "imageCount": 0,
+            "overflow": false,
+            "rows": [],
+            "status": {
+              "live": "polite",
+              "role": "status",
+              "text": ""
+            },
+            "validation": {
+              "text": "작업 제목을 입력해 주세요.",
+              "visible": false
+            },
+            "viewport": {
+              "height": 900,
+              "width": 1440
+            }
+          }
+        },
+        {
+          "pass": true,
+          "evidence": {
+            "active": {
+              "focusVisible": false,
+              "id": "",
+              "label": null,
+              "outline": "rgb(25, 41, 65) none 3px",
+              "tag": "BODY",
+              "text": "\n  본문으로 이동\n  \n    \n      F.Focus Desk\n      \n        나의 공간\n        ▤ 작업 데스크\n      \n      하나씩, 차분하게.오"
+            },
+            "counts": [
+              0,
+              0,
+              0
+            ],
+            "empty": {
+              "text": "아직 작업이 없습니다.",
+              "visible": true
+            },
+            "filters": [
+              {
+                "id": "filter-all",
+                "pressed": "true",
+                "text": "전체"
+              },
+              {
+                "id": "filter-todo",
+                "pressed": "false",
+                "text": "할 일"
+              },
+              {
+                "id": "filter-done",
+                "pressed": "false",
+                "text": "완료"
+              }
+            ],
+            "imageCount": 0,
+            "overflow": false,
+            "rows": [],
+            "status": {
+              "live": "polite",
+              "role": "status",
+              "text": ""
+            },
+            "validation": {
+              "text": "작업 제목을 입력해 주세요.",
+              "visible": false
+            },
+            "viewport": {
+              "height": 844,
+              "width": 390
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "공백 입력 거부",
+      "status": "PASS",
+      "observations": [
+        {
+          "pass": true,
+          "evidence": {
+            "active": {
+              "focusVisible": true,
+              "id": "new-task",
+              "label": "새 작업",
+              "outline": "rgb(40, 83, 207) solid 3px",
+              "tag": "INPUT",
+              "text": ""
+            },
+            "counts": [
+              0,
+              0,
+              0
+            ],
+            "empty": {
+              "text": "아직 작업이 없습니다.",
+              "visible": true
+            },
+            "filters": [
+              {
+                "id": "filter-all",
+                "pressed": "true",
+                "text": "전체"
+              },
+              {
+                "id": "filter-todo",
+                "pressed": "false",
+                "text": "할 일"
+              },
+              {
+                "id": "filter-done",
+                "pressed": "false",
+                "text": "완료"
+              }
+            ],
+            "imageCount": 0,
+            "overflow": false,
+            "rows": [],
+            "status": {
+              "live": "polite",
+              "role": "status",
+              "text": "작업 제목을 입력해 주세요."
+            },
+            "validation": {
+              "text": "작업 제목을 입력해 주세요.",
+              "visible": true
+            },
+            "viewport": {
+              "height": 900,
+              "width": 1440
+            }
+          }
+        },
+        {
+          "pass": true,
+          "evidence": {
+            "active": {
+              "focusVisible": true,
+              "id": "new-task",
+              "label": "새 작업",
+              "outline": "rgb(40, 83, 207) solid 3px",
+              "tag": "INPUT",
+              "text": ""
+            },
+            "counts": [
+              0,
+              0,
+              0
+            ],
+            "empty": {
+              "text": "아직 작업이 없습니다.",
+              "visible": true
+            },
+            "filters": [
+              {
+                "id": "filter-all",
+                "pressed": "true",
+                "text": "전체"
+              },
+              {
+                "id": "filter-todo",
+                "pressed": "false",
+                "text": "할 일"
+              },
+              {
+                "id": "filter-done",
+                "pressed": "false",
+                "text": "완료"
+              }
+            ],
+            "imageCount": 0,
+            "overflow": false,
+            "rows": [],
+            "status": {
+              "live": "polite",
+              "role": "status",
+              "text": "작업 제목을 입력해 주세요."
+            },
+            "validation": {
+              "text": "작업 제목을 입력해 주세요.",
+              "visible": true
+            },
+            "viewport": {
+              "height": 844,
+              "width": 390
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "공백 제거와 버튼 추가",
+      "status": "PASS",
+      "observations": [
+        {
+          "pass": true,
+          "evidence": {
+            "active": {
+              "focusVisible": true,
+              "id": "new-task",
+              "label": "새 작업",
+              "outline": "rgb(40, 83, 207) solid 3px",
+              "tag": "INPUT",
+              "text": ""
+            },
+            "counts": [
+              1,
+              1,
+              0
+            ],
+            "empty": {
+              "text": "이 상태의 작업이 없습니다.",
+              "visible": false
+            },
+            "filters": [
+              {
+                "id": "filter-all",
+                "pressed": "true",
+                "text": "전체"
+              },
+              {
+                "id": "filter-todo",
+                "pressed": "false",
+                "text": "할 일"
+              },
+              {
+                "id": "filter-done",
+                "pressed": "false",
+                "text": "완료"
+              },
+              {
+                "id": "",
+                "pressed": "false",
+                "text": "○"
+              }
+            ],
+            "imageCount": 0,
+            "overflow": false,
+            "rows": [
+              {
+                "buttons": [
+                  {
+                    "name": "기획하기 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "기획하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "○기획하기삭제",
+                "title": "기획하기"
+              }
+            ],
+            "status": {
+              "live": "polite",
+              "role": "status",
+              "text": "작업을 추가했습니다."
+            },
+            "validation": {
+              "text": "작업 제목을 입력해 주세요.",
+              "visible": false
+            },
+            "viewport": {
+              "height": 900,
+              "width": 1440
+            }
+          }
+        },
+        {
+          "pass": true,
+          "evidence": {
+            "active": {
+              "focusVisible": true,
+              "id": "new-task",
+              "label": "새 작업",
+              "outline": "rgb(40, 83, 207) solid 3px",
+              "tag": "INPUT",
+              "text": ""
+            },
+            "counts": [
+              1,
+              1,
+              0
+            ],
+            "empty": {
+              "text": "이 상태의 작업이 없습니다.",
+              "visible": false
+            },
+            "filters": [
+              {
+                "id": "filter-all",
+                "pressed": "true",
+                "text": "전체"
+              },
+              {
+                "id": "filter-todo",
+                "pressed": "false",
+                "text": "할 일"
+              },
+              {
+                "id": "filter-done",
+                "pressed": "false",
+                "text": "완료"
+              },
+              {
+                "id": "",
+                "pressed": "false",
+                "text": "○"
+              }
+            ],
+            "imageCount": 0,
+            "overflow": false,
+            "rows": [
+              {
+                "buttons": [
+                  {
+                    "name": "기획하기 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "기획하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "○기획하기삭제",
+                "title": "기획하기"
+              }
+            ],
+            "status": {
+              "live": "polite",
+              "role": "status",
+              "text": "작업을 추가했습니다."
+            },
+            "validation": {
+              "text": "작업 제목을 입력해 주세요.",
+              "visible": false
+            },
+            "viewport": {
+              "height": 844,
+              "width": 390
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "Enter 추가",
+      "status": "PASS",
+      "observations": [
+        {
+          "pass": true,
+          "evidence": {
+            "active": {
+              "focusVisible": true,
+              "id": "new-task",
+              "label": "새 작업",
+              "outline": "rgb(40, 83, 207) solid 3px",
+              "tag": "INPUT",
+              "text": ""
+            },
+            "counts": [
+              2,
+              2,
+              0
+            ],
+            "empty": {
+              "text": "이 상태의 작업이 없습니다.",
+              "visible": false
+            },
+            "filters": [
+              {
+                "id": "filter-all",
+                "pressed": "true",
+                "text": "전체"
+              },
+              {
+                "id": "filter-todo",
+                "pressed": "false",
+                "text": "할 일"
+              },
+              {
+                "id": "filter-done",
+                "pressed": "false",
+                "text": "완료"
+              },
+              {
+                "id": "",
+                "pressed": "false",
+                "text": "○"
+              },
+              {
+                "id": "",
+                "pressed": "false",
+                "text": "○"
+              }
+            ],
+            "imageCount": 0,
+            "overflow": false,
+            "rows": [
+              {
+                "buttons": [
+                  {
+                    "name": "기획하기 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "기획하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "○기획하기삭제",
+                "title": "기획하기"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "개발하기 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "개발하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "○개발하기삭제",
+                "title": "개발하기"
+              }
+            ],
+            "status": {
+              "live": "polite",
+              "role": "status",
+              "text": "작업을 추가했습니다."
+            },
+            "validation": {
+              "text": "작업 제목을 입력해 주세요.",
+              "visible": false
+            },
+            "viewport": {
+              "height": 900,
+              "width": 1440
+            }
+          }
+        },
+        {
+          "pass": true,
+          "evidence": {
+            "active": {
+              "focusVisible": true,
+              "id": "new-task",
+              "label": "새 작업",
+              "outline": "rgb(40, 83, 207) solid 3px",
+              "tag": "INPUT",
+              "text": ""
+            },
+            "counts": [
+              2,
+              2,
+              0
+            ],
+            "empty": {
+              "text": "이 상태의 작업이 없습니다.",
+              "visible": false
+            },
+            "filters": [
+              {
+                "id": "filter-all",
+                "pressed": "true",
+                "text": "전체"
+              },
+              {
+                "id": "filter-todo",
+                "pressed": "false",
+                "text": "할 일"
+              },
+              {
+                "id": "filter-done",
+                "pressed": "false",
+                "text": "완료"
+              },
+              {
+                "id": "",
+                "pressed": "false",
+                "text": "○"
+              },
+              {
+                "id": "",
+                "pressed": "false",
+                "text": "○"
+              }
+            ],
+            "imageCount": 0,
+            "overflow": false,
+            "rows": [
+              {
+                "buttons": [
+                  {
+                    "name": "기획하기 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "기획하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "○기획하기삭제",
+                "title": "기획하기"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "개발하기 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "개발하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "○개발하기삭제",
+                "title": "개발하기"
+              }
+            ],
+            "status": {
+              "live": "polite",
+              "role": "status",
+              "text": "작업을 추가했습니다."
+            },
+            "validation": {
+              "text": "작업 제목을 입력해 주세요.",
+              "visible": false
+            },
+            "viewport": {
+              "height": 844,
+              "width": 390
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "중복 제목 독립 작업",
+      "status": "PASS",
+      "observations": [
+        {
+          "pass": true,
+          "evidence": {
+            "active": {
+              "focusVisible": true,
+              "id": "new-task",
+              "label": "새 작업",
+              "outline": "rgb(40, 83, 207) solid 3px",
+              "tag": "INPUT",
+              "text": ""
+            },
+            "counts": [
+              4,
+              4,
+              0
+            ],
+            "empty": {
+              "text": "이 상태의 작업이 없습니다.",
+              "visible": false
+            },
+            "filters": [
+              {
+                "id": "filter-all",
+                "pressed": "true",
+                "text": "전체"
+              },
+              {
+                "id": "filter-todo",
+                "pressed": "false",
+                "text": "할 일"
+              },
+              {
+                "id": "filter-done",
+                "pressed": "false",
+                "text": "완료"
+              },
+              {
+                "id": "",
+                "pressed": "false",
+                "text": "○"
+              },
+              {
+                "id": "",
+                "pressed": "false",
+                "text": "○"
+              },
+              {
+                "id": "",
+                "pressed": "false",
+                "text": "○"
+              },
+              {
+                "id": "",
+                "pressed": "false",
+                "text": "○"
+              }
+            ],
+            "imageCount": 0,
+            "overflow": false,
+            "rows": [
+              {
+                "buttons": [
+                  {
+                    "name": "기획하기 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "기획하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "○기획하기삭제",
+                "title": "기획하기"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "개발하기 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "개발하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "○개발하기삭제",
+                "title": "개발하기"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "반복작업 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "반복작업 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "○반복작업삭제",
+                "title": "반복작업"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "반복작업 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "반복작업 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "○반복작업삭제",
+                "title": "반복작업"
+              }
+            ],
+            "status": {
+              "live": "polite",
+              "role": "status",
+              "text": "작업을 추가했습니다."
+            },
+            "validation": {
+              "text": "작업 제목을 입력해 주세요.",
+              "visible": false
+            },
+            "viewport": {
+              "height": 900,
+              "width": 1440
+            }
+          }
+        },
+        {
+          "pass": true,
+          "evidence": {
+            "active": {
+              "focusVisible": true,
+              "id": "new-task",
+              "label": "새 작업",
+              "outline": "rgb(40, 83, 207) solid 3px",
+              "tag": "INPUT",
+              "text": ""
+            },
+            "counts": [
+              4,
+              4,
+              0
+            ],
+            "empty": {
+              "text": "이 상태의 작업이 없습니다.",
+              "visible": false
+            },
+            "filters": [
+              {
+                "id": "filter-all",
+                "pressed": "true",
+                "text": "전체"
+              },
+              {
+                "id": "filter-todo",
+                "pressed": "false",
+                "text": "할 일"
+              },
+              {
+                "id": "filter-done",
+                "pressed": "false",
+                "text": "완료"
+              },
+              {
+                "id": "",
+                "pressed": "false",
+                "text": "○"
+              },
+              {
+                "id": "",
+                "pressed": "false",
+                "text": "○"
+              },
+              {
+                "id": "",
+                "pressed": "false",
+                "text": "○"
+              },
+              {
+                "id": "",
+                "pressed": "false",
+                "text": "○"
+              }
+            ],
+            "imageCount": 0,
+            "overflow": false,
+            "rows": [
+              {
+                "buttons": [
+                  {
+                    "name": "기획하기 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "기획하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "○기획하기삭제",
+                "title": "기획하기"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "개발하기 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "개발하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "○개발하기삭제",
+                "title": "개발하기"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "반복작업 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "반복작업 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "○반복작업삭제",
+                "title": "반복작업"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "반복작업 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "반복작업 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "○반복작업삭제",
+                "title": "반복작업"
+              }
+            ],
+            "status": {
+              "live": "polite",
+              "role": "status",
+              "text": "작업을 추가했습니다."
+            },
+            "validation": {
+              "text": "작업 제목을 입력해 주세요.",
+              "visible": false
+            },
+            "viewport": {
+              "height": 844,
+              "width": 390
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "name": "완료와 개수 반영",
+      "status": "PASS",
+      "observations": [
+        {
+          "pass": true,
+          "evidence": {
+            "active": {
+              "focusVisible": false,
+              "id": "",
+              "label": "기획하기 완료 취소",
+              "outline": "rgb(255, 255, 255) none 3px",
+              "tag": "BUTTON",
+              "text": "✓"
+            },
+            "counts": [
+              4,
+              3,
+              1
+            ],
+            "empty": {
+              "text": "이 상태의 작업이 없습니다.",
+              "visible": false
+            },
+            "filters": [
+              {
+                "id": "filter-all",
+                "pressed": "true",
+                "text": "전체"
+              },
+              {
+                "id": "filter-todo",
+                "pressed": "false",
+                "text": "할 일"
+              },
+              {
+                "id": "filter-done",
+                "pressed": "false",
+                "text": "완료"
+              },
+              {
+                "id": "",
+                "pressed": "true",
+                "text": "✓"
+              },
+              {
+                "id": "",
+                "pressed": "false",
+                "text": "○"
+              },
+              {
+                "id": "",
+                "pressed": "false",
+                "text": "○"
+              },
+              {
+                "id": "",
+                "pressed": "false",
+                "text": "○"
+              }
+            ],
+            "imageCount": 0,
+            "overflow": false,
+            "rows": [
+              {
+                "buttons": [
+                  {
+                    "name": "기획하기 완료 취소",
+                    "pressed": "true"
+                  },
+                  {
+                    "name": "기획하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "✓기획하기삭제",
+                "title": "기획하기"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "개발하기 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "개발하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "○개발하기삭제",
+                "title": "개발하기"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "반복작업 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "반복작업 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "○반복작업삭제",
+                "title": "반복작업"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "반복작업 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "반복작업 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "○반복작업삭제",
+                "title": "반복작업"
+              }
+            ],
+            "status": {
+              "live": "polite",
+              "role": "status",
+              "text": "작업을 완료했습니다."
+            },
+            "validation": {
+              "text": "작업 제목을 입력해 주세요.",
+              "visible": false
+            },
+            "viewport": {
+              "height": 900,
+              "width": 1440
+            }
+          }
+        },
+        {
+          "pass": true,
+          "evidence": {
+            "active": {
+              "focusVisible": false,
+              "id": "",
+              "label": "기획하기 완료 취소",
+              "outline": "rgb(255, 255, 255) none 3px",
+              "tag": "BUTTON",
+              "text": "✓"
+            },
+            "counts": [
+              4,
+              3,
+              1
+            ],
+            "empty": {
+              "text": "이 상태의 작업이 없습니다.",
+              "visible": false
+            },
+            "filters": [
+              {
+                "id": "filter-all",
+                "pressed": "true",
+                "text": "전체"
+              },
+              {
+                "id": "filter-todo",
+                "pressed": "false",
+                "text": "할 일"
+              },
+              {
+                "id": "filter-done",
+                "pressed": "false",
+                "text": "완료"
+              },
+              {
+                "id": "",
+                "pressed": "true",
+                "text": "✓"
+              },
+              {
+                "id": "",
+                "pressed": "false",
+                "text": "○"
+              },
+              {
+                "id": "",
+                "pressed": "false",
+                "text": "○"
+              },
+              {
+                "id": "",
+                "pressed": "false",
+                "text": "○"
+              }
+            ],
+            "imageCount": 0,
+            "overflow": false,
+            "rows": [
+              {
+                "buttons": [
+                  {
+                    "name": "기획하기 완료 취소",
+                    "pressed": "true"
+                  },
+                  {
+                    "name": "기획하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "✓기획하기삭제",
+                "title": "기획하기"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "개발하기 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "개발하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "○개발하기삭제",
+                "title": "개발하기"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "반복작업 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "반복작업 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "○반복작업삭제",
+                "title": "반복작업"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "반복작업 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "반복작업 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "○반복작업삭제",
+                "title": "반복작업"
+              }
+            ],
+            "status": {
+              "live": "polite",
+              "role": "status",
+              "text": "작업을 완료했습니다."
+            },
+            "validation": {
+              "text": "작업 제목을 입력해 주세요.",
+              "visible": false
+            },
+            "viewport": {
+              "height": 844,
+              "width": 390
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "name": "완료 취소",
+      "status": "PASS",
+      "observations": [
+        {
+          "pass": true,
+          "evidence": {
+            "active": {
+              "focusVisible": false,
+              "id": "",
+              "label": "기획하기 완료 처리",
+              "outline": "rgb(40, 83, 207) none 3px",
+              "tag": "BUTTON",
+              "text": "○"
+            },
+            "counts": [
+              4,
+              4,
+              0
+            ],
+            "empty": {
+              "text": "이 상태의 작업이 없습니다.",
+              "visible": false
+            },
+            "filters": [
+              {
+                "id": "filter-all",
+                "pressed": "true",
+                "text": "전체"
+              },
+              {
+                "id": "filter-todo",
+                "pressed": "false",
+                "text": "할 일"
+              },
+              {
+                "id": "filter-done",
+                "pressed": "false",
+                "text": "완료"
+              },
+              {
+                "id": "",
+                "pressed": "false",
+                "text": "○"
+              },
+              {
+                "id": "",
+                "pressed": "false",
+                "text": "○"
+              },
+              {
+                "id": "",
+                "pressed": "false",
+                "text": "○"
+              },
+              {
+                "id": "",
+                "pressed": "false",
+                "text": "○"
+              }
+            ],
+            "imageCount": 0,
+            "overflow": false,
+            "rows": [
+              {
+                "buttons": [
+                  {
+                    "name": "기획하기 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "기획하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "○기획하기삭제",
+                "title": "기획하기"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "개발하기 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "개발하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "○개발하기삭제",
+                "title": "개발하기"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "반복작업 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "반복작업 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "○반복작업삭제",
+                "title": "반복작업"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "반복작업 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "반복작업 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "○반복작업삭제",
+                "title": "반복작업"
+              }
+            ],
+            "status": {
+              "live": "polite",
+              "role": "status",
+              "text": "완료를 취소했습니다."
+            },
+            "validation": {
+              "text": "작업 제목을 입력해 주세요.",
+              "visible": false
+            },
+            "viewport": {
+              "height": 900,
+              "width": 1440
+            }
+          }
+        },
+        {
+          "pass": true,
+          "evidence": {
+            "active": {
+              "focusVisible": false,
+              "id": "",
+              "label": "기획하기 완료 처리",
+              "outline": "rgb(40, 83, 207) none 3px",
+              "tag": "BUTTON",
+              "text": "○"
+            },
+            "counts": [
+              4,
+              4,
+              0
+            ],
+            "empty": {
+              "text": "이 상태의 작업이 없습니다.",
+              "visible": false
+            },
+            "filters": [
+              {
+                "id": "filter-all",
+                "pressed": "true",
+                "text": "전체"
+              },
+              {
+                "id": "filter-todo",
+                "pressed": "false",
+                "text": "할 일"
+              },
+              {
+                "id": "filter-done",
+                "pressed": "false",
+                "text": "완료"
+              },
+              {
+                "id": "",
+                "pressed": "false",
+                "text": "○"
+              },
+              {
+                "id": "",
+                "pressed": "false",
+                "text": "○"
+              },
+              {
+                "id": "",
+                "pressed": "false",
+                "text": "○"
+              },
+              {
+                "id": "",
+                "pressed": "false",
+                "text": "○"
+              }
+            ],
+            "imageCount": 0,
+            "overflow": false,
+            "rows": [
+              {
+                "buttons": [
+                  {
+                    "name": "기획하기 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "기획하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "○기획하기삭제",
+                "title": "기획하기"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "개발하기 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "개발하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "○개발하기삭제",
+                "title": "개발하기"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "반복작업 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "반복작업 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "○반복작업삭제",
+                "title": "반복작업"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "반복작업 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "반복작업 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "○반복작업삭제",
+                "title": "반복작업"
+              }
+            ],
+            "status": {
+              "live": "polite",
+              "role": "status",
+              "text": "완료를 취소했습니다."
+            },
+            "validation": {
+              "text": "작업 제목을 입력해 주세요.",
+              "visible": false
+            },
+            "viewport": {
+              "height": 844,
+              "width": 390
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "name": "전체·할 일·완료 필터와 선택 상태",
+      "status": "PASS",
+      "observations": [
+        {
+          "pass": true,
+          "evidence": {
+            "active": {
+              "focusVisible": false,
+              "id": "filter-done",
+              "label": null,
+              "outline": "rgb(40, 83, 207) none 3px",
+              "tag": "BUTTON",
+              "text": "완료"
+            },
+            "counts": [
+              4,
+              3,
+              1
+            ],
+            "empty": {
+              "text": "이 상태의 작업이 없습니다.",
+              "visible": false
+            },
+            "filters": [
+              {
+                "id": "filter-all",
+                "pressed": "false",
+                "text": "전체"
+              },
+              {
+                "id": "filter-todo",
+                "pressed": "false",
+                "text": "할 일"
+              },
+              {
+                "id": "filter-done",
+                "pressed": "true",
+                "text": "완료"
+              },
+              {
+                "id": "",
+                "pressed": "true",
+                "text": "✓"
+              }
+            ],
+            "imageCount": 0,
+            "overflow": false,
+            "rows": [
+              {
+                "buttons": [
+                  {
+                    "name": "기획하기 완료 취소",
+                    "pressed": "true"
+                  },
+                  {
+                    "name": "기획하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "✓기획하기삭제",
+                "title": "기획하기"
+              }
+            ],
+            "status": {
+              "live": "polite",
+              "role": "status",
+              "text": "완료 작업 1개입니다."
+            },
+            "validation": {
+              "text": "작업 제목을 입력해 주세요.",
+              "visible": false
+            },
+            "viewport": {
+              "height": 900,
+              "width": 1440
+            },
+            "filterObservations": [
+              {
+                "active": {
+                  "focusVisible": false,
+                  "id": "filter-all",
+                  "label": null,
+                  "outline": "rgb(40, 83, 207) none 3px",
+                  "tag": "BUTTON",
+                  "text": "전체"
+                },
+                "counts": [
+                  4,
+                  3,
+                  1
+                ],
+                "empty": {
+                  "text": "이 상태의 작업이 없습니다.",
+                  "visible": false
+                },
+                "filters": [
+                  {
+                    "id": "filter-all",
+                    "pressed": "true",
+                    "text": "전체"
+                  },
+                  {
+                    "id": "filter-todo",
+                    "pressed": "false",
+                    "text": "할 일"
+                  },
+                  {
+                    "id": "filter-done",
+                    "pressed": "false",
+                    "text": "완료"
+                  },
+                  {
+                    "id": "",
+                    "pressed": "true",
+                    "text": "✓"
+                  },
+                  {
+                    "id": "",
+                    "pressed": "false",
+                    "text": "○"
+                  },
+                  {
+                    "id": "",
+                    "pressed": "false",
+                    "text": "○"
+                  },
+                  {
+                    "id": "",
+                    "pressed": "false",
+                    "text": "○"
+                  }
+                ],
+                "imageCount": 0,
+                "overflow": false,
+                "rows": [
+                  {
+                    "buttons": [
+                      {
+                        "name": "기획하기 완료 취소",
+                        "pressed": "true"
+                      },
+                      {
+                        "name": "기획하기 삭제",
+                        "pressed": null
+                      }
+                    ],
+                    "text": "✓기획하기삭제",
+                    "title": "기획하기"
+                  },
+                  {
+                    "buttons": [
+                      {
+                        "name": "개발하기 완료 처리",
+                        "pressed": "false"
+                      },
+                      {
+                        "name": "개발하기 삭제",
+                        "pressed": null
+                      }
+                    ],
+                    "text": "○개발하기삭제",
+                    "title": "개발하기"
+                  },
+                  {
+                    "buttons": [
+                      {
+                        "name": "반복작업 완료 처리",
+                        "pressed": "false"
+                      },
+                      {
+                        "name": "반복작업 삭제",
+                        "pressed": null
+                      }
+                    ],
+                    "text": "○반복작업삭제",
+                    "title": "반복작업"
+                  },
+                  {
+                    "buttons": [
+                      {
+                        "name": "반복작업 완료 처리",
+                        "pressed": "false"
+                      },
+                      {
+                        "name": "반복작업 삭제",
+                        "pressed": null
+                      }
+                    ],
+                    "text": "○반복작업삭제",
+                    "title": "반복작업"
+                  }
+                ],
+                "status": {
+                  "live": "polite",
+                  "role": "status",
+                  "text": "전체 작업 4개입니다."
+                },
+                "validation": {
+                  "text": "작업 제목을 입력해 주세요.",
+                  "visible": false
+                },
+                "viewport": {
+                  "height": 900,
+                  "width": 1440
+                }
+              },
+              {
+                "active": {
+                  "focusVisible": false,
+                  "id": "filter-todo",
+                  "label": null,
+                  "outline": "rgb(40, 83, 207) none 3px",
+                  "tag": "BUTTON",
+                  "text": "할 일"
+                },
+                "counts": [
+                  4,
+                  3,
+                  1
+                ],
+                "empty": {
+                  "text": "이 상태의 작업이 없습니다.",
+                  "visible": false
+                },
+                "filters": [
+                  {
+                    "id": "filter-all",
+                    "pressed": "false",
+                    "text": "전체"
+                  },
+                  {
+                    "id": "filter-todo",
+                    "pressed": "true",
+                    "text": "할 일"
+                  },
+                  {
+                    "id": "filter-done",
+                    "pressed": "false",
+                    "text": "완료"
+                  },
+                  {
+                    "id": "",
+                    "pressed": "false",
+                    "text": "○"
+                  },
+                  {
+                    "id": "",
+                    "pressed": "false",
+                    "text": "○"
+                  },
+                  {
+                    "id": "",
+                    "pressed": "false",
+                    "text": "○"
+                  }
+                ],
+                "imageCount": 0,
+                "overflow": false,
+                "rows": [
+                  {
+                    "buttons": [
+                      {
+                        "name": "개발하기 완료 처리",
+                        "pressed": "false"
+                      },
+                      {
+                        "name": "개발하기 삭제",
+                        "pressed": null
+                      }
+                    ],
+                    "text": "○개발하기삭제",
+                    "title": "개발하기"
+                  },
+                  {
+                    "buttons": [
+                      {
+                        "name": "반복작업 완료 처리",
+                        "pressed": "false"
+                      },
+                      {
+                        "name": "반복작업 삭제",
+                        "pressed": null
+                      }
+                    ],
+                    "text": "○반복작업삭제",
+                    "title": "반복작업"
+                  },
+                  {
+                    "buttons": [
+                      {
+                        "name": "반복작업 완료 처리",
+                        "pressed": "false"
+                      },
+                      {
+                        "name": "반복작업 삭제",
+                        "pressed": null
+                      }
+                    ],
+                    "text": "○반복작업삭제",
+                    "title": "반복작업"
+                  }
+                ],
+                "status": {
+                  "live": "polite",
+                  "role": "status",
+                  "text": "할 일 작업 3개입니다."
+                },
+                "validation": {
+                  "text": "작업 제목을 입력해 주세요.",
+                  "visible": false
+                },
+                "viewport": {
+                  "height": 900,
+                  "width": 1440
+                }
+              },
+              {
+                "active": {
+                  "focusVisible": false,
+                  "id": "filter-done",
+                  "label": null,
+                  "outline": "rgb(40, 83, 207) none 3px",
+                  "tag": "BUTTON",
+                  "text": "완료"
+                },
+                "counts": [
+                  4,
+                  3,
+                  1
+                ],
+                "empty": {
+                  "text": "이 상태의 작업이 없습니다.",
+                  "visible": false
+                },
+                "filters": [
+                  {
+                    "id": "filter-all",
+                    "pressed": "false",
+                    "text": "전체"
+                  },
+                  {
+                    "id": "filter-todo",
+                    "pressed": "false",
+                    "text": "할 일"
+                  },
+                  {
+                    "id": "filter-done",
+                    "pressed": "true",
+                    "text": "완료"
+                  },
+                  {
+                    "id": "",
+                    "pressed": "true",
+                    "text": "✓"
+                  }
+                ],
+                "imageCount": 0,
+                "overflow": false,
+                "rows": [
+                  {
+                    "buttons": [
+                      {
+                        "name": "기획하기 완료 취소",
+                        "pressed": "true"
+                      },
+                      {
+                        "name": "기획하기 삭제",
+                        "pressed": null
+                      }
+                    ],
+                    "text": "✓기획하기삭제",
+                    "title": "기획하기"
+                  }
+                ],
+                "status": {
+                  "live": "polite",
+                  "role": "status",
+                  "text": "완료 작업 1개입니다."
+                },
+                "validation": {
+                  "text": "작업 제목을 입력해 주세요.",
+                  "visible": false
+                },
+                "viewport": {
+                  "height": 900,
+                  "width": 1440
+                }
+              }
+            ]
+          }
+        },
+        {
+          "pass": true,
+          "evidence": {
+            "active": {
+              "focusVisible": false,
+              "id": "filter-done",
+              "label": null,
+              "outline": "rgb(40, 83, 207) none 3px",
+              "tag": "BUTTON",
+              "text": "완료"
+            },
+            "counts": [
+              4,
+              3,
+              1
+            ],
+            "empty": {
+              "text": "이 상태의 작업이 없습니다.",
+              "visible": false
+            },
+            "filters": [
+              {
+                "id": "filter-all",
+                "pressed": "false",
+                "text": "전체"
+              },
+              {
+                "id": "filter-todo",
+                "pressed": "false",
+                "text": "할 일"
+              },
+              {
+                "id": "filter-done",
+                "pressed": "true",
+                "text": "완료"
+              },
+              {
+                "id": "",
+                "pressed": "true",
+                "text": "✓"
+              }
+            ],
+            "imageCount": 0,
+            "overflow": false,
+            "rows": [
+              {
+                "buttons": [
+                  {
+                    "name": "기획하기 완료 취소",
+                    "pressed": "true"
+                  },
+                  {
+                    "name": "기획하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "✓기획하기삭제",
+                "title": "기획하기"
+              }
+            ],
+            "status": {
+              "live": "polite",
+              "role": "status",
+              "text": "완료 작업 1개입니다."
+            },
+            "validation": {
+              "text": "작업 제목을 입력해 주세요.",
+              "visible": false
+            },
+            "viewport": {
+              "height": 844,
+              "width": 390
+            },
+            "filterObservations": [
+              {
+                "active": {
+                  "focusVisible": false,
+                  "id": "filter-all",
+                  "label": null,
+                  "outline": "rgb(40, 83, 207) none 3px",
+                  "tag": "BUTTON",
+                  "text": "전체"
+                },
+                "counts": [
+                  4,
+                  3,
+                  1
+                ],
+                "empty": {
+                  "text": "이 상태의 작업이 없습니다.",
+                  "visible": false
+                },
+                "filters": [
+                  {
+                    "id": "filter-all",
+                    "pressed": "true",
+                    "text": "전체"
+                  },
+                  {
+                    "id": "filter-todo",
+                    "pressed": "false",
+                    "text": "할 일"
+                  },
+                  {
+                    "id": "filter-done",
+                    "pressed": "false",
+                    "text": "완료"
+                  },
+                  {
+                    "id": "",
+                    "pressed": "true",
+                    "text": "✓"
+                  },
+                  {
+                    "id": "",
+                    "pressed": "false",
+                    "text": "○"
+                  },
+                  {
+                    "id": "",
+                    "pressed": "false",
+                    "text": "○"
+                  },
+                  {
+                    "id": "",
+                    "pressed": "false",
+                    "text": "○"
+                  }
+                ],
+                "imageCount": 0,
+                "overflow": false,
+                "rows": [
+                  {
+                    "buttons": [
+                      {
+                        "name": "기획하기 완료 취소",
+                        "pressed": "true"
+                      },
+                      {
+                        "name": "기획하기 삭제",
+                        "pressed": null
+                      }
+                    ],
+                    "text": "✓기획하기삭제",
+                    "title": "기획하기"
+                  },
+                  {
+                    "buttons": [
+                      {
+                        "name": "개발하기 완료 처리",
+                        "pressed": "false"
+                      },
+                      {
+                        "name": "개발하기 삭제",
+                        "pressed": null
+                      }
+                    ],
+                    "text": "○개발하기삭제",
+                    "title": "개발하기"
+                  },
+                  {
+                    "buttons": [
+                      {
+                        "name": "반복작업 완료 처리",
+                        "pressed": "false"
+                      },
+                      {
+                        "name": "반복작업 삭제",
+                        "pressed": null
+                      }
+                    ],
+                    "text": "○반복작업삭제",
+                    "title": "반복작업"
+                  },
+                  {
+                    "buttons": [
+                      {
+                        "name": "반복작업 완료 처리",
+                        "pressed": "false"
+                      },
+                      {
+                        "name": "반복작업 삭제",
+                        "pressed": null
+                      }
+                    ],
+                    "text": "○반복작업삭제",
+                    "title": "반복작업"
+                  }
+                ],
+                "status": {
+                  "live": "polite",
+                  "role": "status",
+                  "text": "전체 작업 4개입니다."
+                },
+                "validation": {
+                  "text": "작업 제목을 입력해 주세요.",
+                  "visible": false
+                },
+                "viewport": {
+                  "height": 844,
+                  "width": 390
+                }
+              },
+              {
+                "active": {
+                  "focusVisible": false,
+                  "id": "filter-todo",
+                  "label": null,
+                  "outline": "rgb(40, 83, 207) none 3px",
+                  "tag": "BUTTON",
+                  "text": "할 일"
+                },
+                "counts": [
+                  4,
+                  3,
+                  1
+                ],
+                "empty": {
+                  "text": "이 상태의 작업이 없습니다.",
+                  "visible": false
+                },
+                "filters": [
+                  {
+                    "id": "filter-all",
+                    "pressed": "false",
+                    "text": "전체"
+                  },
+                  {
+                    "id": "filter-todo",
+                    "pressed": "true",
+                    "text": "할 일"
+                  },
+                  {
+                    "id": "filter-done",
+                    "pressed": "false",
+                    "text": "완료"
+                  },
+                  {
+                    "id": "",
+                    "pressed": "false",
+                    "text": "○"
+                  },
+                  {
+                    "id": "",
+                    "pressed": "false",
+                    "text": "○"
+                  },
+                  {
+                    "id": "",
+                    "pressed": "false",
+                    "text": "○"
+                  }
+                ],
+                "imageCount": 0,
+                "overflow": false,
+                "rows": [
+                  {
+                    "buttons": [
+                      {
+                        "name": "개발하기 완료 처리",
+                        "pressed": "false"
+                      },
+                      {
+                        "name": "개발하기 삭제",
+                        "pressed": null
+                      }
+                    ],
+                    "text": "○개발하기삭제",
+                    "title": "개발하기"
+                  },
+                  {
+                    "buttons": [
+                      {
+                        "name": "반복작업 완료 처리",
+                        "pressed": "false"
+                      },
+                      {
+                        "name": "반복작업 삭제",
+                        "pressed": null
+                      }
+                    ],
+                    "text": "○반복작업삭제",
+                    "title": "반복작업"
+                  },
+                  {
+                    "buttons": [
+                      {
+                        "name": "반복작업 완료 처리",
+                        "pressed": "false"
+                      },
+                      {
+                        "name": "반복작업 삭제",
+                        "pressed": null
+                      }
+                    ],
+                    "text": "○반복작업삭제",
+                    "title": "반복작업"
+                  }
+                ],
+                "status": {
+                  "live": "polite",
+                  "role": "status",
+                  "text": "할 일 작업 3개입니다."
+                },
+                "validation": {
+                  "text": "작업 제목을 입력해 주세요.",
+                  "visible": false
+                },
+                "viewport": {
+                  "height": 844,
+                  "width": 390
+                }
+              },
+              {
+                "active": {
+                  "focusVisible": false,
+                  "id": "filter-done",
+                  "label": null,
+                  "outline": "rgb(40, 83, 207) none 3px",
+                  "tag": "BUTTON",
+                  "text": "완료"
+                },
+                "counts": [
+                  4,
+                  3,
+                  1
+                ],
+                "empty": {
+                  "text": "이 상태의 작업이 없습니다.",
+                  "visible": false
+                },
+                "filters": [
+                  {
+                    "id": "filter-all",
+                    "pressed": "false",
+                    "text": "전체"
+                  },
+                  {
+                    "id": "filter-todo",
+                    "pressed": "false",
+                    "text": "할 일"
+                  },
+                  {
+                    "id": "filter-done",
+                    "pressed": "true",
+                    "text": "완료"
+                  },
+                  {
+                    "id": "",
+                    "pressed": "true",
+                    "text": "✓"
+                  }
+                ],
+                "imageCount": 0,
+                "overflow": false,
+                "rows": [
+                  {
+                    "buttons": [
+                      {
+                        "name": "기획하기 완료 취소",
+                        "pressed": "true"
+                      },
+                      {
+                        "name": "기획하기 삭제",
+                        "pressed": null
+                      }
+                    ],
+                    "text": "✓기획하기삭제",
+                    "title": "기획하기"
+                  }
+                ],
+                "status": {
+                  "live": "polite",
+                  "role": "status",
+                  "text": "완료 작업 1개입니다."
+                },
+                "validation": {
+                  "text": "작업 제목을 입력해 주세요.",
+                  "visible": false
+                },
+                "viewport": {
+                  "height": 844,
+                  "width": 390
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "name": "실시간 검색",
+      "status": "PASS",
+      "observations": [
+        {
+          "pass": true,
+          "evidence": {
+            "active": {
+              "focusVisible": true,
+              "id": "task-search",
+              "label": "작업 검색",
+              "outline": "rgb(40, 83, 207) solid 3px",
+              "tag": "INPUT",
+              "text": ""
+            },
+            "counts": [
+              4,
+              3,
+              1
+            ],
+            "empty": {
+              "text": "검색 결과가 없습니다.",
+              "visible": false
+            },
+            "filters": [
+              {
+                "id": "filter-all",
+                "pressed": "true",
+                "text": "전체"
+              },
+              {
+                "id": "filter-todo",
+                "pressed": "false",
+                "text": "할 일"
+              },
+              {
+                "id": "filter-done",
+                "pressed": "false",
+                "text": "완료"
+              },
+              {
+                "id": "",
+                "pressed": "true",
+                "text": "✓"
+              }
+            ],
+            "imageCount": 0,
+            "overflow": false,
+            "rows": [
+              {
+                "buttons": [
+                  {
+                    "name": "기획하기 완료 취소",
+                    "pressed": "true"
+                  },
+                  {
+                    "name": "기획하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "✓기획하기삭제",
+                "title": "기획하기"
+              }
+            ],
+            "status": {
+              "live": "polite",
+              "role": "status",
+              "text": "검색 결과 1개입니다."
+            },
+            "validation": {
+              "text": "작업 제목을 입력해 주세요.",
+              "visible": false
+            },
+            "viewport": {
+              "height": 900,
+              "width": 1440
+            }
+          }
+        },
+        {
+          "pass": true,
+          "evidence": {
+            "active": {
+              "focusVisible": true,
+              "id": "task-search",
+              "label": "작업 검색",
+              "outline": "rgb(40, 83, 207) solid 3px",
+              "tag": "INPUT",
+              "text": ""
+            },
+            "counts": [
+              4,
+              3,
+              1
+            ],
+            "empty": {
+              "text": "검색 결과가 없습니다.",
+              "visible": false
+            },
+            "filters": [
+              {
+                "id": "filter-all",
+                "pressed": "true",
+                "text": "전체"
+              },
+              {
+                "id": "filter-todo",
+                "pressed": "false",
+                "text": "할 일"
+              },
+              {
+                "id": "filter-done",
+                "pressed": "false",
+                "text": "완료"
+              },
+              {
+                "id": "",
+                "pressed": "true",
+                "text": "✓"
+              }
+            ],
+            "imageCount": 0,
+            "overflow": false,
+            "rows": [
+              {
+                "buttons": [
+                  {
+                    "name": "기획하기 완료 취소",
+                    "pressed": "true"
+                  },
+                  {
+                    "name": "기획하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "✓기획하기삭제",
+                "title": "기획하기"
+              }
+            ],
+            "status": {
+              "live": "polite",
+              "role": "status",
+              "text": "검색 결과 1개입니다."
+            },
+            "validation": {
+              "text": "작업 제목을 입력해 주세요.",
+              "visible": false
+            },
+            "viewport": {
+              "height": 844,
+              "width": 390
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "name": "검색과 상태 필터 결합",
+      "status": "PASS",
+      "observations": [
+        {
+          "pass": true,
+          "evidence": {
+            "active": {
+              "focusVisible": false,
+              "id": "filter-done",
+              "label": null,
+              "outline": "rgb(40, 83, 207) none 3px",
+              "tag": "BUTTON",
+              "text": "완료"
+            },
+            "counts": [
+              4,
+              3,
+              1
+            ],
+            "empty": {
+              "text": "검색 결과가 없습니다.",
+              "visible": false
+            },
+            "filters": [
+              {
+                "id": "filter-all",
+                "pressed": "false",
+                "text": "전체"
+              },
+              {
+                "id": "filter-todo",
+                "pressed": "false",
+                "text": "할 일"
+              },
+              {
+                "id": "filter-done",
+                "pressed": "true",
+                "text": "완료"
+              },
+              {
+                "id": "",
+                "pressed": "true",
+                "text": "✓"
+              }
+            ],
+            "imageCount": 0,
+            "overflow": false,
+            "rows": [
+              {
+                "buttons": [
+                  {
+                    "name": "기획하기 완료 취소",
+                    "pressed": "true"
+                  },
+                  {
+                    "name": "기획하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "✓기획하기삭제",
+                "title": "기획하기"
+              }
+            ],
+            "status": {
+              "live": "polite",
+              "role": "status",
+              "text": "완료 작업 1개입니다."
+            },
+            "validation": {
+              "text": "작업 제목을 입력해 주세요.",
+              "visible": false
+            },
+            "viewport": {
+              "height": 900,
+              "width": 1440
+            },
+            "combinationObservations": [
+              {
+                "active": {
+                  "focusVisible": false,
+                  "id": "filter-todo",
+                  "label": null,
+                  "outline": "rgb(40, 83, 207) none 3px",
+                  "tag": "BUTTON",
+                  "text": "할 일"
+                },
+                "counts": [
+                  4,
+                  3,
+                  1
+                ],
+                "empty": {
+                  "text": "검색 결과가 없습니다.",
+                  "visible": true
+                },
+                "filters": [
+                  {
+                    "id": "filter-all",
+                    "pressed": "false",
+                    "text": "전체"
+                  },
+                  {
+                    "id": "filter-todo",
+                    "pressed": "true",
+                    "text": "할 일"
+                  },
+                  {
+                    "id": "filter-done",
+                    "pressed": "false",
+                    "text": "완료"
+                  }
+                ],
+                "imageCount": 0,
+                "overflow": false,
+                "rows": [],
+                "status": {
+                  "live": "polite",
+                  "role": "status",
+                  "text": "할 일 작업 0개입니다."
+                },
+                "validation": {
+                  "text": "작업 제목을 입력해 주세요.",
+                  "visible": false
+                },
+                "viewport": {
+                  "height": 900,
+                  "width": 1440
+                }
+              },
+              {
+                "active": {
+                  "focusVisible": false,
+                  "id": "filter-done",
+                  "label": null,
+                  "outline": "rgb(40, 83, 207) none 3px",
+                  "tag": "BUTTON",
+                  "text": "완료"
+                },
+                "counts": [
+                  4,
+                  3,
+                  1
+                ],
+                "empty": {
+                  "text": "검색 결과가 없습니다.",
+                  "visible": false
+                },
+                "filters": [
+                  {
+                    "id": "filter-all",
+                    "pressed": "false",
+                    "text": "전체"
+                  },
+                  {
+                    "id": "filter-todo",
+                    "pressed": "false",
+                    "text": "할 일"
+                  },
+                  {
+                    "id": "filter-done",
+                    "pressed": "true",
+                    "text": "완료"
+                  },
+                  {
+                    "id": "",
+                    "pressed": "true",
+                    "text": "✓"
+                  }
+                ],
+                "imageCount": 0,
+                "overflow": false,
+                "rows": [
+                  {
+                    "buttons": [
+                      {
+                        "name": "기획하기 완료 취소",
+                        "pressed": "true"
+                      },
+                      {
+                        "name": "기획하기 삭제",
+                        "pressed": null
+                      }
+                    ],
+                    "text": "✓기획하기삭제",
+                    "title": "기획하기"
+                  }
+                ],
+                "status": {
+                  "live": "polite",
+                  "role": "status",
+                  "text": "완료 작업 1개입니다."
+                },
+                "validation": {
+                  "text": "작업 제목을 입력해 주세요.",
+                  "visible": false
+                },
+                "viewport": {
+                  "height": 900,
+                  "width": 1440
+                }
+              }
+            ]
+          }
+        },
+        {
+          "pass": true,
+          "evidence": {
+            "active": {
+              "focusVisible": false,
+              "id": "filter-done",
+              "label": null,
+              "outline": "rgb(40, 83, 207) none 3px",
+              "tag": "BUTTON",
+              "text": "완료"
+            },
+            "counts": [
+              4,
+              3,
+              1
+            ],
+            "empty": {
+              "text": "검색 결과가 없습니다.",
+              "visible": false
+            },
+            "filters": [
+              {
+                "id": "filter-all",
+                "pressed": "false",
+                "text": "전체"
+              },
+              {
+                "id": "filter-todo",
+                "pressed": "false",
+                "text": "할 일"
+              },
+              {
+                "id": "filter-done",
+                "pressed": "true",
+                "text": "완료"
+              },
+              {
+                "id": "",
+                "pressed": "true",
+                "text": "✓"
+              }
+            ],
+            "imageCount": 0,
+            "overflow": false,
+            "rows": [
+              {
+                "buttons": [
+                  {
+                    "name": "기획하기 완료 취소",
+                    "pressed": "true"
+                  },
+                  {
+                    "name": "기획하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "✓기획하기삭제",
+                "title": "기획하기"
+              }
+            ],
+            "status": {
+              "live": "polite",
+              "role": "status",
+              "text": "완료 작업 1개입니다."
+            },
+            "validation": {
+              "text": "작업 제목을 입력해 주세요.",
+              "visible": false
+            },
+            "viewport": {
+              "height": 844,
+              "width": 390
+            },
+            "combinationObservations": [
+              {
+                "active": {
+                  "focusVisible": false,
+                  "id": "filter-todo",
+                  "label": null,
+                  "outline": "rgb(40, 83, 207) none 3px",
+                  "tag": "BUTTON",
+                  "text": "할 일"
+                },
+                "counts": [
+                  4,
+                  3,
+                  1
+                ],
+                "empty": {
+                  "text": "검색 결과가 없습니다.",
+                  "visible": true
+                },
+                "filters": [
+                  {
+                    "id": "filter-all",
+                    "pressed": "false",
+                    "text": "전체"
+                  },
+                  {
+                    "id": "filter-todo",
+                    "pressed": "true",
+                    "text": "할 일"
+                  },
+                  {
+                    "id": "filter-done",
+                    "pressed": "false",
+                    "text": "완료"
+                  }
+                ],
+                "imageCount": 0,
+                "overflow": false,
+                "rows": [],
+                "status": {
+                  "live": "polite",
+                  "role": "status",
+                  "text": "할 일 작업 0개입니다."
+                },
+                "validation": {
+                  "text": "작업 제목을 입력해 주세요.",
+                  "visible": false
+                },
+                "viewport": {
+                  "height": 844,
+                  "width": 390
+                }
+              },
+              {
+                "active": {
+                  "focusVisible": false,
+                  "id": "filter-done",
+                  "label": null,
+                  "outline": "rgb(40, 83, 207) none 3px",
+                  "tag": "BUTTON",
+                  "text": "완료"
+                },
+                "counts": [
+                  4,
+                  3,
+                  1
+                ],
+                "empty": {
+                  "text": "검색 결과가 없습니다.",
+                  "visible": false
+                },
+                "filters": [
+                  {
+                    "id": "filter-all",
+                    "pressed": "false",
+                    "text": "전체"
+                  },
+                  {
+                    "id": "filter-todo",
+                    "pressed": "false",
+                    "text": "할 일"
+                  },
+                  {
+                    "id": "filter-done",
+                    "pressed": "true",
+                    "text": "완료"
+                  },
+                  {
+                    "id": "",
+                    "pressed": "true",
+                    "text": "✓"
+                  }
+                ],
+                "imageCount": 0,
+                "overflow": false,
+                "rows": [
+                  {
+                    "buttons": [
+                      {
+                        "name": "기획하기 완료 취소",
+                        "pressed": "true"
+                      },
+                      {
+                        "name": "기획하기 삭제",
+                        "pressed": null
+                      }
+                    ],
+                    "text": "✓기획하기삭제",
+                    "title": "기획하기"
+                  }
+                ],
+                "status": {
+                  "live": "polite",
+                  "role": "status",
+                  "text": "완료 작업 1개입니다."
+                },
+                "validation": {
+                  "text": "작업 제목을 입력해 주세요.",
+                  "visible": false
+                },
+                "viewport": {
+                  "height": 844,
+                  "width": 390
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "name": "검색 결과 없음과 실제 빈 상태 구분",
+      "status": "PASS",
+      "observations": [
+        {
+          "pass": true,
+          "evidence": {
+            "active": {
+              "focusVisible": true,
+              "id": "task-search",
+              "label": "작업 검색",
+              "outline": "rgb(40, 83, 207) solid 3px",
+              "tag": "INPUT",
+              "text": ""
+            },
+            "counts": [
+              4,
+              3,
+              1
+            ],
+            "empty": {
+              "text": "검색 결과가 없습니다.",
+              "visible": true
+            },
+            "filters": [
+              {
+                "id": "filter-all",
+                "pressed": "false",
+                "text": "전체"
+              },
+              {
+                "id": "filter-todo",
+                "pressed": "false",
+                "text": "할 일"
+              },
+              {
+                "id": "filter-done",
+                "pressed": "true",
+                "text": "완료"
+              }
+            ],
+            "imageCount": 0,
+            "overflow": false,
+            "rows": [],
+            "status": {
+              "live": "polite",
+              "role": "status",
+              "text": "검색 결과 0개입니다."
+            },
+            "validation": {
+              "text": "작업 제목을 입력해 주세요.",
+              "visible": false
+            },
+            "viewport": {
+              "height": 900,
+              "width": 1440
+            }
+          }
+        },
+        {
+          "pass": true,
+          "evidence": {
+            "active": {
+              "focusVisible": true,
+              "id": "task-search",
+              "label": "작업 검색",
+              "outline": "rgb(40, 83, 207) solid 3px",
+              "tag": "INPUT",
+              "text": ""
+            },
+            "counts": [
+              4,
+              3,
+              1
+            ],
+            "empty": {
+              "text": "검색 결과가 없습니다.",
+              "visible": true
+            },
+            "filters": [
+              {
+                "id": "filter-all",
+                "pressed": "false",
+                "text": "전체"
+              },
+              {
+                "id": "filter-todo",
+                "pressed": "false",
+                "text": "할 일"
+              },
+              {
+                "id": "filter-done",
+                "pressed": "true",
+                "text": "완료"
+              }
+            ],
+            "imageCount": 0,
+            "overflow": false,
+            "rows": [],
+            "status": {
+              "live": "polite",
+              "role": "status",
+              "text": "검색 결과 0개입니다."
+            },
+            "validation": {
+              "text": "작업 제목을 입력해 주세요.",
+              "visible": false
+            },
+            "viewport": {
+              "height": 844,
+              "width": 390
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "name": "새로고침 후 목록과 완료 저장",
+      "status": "PASS",
+      "observations": [
+        {
+          "pass": true,
+          "evidence": {
+            "active": {
+              "focusVisible": false,
+              "id": "",
+              "label": null,
+              "outline": "rgb(25, 41, 65) none 3px",
+              "tag": "BODY",
+              "text": "\n  본문으로 이동\n  \n    \n      F.Focus Desk\n      \n        나의 공간\n        ▤ 작업 데스크\n      \n      하나씩, 차분하게.오"
+            },
+            "counts": [
+              4,
+              3,
+              1
+            ],
+            "empty": {
+              "text": "이 상태의 작업이 없습니다.",
+              "visible": false
+            },
+            "filters": [
+              {
+                "id": "filter-all",
+                "pressed": "true",
+                "text": "전체"
+              },
+              {
+                "id": "filter-todo",
+                "pressed": "false",
+                "text": "할 일"
+              },
+              {
+                "id": "filter-done",
+                "pressed": "false",
+                "text": "완료"
+              },
+              {
+                "id": "",
+                "pressed": "true",
+                "text": "✓"
+              },
+              {
+                "id": "",
+                "pressed": "false",
+                "text": "○"
+              },
+              {
+                "id": "",
+                "pressed": "false",
+                "text": "○"
+              },
+              {
+                "id": "",
+                "pressed": "false",
+                "text": "○"
+              }
+            ],
+            "imageCount": 0,
+            "overflow": false,
+            "rows": [
+              {
+                "buttons": [
+                  {
+                    "name": "기획하기 완료 취소",
+                    "pressed": "true"
+                  },
+                  {
+                    "name": "기획하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "✓기획하기삭제",
+                "title": "기획하기"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "개발하기 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "개발하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "○개발하기삭제",
+                "title": "개발하기"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "반복작업 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "반복작업 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "○반복작업삭제",
+                "title": "반복작업"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "반복작업 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "반복작업 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "○반복작업삭제",
+                "title": "반복작업"
+              }
+            ],
+            "status": {
+              "live": "polite",
+              "role": "status",
+              "text": ""
+            },
+            "validation": {
+              "text": "작업 제목을 입력해 주세요.",
+              "visible": false
+            },
+            "viewport": {
+              "height": 900,
+              "width": 1440
+            }
+          }
+        },
+        {
+          "pass": true,
+          "evidence": {
+            "active": {
+              "focusVisible": false,
+              "id": "",
+              "label": null,
+              "outline": "rgb(25, 41, 65) none 3px",
+              "tag": "BODY",
+              "text": "\n  본문으로 이동\n  \n    \n      F.Focus Desk\n      \n        나의 공간\n        ▤ 작업 데스크\n      \n      하나씩, 차분하게.오"
+            },
+            "counts": [
+              4,
+              3,
+              1
+            ],
+            "empty": {
+              "text": "이 상태의 작업이 없습니다.",
+              "visible": false
+            },
+            "filters": [
+              {
+                "id": "filter-all",
+                "pressed": "true",
+                "text": "전체"
+              },
+              {
+                "id": "filter-todo",
+                "pressed": "false",
+                "text": "할 일"
+              },
+              {
+                "id": "filter-done",
+                "pressed": "false",
+                "text": "완료"
+              },
+              {
+                "id": "",
+                "pressed": "true",
+                "text": "✓"
+              },
+              {
+                "id": "",
+                "pressed": "false",
+                "text": "○"
+              },
+              {
+                "id": "",
+                "pressed": "false",
+                "text": "○"
+              },
+              {
+                "id": "",
+                "pressed": "false",
+                "text": "○"
+              }
+            ],
+            "imageCount": 0,
+            "overflow": false,
+            "rows": [
+              {
+                "buttons": [
+                  {
+                    "name": "기획하기 완료 취소",
+                    "pressed": "true"
+                  },
+                  {
+                    "name": "기획하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "✓기획하기삭제",
+                "title": "기획하기"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "개발하기 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "개발하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "○개발하기삭제",
+                "title": "개발하기"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "반복작업 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "반복작업 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "○반복작업삭제",
+                "title": "반복작업"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "반복작업 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "반복작업 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "○반복작업삭제",
+                "title": "반복작업"
+              }
+            ],
+            "status": {
+              "live": "polite",
+              "role": "status",
+              "text": ""
+            },
+            "validation": {
+              "text": "작업 제목을 입력해 주세요.",
+              "visible": false
+            },
+            "viewport": {
+              "height": 844,
+              "width": 390
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "name": "중복 항목 중 하나만 삭제",
+      "status": "PASS",
+      "observations": [
+        {
+          "pass": true,
+          "evidence": {
+            "active": {
+              "focusVisible": false,
+              "id": "",
+              "label": "반복작업 삭제",
+              "outline": "rgb(165, 47, 61) none 3px",
+              "tag": "BUTTON",
+              "text": "삭제"
+            },
+            "counts": [
+              3,
+              1,
+              2
+            ],
+            "empty": {
+              "text": "이 상태의 작업이 없습니다.",
+              "visible": false
+            },
+            "filters": [
+              {
+                "id": "filter-all",
+                "pressed": "true",
+                "text": "전체"
+              },
+              {
+                "id": "filter-todo",
+                "pressed": "false",
+                "text": "할 일"
+              },
+              {
+                "id": "filter-done",
+                "pressed": "false",
+                "text": "완료"
+              },
+              {
+                "id": "",
+                "pressed": "true",
+                "text": "✓"
+              },
+              {
+                "id": "",
+                "pressed": "false",
+                "text": "○"
+              },
+              {
+                "id": "",
+                "pressed": "true",
+                "text": "✓"
+              }
+            ],
+            "imageCount": 0,
+            "overflow": false,
+            "rows": [
+              {
+                "buttons": [
+                  {
+                    "name": "기획하기 완료 취소",
+                    "pressed": "true"
+                  },
+                  {
+                    "name": "기획하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "✓기획하기삭제",
+                "title": "기획하기"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "개발하기 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "개발하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "○개발하기삭제",
+                "title": "개발하기"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "반복작업 완료 취소",
+                    "pressed": "true"
+                  },
+                  {
+                    "name": "반복작업 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "✓반복작업삭제",
+                "title": "반복작업"
+              }
+            ],
+            "status": {
+              "live": "polite",
+              "role": "status",
+              "text": "작업을 삭제했습니다."
+            },
+            "validation": {
+              "text": "작업 제목을 입력해 주세요.",
+              "visible": false
+            },
+            "viewport": {
+              "height": 900,
+              "width": 1440
+            }
+          }
+        },
+        {
+          "pass": true,
+          "evidence": {
+            "active": {
+              "focusVisible": false,
+              "id": "",
+              "label": "반복작업 삭제",
+              "outline": "rgb(165, 47, 61) none 3px",
+              "tag": "BUTTON",
+              "text": "삭제"
+            },
+            "counts": [
+              3,
+              1,
+              2
+            ],
+            "empty": {
+              "text": "이 상태의 작업이 없습니다.",
+              "visible": false
+            },
+            "filters": [
+              {
+                "id": "filter-all",
+                "pressed": "true",
+                "text": "전체"
+              },
+              {
+                "id": "filter-todo",
+                "pressed": "false",
+                "text": "할 일"
+              },
+              {
+                "id": "filter-done",
+                "pressed": "false",
+                "text": "완료"
+              },
+              {
+                "id": "",
+                "pressed": "true",
+                "text": "✓"
+              },
+              {
+                "id": "",
+                "pressed": "false",
+                "text": "○"
+              },
+              {
+                "id": "",
+                "pressed": "true",
+                "text": "✓"
+              }
+            ],
+            "imageCount": 0,
+            "overflow": false,
+            "rows": [
+              {
+                "buttons": [
+                  {
+                    "name": "기획하기 완료 취소",
+                    "pressed": "true"
+                  },
+                  {
+                    "name": "기획하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "✓기획하기삭제",
+                "title": "기획하기"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "개발하기 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "개발하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "○개발하기삭제",
+                "title": "개발하기"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "반복작업 완료 취소",
+                    "pressed": "true"
+                  },
+                  {
+                    "name": "반복작업 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "✓반복작업삭제",
+                "title": "반복작업"
+              }
+            ],
+            "status": {
+              "live": "polite",
+              "role": "status",
+              "text": "작업을 삭제했습니다."
+            },
+            "validation": {
+              "text": "작업 제목을 입력해 주세요.",
+              "visible": false
+            },
+            "viewport": {
+              "height": 844,
+              "width": 390
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "name": "마지막 삭제 후 빈 상태",
+      "status": "PASS",
+      "observations": [
+        {
+          "pass": true,
+          "evidence": {
+            "active": {
+              "focusVisible": false,
+              "id": "filter-all",
+              "label": null,
+              "outline": "rgb(40, 83, 207) none 3px",
+              "tag": "BUTTON",
+              "text": "전체"
+            },
+            "counts": [
+              0,
+              0,
+              0
+            ],
+            "empty": {
+              "text": "아직 작업이 없습니다.",
+              "visible": true
+            },
+            "filters": [
+              {
+                "id": "filter-all",
+                "pressed": "true",
+                "text": "전체"
+              },
+              {
+                "id": "filter-todo",
+                "pressed": "false",
+                "text": "할 일"
+              },
+              {
+                "id": "filter-done",
+                "pressed": "false",
+                "text": "완료"
+              }
+            ],
+            "imageCount": 0,
+            "overflow": false,
+            "rows": [],
+            "status": {
+              "live": "polite",
+              "role": "status",
+              "text": "작업을 삭제했습니다."
+            },
+            "validation": {
+              "text": "작업 제목을 입력해 주세요.",
+              "visible": false
+            },
+            "viewport": {
+              "height": 900,
+              "width": 1440
+            }
+          }
+        },
+        {
+          "pass": true,
+          "evidence": {
+            "active": {
+              "focusVisible": false,
+              "id": "filter-all",
+              "label": null,
+              "outline": "rgb(40, 83, 207) none 3px",
+              "tag": "BUTTON",
+              "text": "전체"
+            },
+            "counts": [
+              0,
+              0,
+              0
+            ],
+            "empty": {
+              "text": "아직 작업이 없습니다.",
+              "visible": true
+            },
+            "filters": [
+              {
+                "id": "filter-all",
+                "pressed": "true",
+                "text": "전체"
+              },
+              {
+                "id": "filter-todo",
+                "pressed": "false",
+                "text": "할 일"
+              },
+              {
+                "id": "filter-done",
+                "pressed": "false",
+                "text": "완료"
+              }
+            ],
+            "imageCount": 0,
+            "overflow": false,
+            "rows": [],
+            "status": {
+              "live": "polite",
+              "role": "status",
+              "text": "작업을 삭제했습니다."
+            },
+            "validation": {
+              "text": "작업 제목을 입력해 주세요.",
+              "visible": false
+            },
+            "viewport": {
+              "height": 844,
+              "width": 390
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "name": "HTML 제목을 문자로 표시",
+      "status": "PASS",
+      "observations": [
+        {
+          "pass": true,
+          "evidence": {
+            "active": {
+              "focusVisible": true,
+              "id": "new-task",
+              "label": "새 작업",
+              "outline": "rgb(40, 83, 207) solid 3px",
+              "tag": "INPUT",
+              "text": ""
+            },
+            "counts": [
+              1,
+              1,
+              0
+            ],
+            "empty": {
+              "text": "이 상태의 작업이 없습니다.",
+              "visible": false
+            },
+            "filters": [
+              {
+                "id": "filter-all",
+                "pressed": "true",
+                "text": "전체"
+              },
+              {
+                "id": "filter-todo",
+                "pressed": "false",
+                "text": "할 일"
+              },
+              {
+                "id": "filter-done",
+                "pressed": "false",
+                "text": "완료"
+              },
+              {
+                "id": "",
+                "pressed": "false",
+                "text": "○"
+              }
+            ],
+            "imageCount": 0,
+            "overflow": false,
+            "rows": [
+              {
+                "buttons": [
+                  {
+                    "name": "<img src=x> 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "<img src=x> 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "○<img src=x>삭제",
+                "title": "<img src=x>"
+              }
+            ],
+            "status": {
+              "live": "polite",
+              "role": "status",
+              "text": "작업을 추가했습니다."
+            },
+            "validation": {
+              "text": "작업 제목을 입력해 주세요.",
+              "visible": false
+            },
+            "viewport": {
+              "height": 900,
+              "width": 1440
+            }
+          }
+        },
+        {
+          "pass": true,
+          "evidence": {
+            "active": {
+              "focusVisible": true,
+              "id": "new-task",
+              "label": "새 작업",
+              "outline": "rgb(40, 83, 207) solid 3px",
+              "tag": "INPUT",
+              "text": ""
+            },
+            "counts": [
+              1,
+              1,
+              0
+            ],
+            "empty": {
+              "text": "이 상태의 작업이 없습니다.",
+              "visible": false
+            },
+            "filters": [
+              {
+                "id": "filter-all",
+                "pressed": "true",
+                "text": "전체"
+              },
+              {
+                "id": "filter-todo",
+                "pressed": "false",
+                "text": "할 일"
+              },
+              {
+                "id": "filter-done",
+                "pressed": "false",
+                "text": "완료"
+              },
+              {
+                "id": "",
+                "pressed": "false",
+                "text": "○"
+              }
+            ],
+            "imageCount": 0,
+            "overflow": false,
+            "rows": [
+              {
+                "buttons": [
+                  {
+                    "name": "<img src=x> 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "<img src=x> 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "○<img src=x>삭제",
+                "title": "<img src=x>"
+              }
+            ],
+            "status": {
+              "live": "polite",
+              "role": "status",
+              "text": "작업을 추가했습니다."
+            },
+            "validation": {
+              "text": "작업 제목을 입력해 주세요.",
+              "visible": false
+            },
+            "viewport": {
+              "height": 844,
+              "width": 390
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "name": "동작 알림 접근성",
+      "status": "PASS",
+      "observations": [
+        {
+          "pass": true,
+          "evidence": {
+            "active": {
+              "focusVisible": true,
+              "id": "new-task",
+              "label": "새 작업",
+              "outline": "rgb(40, 83, 207) solid 3px",
+              "tag": "INPUT",
+              "text": ""
+            },
+            "counts": [
+              1,
+              1,
+              0
+            ],
+            "empty": {
+              "text": "이 상태의 작업이 없습니다.",
+              "visible": false
+            },
+            "filters": [
+              {
+                "id": "filter-all",
+                "pressed": "true",
+                "text": "전체"
+              },
+              {
+                "id": "filter-todo",
+                "pressed": "false",
+                "text": "할 일"
+              },
+              {
+                "id": "filter-done",
+                "pressed": "false",
+                "text": "완료"
+              },
+              {
+                "id": "",
+                "pressed": "false",
+                "text": "○"
+              }
+            ],
+            "imageCount": 0,
+            "overflow": false,
+            "rows": [
+              {
+                "buttons": [
+                  {
+                    "name": "<img src=x> 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "<img src=x> 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "○<img src=x>삭제",
+                "title": "<img src=x>"
+              }
+            ],
+            "status": {
+              "live": "polite",
+              "role": "status",
+              "text": "작업을 추가했습니다."
+            },
+            "validation": {
+              "text": "작업 제목을 입력해 주세요.",
+              "visible": false
+            },
+            "viewport": {
+              "height": 900,
+              "width": 1440
+            }
+          }
+        },
+        {
+          "pass": true,
+          "evidence": {
+            "active": {
+              "focusVisible": true,
+              "id": "new-task",
+              "label": "새 작업",
+              "outline": "rgb(40, 83, 207) solid 3px",
+              "tag": "INPUT",
+              "text": ""
+            },
+            "counts": [
+              1,
+              1,
+              0
+            ],
+            "empty": {
+              "text": "이 상태의 작업이 없습니다.",
+              "visible": false
+            },
+            "filters": [
+              {
+                "id": "filter-all",
+                "pressed": "true",
+                "text": "전체"
+              },
+              {
+                "id": "filter-todo",
+                "pressed": "false",
+                "text": "할 일"
+              },
+              {
+                "id": "filter-done",
+                "pressed": "false",
+                "text": "완료"
+              },
+              {
+                "id": "",
+                "pressed": "false",
+                "text": "○"
+              }
+            ],
+            "imageCount": 0,
+            "overflow": false,
+            "rows": [
+              {
+                "buttons": [
+                  {
+                    "name": "<img src=x> 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "<img src=x> 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "○<img src=x>삭제",
+                "title": "<img src=x>"
+              }
+            ],
+            "status": {
+              "live": "polite",
+              "role": "status",
+              "text": "작업을 추가했습니다."
+            },
+            "validation": {
+              "text": "작업 제목을 입력해 주세요.",
+              "visible": false
+            },
+            "viewport": {
+              "height": 844,
+              "width": 390
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 17,
+      "name": "실제 Tab·Enter·Space 조작과 표시되는 포커스",
+      "status": "PASS",
+      "observations": [
+        {
+          "pass": true,
+          "evidence": {
+            "active": {
+              "focusVisible": true,
+              "id": "filter-all",
+              "label": null,
+              "outline": "rgb(40, 83, 207) solid 3px",
+              "tag": "BUTTON",
+              "text": "전체"
+            },
+            "counts": [
+              0,
+              0,
+              0
+            ],
+            "empty": {
+              "text": "아직 작업이 없습니다.",
+              "visible": true
+            },
+            "filters": [
+              {
+                "id": "filter-all",
+                "pressed": "true",
+                "text": "전체"
+              },
+              {
+                "id": "filter-todo",
+                "pressed": "false",
+                "text": "할 일"
+              },
+              {
+                "id": "filter-done",
+                "pressed": "false",
+                "text": "완료"
+              }
+            ],
+            "imageCount": 0,
+            "overflow": false,
+            "rows": [],
+            "status": {
+              "live": "polite",
+              "role": "status",
+              "text": "작업을 삭제했습니다."
+            },
+            "validation": {
+              "text": "작업 제목을 입력해 주세요.",
+              "visible": false
+            },
+            "viewport": {
+              "height": 900,
+              "width": 1440
+            },
+            "keyboard": {
+              "tabToAdd": {
+                "active": {
+                  "focusVisible": true,
+                  "id": "add-task-button",
+                  "label": null,
+                  "outline": "rgb(40, 83, 207) solid 3px",
+                  "tag": "BUTTON",
+                  "text": "추가"
+                },
+                "counts": [
+                  0,
+                  0,
+                  0
+                ],
+                "empty": {
+                  "text": "아직 작업이 없습니다.",
+                  "visible": true
+                },
+                "filters": [
+                  {
+                    "id": "filter-all",
+                    "pressed": "true",
+                    "text": "전체"
+                  },
+                  {
+                    "id": "filter-todo",
+                    "pressed": "false",
+                    "text": "할 일"
+                  },
+                  {
+                    "id": "filter-done",
+                    "pressed": "false",
+                    "text": "완료"
+                  }
+                ],
+                "imageCount": 0,
+                "overflow": false,
+                "rows": [],
+                "status": {
+                  "live": "polite",
+                  "role": "status",
+                  "text": "작업을 삭제했습니다."
+                },
+                "validation": {
+                  "text": "작업 제목을 입력해 주세요.",
+                  "visible": false
+                },
+                "viewport": {
+                  "height": 900,
+                  "width": 1440
+                }
+              },
+              "enterAdd": {
+                "active": {
+                  "focusVisible": true,
+                  "id": "new-task",
+                  "label": "새 작업",
+                  "outline": "rgb(40, 83, 207) solid 3px",
+                  "tag": "INPUT",
+                  "text": ""
+                },
+                "counts": [
+                  1,
+                  1,
+                  0
+                ],
+                "empty": {
+                  "text": "이 상태의 작업이 없습니다.",
+                  "visible": false
+                },
+                "filters": [
+                  {
+                    "id": "filter-all",
+                    "pressed": "true",
+                    "text": "전체"
+                  },
+                  {
+                    "id": "filter-todo",
+                    "pressed": "false",
+                    "text": "할 일"
+                  },
+                  {
+                    "id": "filter-done",
+                    "pressed": "false",
+                    "text": "완료"
+                  },
+                  {
+                    "id": "",
+                    "pressed": "false",
+                    "text": "○"
+                  }
+                ],
+                "imageCount": 0,
+                "overflow": false,
+                "rows": [
+                  {
+                    "buttons": [
+                      {
+                        "name": "키보드검증 완료 처리",
+                        "pressed": "false"
+                      },
+                      {
+                        "name": "키보드검증 삭제",
+                        "pressed": null
+                      }
+                    ],
+                    "text": "○키보드검증삭제",
+                    "title": "키보드검증"
+                  }
+                ],
+                "status": {
+                  "live": "polite",
+                  "role": "status",
+                  "text": "작업을 추가했습니다."
+                },
+                "validation": {
+                  "text": "작업 제목을 입력해 주세요.",
+                  "visible": false
+                },
+                "viewport": {
+                  "height": 900,
+                  "width": 1440
+                }
+              },
+              "tabToToggle": {
+                "active": {
+                  "focusVisible": true,
+                  "id": "",
+                  "label": "키보드검증 완료 처리",
+                  "outline": "rgb(40, 83, 207) solid 3px",
+                  "tag": "BUTTON",
+                  "text": "○"
+                },
+                "counts": [
+                  1,
+                  1,
+                  0
+                ],
+                "empty": {
+                  "text": "이 상태의 작업이 없습니다.",
+                  "visible": false
+                },
+                "filters": [
+                  {
+                    "id": "filter-all",
+                    "pressed": "true",
+                    "text": "전체"
+                  },
+                  {
+                    "id": "filter-todo",
+                    "pressed": "false",
+                    "text": "할 일"
+                  },
+                  {
+                    "id": "filter-done",
+                    "pressed": "false",
+                    "text": "완료"
+                  },
+                  {
+                    "id": "",
+                    "pressed": "false",
+                    "text": "○"
+                  }
+                ],
+                "imageCount": 0,
+                "overflow": false,
+                "rows": [
+                  {
+                    "buttons": [
+                      {
+                        "name": "키보드검증 완료 처리",
+                        "pressed": "false"
+                      },
+                      {
+                        "name": "키보드검증 삭제",
+                        "pressed": null
+                      }
+                    ],
+                    "text": "○키보드검증삭제",
+                    "title": "키보드검증"
+                  }
+                ],
+                "status": {
+                  "live": "polite",
+                  "role": "status",
+                  "text": "작업을 추가했습니다."
+                },
+                "validation": {
+                  "text": "작업 제목을 입력해 주세요.",
+                  "visible": false
+                },
+                "viewport": {
+                  "height": 900,
+                  "width": 1440
+                }
+              },
+              "spaceComplete": {
+                "active": {
+                  "focusVisible": true,
+                  "id": "",
+                  "label": "키보드검증 완료 취소",
+                  "outline": "rgb(40, 83, 207) solid 3px",
+                  "tag": "BUTTON",
+                  "text": "✓"
+                },
+                "counts": [
+                  1,
+                  0,
+                  1
+                ],
+                "empty": {
+                  "text": "이 상태의 작업이 없습니다.",
+                  "visible": false
+                },
+                "filters": [
+                  {
+                    "id": "filter-all",
+                    "pressed": "true",
+                    "text": "전체"
+                  },
+                  {
+                    "id": "filter-todo",
+                    "pressed": "false",
+                    "text": "할 일"
+                  },
+                  {
+                    "id": "filter-done",
+                    "pressed": "false",
+                    "text": "완료"
+                  },
+                  {
+                    "id": "",
+                    "pressed": "true",
+                    "text": "✓"
+                  }
+                ],
+                "imageCount": 0,
+                "overflow": false,
+                "rows": [
+                  {
+                    "buttons": [
+                      {
+                        "name": "키보드검증 완료 취소",
+                        "pressed": "true"
+                      },
+                      {
+                        "name": "키보드검증 삭제",
+                        "pressed": null
+                      }
+                    ],
+                    "text": "✓키보드검증삭제",
+                    "title": "키보드검증"
+                  }
+                ],
+                "status": {
+                  "live": "polite",
+                  "role": "status",
+                  "text": "작업을 완료했습니다."
+                },
+                "validation": {
+                  "text": "작업 제목을 입력해 주세요.",
+                  "visible": false
+                },
+                "viewport": {
+                  "height": 900,
+                  "width": 1440
+                }
+              },
+              "tabToDelete": {
+                "active": {
+                  "focusVisible": true,
+                  "id": "",
+                  "label": "키보드검증 삭제",
+                  "outline": "rgb(40, 83, 207) solid 3px",
+                  "tag": "BUTTON",
+                  "text": "삭제"
+                },
+                "counts": [
+                  1,
+                  0,
+                  1
+                ],
+                "empty": {
+                  "text": "이 상태의 작업이 없습니다.",
+                  "visible": false
+                },
+                "filters": [
+                  {
+                    "id": "filter-all",
+                    "pressed": "true",
+                    "text": "전체"
+                  },
+                  {
+                    "id": "filter-todo",
+                    "pressed": "false",
+                    "text": "할 일"
+                  },
+                  {
+                    "id": "filter-done",
+                    "pressed": "false",
+                    "text": "완료"
+                  },
+                  {
+                    "id": "",
+                    "pressed": "true",
+                    "text": "✓"
+                  }
+                ],
+                "imageCount": 0,
+                "overflow": false,
+                "rows": [
+                  {
+                    "buttons": [
+                      {
+                        "name": "키보드검증 완료 취소",
+                        "pressed": "true"
+                      },
+                      {
+                        "name": "키보드검증 삭제",
+                        "pressed": null
+                      }
+                    ],
+                    "text": "✓키보드검증삭제",
+                    "title": "키보드검증"
+                  }
+                ],
+                "status": {
+                  "live": "polite",
+                  "role": "status",
+                  "text": "작업을 완료했습니다."
+                },
+                "validation": {
+                  "text": "작업 제목을 입력해 주세요.",
+                  "visible": false
+                },
+                "viewport": {
+                  "height": 900,
+                  "width": 1440
+                }
+              },
+              "enterDelete": {
+                "active": {
+                  "focusVisible": true,
+                  "id": "filter-all",
+                  "label": null,
+                  "outline": "rgb(40, 83, 207) solid 3px",
+                  "tag": "BUTTON",
+                  "text": "전체"
+                },
+                "counts": [
+                  0,
+                  0,
+                  0
+                ],
+                "empty": {
+                  "text": "아직 작업이 없습니다.",
+                  "visible": true
+                },
+                "filters": [
+                  {
+                    "id": "filter-all",
+                    "pressed": "true",
+                    "text": "전체"
+                  },
+                  {
+                    "id": "filter-todo",
+                    "pressed": "false",
+                    "text": "할 일"
+                  },
+                  {
+                    "id": "filter-done",
+                    "pressed": "false",
+                    "text": "완료"
+                  }
+                ],
+                "imageCount": 0,
+                "overflow": false,
+                "rows": [],
+                "status": {
+                  "live": "polite",
+                  "role": "status",
+                  "text": "작업을 삭제했습니다."
+                },
+                "validation": {
+                  "text": "작업 제목을 입력해 주세요.",
+                  "visible": false
+                },
+                "viewport": {
+                  "height": 900,
+                  "width": 1440
+                }
+              }
+            }
+          }
+        },
+        {
+          "pass": true,
+          "evidence": {
+            "active": {
+              "focusVisible": true,
+              "id": "filter-all",
+              "label": null,
+              "outline": "rgb(40, 83, 207) solid 3px",
+              "tag": "BUTTON",
+              "text": "전체"
+            },
+            "counts": [
+              0,
+              0,
+              0
+            ],
+            "empty": {
+              "text": "아직 작업이 없습니다.",
+              "visible": true
+            },
+            "filters": [
+              {
+                "id": "filter-all",
+                "pressed": "true",
+                "text": "전체"
+              },
+              {
+                "id": "filter-todo",
+                "pressed": "false",
+                "text": "할 일"
+              },
+              {
+                "id": "filter-done",
+                "pressed": "false",
+                "text": "완료"
+              }
+            ],
+            "imageCount": 0,
+            "overflow": false,
+            "rows": [],
+            "status": {
+              "live": "polite",
+              "role": "status",
+              "text": "작업을 삭제했습니다."
+            },
+            "validation": {
+              "text": "작업 제목을 입력해 주세요.",
+              "visible": false
+            },
+            "viewport": {
+              "height": 844,
+              "width": 390
+            },
+            "keyboard": {
+              "tabToAdd": {
+                "active": {
+                  "focusVisible": true,
+                  "id": "add-task-button",
+                  "label": null,
+                  "outline": "rgb(40, 83, 207) solid 3px",
+                  "tag": "BUTTON",
+                  "text": "추가"
+                },
+                "counts": [
+                  0,
+                  0,
+                  0
+                ],
+                "empty": {
+                  "text": "아직 작업이 없습니다.",
+                  "visible": true
+                },
+                "filters": [
+                  {
+                    "id": "filter-all",
+                    "pressed": "true",
+                    "text": "전체"
+                  },
+                  {
+                    "id": "filter-todo",
+                    "pressed": "false",
+                    "text": "할 일"
+                  },
+                  {
+                    "id": "filter-done",
+                    "pressed": "false",
+                    "text": "완료"
+                  }
+                ],
+                "imageCount": 0,
+                "overflow": false,
+                "rows": [],
+                "status": {
+                  "live": "polite",
+                  "role": "status",
+                  "text": "작업을 삭제했습니다."
+                },
+                "validation": {
+                  "text": "작업 제목을 입력해 주세요.",
+                  "visible": false
+                },
+                "viewport": {
+                  "height": 844,
+                  "width": 390
+                }
+              },
+              "enterAdd": {
+                "active": {
+                  "focusVisible": true,
+                  "id": "new-task",
+                  "label": "새 작업",
+                  "outline": "rgb(40, 83, 207) solid 3px",
+                  "tag": "INPUT",
+                  "text": ""
+                },
+                "counts": [
+                  1,
+                  1,
+                  0
+                ],
+                "empty": {
+                  "text": "이 상태의 작업이 없습니다.",
+                  "visible": false
+                },
+                "filters": [
+                  {
+                    "id": "filter-all",
+                    "pressed": "true",
+                    "text": "전체"
+                  },
+                  {
+                    "id": "filter-todo",
+                    "pressed": "false",
+                    "text": "할 일"
+                  },
+                  {
+                    "id": "filter-done",
+                    "pressed": "false",
+                    "text": "완료"
+                  },
+                  {
+                    "id": "",
+                    "pressed": "false",
+                    "text": "○"
+                  }
+                ],
+                "imageCount": 0,
+                "overflow": false,
+                "rows": [
+                  {
+                    "buttons": [
+                      {
+                        "name": "키보드검증 완료 처리",
+                        "pressed": "false"
+                      },
+                      {
+                        "name": "키보드검증 삭제",
+                        "pressed": null
+                      }
+                    ],
+                    "text": "○키보드검증삭제",
+                    "title": "키보드검증"
+                  }
+                ],
+                "status": {
+                  "live": "polite",
+                  "role": "status",
+                  "text": "작업을 추가했습니다."
+                },
+                "validation": {
+                  "text": "작업 제목을 입력해 주세요.",
+                  "visible": false
+                },
+                "viewport": {
+                  "height": 844,
+                  "width": 390
+                }
+              },
+              "tabToToggle": {
+                "active": {
+                  "focusVisible": true,
+                  "id": "",
+                  "label": "키보드검증 완료 처리",
+                  "outline": "rgb(40, 83, 207) solid 3px",
+                  "tag": "BUTTON",
+                  "text": "○"
+                },
+                "counts": [
+                  1,
+                  1,
+                  0
+                ],
+                "empty": {
+                  "text": "이 상태의 작업이 없습니다.",
+                  "visible": false
+                },
+                "filters": [
+                  {
+                    "id": "filter-all",
+                    "pressed": "true",
+                    "text": "전체"
+                  },
+                  {
+                    "id": "filter-todo",
+                    "pressed": "false",
+                    "text": "할 일"
+                  },
+                  {
+                    "id": "filter-done",
+                    "pressed": "false",
+                    "text": "완료"
+                  },
+                  {
+                    "id": "",
+                    "pressed": "false",
+                    "text": "○"
+                  }
+                ],
+                "imageCount": 0,
+                "overflow": false,
+                "rows": [
+                  {
+                    "buttons": [
+                      {
+                        "name": "키보드검증 완료 처리",
+                        "pressed": "false"
+                      },
+                      {
+                        "name": "키보드검증 삭제",
+                        "pressed": null
+                      }
+                    ],
+                    "text": "○키보드검증삭제",
+                    "title": "키보드검증"
+                  }
+                ],
+                "status": {
+                  "live": "polite",
+                  "role": "status",
+                  "text": "작업을 추가했습니다."
+                },
+                "validation": {
+                  "text": "작업 제목을 입력해 주세요.",
+                  "visible": false
+                },
+                "viewport": {
+                  "height": 844,
+                  "width": 390
+                }
+              },
+              "spaceComplete": {
+                "active": {
+                  "focusVisible": true,
+                  "id": "",
+                  "label": "키보드검증 완료 취소",
+                  "outline": "rgb(40, 83, 207) solid 3px",
+                  "tag": "BUTTON",
+                  "text": "✓"
+                },
+                "counts": [
+                  1,
+                  0,
+                  1
+                ],
+                "empty": {
+                  "text": "이 상태의 작업이 없습니다.",
+                  "visible": false
+                },
+                "filters": [
+                  {
+                    "id": "filter-all",
+                    "pressed": "true",
+                    "text": "전체"
+                  },
+                  {
+                    "id": "filter-todo",
+                    "pressed": "false",
+                    "text": "할 일"
+                  },
+                  {
+                    "id": "filter-done",
+                    "pressed": "false",
+                    "text": "완료"
+                  },
+                  {
+                    "id": "",
+                    "pressed": "true",
+                    "text": "✓"
+                  }
+                ],
+                "imageCount": 0,
+                "overflow": false,
+                "rows": [
+                  {
+                    "buttons": [
+                      {
+                        "name": "키보드검증 완료 취소",
+                        "pressed": "true"
+                      },
+                      {
+                        "name": "키보드검증 삭제",
+                        "pressed": null
+                      }
+                    ],
+                    "text": "✓키보드검증삭제",
+                    "title": "키보드검증"
+                  }
+                ],
+                "status": {
+                  "live": "polite",
+                  "role": "status",
+                  "text": "작업을 완료했습니다."
+                },
+                "validation": {
+                  "text": "작업 제목을 입력해 주세요.",
+                  "visible": false
+                },
+                "viewport": {
+                  "height": 844,
+                  "width": 390
+                }
+              },
+              "tabToDelete": {
+                "active": {
+                  "focusVisible": true,
+                  "id": "",
+                  "label": "키보드검증 삭제",
+                  "outline": "rgb(40, 83, 207) solid 3px",
+                  "tag": "BUTTON",
+                  "text": "삭제"
+                },
+                "counts": [
+                  1,
+                  0,
+                  1
+                ],
+                "empty": {
+                  "text": "이 상태의 작업이 없습니다.",
+                  "visible": false
+                },
+                "filters": [
+                  {
+                    "id": "filter-all",
+                    "pressed": "true",
+                    "text": "전체"
+                  },
+                  {
+                    "id": "filter-todo",
+                    "pressed": "false",
+                    "text": "할 일"
+                  },
+                  {
+                    "id": "filter-done",
+                    "pressed": "false",
+                    "text": "완료"
+                  },
+                  {
+                    "id": "",
+                    "pressed": "true",
+                    "text": "✓"
+                  }
+                ],
+                "imageCount": 0,
+                "overflow": false,
+                "rows": [
+                  {
+                    "buttons": [
+                      {
+                        "name": "키보드검증 완료 취소",
+                        "pressed": "true"
+                      },
+                      {
+                        "name": "키보드검증 삭제",
+                        "pressed": null
+                      }
+                    ],
+                    "text": "✓키보드검증삭제",
+                    "title": "키보드검증"
+                  }
+                ],
+                "status": {
+                  "live": "polite",
+                  "role": "status",
+                  "text": "작업을 완료했습니다."
+                },
+                "validation": {
+                  "text": "작업 제목을 입력해 주세요.",
+                  "visible": false
+                },
+                "viewport": {
+                  "height": 844,
+                  "width": 390
+                }
+              },
+              "enterDelete": {
+                "active": {
+                  "focusVisible": true,
+                  "id": "filter-all",
+                  "label": null,
+                  "outline": "rgb(40, 83, 207) solid 3px",
+                  "tag": "BUTTON",
+                  "text": "전체"
+                },
+                "counts": [
+                  0,
+                  0,
+                  0
+                ],
+                "empty": {
+                  "text": "아직 작업이 없습니다.",
+                  "visible": true
+                },
+                "filters": [
+                  {
+                    "id": "filter-all",
+                    "pressed": "true",
+                    "text": "전체"
+                  },
+                  {
+                    "id": "filter-todo",
+                    "pressed": "false",
+                    "text": "할 일"
+                  },
+                  {
+                    "id": "filter-done",
+                    "pressed": "false",
+                    "text": "완료"
+                  }
+                ],
+                "imageCount": 0,
+                "overflow": false,
+                "rows": [],
+                "status": {
+                  "live": "polite",
+                  "role": "status",
+                  "text": "작업을 삭제했습니다."
+                },
+                "validation": {
+                  "text": "작업 제목을 입력해 주세요.",
+                  "visible": false
+                },
+                "viewport": {
+                  "height": 844,
+                  "width": 390
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "name": "260자 제목과 가로 넘침 및 조작 버튼 배치",
+      "status": "PASS",
+      "observations": [
+        {
+          "pass": true,
+          "evidence": {
+            "active": {
+              "focusVisible": true,
+              "id": "new-task",
+              "label": "새 작업",
+              "outline": "rgb(40, 83, 207) solid 3px",
+              "tag": "INPUT",
+              "text": ""
+            },
+            "counts": [
+              1,
+              1,
+              0
+            ],
+            "empty": {
+              "text": "이 상태의 작업이 없습니다.",
+              "visible": false
+            },
+            "filters": [
+              {
+                "id": "filter-all",
+                "pressed": "true",
+                "text": "전체"
+              },
+              {
+                "id": "filter-todo",
+                "pressed": "false",
+                "text": "할 일"
+              },
+              {
+                "id": "filter-done",
+                "pressed": "false",
+                "text": "완료"
+              },
+              {
+                "id": "",
+                "pressed": "false",
+                "text": "○"
+              }
+            ],
+            "imageCount": 0,
+            "overflow": false,
+            "rows": [
+              {
+                "buttons": [
+                  {
+                    "name": "긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "○긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz삭제",
+                "title": "긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz"
+              }
+            ],
+            "status": {
+              "live": "polite",
+              "role": "status",
+              "text": "작업을 추가했습니다."
+            },
+            "validation": {
+              "text": "작업 제목을 입력해 주세요.",
+              "visible": false
+            },
+            "viewport": {
+              "height": 900,
+              "width": 1440
+            },
+            "layout": {
+              "bodyWidth": 1440,
+              "buttons": [
+                {
+                  "left": 369.59375,
+                  "right": 413.59375,
+                  "width": 44
+                },
+                {
+                  "left": 1248.40625,
+                  "right": 1302.40625,
+                  "width": 54
+                }
+              ],
+              "htmlWidth": 1440,
+              "titleLength": 260,
+              "viewport": {
+                "height": 900,
+                "width": 1440
+              }
+            }
+          }
+        },
+        {
+          "pass": true,
+          "evidence": {
+            "active": {
+              "focusVisible": true,
+              "id": "new-task",
+              "label": "새 작업",
+              "outline": "rgb(40, 83, 207) solid 3px",
+              "tag": "INPUT",
+              "text": ""
+            },
+            "counts": [
+              1,
+              1,
+              0
+            ],
+            "empty": {
+              "text": "이 상태의 작업이 없습니다.",
+              "visible": false
+            },
+            "filters": [
+              {
+                "id": "filter-all",
+                "pressed": "true",
+                "text": "전체"
+              },
+              {
+                "id": "filter-todo",
+                "pressed": "false",
+                "text": "할 일"
+              },
+              {
+                "id": "filter-done",
+                "pressed": "false",
+                "text": "완료"
+              },
+              {
+                "id": "",
+                "pressed": "false",
+                "text": "○"
+              }
+            ],
+            "imageCount": 0,
+            "overflow": false,
+            "rows": [
+              {
+                "buttons": [
+                  {
+                    "name": "긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "○긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz삭제",
+                "title": "긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz"
+              }
+            ],
+            "status": {
+              "live": "polite",
+              "role": "status",
+              "text": "작업을 추가했습니다."
+            },
+            "validation": {
+              "text": "작업 제목을 입력해 주세요.",
+              "visible": false
+            },
+            "viewport": {
+              "height": 844,
+              "width": 390
+            },
+            "layout": {
+              "bodyWidth": 390,
+              "buttons": [
+                {
+                  "left": 46,
+                  "right": 90,
+                  "width": 44
+                },
+                {
+                  "left": 300,
+                  "right": 344,
+                  "width": 44
+                }
+              ],
+              "htmlWidth": 390,
+              "titleLength": 260,
+              "viewport": {
+                "height": 844,
+                "width": 390
+              }
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "observations": 36,
+  "observationsPassed": 36,
+  "passed": 18,
+  "finishedAt": "2026-10-01T12:25:15.042Z",
+  "viewports": [
+    {
+      "width": 1440,
+      "height": 900
+    },
+    {
+      "width": 390,
+      "height": 844
+    }
+  ],
+  "sourceCodeEdits": 0
+}

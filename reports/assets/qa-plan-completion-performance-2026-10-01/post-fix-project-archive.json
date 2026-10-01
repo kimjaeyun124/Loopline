@@ -1,0 +1,13 @@
+{
+  "source": "/Users/dgsw59/Library/Application Support/Mosaic Desk/harness/projects/c4bd6253-d11a-4f15-9be8-f48213e27e6f/focus-desk",
+  "afterExecution": true,
+  "automaticApplication": true,
+  "sourceCodeEdits": 0,
+  "hashesMatch": true,
+  "gitClean": true,
+  "commits": [
+    "3638095 docs: 자동 Loop의 실행 안내 원본 보존",
+    "d84360f test: 자동 Loop가 생성한 기능과 화면 검증 보존",
+    "c47b761 feat: 자동 Loop가 반영한 Focus Desk 동작과 화면 보존"
+  ]
+}

@@ -1,0 +1,968 @@
+{
+  "entry": "index.html",
+  "checks": [
+    {
+      "id": "initial-empty-state",
+      "categories": [
+        "empty"
+      ],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "text",
+          "selector": "h1",
+          "value": "Focus Desk"
+        },
+        {
+          "action": "visible",
+          "selector": "#empty-state"
+        },
+        {
+          "action": "text",
+          "selector": "#empty-state",
+          "value": "아직 작업이 없어요."
+        },
+        {
+          "action": "hidden",
+          "selector": "#no-results"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list [role=\"listitem\"]",
+          "value": 0
+        },
+        {
+          "action": "text",
+          "selector": "#total-count",
+          "value": "0"
+        },
+        {
+          "action": "text",
+          "selector": "#remaining-count",
+          "value": "0"
+        },
+        {
+          "action": "text",
+          "selector": "#completed-count",
+          "value": "0"
+        },
+        {
+          "action": "text",
+          "selector": "#progress-label",
+          "value": "0%"
+        }
+      ]
+    },
+    {
+      "id": "button-add-trims-title",
+      "categories": [
+        "input"
+      ],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "fill",
+          "selector": "input#new-task-input[aria-label=\"새 작업\"]",
+          "value": "  보고서 정리  "
+        },
+        {
+          "action": "text",
+          "selector": "#add-task",
+          "value": "추가"
+        },
+        {
+          "action": "click",
+          "selector": "#add-task"
+        },
+        {
+          "action": "value",
+          "selector": "#new-task-input",
+          "value": ""
+        },
+        {
+          "action": "count",
+          "selector": "#task-list [role=\"listitem\"]",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": "#task-list [role=\"listitem\"] .task-title",
+          "value": "보고서 정리"
+        },
+        {
+          "action": "visible",
+          "selector": "#status[role=\"status\"][aria-live=\"polite\"]"
+        },
+        {
+          "action": "text",
+          "selector": "#status",
+          "value": "작업이 추가되었습니다."
+        }
+      ]
+    },
+    {
+      "id": "whitespace-title-rejected",
+      "categories": [
+        "input",
+        "empty"
+      ],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "fill",
+          "selector": "input#new-task-input[aria-label=\"새 작업\"]",
+          "value": "   "
+        },
+        {
+          "action": "press",
+          "key": "Enter"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list [role=\"listitem\"]",
+          "value": 0
+        },
+        {
+          "action": "visible",
+          "selector": "#empty-state"
+        },
+        {
+          "action": "text",
+          "selector": "#status",
+          "value": "작업 제목을 입력해 주세요."
+        }
+      ]
+    },
+    {
+      "id": "enter-adds-title",
+      "categories": [
+        "input",
+        "keyboard"
+      ],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "fill",
+          "selector": "input#new-task-input[aria-label=\"새 작업\"]",
+          "value": "주간 계획"
+        },
+        {
+          "action": "press",
+          "key": "Enter"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list [role=\"listitem\"]",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": "#task-list [role=\"listitem\"] .task-title",
+          "value": "주간 계획"
+        }
+      ]
+    },
+    {
+      "id": "completion-and-cancel",
+      "categories": [],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "fill",
+          "selector": "input#new-task-input[aria-label=\"새 작업\"]",
+          "value": "회의 준비"
+        },
+        {
+          "action": "click",
+          "selector": "#add-task"
+        },
+        {
+          "action": "click",
+          "selector": "#task-list [role=\"listitem\"] [aria-label=\"회의 준비 완료 처리\"]"
+        },
+        {
+          "action": "visible",
+          "selector": "#status[role=\"status\"][aria-live=\"polite\"]"
+        },
+        {
+          "action": "text",
+          "selector": "#status",
+          "value": "작업이 완료되었습니다."
+        },
+        {
+          "action": "visible",
+          "selector": "#task-list [role=\"listitem\"] [aria-label=\"회의 준비 완료 취소\"]"
+        },
+        {
+          "action": "text",
+          "selector": "#remaining-count",
+          "value": "0"
+        },
+        {
+          "action": "text",
+          "selector": "#completed-count",
+          "value": "1"
+        },
+        {
+          "action": "text",
+          "selector": "#progress-label",
+          "value": "100%"
+        },
+        {
+          "action": "click",
+          "selector": "#task-list [role=\"listitem\"] [aria-label=\"회의 준비 완료 취소\"]"
+        },
+        {
+          "action": "visible",
+          "selector": "#task-list [role=\"listitem\"] [aria-label=\"회의 준비 완료 처리\"]"
+        },
+        {
+          "action": "text",
+          "selector": "#remaining-count",
+          "value": "1"
+        },
+        {
+          "action": "text",
+          "selector": "#completed-count",
+          "value": "0"
+        },
+        {
+          "action": "text",
+          "selector": "#progress-label",
+          "value": "0%"
+        },
+        {
+          "action": "visible",
+          "selector": "#status[role=\"status\"][aria-live=\"polite\"]"
+        },
+        {
+          "action": "text",
+          "selector": "#status",
+          "value": "완료가 취소되었습니다."
+        }
+      ]
+    },
+    {
+      "id": "duplicate-title-independent-delete",
+      "categories": [],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "fill",
+          "selector": "input#new-task-input[aria-label=\"새 작업\"]",
+          "value": "중복 작업"
+        },
+        {
+          "action": "click",
+          "selector": "#add-task"
+        },
+        {
+          "action": "fill",
+          "selector": "input#new-task-input[aria-label=\"새 작업\"]",
+          "value": "중복 작업"
+        },
+        {
+          "action": "click",
+          "selector": "#add-task"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list [role=\"listitem\"]",
+          "value": 2
+        },
+        {
+          "action": "count",
+          "selector": "#task-list [role=\"listitem\"] [aria-label=\"중복 작업 삭제\"]",
+          "value": 2
+        },
+        {
+          "action": "click",
+          "selector": "#task-list [role=\"listitem\"]:nth-of-type(1) [data-action=\"delete\"]"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list [role=\"listitem\"]",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": "#task-list [role=\"listitem\"] .task-title",
+          "value": "중복 작업"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list [role=\"listitem\"] [aria-label=\"중복 작업 삭제\"]",
+          "value": 1
+        },
+        {
+          "action": "visible",
+          "selector": "#status[role=\"status\"][aria-live=\"polite\"]"
+        },
+        {
+          "action": "text",
+          "selector": "#status",
+          "value": "작업이 삭제되었습니다."
+        }
+      ]
+    },
+    {
+      "id": "filter-all-active-completed",
+      "categories": [],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "fill",
+          "selector": "input#new-task-input[aria-label=\"새 작업\"]",
+          "value": "회의 준비"
+        },
+        {
+          "action": "click",
+          "selector": "#add-task"
+        },
+        {
+          "action": "fill",
+          "selector": "input#new-task-input[aria-label=\"새 작업\"]",
+          "value": "보고서 정리"
+        },
+        {
+          "action": "click",
+          "selector": "#add-task"
+        },
+        {
+          "action": "click",
+          "selector": "#task-list [role=\"listitem\"] [aria-label=\"회의 준비 완료 처리\"]"
+        },
+        {
+          "action": "click",
+          "selector": "#filter-active"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list [role=\"listitem\"]",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": "#task-list [role=\"listitem\"] .task-title",
+          "value": "보고서 정리"
+        },
+        {
+          "action": "count",
+          "selector": "#filter-active[aria-pressed=\"true\"]",
+          "value": 1
+        },
+        {
+          "action": "click",
+          "selector": "#filter-completed"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list [role=\"listitem\"]",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": "#task-list [role=\"listitem\"] .task-title",
+          "value": "회의 준비"
+        },
+        {
+          "action": "count",
+          "selector": "#filter-completed[aria-pressed=\"true\"]",
+          "value": 1
+        },
+        {
+          "action": "click",
+          "selector": "#filter-all"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list [role=\"listitem\"]",
+          "value": 2
+        },
+        {
+          "action": "count",
+          "selector": "#filter-all[aria-pressed=\"true\"]",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": "#filter-all",
+          "value": "전체"
+        },
+        {
+          "action": "text",
+          "selector": "#filter-active",
+          "value": "할 일"
+        },
+        {
+          "action": "text",
+          "selector": "#filter-completed",
+          "value": "완료"
+        }
+      ]
+    },
+    {
+      "id": "search-combines-with-filter",
+      "categories": [
+        "input"
+      ],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "fill",
+          "selector": "input#new-task-input[aria-label=\"새 작업\"]",
+          "value": "보고서 초안"
+        },
+        {
+          "action": "click",
+          "selector": "#add-task"
+        },
+        {
+          "action": "fill",
+          "selector": "input#new-task-input[aria-label=\"새 작업\"]",
+          "value": "보고서 검토"
+        },
+        {
+          "action": "click",
+          "selector": "#add-task"
+        },
+        {
+          "action": "fill",
+          "selector": "input#new-task-input[aria-label=\"새 작업\"]",
+          "value": "회의 기록"
+        },
+        {
+          "action": "click",
+          "selector": "#add-task"
+        },
+        {
+          "action": "click",
+          "selector": "#task-list [role=\"listitem\"] [aria-label=\"보고서 초안 완료 처리\"]"
+        },
+        {
+          "action": "visible",
+          "selector": "input#task-search[aria-label=\"작업 검색\"]"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-search[aria-label=\"작업 검색\"]",
+          "value": "보고서"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list [role=\"listitem\"]",
+          "value": 2
+        },
+        {
+          "action": "click",
+          "selector": "#filter-active"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list [role=\"listitem\"]",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": "#task-list [role=\"listitem\"] .task-title",
+          "value": "보고서 검토"
+        },
+        {
+          "action": "count",
+          "selector": "#filter-active[aria-pressed=\"true\"]",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "id": "search-empty-state-distinction",
+      "categories": [
+        "input",
+        "empty"
+      ],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "fill",
+          "selector": "input#new-task-input[aria-label=\"새 작업\"]",
+          "value": "고객 문의 확인"
+        },
+        {
+          "action": "click",
+          "selector": "#add-task"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-search[aria-label=\"작업 검색\"]",
+          "value": "없는 제목"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list [role=\"listitem\"]",
+          "value": 0
+        },
+        {
+          "action": "visible",
+          "selector": "#no-results"
+        },
+        {
+          "action": "text",
+          "selector": "#no-results",
+          "value": "검색 결과가 없어요."
+        },
+        {
+          "action": "hidden",
+          "selector": "#empty-state"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-search[aria-label=\"작업 검색\"]",
+          "value": ""
+        },
+        {
+          "action": "hidden",
+          "selector": "#no-results"
+        },
+        {
+          "action": "hidden",
+          "selector": "#empty-state"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list [role=\"listitem\"]",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "id": "save-completion-across-reload",
+      "categories": [
+        "save"
+      ],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "fill",
+          "selector": "input#new-task-input[aria-label=\"새 작업\"]",
+          "value": "저장 확인"
+        },
+        {
+          "action": "click",
+          "selector": "#add-task"
+        },
+        {
+          "action": "click",
+          "selector": "#task-list [role=\"listitem\"] [aria-label=\"저장 확인 완료 처리\"]"
+        },
+        {
+          "action": "reload"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list [role=\"listitem\"]",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": "#task-list [role=\"listitem\"] .task-title",
+          "value": "저장 확인"
+        },
+        {
+          "action": "visible",
+          "selector": "#task-list [role=\"listitem\"] [aria-label=\"저장 확인 완료 취소\"]"
+        },
+        {
+          "action": "text",
+          "selector": "#total-count",
+          "value": "1"
+        },
+        {
+          "action": "text",
+          "selector": "#completed-count",
+          "value": "1"
+        },
+        {
+          "action": "text",
+          "selector": "#remaining-count",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "id": "html-like-title-rendered-as-text",
+      "categories": [],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "fill",
+          "selector": "input#new-task-input[aria-label=\"새 작업\"]",
+          "value": "<img src=x onerror=alert(1)>"
+        },
+        {
+          "action": "click",
+          "selector": "#add-task"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list [role=\"listitem\"]",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": "#task-list [role=\"listitem\"] .task-title",
+          "value": "<img src=x onerror=alert(1)>"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list img",
+          "value": 0
+        }
+      ]
+    },
+    {
+      "id": "keyboard-focus-toggle-delete",
+      "categories": [
+        "keyboard",
+        "input"
+      ],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "press",
+          "key": "Tab"
+        },
+        {
+          "action": "focus-visible",
+          "selector": "#new-task-input"
+        },
+        {
+          "action": "fill",
+          "selector": "input#new-task-input[aria-label=\"새 작업\"]",
+          "value": "키보드 작업"
+        },
+        {
+          "action": "press",
+          "key": "Enter"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list [role=\"listitem\"]",
+          "value": 1
+        },
+        {
+          "action": "press",
+          "key": "Tab"
+        },
+        {
+          "action": "press",
+          "key": "Tab"
+        },
+        {
+          "action": "press",
+          "key": "Tab"
+        },
+        {
+          "action": "press",
+          "key": "Tab"
+        },
+        {
+          "action": "press",
+          "key": "Tab"
+        },
+        {
+          "action": "press",
+          "key": "Tab"
+        },
+        {
+          "action": "focus-visible",
+          "selector": "#task-list [role=\"listitem\"] [data-action=\"toggle\"]"
+        },
+        {
+          "action": "press",
+          "key": "Space"
+        },
+        {
+          "action": "visible",
+          "selector": "#task-list [role=\"listitem\"] [aria-label=\"키보드 작업 완료 취소\"]"
+        },
+        {
+          "action": "text",
+          "selector": "#completed-count",
+          "value": "1"
+        },
+        {
+          "action": "press",
+          "key": "Tab"
+        },
+        {
+          "action": "focused",
+          "selector": "#task-list [role=\"listitem\"] [data-action=\"delete\"]"
+        },
+        {
+          "action": "press",
+          "key": "Enter"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list [role=\"listitem\"]",
+          "value": 0
+        },
+        {
+          "action": "visible",
+          "selector": "#empty-state"
+        }
+      ]
+    },
+    {
+      "id": "keyboard-filter-activation",
+      "categories": [
+        "keyboard"
+      ],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "fill",
+          "selector": "input#new-task-input[aria-label=\"새 작업\"]",
+          "value": "완료된 작업"
+        },
+        {
+          "action": "press",
+          "key": "Enter"
+        },
+        {
+          "action": "fill",
+          "selector": "input#new-task-input[aria-label=\"새 작업\"]",
+          "value": "남은 작업"
+        },
+        {
+          "action": "press",
+          "key": "Enter"
+        },
+        {
+          "action": "click",
+          "selector": "#task-list [role=\"listitem\"] [aria-label=\"완료된 작업 완료 처리\"]"
+        },
+        {
+          "action": "click",
+          "selector": "#new-task-input"
+        },
+        {
+          "action": "press",
+          "key": "Tab"
+        },
+        {
+          "action": "press",
+          "key": "Tab"
+        },
+        {
+          "action": "press",
+          "key": "Tab"
+        },
+        {
+          "action": "press",
+          "key": "Tab"
+        },
+        {
+          "action": "focused",
+          "selector": "#filter-active"
+        },
+        {
+          "action": "press",
+          "key": "Enter"
+        },
+        {
+          "action": "count",
+          "selector": "#filter-active[aria-pressed=\"true\"]",
+          "value": 1
+        },
+        {
+          "action": "count",
+          "selector": "#task-list [role=\"listitem\"]",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": "#task-list [role=\"listitem\"] .task-title",
+          "value": "남은 작업"
+        }
+      ]
+    },
+    {
+      "id": "long-title-layout",
+      "categories": [],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "fill",
+          "selector": "input#new-task-input[aria-label=\"새 작업\"]",
+          "value": "분기별 서비스 운영 계획을 검토하고 고객 문의에서 반복적으로 확인된 사용성 문제를 정리한 뒤 각 문제의 우선순위를 정하고 담당자와 수정 일정을 조율하여 다음 주 제품 회의에서 공유할 최종 개선안 문서를 작성하고 관련 자료와 진행 상황을 함께 업데이트하기"
+        },
+        {
+          "action": "click",
+          "selector": "#add-task"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list [role=\"listitem\"]",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": "#task-list [role=\"listitem\"] .task-title",
+          "value": "분기별 서비스 운영 계획을 검토하고 고객 문의에서 반복적으로 확인된 사용성 문제를 정리한 뒤 각 문제의 우선순위를 정하고 담당자와 수정 일정을 조율하여 다음 주 제품 회의에서 공유할 최종 개선안 문서를 작성하고 관련 자료와 진행 상황을 함께 업데이트하기"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list [role=\"listitem\"] [data-action=\"toggle\"]",
+          "value": 1
+        },
+        {
+          "action": "count",
+          "selector": "#task-list [role=\"listitem\"] [data-action=\"delete\"]",
+          "value": 1
+        },
+        {
+          "action": "visible",
+          "selector": "#task-list [role=\"listitem\"] [data-action=\"toggle\"]"
+        },
+        {
+          "action": "visible",
+          "selector": "#task-list [role=\"listitem\"] [data-action=\"delete\"]"
+        }
+      ]
+    },
+    {
+      "id": "add-removes-last-task-empty-state",
+      "categories": [
+        "empty",
+        "input"
+      ],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "fill",
+          "selector": "input#new-task-input[aria-label=\"새 작업\"]",
+          "value": "마지막 작업"
+        },
+        {
+          "action": "click",
+          "selector": "#add-task"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list [role=\"listitem\"]",
+          "value": 1
+        },
+        {
+          "action": "hidden",
+          "selector": "#empty-state"
+        },
+        {
+          "action": "click",
+          "selector": "#task-list [role=\"listitem\"] [data-action=\"delete\"]"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list [role=\"listitem\"]",
+          "value": 0
+        },
+        {
+          "action": "visible",
+          "selector": "#empty-state"
+        },
+        {
+          "action": "hidden",
+          "selector": "#no-results"
+        }
+      ]
+    },
+    {
+      "id": "search-filter-status-announcements",
+      "categories": [
+        "input"
+      ],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "fill",
+          "selector": "input#new-task-input[aria-label=\"새 작업\"]",
+          "value": "보고서 초안"
+        },
+        {
+          "action": "click",
+          "selector": "#add-task"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-search[aria-label=\"작업 검색\"]",
+          "value": "보고서"
+        },
+        {
+          "action": "visible",
+          "selector": "#status[role=\"status\"][aria-live=\"polite\"]"
+        },
+        {
+          "action": "text",
+          "selector": "#status",
+          "value": "검색 결과 1개입니다."
+        },
+        {
+          "action": "click",
+          "selector": "#filter-completed"
+        },
+        {
+          "action": "count",
+          "selector": "#filter-completed[aria-pressed=\"true\"]",
+          "value": 1
+        },
+        {
+          "action": "count",
+          "selector": "#task-list [role=\"listitem\"]",
+          "value": 0
+        },
+        {
+          "action": "visible",
+          "selector": "#no-results"
+        },
+        {
+          "action": "text",
+          "selector": "#status",
+          "value": "완료 필터가 적용되었습니다."
+        }
+      ]
+    }
+  ],
+  "notApplicable": {}
+}

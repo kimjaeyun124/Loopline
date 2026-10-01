@@ -1,0 +1,39 @@
+{
+  "sourceCommit": "e8310cf7cee4995970e5300ad870eeda9a4dbab1",
+  "focused": {
+    "tests": 3,
+    "passed": 3,
+    "failed": 0,
+    "durationMs": 3396.114166,
+    "log": "/tmp/loopline-milestone-owner-focused.log"
+  },
+  "full": {
+    "tests": 265,
+    "passed": 265,
+    "failed": 0,
+    "durationMs": 49018.660709,
+    "log": "/tmp/loopline-milestone-owner-full.log"
+  },
+  "syntax": true,
+  "diffCheck": true,
+  "packaging": true,
+  "packageLog": "/tmp/loopline-milestone-owner-package.log",
+  "files": [
+    {
+      "path": "harness-engine.mjs",
+      "sha256": "34da1367d55885c83096f08459fe493d40cccc9c0a57d31c4203b6e341b2bb56",
+      "packagedMatches": true
+    },
+    {
+      "path": "browser-qa.mjs",
+      "sha256": "cd489d591c4bff14d2f53c9ef9993b28642af94498a3bf60ba8f55c08333c616",
+      "packagedMatches": true
+    },
+    {
+      "path": "desktop/browser-qa.mjs",
+      "sha256": "d3d1c6daef6eef8bcba171efe1c992a01374f0d6c591f679b7ffd587ad5174d5",
+      "packagedMatches": true
+    }
+  ],
+  "nativePid": 44751
+}

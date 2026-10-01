@@ -1,0 +1,23 @@
+{
+  "path": "/Users/dgsw59/Documents/Codex/2026-09-26/sj/outputs/harness-qa/final-single-native-performance-20261001/source-archive",
+  "originalWorkspace": "/Users/dgsw59/Library/Application Support/Mosaic Desk/harness/cb1cc1d4-98f8-4598-a02a-bda49b7a912c/workspace",
+  "automaticApplication": false,
+  "sourceCodeEdits": 0,
+  "afterExecution": true,
+  "contentMatchesVerifiedManifest": true,
+  "workingTreeClean": true,
+  "commits": [
+    {
+      "hash": "30c9080ac0e6724ae4aa31f95a3bc9e821d6c342",
+      "message": "feat: 단일 Harness 미반영 Focus Desk 산출물 보존"
+    },
+    {
+      "hash": "9c39d41b1e2aa75033194beb8aff1cc69ad84402",
+      "message": "test: 단일 Focus Desk 생성 테스트의 원본 보존"
+    },
+    {
+      "hash": "5f067e9094a1f134b26855fe489dba01e61babd4",
+      "message": "docs: 단일 Focus Desk 실행과 검증 안내 보존"
+    }
+  ]
+}

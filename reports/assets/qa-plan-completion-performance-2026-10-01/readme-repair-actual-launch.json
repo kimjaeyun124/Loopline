@@ -1,0 +1,46 @@
+{
+  "method": "모델이 보완한 README의 같은 명령을 실제 생성 파일에서 실행. 충돌 방지를 위한 포트 번호만 변경.",
+  "isolatedPort": 49932,
+  "rootStatus": 200,
+  "rootContentType": "text/html; charset=utf-8",
+  "rootContentMatchesGeneratedIndex": true,
+  "immutableTestsUnchanged": true,
+  "checks": [
+    {
+      "path": "/index.html",
+      "status": 200,
+      "contentType": "text/html; charset=utf-8",
+      "bytes": 3841
+    },
+    {
+      "path": "/app.mjs",
+      "status": 200,
+      "contentType": "text/javascript; charset=utf-8",
+      "bytes": 4492
+    },
+    {
+      "path": "/styles.css",
+      "status": 200,
+      "contentType": "text/css; charset=utf-8",
+      "bytes": 8222
+    },
+    {
+      "path": "/task-store.mjs",
+      "status": 200,
+      "contentType": "text/javascript; charset=utf-8",
+      "bytes": 3214
+    },
+    {
+      "path": "/missing.mjs",
+      "status": 404,
+      "contentType": null,
+      "bytes": 9
+    },
+    {
+      "path": "/%2e%2e%2fsecret",
+      "status": 403,
+      "contentType": null,
+      "bytes": 0
+    }
+  ]
+}

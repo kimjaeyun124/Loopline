@@ -1,0 +1,146 @@
+{
+  "label": "5차 보존 프로젝트 복구",
+  "sourceCommit": "a6df0990218981da261e6424b1917cdca96b736a",
+  "id": "252b8507-1407-4f3a-89c2-22d0daa7f5be",
+  "status": "stopped",
+  "elapsedMs": 296347,
+  "calls": 17,
+  "workerCalls": 12,
+  "reportedTokens": 580956,
+  "unknownUsageCalls": 1,
+  "verificationPassed": false,
+  "browserQaPassed": false,
+  "applied": false,
+  "qaRuns": 1,
+  "qaFailures": [
+    "desktop/initial-empty-state: 단계 10: text title · 예상 \"Focus Desk\" · 실제 \"Focus Desk\"",
+    "desktop/long-title-responsive-layout: 단계 6: visible #task-list button[aria-label=\"매우긴제목매우긴제목매우긴제목매우긴제목매우긴제목매우긴제목매우긴제목매우긴제목매우긴제목매우긴제목매우긴제목매우긴제목 완료 처리\"] · 예상 true · 실제 false",
+    "mobile/initial-empty-state: 단계 10: text title · 예상 \"Focus Desk\" · 실제 \"Focus Desk\"",
+    "mobile/long-title-responsive-layout: 단계 6: visible #task-list button[aria-label=\"매우긴제목매우긴제목매우긴제목매우긴제목매우긴제목매우긴제목매우긴제목매우긴제목매우긴제목매우긴제목매우긴제목매우긴제목 완료 처리\"] · 예상 true · 실제 false"
+  ],
+  "externalCodeEdits": 0,
+  "externalStopsDuringRecovery": 1,
+  "externalResumes": 1,
+  "reason": "실제 QA가 실행됐으나 실행 불가능한 문서 제목 가시성 및 입력과 다른 정확한 버튼 이름의 동결 계약 발견. QA 담당자가 중지.",
+  "models": [
+    {
+      "role": "judge",
+      "model": "gpt-6-sol",
+      "effort": "high",
+      "tokens": 31268,
+      "durationMs": 13783
+    },
+    {
+      "role": "worker",
+      "model": "gpt-6-astra",
+      "effort": "high",
+      "tokens": 28555,
+      "durationMs": 11570
+    },
+    {
+      "role": "worker",
+      "model": "gpt-6-astra",
+      "effort": "high",
+      "tokens": 34826,
+      "durationMs": 9521
+    },
+    {
+      "role": "worker",
+      "model": "gpt-6-astra",
+      "effort": "high",
+      "tokens": 39229,
+      "durationMs": 14902
+    },
+    {
+      "role": "worker",
+      "model": "gpt-6-astra",
+      "effort": "high",
+      "tokens": 39288,
+      "durationMs": 21515
+    },
+    {
+      "role": "worker",
+      "model": "gpt-6-astra",
+      "effort": "high",
+      "tokens": 39063,
+      "durationMs": 14859
+    },
+    {
+      "role": "worker",
+      "model": "gpt-6-astra",
+      "effort": "high",
+      "tokens": 39350,
+      "durationMs": 18418
+    },
+    {
+      "role": "worker",
+      "model": "gpt-6-astra",
+      "effort": "high",
+      "tokens": 39454,
+      "durationMs": 20417
+    },
+    {
+      "role": "worker",
+      "model": "gpt-6-astra",
+      "effort": "high",
+      "tokens": 39358,
+      "durationMs": 20054
+    },
+    {
+      "role": "planner",
+      "model": "gpt-6-sol",
+      "effort": "high",
+      "tokens": 29422,
+      "durationMs": 13682
+    },
+    {
+      "role": "judge",
+      "model": "gpt-6-sol",
+      "effort": "high",
+      "tokens": 37060,
+      "durationMs": 11211
+    },
+    {
+      "role": "judge",
+      "model": "gpt-6-sol",
+      "effort": "high",
+      "tokens": 45556,
+      "durationMs": 14366
+    },
+    {
+      "role": "judge",
+      "model": "gpt-6-sol",
+      "effort": "high",
+      "tokens": 31533,
+      "durationMs": 13960
+    },
+    {
+      "role": "worker",
+      "model": "gpt-6-astra",
+      "effort": "high",
+      "tokens": 28781,
+      "durationMs": 17640
+    },
+    {
+      "role": "worker",
+      "model": "gpt-6-astra",
+      "effort": "high",
+      "tokens": 39047,
+      "durationMs": 23640
+    },
+    {
+      "role": "worker",
+      "model": "gpt-6-astra",
+      "effort": "high",
+      "tokens": 39166,
+      "durationMs": 16340
+    },
+    {
+      "role": "worker",
+      "model": "gpt-6-astra",
+      "effort": "high",
+      "tokens": null,
+      "durationMs": 9228
+    }
+  ]
+}

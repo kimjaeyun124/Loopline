@@ -1,0 +1,187 @@
+{
+  "desktop": {
+    "bodyWidth": 1440,
+    "brokenImages": 0,
+    "firstCards": [
+      "웹사이트 실행의 자동 완료·반영3회차 · 완료종료 후 실행 안내 보완은 별도 기록",
+      "해당 웹사이트 실행의 보고 토큰876,14729분 20.430초 · 사용량 누락 없음",
+      "고정 공통 독립 QA18/18 항목두 화면 크기 · 36/36 관찰 통과"
+    ],
+    "h1": "Loop 자동 완료 보완 및 단일 Harness 비교",
+    "htmlWidth": 1440,
+    "images": [
+      {
+        "alt": "GPT-6-Luna Max 단일 · 1440×900",
+        "loaded": true,
+        "width": 1440
+      },
+      {
+        "alt": "추가 보완 후 Loop · 1440×900",
+        "loaded": true,
+        "width": 1440
+      },
+      {
+        "alt": "GPT-6-Luna Max 단일 · 390×844",
+        "loaded": true,
+        "width": 390
+      },
+      {
+        "alt": "추가 보완 후 Loop · 390×844",
+        "loaded": true,
+        "width": 390
+      },
+      {
+        "alt": "단일 Harness 실제 종료 상태",
+        "loaded": true,
+        "width": 1440
+      },
+      {
+        "alt": "추가 보완 후 Loop 실제 종료 상태",
+        "loaded": true,
+        "width": 872
+      }
+    ],
+    "scrollContainers": [
+      {
+        "role": "region",
+        "scrollable": false,
+        "tabindex": "0"
+      },
+      {
+        "role": "region",
+        "scrollable": false,
+        "tabindex": "0"
+      },
+      {
+        "role": "region",
+        "scrollable": false,
+        "tabindex": "0"
+      },
+      {
+        "role": "region",
+        "scrollable": false,
+        "tabindex": "0"
+      },
+      {
+        "role": "region",
+        "scrollable": false,
+        "tabindex": "0"
+      },
+      {
+        "role": "region",
+        "scrollable": false,
+        "tabindex": "0"
+      },
+      {
+        "role": "region",
+        "scrollable": false,
+        "tabindex": "0"
+      },
+      {
+        "role": "region",
+        "scrollable": false,
+        "tabindex": "0"
+      },
+      {
+        "role": "region",
+        "scrollable": false,
+        "tabindex": "0"
+      },
+      {
+        "role": "region",
+        "scrollable": false,
+        "tabindex": "0"
+      }
+    ],
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  "mobile": {
+    "bodyWidth": 390,
+    "brokenImages": 0,
+    "cards": [
+      358,
+      358,
+      358
+    ],
+    "h1": "Loop 자동 완료 보완 및 단일 Harness 비교",
+    "htmlWidth": 390,
+    "tableRegions": [
+      {
+        "overflow": "auto",
+        "scrollable": true,
+        "tabindex": "0",
+        "width": 358
+      },
+      {
+        "overflow": "auto",
+        "scrollable": true,
+        "tabindex": "0",
+        "width": 358
+      },
+      {
+        "overflow": "auto",
+        "scrollable": true,
+        "tabindex": "0",
+        "width": 358
+      },
+      {
+        "overflow": "auto",
+        "scrollable": true,
+        "tabindex": "0",
+        "width": 358
+      },
+      {
+        "overflow": "auto",
+        "scrollable": true,
+        "tabindex": "0",
+        "width": 358
+      },
+      {
+        "overflow": "auto",
+        "scrollable": true,
+        "tabindex": "0",
+        "width": 358
+      },
+      {
+        "overflow": "auto",
+        "scrollable": true,
+        "tabindex": "0",
+        "width": 358
+      },
+      {
+        "overflow": "auto",
+        "scrollable": true,
+        "tabindex": "0",
+        "width": 358
+      },
+      {
+        "overflow": "auto",
+        "scrollable": true,
+        "tabindex": "0",
+        "width": 358
+      },
+      {
+        "overflow": "auto",
+        "scrollable": true,
+        "tabindex": "0",
+        "width": 358
+      }
+    ],
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  "websiteLink": {
+    "status": "PASS",
+    "method": "브라우저에서 링크를 눌러 실제 생성 웹사이트와 작업 3개 확인"
+  },
+  "metricsLink": {
+    "status": "PASS",
+    "method": "연결된 정적 JSON 리소스의 HTTP 200과 실측 값 확인. 브라우저 내 JSON 화면은 열리지 않아 표시 성공으로 집계하지 않음"
+  },
+  "consoleErrors": 0
+}

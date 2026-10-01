@@ -1,0 +1,14 @@
+{
+  "source": "/Users/dgsw59/Library/Application Support/Mosaic Desk/harness/projects/c4bd6253-d11a-4f15-9be8-f48213e27e6f/focus-desk",
+  "files": {
+    "index.html": "24024d47060a9a94beb8976baf1cd986d96f9bdd4c7f6943603f4fa1a1241f11",
+    "styles.css": "31e79dacf12d100a06be6c576cfb303ef1c0fcb37d48e3fc9660620d1e3a7921",
+    "README.md": "5f93cd08770d98b989a4a7dba337c98f5173f9749689495ccc6c7a9b1a164d69",
+    "package.json": "ed9523eab059d8089241087b9078fa24698df5d54e03d77bb2b320932fa4b64a",
+    "app.mjs": "9dc0b302215a7054196a8de053e23df7a3ae19e4147fc695549e092f2749cc92",
+    "task-store.mjs": "e4ed87594e70b5dcb9ff62bc85f13a2728732eb3a7481a77224b1445a0ee4794",
+    "test/task-store.test.mjs": "89122b8d057b778bb7549bb35b877804d9f3c04a0d8e1d42cfdf89715b9372dc",
+    "test/app.test.mjs": "037e4b1f2aec084ae7749a1c2cdac8e5ef391c63ed833c215f7a72874dc81f67"
+  },
+  "workspaceMatches": true
+}

@@ -1,0 +1,8 @@
+[
+  {
+    "type": "external-diagnostic-stop",
+    "at": 1790854755069,
+    "generatedCodeEdits": 0,
+    "reason": "마지막 부분 작업의 전체 검증 실패가 package.json을 담당하는 완료된 선행 작업으로 반환되지 않아 같은 통합 작업에서 반복됐습니다."
+  }
+]

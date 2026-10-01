@@ -1,0 +1,35 @@
+{
+  "sourceCommit": "69af8e867afe9a21fec2ea3c8671ce6dc84fe72e",
+  "focused": {
+    "tests": 61,
+    "passed": 61,
+    "failed": 0,
+    "durationMs": 7851.526917,
+    "log": "/tmp/loopline-focus-qa-focused.log"
+  },
+  "full": {
+    "tests": 252,
+    "passed": 252,
+    "failed": 0,
+    "durationMs": 53015.838916,
+    "log": "/tmp/loopline-focus-qa-full.log"
+  },
+  "syntaxPassed": true,
+  "diffCheckPassed": true,
+  "packagePassed": true,
+  "packageLog": "/tmp/loopline-focus-qa-package.log",
+  "packagedSources": {
+    "harness-engine.mjs": {
+      "equal": true,
+      "sha256": "411241ffeadb67364a80596b79b02697bad179aff9a6db9c33eec553e6d927f7"
+    },
+    "browser-qa.mjs": {
+      "equal": true,
+      "sha256": "bb9d503833dacc45cb622a3d4101b71c0f4c210a8a3c7d134b00fcc1d1aa11e1"
+    },
+    "desktop/browser-qa.mjs": {
+      "equal": true,
+      "sha256": "d3d1c6daef6eef8bcba171efe1c992a01374f0d6c591f679b7ffd587ad5174d5"
+    }
+  }
+}

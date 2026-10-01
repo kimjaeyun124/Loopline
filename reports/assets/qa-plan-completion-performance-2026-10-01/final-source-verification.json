@@ -1,0 +1,25 @@
+{
+  "tests": 14,
+  "passed": 14,
+  "source": "/Users/dgsw59/Library/Application Support/Mosaic Desk/harness/projects/c4bd6253-d11a-4f15-9be8-f48213e27e6f/focus-desk",
+  "readmePostRunFix": true,
+  "changedFunctionalCodeFiles": 0,
+  "sourceGitClean": true,
+  "sourceCommits": [
+    "9d8bb73 docs: 별도 Harness가 검증한 기본 주소 실행 안내 반영",
+    "3638095 docs: 자동 Loop의 실행 안내 원본 보존",
+    "d84360f test: 자동 Loop가 생성한 기능과 화면 검증 보존",
+    "c47b761 feat: 자동 Loop가 반영한 Focus Desk 동작과 화면 보존"
+  ],
+  "sourceHashes": {
+    "index.html": "24024d47060a9a94beb8976baf1cd986d96f9bdd4c7f6943603f4fa1a1241f11",
+    "styles.css": "31e79dacf12d100a06be6c576cfb303ef1c0fcb37d48e3fc9660620d1e3a7921",
+    "README.md": "871abf9808dcbf8b197ccf1397e0e4c239bcf96f6a6da6880d343a9a8e28e93b",
+    "package.json": "ed9523eab059d8089241087b9078fa24698df5d54e03d77bb2b320932fa4b64a",
+    "app.mjs": "9dc0b302215a7054196a8de053e23df7a3ae19e4147fc695549e092f2749cc92",
+    "task-store.mjs": "e4ed87594e70b5dcb9ff62bc85f13a2728732eb3a7481a77224b1445a0ee4794",
+    "test/task-store.test.mjs": "89122b8d057b778bb7549bb35b877804d9f3c04a0d8e1d42cfdf89715b9372dc",
+    "test/app.test.mjs": "037e4b1f2aec084ae7749a1c2cdac8e5ef391c63ed833c215f7a72874dc81f67"
+  },
+  "output": "✔ 화면 표식에 지정된 입력·목록·상태 영역이 있다 (1.11975ms)\n✔ 첫 화면은 빈 목록, 0개 통계, 전체 필터를 표시한다 (0.709375ms)\n✔ 제출 이벤트는 공백을 거부하고 유효한 제목을 정리해 추가한다 (4.846875ms)\n✔ 완료와 취소 버튼이 통계·접근성 이름·상태 알림을 갱신한다 (0.498791ms)\n✔ 동일 제목의 작업을 각각 삭제하고 다시 빈 상태가 된다 (0.164708ms)\n✔ 검색 입력과 상태 필터가 함께 적용되고 빈 상태 안내를 구분한다 (0.390042ms)\n✔ 새 문서에서 저장된 작업과 완료 상태를 복원한다 (0.16ms)\n✔ HTML 형태의 제목도 문자로 렌더링한다 (0.078583ms)\n✔ 처음에는 빈 목록이며 추가 시 제목을 정리하고 통계를 계산한다 (1.078208ms)\n✔ 공백 제목을 거부하고 저장 상태를 바꾸지 않는다 (0.308625ms)\n✔ 완료 처리와 취소가 통계 및 진행률에 반영된다 (0.4635ms)\n✔ 같은 제목도 별도 ID로 관리하고 각각 독립적으로 삭제한다 (0.26925ms)\n✔ 검색과 완료 필터를 함께 적용한다 (0.24425ms)\n✔ 작업과 완료 상태를 저장하고 새 저장소 인스턴스에서 복원한다 (0.37025ms)\nℹ tests 14\nℹ suites 0\nℹ pass 14\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 60.654292\n"
+}

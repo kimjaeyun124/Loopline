@@ -1,0 +1,31 @@
+{
+  "readmeUnchanged": true,
+  "isolatedPort": 49932,
+  "rootStatus": 403,
+  "checks": [
+    {
+      "path": "/index.html",
+      "status": 200,
+      "contentType": "text/html; charset=utf-8",
+      "bytes": 3841
+    },
+    {
+      "path": "/app.mjs",
+      "status": 200,
+      "contentType": "text/javascript; charset=utf-8",
+      "bytes": 4492
+    },
+    {
+      "path": "/styles.css",
+      "status": 200,
+      "contentType": "text/css; charset=utf-8",
+      "bytes": 8222
+    },
+    {
+      "path": "/task-store.mjs",
+      "status": 200,
+      "contentType": "text/javascript; charset=utf-8",
+      "bytes": 3214
+    }
+  ]
+}

@@ -1,0 +1,2239 @@
+{
+  "status": "PASS",
+  "passed": 18,
+  "total": 18,
+  "observations": 36,
+  "observationsPassed": 36,
+  "testedAt": "2026-10-01T10:29:57.819Z",
+  "viewports": [
+    {
+      "width": 1440,
+      "height": 900
+    },
+    {
+      "width": 390,
+      "height": 844
+    }
+  ],
+  "method": "CUA로 실제 입력·클릭·키보드·새로고침을 실행하고 읽기 전용 DOM과 화면으로 결과 확인. 실제 DOM 뷰포트 크기로 관찰을 분류했으며 생성 코드는 수정하지 않음.",
+  "automaticApplication": false,
+  "artifactState": "자동 종료 후 미반영 작업 공간",
+  "sourceManifest": [
+    {
+      "path": "README.md",
+      "sha256": "9f924e0766a7a3901958d47a381083576fc2b73bba561af3aba5bdfac3e631cb"
+    },
+    {
+      "path": "index.html",
+      "sha256": "07730bbd6a041bc9accb00c8f483f2a3b3e4bfcbf05b8b4a5c09b3b99aa2fb65"
+    },
+    {
+      "path": "package.json",
+      "sha256": "51f1c2e6cbe89fcd711cc8c385cd1a616cf8e3d67b0e2df3be0fe46d21001c4a"
+    },
+    {
+      "path": "src/app.js",
+      "sha256": "77783b9fc4d54dbdfbd33f0be414f2b4f4e1553e55e8a10e8462e2b6d3240d05"
+    },
+    {
+      "path": "src/tasks.js",
+      "sha256": "b6db7d2e5f0784f72e7c94e8cf6df2bb42c0b9e81e111a87dc0bf764b3acc1f8"
+    },
+    {
+      "path": "styles.css",
+      "sha256": "dbab4fd03376e47b9a8e7fce04af62344aa6a322aef66ec866c24dae33774693"
+    },
+    {
+      "path": "test/tasks.test.js",
+      "sha256": "e048cce8479562fdbc1df849560f75898fe81cc0624022b366e8c18755fa46ce"
+    },
+    {
+      "path": "test/ui.test.js",
+      "sha256": "cea84e16da5ec6fe6b4bb61551cb22fa596698da2d507a9d727577b7822b4f84"
+    }
+  ],
+  "checks": [
+    {
+      "number": 1,
+      "name": "처음 시작 시 실제 빈 상태와 작업 0개 표시",
+      "status": "PASS",
+      "observations": [
+        {
+          "number": 1,
+          "viewport": "desktop",
+          "passed": true,
+          "evidence": {
+            "count": 0,
+            "emptyVisible": true,
+            "items": [],
+            "live": "polite",
+            "noResultsVisible": false,
+            "stats": [
+              "0",
+              "0",
+              "0",
+              "0%"
+            ],
+            "status": "",
+            "viewport": {
+              "height": 900,
+              "width": 1440
+            }
+          }
+        },
+        {
+          "number": 1,
+          "viewport": "mobile",
+          "passed": true,
+          "evidence": {
+            "count": 0,
+            "emptyVisible": true,
+            "items": [],
+            "live": "polite",
+            "noResultsVisible": false,
+            "stats": [
+              "0",
+              "0",
+              "0",
+              "0%"
+            ],
+            "status": "",
+            "viewport": {
+              "height": 844,
+              "width": 390
+            }
+          }
+        }
+      ]
+    },
+    {
+      "number": 2,
+      "name": "공백 입력 거부와 안내",
+      "status": "PASS",
+      "observations": [
+        {
+          "number": 2,
+          "viewport": "desktop",
+          "passed": true,
+          "evidence": {
+            "count": 0,
+            "emptyVisible": true,
+            "items": [],
+            "live": "polite",
+            "noResultsVisible": false,
+            "stats": [
+              "0",
+              "0",
+              "0",
+              "0%"
+            ],
+            "status": "작업 제목을 입력해 주세요.",
+            "viewport": {
+              "height": 900,
+              "width": 1440
+            }
+          }
+        },
+        {
+          "number": 2,
+          "viewport": "mobile",
+          "passed": true,
+          "evidence": {
+            "count": 0,
+            "emptyVisible": true,
+            "items": [],
+            "live": "polite",
+            "noResultsVisible": false,
+            "stats": [
+              "0",
+              "0",
+              "0",
+              "0%"
+            ],
+            "status": "작업 제목을 입력해 주세요.",
+            "viewport": {
+              "height": 844,
+              "width": 390
+            }
+          }
+        }
+      ]
+    },
+    {
+      "number": 3,
+      "name": "추가 버튼으로 앞뒤 공백을 정리한 작업 추가",
+      "status": "PASS",
+      "observations": [
+        {
+          "number": 3,
+          "viewport": "desktop",
+          "passed": true,
+          "evidence": {
+            "count": 1,
+            "emptyVisible": false,
+            "items": [
+              {
+                "buttons": [
+                  {
+                    "name": "기획하기 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "기획하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "기획하기\n\n✓\n×"
+              }
+            ],
+            "live": "polite",
+            "noResultsVisible": false,
+            "stats": [
+              "1",
+              "1",
+              "0",
+              "0%"
+            ],
+            "status": "작업이 추가되었습니다.",
+            "viewport": {
+              "height": 900,
+              "width": 1440
+            }
+          }
+        },
+        {
+          "number": 3,
+          "viewport": "mobile",
+          "passed": true,
+          "evidence": {
+            "count": 1,
+            "emptyVisible": false,
+            "items": [
+              {
+                "buttons": [
+                  {
+                    "name": "기획하기 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "기획하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "기획하기\n\n✓\n×"
+              }
+            ],
+            "live": "polite",
+            "noResultsVisible": false,
+            "stats": [
+              "1",
+              "1",
+              "0",
+              "0%"
+            ],
+            "status": "작업이 추가되었습니다.",
+            "viewport": {
+              "height": 844,
+              "width": 390
+            }
+          }
+        }
+      ]
+    },
+    {
+      "number": 4,
+      "name": "Enter로 두 번째 작업 추가",
+      "status": "PASS",
+      "observations": [
+        {
+          "number": 4,
+          "viewport": "desktop",
+          "passed": true,
+          "evidence": {
+            "count": 2,
+            "emptyVisible": false,
+            "items": [
+              {
+                "buttons": [
+                  {
+                    "name": "기획하기 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "기획하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "기획하기\n\n✓\n×"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "개발하기 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "개발하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "개발하기\n\n✓\n×"
+              }
+            ],
+            "live": "polite",
+            "noResultsVisible": false,
+            "stats": [
+              "2",
+              "2",
+              "0",
+              "0%"
+            ],
+            "status": "작업이 추가되었습니다.",
+            "viewport": {
+              "height": 900,
+              "width": 1440
+            }
+          }
+        },
+        {
+          "number": 4,
+          "viewport": "mobile",
+          "passed": true,
+          "evidence": {
+            "count": 2,
+            "emptyVisible": false,
+            "items": [
+              {
+                "buttons": [
+                  {
+                    "name": "기획하기 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "기획하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "기획하기\n\n✓\n×"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "개발하기 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "개발하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "개발하기\n\n✓\n×"
+              }
+            ],
+            "live": "polite",
+            "noResultsVisible": false,
+            "stats": [
+              "2",
+              "2",
+              "0",
+              "0%"
+            ],
+            "status": "작업이 추가되었습니다.",
+            "viewport": {
+              "height": 844,
+              "width": 390
+            }
+          }
+        }
+      ]
+    },
+    {
+      "number": 5,
+      "name": "동일 제목 두 작업의 독립 생성",
+      "status": "PASS",
+      "observations": [
+        {
+          "number": 5,
+          "viewport": "desktop",
+          "passed": true,
+          "evidence": {
+            "count": 4,
+            "emptyVisible": false,
+            "items": [
+              {
+                "buttons": [
+                  {
+                    "name": "기획하기 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "기획하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "기획하기\n\n✓\n×"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "개발하기 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "개발하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "개발하기\n\n✓\n×"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "반복작업 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "반복작업 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "반복작업\n\n✓\n×"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "반복작업 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "반복작업 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "반복작업\n\n✓\n×"
+              }
+            ],
+            "live": "polite",
+            "noResultsVisible": false,
+            "stats": [
+              "4",
+              "4",
+              "0",
+              "0%"
+            ],
+            "status": "작업이 추가되었습니다.",
+            "viewport": {
+              "height": 900,
+              "width": 1440
+            }
+          }
+        },
+        {
+          "number": 5,
+          "viewport": "mobile",
+          "passed": true,
+          "evidence": {
+            "count": 4,
+            "emptyVisible": false,
+            "items": [
+              {
+                "buttons": [
+                  {
+                    "name": "기획하기 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "기획하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "기획하기\n\n✓\n×"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "개발하기 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "개발하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "개발하기\n\n✓\n×"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "반복작업 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "반복작업 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "반복작업\n\n✓\n×"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "반복작업 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "반복작업 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "반복작업\n\n✓\n×"
+              }
+            ],
+            "live": "polite",
+            "noResultsVisible": false,
+            "stats": [
+              "4",
+              "4",
+              "0",
+              "0%"
+            ],
+            "status": "작업이 추가되었습니다.",
+            "viewport": {
+              "height": 844,
+              "width": 390
+            }
+          }
+        }
+      ]
+    },
+    {
+      "number": 6,
+      "name": "지정 작업 완료 처리와 개수 갱신",
+      "status": "PASS",
+      "observations": [
+        {
+          "number": 6,
+          "viewport": "desktop",
+          "passed": true,
+          "evidence": {
+            "count": 4,
+            "emptyVisible": false,
+            "items": [
+              {
+                "buttons": [
+                  {
+                    "name": "기획하기 완료 취소",
+                    "pressed": "true"
+                  },
+                  {
+                    "name": "기획하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "기획하기\n\n↶\n×"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "개발하기 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "개발하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "개발하기\n\n✓\n×"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "반복작업 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "반복작업 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "반복작업\n\n✓\n×"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "반복작업 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "반복작업 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "반복작업\n\n✓\n×"
+              }
+            ],
+            "live": "polite",
+            "noResultsVisible": false,
+            "stats": [
+              "4",
+              "3",
+              "1",
+              "25%"
+            ],
+            "status": "작업이 완료되었습니다.",
+            "viewport": {
+              "height": 900,
+              "width": 1440
+            }
+          }
+        },
+        {
+          "number": 6,
+          "viewport": "mobile",
+          "passed": true,
+          "evidence": {
+            "count": 4,
+            "emptyVisible": false,
+            "items": [
+              {
+                "buttons": [
+                  {
+                    "name": "기획하기 완료 취소",
+                    "pressed": "true"
+                  },
+                  {
+                    "name": "기획하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "기획하기\n\n↶\n×"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "개발하기 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "개발하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "개발하기\n\n✓\n×"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "반복작업 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "반복작업 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "반복작업\n\n✓\n×"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "반복작업 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "반복작업 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "반복작업\n\n✓\n×"
+              }
+            ],
+            "live": "polite",
+            "noResultsVisible": false,
+            "stats": [
+              "4",
+              "3",
+              "1",
+              "25%"
+            ],
+            "status": "작업이 완료되었습니다.",
+            "viewport": {
+              "height": 844,
+              "width": 390
+            }
+          }
+        }
+      ]
+    },
+    {
+      "number": 7,
+      "name": "완료 취소와 개수 갱신",
+      "status": "PASS",
+      "observations": [
+        {
+          "number": 7,
+          "viewport": "desktop",
+          "passed": true,
+          "evidence": {
+            "count": 4,
+            "emptyVisible": false,
+            "items": [
+              {
+                "buttons": [
+                  {
+                    "name": "기획하기 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "기획하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "기획하기\n\n✓\n×"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "개발하기 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "개발하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "개발하기\n\n✓\n×"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "반복작업 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "반복작업 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "반복작업\n\n✓\n×"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "반복작업 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "반복작업 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "반복작업\n\n✓\n×"
+              }
+            ],
+            "live": "polite",
+            "noResultsVisible": false,
+            "stats": [
+              "4",
+              "4",
+              "0",
+              "0%"
+            ],
+            "status": "완료가 취소되었습니다.",
+            "viewport": {
+              "height": 900,
+              "width": 1440
+            }
+          }
+        },
+        {
+          "number": 7,
+          "viewport": "mobile",
+          "passed": true,
+          "evidence": {
+            "count": 4,
+            "emptyVisible": false,
+            "items": [
+              {
+                "buttons": [
+                  {
+                    "name": "기획하기 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "기획하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "기획하기\n\n✓\n×"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "개발하기 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "개발하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "개발하기\n\n✓\n×"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "반복작업 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "반복작업 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "반복작업\n\n✓\n×"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "반복작업 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "반복작업 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "반복작업\n\n✓\n×"
+              }
+            ],
+            "live": "polite",
+            "noResultsVisible": false,
+            "stats": [
+              "4",
+              "4",
+              "0",
+              "0%"
+            ],
+            "status": "완료가 취소되었습니다.",
+            "viewport": {
+              "height": 844,
+              "width": 390
+            }
+          }
+        }
+      ]
+    },
+    {
+      "number": 8,
+      "name": "전체·할 일·완료 필터의 항목과 aria-pressed",
+      "status": "PASS",
+      "observations": [
+        {
+          "number": 8,
+          "viewport": "desktop",
+          "passed": true,
+          "evidence": [
+            {
+              "name": "전체",
+              "count": 4,
+              "emptyVisible": false,
+              "items": [
+                {
+                  "buttons": [
+                    {
+                      "name": "기획하기 완료 취소",
+                      "pressed": "true"
+                    },
+                    {
+                      "name": "기획하기 삭제",
+                      "pressed": null
+                    }
+                  ],
+                  "text": "기획하기\n\n↶\n×"
+                },
+                {
+                  "buttons": [
+                    {
+                      "name": "개발하기 완료 처리",
+                      "pressed": "false"
+                    },
+                    {
+                      "name": "개발하기 삭제",
+                      "pressed": null
+                    }
+                  ],
+                  "text": "개발하기\n\n✓\n×"
+                },
+                {
+                  "buttons": [
+                    {
+                      "name": "반복작업 완료 처리",
+                      "pressed": "false"
+                    },
+                    {
+                      "name": "반복작업 삭제",
+                      "pressed": null
+                    }
+                  ],
+                  "text": "반복작업\n\n✓\n×"
+                },
+                {
+                  "buttons": [
+                    {
+                      "name": "반복작업 완료 처리",
+                      "pressed": "false"
+                    },
+                    {
+                      "name": "반복작업 삭제",
+                      "pressed": null
+                    }
+                  ],
+                  "text": "반복작업\n\n✓\n×"
+                }
+              ],
+              "live": "polite",
+              "noResultsVisible": false,
+              "stats": [
+                "4",
+                "3",
+                "1",
+                "25%"
+              ],
+              "status": "전체 작업이 표시됩니다.",
+              "viewport": {
+                "height": 900,
+                "width": 1440
+              },
+              "pressed": [
+                "true",
+                "false",
+                "false"
+              ]
+            },
+            {
+              "name": "할 일",
+              "count": 3,
+              "emptyVisible": false,
+              "items": [
+                {
+                  "buttons": [
+                    {
+                      "name": "개발하기 완료 처리",
+                      "pressed": "false"
+                    },
+                    {
+                      "name": "개발하기 삭제",
+                      "pressed": null
+                    }
+                  ],
+                  "text": "개발하기\n\n✓\n×"
+                },
+                {
+                  "buttons": [
+                    {
+                      "name": "반복작업 완료 처리",
+                      "pressed": "false"
+                    },
+                    {
+                      "name": "반복작업 삭제",
+                      "pressed": null
+                    }
+                  ],
+                  "text": "반복작업\n\n✓\n×"
+                },
+                {
+                  "buttons": [
+                    {
+                      "name": "반복작업 완료 처리",
+                      "pressed": "false"
+                    },
+                    {
+                      "name": "반복작업 삭제",
+                      "pressed": null
+                    }
+                  ],
+                  "text": "반복작업\n\n✓\n×"
+                }
+              ],
+              "live": "polite",
+              "noResultsVisible": false,
+              "stats": [
+                "4",
+                "3",
+                "1",
+                "25%"
+              ],
+              "status": "할 일 필터가 적용되었습니다.",
+              "viewport": {
+                "height": 900,
+                "width": 1440
+              },
+              "pressed": [
+                "false",
+                "true",
+                "false"
+              ]
+            },
+            {
+              "name": "완료",
+              "count": 1,
+              "emptyVisible": false,
+              "items": [
+                {
+                  "buttons": [
+                    {
+                      "name": "기획하기 완료 취소",
+                      "pressed": "true"
+                    },
+                    {
+                      "name": "기획하기 삭제",
+                      "pressed": null
+                    }
+                  ],
+                  "text": "기획하기\n\n↶\n×"
+                }
+              ],
+              "live": "polite",
+              "noResultsVisible": false,
+              "stats": [
+                "4",
+                "3",
+                "1",
+                "25%"
+              ],
+              "status": "완료 필터가 적용되었습니다.",
+              "viewport": {
+                "height": 900,
+                "width": 1440
+              },
+              "pressed": [
+                "false",
+                "false",
+                "true"
+              ]
+            }
+          ]
+        },
+        {
+          "number": 8,
+          "viewport": "mobile",
+          "passed": true,
+          "evidence": [
+            {
+              "name": "전체",
+              "count": 4,
+              "emptyVisible": false,
+              "items": [
+                {
+                  "buttons": [
+                    {
+                      "name": "기획하기 완료 취소",
+                      "pressed": "true"
+                    },
+                    {
+                      "name": "기획하기 삭제",
+                      "pressed": null
+                    }
+                  ],
+                  "text": "기획하기\n\n↶\n×"
+                },
+                {
+                  "buttons": [
+                    {
+                      "name": "개발하기 완료 처리",
+                      "pressed": "false"
+                    },
+                    {
+                      "name": "개발하기 삭제",
+                      "pressed": null
+                    }
+                  ],
+                  "text": "개발하기\n\n✓\n×"
+                },
+                {
+                  "buttons": [
+                    {
+                      "name": "반복작업 완료 처리",
+                      "pressed": "false"
+                    },
+                    {
+                      "name": "반복작업 삭제",
+                      "pressed": null
+                    }
+                  ],
+                  "text": "반복작업\n\n✓\n×"
+                },
+                {
+                  "buttons": [
+                    {
+                      "name": "반복작업 완료 처리",
+                      "pressed": "false"
+                    },
+                    {
+                      "name": "반복작업 삭제",
+                      "pressed": null
+                    }
+                  ],
+                  "text": "반복작업\n\n✓\n×"
+                }
+              ],
+              "live": "polite",
+              "noResultsVisible": false,
+              "stats": [
+                "4",
+                "3",
+                "1",
+                "25%"
+              ],
+              "status": "전체 작업이 표시됩니다.",
+              "viewport": {
+                "height": 844,
+                "width": 390
+              },
+              "pressed": [
+                "true",
+                "false",
+                "false"
+              ]
+            },
+            {
+              "name": "할 일",
+              "count": 3,
+              "emptyVisible": false,
+              "items": [
+                {
+                  "buttons": [
+                    {
+                      "name": "개발하기 완료 처리",
+                      "pressed": "false"
+                    },
+                    {
+                      "name": "개발하기 삭제",
+                      "pressed": null
+                    }
+                  ],
+                  "text": "개발하기\n\n✓\n×"
+                },
+                {
+                  "buttons": [
+                    {
+                      "name": "반복작업 완료 처리",
+                      "pressed": "false"
+                    },
+                    {
+                      "name": "반복작업 삭제",
+                      "pressed": null
+                    }
+                  ],
+                  "text": "반복작업\n\n✓\n×"
+                },
+                {
+                  "buttons": [
+                    {
+                      "name": "반복작업 완료 처리",
+                      "pressed": "false"
+                    },
+                    {
+                      "name": "반복작업 삭제",
+                      "pressed": null
+                    }
+                  ],
+                  "text": "반복작업\n\n✓\n×"
+                }
+              ],
+              "live": "polite",
+              "noResultsVisible": false,
+              "stats": [
+                "4",
+                "3",
+                "1",
+                "25%"
+              ],
+              "status": "할 일 필터가 적용되었습니다.",
+              "viewport": {
+                "height": 844,
+                "width": 390
+              },
+              "pressed": [
+                "false",
+                "true",
+                "false"
+              ]
+            },
+            {
+              "name": "완료",
+              "count": 1,
+              "emptyVisible": false,
+              "items": [
+                {
+                  "buttons": [
+                    {
+                      "name": "기획하기 완료 취소",
+                      "pressed": "true"
+                    },
+                    {
+                      "name": "기획하기 삭제",
+                      "pressed": null
+                    }
+                  ],
+                  "text": "기획하기\n\n↶\n×"
+                }
+              ],
+              "live": "polite",
+              "noResultsVisible": false,
+              "stats": [
+                "4",
+                "3",
+                "1",
+                "25%"
+              ],
+              "status": "완료 필터가 적용되었습니다.",
+              "viewport": {
+                "height": 844,
+                "width": 390
+              },
+              "pressed": [
+                "false",
+                "false",
+                "true"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "number": 9,
+      "name": "제목 검색 즉시 반영",
+      "status": "PASS",
+      "observations": [
+        {
+          "number": 9,
+          "viewport": "desktop",
+          "passed": true,
+          "evidence": {
+            "count": 1,
+            "emptyVisible": false,
+            "items": [
+              {
+                "buttons": [
+                  {
+                    "name": "기획하기 완료 취소",
+                    "pressed": "true"
+                  },
+                  {
+                    "name": "기획하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "기획하기\n\n↶\n×"
+              }
+            ],
+            "live": "polite",
+            "noResultsVisible": false,
+            "stats": [
+              "4",
+              "3",
+              "1",
+              "25%"
+            ],
+            "status": "검색 결과 1개입니다.",
+            "viewport": {
+              "height": 900,
+              "width": 1440
+            }
+          }
+        },
+        {
+          "number": 9,
+          "viewport": "mobile",
+          "passed": true,
+          "evidence": {
+            "count": 1,
+            "emptyVisible": false,
+            "items": [
+              {
+                "buttons": [
+                  {
+                    "name": "기획하기 완료 취소",
+                    "pressed": "true"
+                  },
+                  {
+                    "name": "기획하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "기획하기\n\n↶\n×"
+              }
+            ],
+            "live": "polite",
+            "noResultsVisible": false,
+            "stats": [
+              "4",
+              "3",
+              "1",
+              "25%"
+            ],
+            "status": "검색 결과 1개입니다.",
+            "viewport": {
+              "height": 844,
+              "width": 390
+            }
+          }
+        }
+      ]
+    },
+    {
+      "number": 10,
+      "name": "검색과 완료 필터 동시 적용",
+      "status": "PASS",
+      "observations": [
+        {
+          "number": 10,
+          "viewport": "desktop",
+          "passed": true,
+          "evidence": {
+            "active": {
+              "count": 0,
+              "emptyVisible": false,
+              "items": [],
+              "live": "polite",
+              "noResultsVisible": true,
+              "stats": [
+                "4",
+                "3",
+                "1",
+                "25%"
+              ],
+              "status": "할 일 필터가 적용되었습니다.",
+              "viewport": {
+                "height": 900,
+                "width": 1440
+              }
+            },
+            "completed": {
+              "count": 1,
+              "emptyVisible": false,
+              "items": [
+                {
+                  "buttons": [
+                    {
+                      "name": "기획하기 완료 취소",
+                      "pressed": "true"
+                    },
+                    {
+                      "name": "기획하기 삭제",
+                      "pressed": null
+                    }
+                  ],
+                  "text": "기획하기\n\n↶\n×"
+                }
+              ],
+              "live": "polite",
+              "noResultsVisible": false,
+              "stats": [
+                "4",
+                "3",
+                "1",
+                "25%"
+              ],
+              "status": "완료 필터가 적용되었습니다.",
+              "viewport": {
+                "height": 900,
+                "width": 1440
+              }
+            }
+          }
+        },
+        {
+          "number": 10,
+          "viewport": "mobile",
+          "passed": true,
+          "evidence": {
+            "active": {
+              "count": 0,
+              "emptyVisible": false,
+              "items": [],
+              "live": "polite",
+              "noResultsVisible": true,
+              "stats": [
+                "4",
+                "3",
+                "1",
+                "25%"
+              ],
+              "status": "할 일 필터가 적용되었습니다.",
+              "viewport": {
+                "height": 844,
+                "width": 390
+              }
+            },
+            "completed": {
+              "count": 1,
+              "emptyVisible": false,
+              "items": [
+                {
+                  "buttons": [
+                    {
+                      "name": "기획하기 완료 취소",
+                      "pressed": "true"
+                    },
+                    {
+                      "name": "기획하기 삭제",
+                      "pressed": null
+                    }
+                  ],
+                  "text": "기획하기\n\n↶\n×"
+                }
+              ],
+              "live": "polite",
+              "noResultsVisible": false,
+              "stats": [
+                "4",
+                "3",
+                "1",
+                "25%"
+              ],
+              "status": "완료 필터가 적용되었습니다.",
+              "viewport": {
+                "height": 844,
+                "width": 390
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "number": 11,
+      "name": "검색 결과 없음 안내",
+      "status": "PASS",
+      "observations": [
+        {
+          "number": 11,
+          "viewport": "desktop",
+          "passed": true,
+          "evidence": {
+            "count": 0,
+            "emptyVisible": false,
+            "items": [],
+            "live": "polite",
+            "noResultsVisible": true,
+            "stats": [
+              "4",
+              "3",
+              "1",
+              "25%"
+            ],
+            "status": "검색 결과 0개입니다.",
+            "viewport": {
+              "height": 900,
+              "width": 1440
+            }
+          }
+        },
+        {
+          "number": 11,
+          "viewport": "mobile",
+          "passed": true,
+          "evidence": {
+            "count": 0,
+            "emptyVisible": false,
+            "items": [],
+            "live": "polite",
+            "noResultsVisible": true,
+            "stats": [
+              "4",
+              "3",
+              "1",
+              "25%"
+            ],
+            "status": "검색 결과 0개입니다.",
+            "viewport": {
+              "height": 844,
+              "width": 390
+            }
+          }
+        }
+      ]
+    },
+    {
+      "number": 12,
+      "name": "새로고침 후 목록과 완료 상태 복원",
+      "status": "PASS",
+      "observations": [
+        {
+          "number": 12,
+          "viewport": "desktop",
+          "passed": true,
+          "evidence": {
+            "count": 4,
+            "emptyVisible": false,
+            "items": [
+              {
+                "buttons": [
+                  {
+                    "name": "기획하기 완료 취소",
+                    "pressed": "true"
+                  },
+                  {
+                    "name": "기획하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "기획하기\n\n↶\n×"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "개발하기 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "개발하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "개발하기\n\n✓\n×"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "반복작업 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "반복작업 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "반복작업\n\n✓\n×"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "반복작업 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "반복작업 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "반복작업\n\n✓\n×"
+              }
+            ],
+            "live": "polite",
+            "noResultsVisible": false,
+            "stats": [
+              "4",
+              "3",
+              "1",
+              "25%"
+            ],
+            "status": "",
+            "viewport": {
+              "height": 900,
+              "width": 1440
+            }
+          }
+        },
+        {
+          "number": 12,
+          "viewport": "mobile",
+          "passed": true,
+          "evidence": {
+            "count": 4,
+            "emptyVisible": false,
+            "items": [
+              {
+                "buttons": [
+                  {
+                    "name": "기획하기 완료 취소",
+                    "pressed": "true"
+                  },
+                  {
+                    "name": "기획하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "기획하기\n\n↶\n×"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "개발하기 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "개발하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "개발하기\n\n✓\n×"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "반복작업 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "반복작업 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "반복작업\n\n✓\n×"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "반복작업 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "반복작업 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "반복작업\n\n✓\n×"
+              }
+            ],
+            "live": "polite",
+            "noResultsVisible": false,
+            "stats": [
+              "4",
+              "3",
+              "1",
+              "25%"
+            ],
+            "status": "",
+            "viewport": {
+              "height": 844,
+              "width": 390
+            }
+          }
+        }
+      ]
+    },
+    {
+      "number": 13,
+      "name": "중복 제목 중 하나만 삭제",
+      "status": "PASS",
+      "observations": [
+        {
+          "number": 13,
+          "viewport": "desktop",
+          "passed": true,
+          "evidence": {
+            "count": 3,
+            "emptyVisible": false,
+            "items": [
+              {
+                "buttons": [
+                  {
+                    "name": "기획하기 완료 취소",
+                    "pressed": "true"
+                  },
+                  {
+                    "name": "기획하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "기획하기\n\n↶\n×"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "개발하기 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "개발하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "개발하기\n\n✓\n×"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "반복작업 완료 취소",
+                    "pressed": "true"
+                  },
+                  {
+                    "name": "반복작업 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "반복작업\n\n↶\n×"
+              }
+            ],
+            "live": "polite",
+            "noResultsVisible": false,
+            "stats": [
+              "3",
+              "1",
+              "2",
+              "67%"
+            ],
+            "status": "작업이 삭제되었습니다.",
+            "viewport": {
+              "height": 900,
+              "width": 1440
+            }
+          }
+        },
+        {
+          "number": 13,
+          "viewport": "mobile",
+          "passed": true,
+          "evidence": {
+            "count": 3,
+            "emptyVisible": false,
+            "items": [
+              {
+                "buttons": [
+                  {
+                    "name": "기획하기 완료 취소",
+                    "pressed": "true"
+                  },
+                  {
+                    "name": "기획하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "기획하기\n\n↶\n×"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "개발하기 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "개발하기 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "개발하기\n\n✓\n×"
+              },
+              {
+                "buttons": [
+                  {
+                    "name": "반복작업 완료 취소",
+                    "pressed": "true"
+                  },
+                  {
+                    "name": "반복작업 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "반복작업\n\n↶\n×"
+              }
+            ],
+            "live": "polite",
+            "noResultsVisible": false,
+            "stats": [
+              "3",
+              "1",
+              "2",
+              "67%"
+            ],
+            "status": "작업이 삭제되었습니다.",
+            "viewport": {
+              "height": 844,
+              "width": 390
+            }
+          }
+        }
+      ]
+    },
+    {
+      "number": 14,
+      "name": "마지막 항목 삭제 후 실제 빈 상태 복귀",
+      "status": "PASS",
+      "observations": [
+        {
+          "number": 14,
+          "viewport": "desktop",
+          "passed": true,
+          "evidence": {
+            "count": 0,
+            "emptyVisible": true,
+            "items": [],
+            "live": "polite",
+            "noResultsVisible": false,
+            "stats": [
+              "0",
+              "0",
+              "0",
+              "0%"
+            ],
+            "status": "작업이 삭제되었습니다.",
+            "viewport": {
+              "height": 900,
+              "width": 1440
+            }
+          }
+        },
+        {
+          "number": 14,
+          "viewport": "mobile",
+          "passed": true,
+          "evidence": {
+            "count": 0,
+            "emptyVisible": true,
+            "items": [],
+            "live": "polite",
+            "noResultsVisible": false,
+            "stats": [
+              "0",
+              "0",
+              "0",
+              "0%"
+            ],
+            "status": "작업이 삭제되었습니다.",
+            "viewport": {
+              "height": 844,
+              "width": 390
+            }
+          }
+        }
+      ]
+    },
+    {
+      "number": 15,
+      "name": "HTML 형태의 제목을 문자로 표시",
+      "status": "PASS",
+      "observations": [
+        {
+          "number": 15,
+          "viewport": "desktop",
+          "passed": true,
+          "evidence": {
+            "count": 1,
+            "emptyVisible": false,
+            "items": [
+              {
+                "buttons": [
+                  {
+                    "name": "<img src=x> 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "<img src=x> 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "<img src=x>\n\n✓\n×"
+              }
+            ],
+            "live": "polite",
+            "noResultsVisible": false,
+            "stats": [
+              "1",
+              "1",
+              "0",
+              "0%"
+            ],
+            "status": "작업이 추가되었습니다.",
+            "viewport": {
+              "height": 900,
+              "width": 1440
+            },
+            "imageNodes": 0
+          }
+        },
+        {
+          "number": 15,
+          "viewport": "mobile",
+          "passed": true,
+          "evidence": {
+            "count": 1,
+            "emptyVisible": false,
+            "items": [
+              {
+                "buttons": [
+                  {
+                    "name": "<img src=x> 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "<img src=x> 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "<img src=x>\n\n✓\n×"
+              }
+            ],
+            "live": "polite",
+            "noResultsVisible": false,
+            "stats": [
+              "1",
+              "1",
+              "0",
+              "0%"
+            ],
+            "status": "작업이 추가되었습니다.",
+            "viewport": {
+              "height": 844,
+              "width": 390
+            },
+            "imageNodes": 0
+          }
+        }
+      ]
+    },
+    {
+      "number": 16,
+      "name": "동작 결과를 라이브 status 영역에 표시",
+      "status": "PASS",
+      "observations": [
+        {
+          "number": 16,
+          "viewport": "desktop",
+          "passed": true,
+          "evidence": {
+            "count": 1,
+            "emptyVisible": false,
+            "items": [
+              {
+                "buttons": [
+                  {
+                    "name": "<img src=x> 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "<img src=x> 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "<img src=x>\n\n✓\n×"
+              }
+            ],
+            "live": "polite",
+            "noResultsVisible": false,
+            "stats": [
+              "1",
+              "1",
+              "0",
+              "0%"
+            ],
+            "status": "작업이 추가되었습니다.",
+            "viewport": {
+              "height": 900,
+              "width": 1440
+            }
+          }
+        },
+        {
+          "number": 16,
+          "viewport": "mobile",
+          "passed": true,
+          "evidence": {
+            "count": 1,
+            "emptyVisible": false,
+            "items": [
+              {
+                "buttons": [
+                  {
+                    "name": "<img src=x> 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "<img src=x> 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "<img src=x>\n\n✓\n×"
+              }
+            ],
+            "live": "polite",
+            "noResultsVisible": false,
+            "stats": [
+              "1",
+              "1",
+              "0",
+              "0%"
+            ],
+            "status": "작업이 추가되었습니다.",
+            "viewport": {
+              "height": 844,
+              "width": 390
+            }
+          }
+        }
+      ]
+    },
+    {
+      "number": 17,
+      "name": "Tab/Enter 조작과 현재 포커스 표시",
+      "status": "PASS",
+      "observations": [
+        {
+          "number": 17,
+          "viewport": "desktop",
+          "passed": true,
+          "evidence": {
+            "addFocus": {
+              "id": "add-task",
+              "name": null,
+              "outline": "solid",
+              "shadow": "none",
+              "visible": true,
+              "width": "3px"
+            },
+            "added": {
+              "count": 1,
+              "emptyVisible": false,
+              "items": [
+                {
+                  "buttons": [
+                    {
+                      "name": "키보드검증 완료 처리",
+                      "pressed": "false"
+                    },
+                    {
+                      "name": "키보드검증 삭제",
+                      "pressed": null
+                    }
+                  ],
+                  "text": "키보드검증\n\n✓\n×"
+                }
+              ],
+              "live": "polite",
+              "noResultsVisible": false,
+              "stats": [
+                "1",
+                "1",
+                "0",
+                "0%"
+              ],
+              "status": "작업이 추가되었습니다.",
+              "viewport": {
+                "height": 900,
+                "width": 1440
+              }
+            },
+            "toggleFocus": "키보드검증 완료 취소",
+            "deleteFocus": {
+              "focusVisible": true,
+              "name": "키보드검증 삭제"
+            },
+            "deleted": {
+              "count": 0,
+              "emptyVisible": true,
+              "items": [],
+              "live": "polite",
+              "noResultsVisible": false,
+              "stats": [
+                "0",
+                "0",
+                "0",
+                "0%"
+              ],
+              "status": "작업이 삭제되었습니다.",
+              "viewport": {
+                "height": 900,
+                "width": 1440
+              }
+            }
+          }
+        },
+        {
+          "number": 17,
+          "viewport": "mobile",
+          "passed": true,
+          "evidence": {
+            "addFocus": {
+              "id": "add-task",
+              "name": null,
+              "outline": "solid",
+              "shadow": "none",
+              "visible": true,
+              "width": "3px"
+            },
+            "added": {
+              "count": 1,
+              "emptyVisible": false,
+              "items": [
+                {
+                  "buttons": [
+                    {
+                      "name": "키보드검증 완료 처리",
+                      "pressed": "false"
+                    },
+                    {
+                      "name": "키보드검증 삭제",
+                      "pressed": null
+                    }
+                  ],
+                  "text": "키보드검증\n\n✓\n×"
+                }
+              ],
+              "live": "polite",
+              "noResultsVisible": false,
+              "stats": [
+                "1",
+                "1",
+                "0",
+                "0%"
+              ],
+              "status": "작업이 추가되었습니다.",
+              "viewport": {
+                "height": 844,
+                "width": 390
+              }
+            },
+            "toggleFocus": "키보드검증 완료 취소",
+            "deleteFocus": {
+              "focusVisible": true,
+              "name": "키보드검증 삭제"
+            },
+            "deleted": {
+              "count": 0,
+              "emptyVisible": true,
+              "items": [],
+              "live": "polite",
+              "noResultsVisible": false,
+              "stats": [
+                "0",
+                "0",
+                "0",
+                "0%"
+              ],
+              "status": "작업이 삭제되었습니다.",
+              "viewport": {
+                "height": 844,
+                "width": 390
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "number": 18,
+      "name": "긴 제목을 포함한 모바일·데스크톱 가로 넘침 없음",
+      "status": "PASS",
+      "observations": [
+        {
+          "number": 18,
+          "viewport": "desktop",
+          "passed": true,
+          "evidence": {
+            "count": 1,
+            "emptyVisible": false,
+            "items": [
+              {
+                "buttons": [
+                  {
+                    "name": "긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz\n\n✓\n×"
+              }
+            ],
+            "live": "polite",
+            "noResultsVisible": false,
+            "stats": [
+              "1",
+              "1",
+              "0",
+              "0%"
+            ],
+            "status": "작업이 추가되었습니다.",
+            "viewport": {
+              "height": 900,
+              "width": 1440
+            },
+            "geometry": {
+              "bodyWidth": 1440,
+              "buttons": [
+                {
+                  "height": 31,
+                  "left": 1248.2421875,
+                  "right": 1279.2421875,
+                  "width": 31
+                },
+                {
+                  "height": 31,
+                  "left": 1286.2421875,
+                  "right": 1317.2421875,
+                  "width": 31
+                }
+              ],
+              "documentWidth": 1440,
+              "height": 900,
+              "width": 1440
+            }
+          }
+        },
+        {
+          "number": 18,
+          "viewport": "mobile",
+          "passed": true,
+          "evidence": {
+            "count": 1,
+            "emptyVisible": false,
+            "items": [
+              {
+                "buttons": [
+                  {
+                    "name": "긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz 완료 처리",
+                    "pressed": "false"
+                  },
+                  {
+                    "name": "긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz 삭제",
+                    "pressed": null
+                  }
+                ],
+                "text": "긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz긴제목ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz\n\n✓\n×"
+              }
+            ],
+            "live": "polite",
+            "noResultsVisible": false,
+            "stats": [
+              "1",
+              "1",
+              "0",
+              "0%"
+            ],
+            "status": "작업이 추가되었습니다.",
+            "viewport": {
+              "height": 844,
+              "width": 390
+            },
+            "geometry": {
+              "bodyWidth": 390,
+              "buttons": [
+                {
+                  "height": 29,
+                  "left": 282,
+                  "right": 311,
+                  "width": 29
+                },
+                {
+                  "height": 29,
+                  "left": 316,
+                  "right": 345,
+                  "width": 29
+                }
+              ],
+              "documentWidth": 390,
+              "height": 844,
+              "width": 390
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

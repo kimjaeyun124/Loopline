@@ -1,0 +1,9 @@
+{
+  "method": "동일 검사 16개의 개별 판정 기준 및 질문 부분을 UTF-8 JSON으로 비교. 전체 요청 또는 실제 공급자 토큰 측정이 아님. 모든 기준을 state.individualCheckCriteria로 한 번 전달.",
+  "checks": 16,
+  "beforeBytes": 11659,
+  "afterBytes": 2937,
+  "savedBytes": 8722,
+  "tokensEstimated": false,
+  "criteriaPreserved": true
+}

@@ -1,0 +1,1023 @@
+[
+  {
+    "passed": false,
+    "checks": [
+      {
+        "id": "initial-empty-state",
+        "viewport": "desktop",
+        "passed": true
+      },
+      {
+        "id": "initial-empty-state-layout",
+        "viewport": "desktop",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 1440,
+          "body": true
+        }
+      },
+      {
+        "id": "button-add-trims-title",
+        "viewport": "desktop",
+        "passed": true
+      },
+      {
+        "id": "button-add-trims-title-layout",
+        "viewport": "desktop",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 1440,
+          "body": true
+        }
+      },
+      {
+        "id": "whitespace-title-rejected",
+        "viewport": "desktop",
+        "passed": true
+      },
+      {
+        "id": "whitespace-title-rejected-layout",
+        "viewport": "desktop",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 1440,
+          "body": true
+        }
+      },
+      {
+        "id": "enter-adds-title",
+        "viewport": "desktop",
+        "passed": true
+      },
+      {
+        "id": "enter-adds-title-layout",
+        "viewport": "desktop",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 1440,
+          "body": true
+        }
+      },
+      {
+        "id": "completion-and-cancel",
+        "viewport": "desktop",
+        "passed": true
+      },
+      {
+        "id": "completion-and-cancel-layout",
+        "viewport": "desktop",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 1440,
+          "body": true
+        }
+      },
+      {
+        "id": "duplicate-title-independent-delete",
+        "viewport": "desktop",
+        "passed": true
+      },
+      {
+        "id": "duplicate-title-independent-delete-layout",
+        "viewport": "desktop",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 1440,
+          "body": true
+        }
+      },
+      {
+        "id": "filter-all-active-completed",
+        "viewport": "desktop",
+        "passed": true
+      },
+      {
+        "id": "filter-all-active-completed-layout",
+        "viewport": "desktop",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 1440,
+          "body": true
+        }
+      },
+      {
+        "id": "search-combines-with-filter",
+        "viewport": "desktop",
+        "passed": true
+      },
+      {
+        "id": "search-combines-with-filter-layout",
+        "viewport": "desktop",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 1440,
+          "body": true
+        }
+      },
+      {
+        "id": "search-empty-state-distinction",
+        "viewport": "desktop",
+        "passed": true
+      },
+      {
+        "id": "search-empty-state-distinction-layout",
+        "viewport": "desktop",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 1440,
+          "body": true
+        }
+      },
+      {
+        "id": "save-completion-across-reload",
+        "viewport": "desktop",
+        "passed": true
+      },
+      {
+        "id": "save-completion-across-reload-layout",
+        "viewport": "desktop",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 1440,
+          "body": true
+        }
+      },
+      {
+        "id": "html-like-title-rendered-as-text",
+        "viewport": "desktop",
+        "passed": true
+      },
+      {
+        "id": "html-like-title-rendered-as-text-layout",
+        "viewport": "desktop",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 1440,
+          "body": true
+        }
+      },
+      {
+        "id": "keyboard-focus-toggle-delete",
+        "viewport": "desktop",
+        "passed": false,
+        "failure": "단계 18: focused #task-list [role=\"listitem\"] [data-action=\"delete\"] · 예상 true · 실제 \"<button class=\\\"icon-button\\\" type=\\\"button\\\" data-action=\\\"toggle\\\" aria-label=\\\"키보드 작업 완료 취소\\\" aria-pressed=\\\"true\\\">↶</button>\""
+      },
+      {
+        "id": "keyboard-focus-toggle-delete-layout",
+        "viewport": "desktop",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 1440,
+          "body": true
+        }
+      },
+      {
+        "id": "keyboard-filter-activation",
+        "viewport": "desktop",
+        "passed": true
+      },
+      {
+        "id": "keyboard-filter-activation-layout",
+        "viewport": "desktop",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 1440,
+          "body": true
+        }
+      },
+      {
+        "id": "long-title-layout",
+        "viewport": "desktop",
+        "passed": true
+      },
+      {
+        "id": "long-title-layout-layout",
+        "viewport": "desktop",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 1440,
+          "body": true
+        }
+      },
+      {
+        "id": "add-removes-last-task-empty-state",
+        "viewport": "desktop",
+        "passed": true
+      },
+      {
+        "id": "add-removes-last-task-empty-state-layout",
+        "viewport": "desktop",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 1440,
+          "body": true
+        }
+      },
+      {
+        "id": "search-filter-status-announcements",
+        "viewport": "desktop",
+        "passed": true
+      },
+      {
+        "id": "search-filter-status-announcements-layout",
+        "viewport": "desktop",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 1440,
+          "body": true
+        }
+      },
+      {
+        "id": "layout",
+        "viewport": "desktop",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 1440,
+          "body": true
+        }
+      },
+      {
+        "id": "initial-empty-state",
+        "viewport": "mobile",
+        "passed": true
+      },
+      {
+        "id": "initial-empty-state-layout",
+        "viewport": "mobile",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 390,
+          "body": true
+        }
+      },
+      {
+        "id": "button-add-trims-title",
+        "viewport": "mobile",
+        "passed": true
+      },
+      {
+        "id": "button-add-trims-title-layout",
+        "viewport": "mobile",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 390,
+          "body": true
+        }
+      },
+      {
+        "id": "whitespace-title-rejected",
+        "viewport": "mobile",
+        "passed": true
+      },
+      {
+        "id": "whitespace-title-rejected-layout",
+        "viewport": "mobile",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 390,
+          "body": true
+        }
+      },
+      {
+        "id": "enter-adds-title",
+        "viewport": "mobile",
+        "passed": true
+      },
+      {
+        "id": "enter-adds-title-layout",
+        "viewport": "mobile",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 390,
+          "body": true
+        }
+      },
+      {
+        "id": "completion-and-cancel",
+        "viewport": "mobile",
+        "passed": true
+      },
+      {
+        "id": "completion-and-cancel-layout",
+        "viewport": "mobile",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 390,
+          "body": true
+        }
+      },
+      {
+        "id": "duplicate-title-independent-delete",
+        "viewport": "mobile",
+        "passed": true
+      },
+      {
+        "id": "duplicate-title-independent-delete-layout",
+        "viewport": "mobile",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 390,
+          "body": true
+        }
+      },
+      {
+        "id": "filter-all-active-completed",
+        "viewport": "mobile",
+        "passed": true
+      },
+      {
+        "id": "filter-all-active-completed-layout",
+        "viewport": "mobile",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 390,
+          "body": true
+        }
+      },
+      {
+        "id": "search-combines-with-filter",
+        "viewport": "mobile",
+        "passed": true
+      },
+      {
+        "id": "search-combines-with-filter-layout",
+        "viewport": "mobile",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 390,
+          "body": true
+        }
+      },
+      {
+        "id": "search-empty-state-distinction",
+        "viewport": "mobile",
+        "passed": true
+      },
+      {
+        "id": "search-empty-state-distinction-layout",
+        "viewport": "mobile",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 390,
+          "body": true
+        }
+      },
+      {
+        "id": "save-completion-across-reload",
+        "viewport": "mobile",
+        "passed": true
+      },
+      {
+        "id": "save-completion-across-reload-layout",
+        "viewport": "mobile",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 390,
+          "body": true
+        }
+      },
+      {
+        "id": "html-like-title-rendered-as-text",
+        "viewport": "mobile",
+        "passed": true
+      },
+      {
+        "id": "html-like-title-rendered-as-text-layout",
+        "viewport": "mobile",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 390,
+          "body": true
+        }
+      },
+      {
+        "id": "keyboard-focus-toggle-delete",
+        "viewport": "mobile",
+        "passed": false,
+        "failure": "단계 18: focused #task-list [role=\"listitem\"] [data-action=\"delete\"] · 예상 true · 실제 \"<button class=\\\"icon-button\\\" type=\\\"button\\\" data-action=\\\"toggle\\\" aria-label=\\\"키보드 작업 완료 취소\\\" aria-pressed=\\\"true\\\">↶</button>\""
+      },
+      {
+        "id": "keyboard-focus-toggle-delete-layout",
+        "viewport": "mobile",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 390,
+          "body": true
+        }
+      },
+      {
+        "id": "keyboard-filter-activation",
+        "viewport": "mobile",
+        "passed": true
+      },
+      {
+        "id": "keyboard-filter-activation-layout",
+        "viewport": "mobile",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 390,
+          "body": true
+        }
+      },
+      {
+        "id": "long-title-layout",
+        "viewport": "mobile",
+        "passed": true
+      },
+      {
+        "id": "long-title-layout-layout",
+        "viewport": "mobile",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 390,
+          "body": true
+        }
+      },
+      {
+        "id": "add-removes-last-task-empty-state",
+        "viewport": "mobile",
+        "passed": true
+      },
+      {
+        "id": "add-removes-last-task-empty-state-layout",
+        "viewport": "mobile",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 390,
+          "body": true
+        }
+      },
+      {
+        "id": "search-filter-status-announcements",
+        "viewport": "mobile",
+        "passed": true
+      },
+      {
+        "id": "search-filter-status-announcements-layout",
+        "viewport": "mobile",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 390,
+          "body": true
+        }
+      },
+      {
+        "id": "layout",
+        "viewport": "mobile",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 390,
+          "body": true
+        }
+      }
+    ],
+    "failures": [
+      "desktop/keyboard-focus-toggle-delete: 단계 18: focused #task-list [role=\"listitem\"] [data-action=\"delete\"] · 예상 true · 실제 \"<button class=\\\"icon-button\\\" type=\\\"button\\\" data-action=\\\"toggle\\\" aria-label=\\\"키보드 작업 완료 취소\\\" aria-pressed=\\\"true\\\">↶</button>\"",
+      "mobile/keyboard-focus-toggle-delete: 단계 18: focused #task-list [role=\"listitem\"] [data-action=\"delete\"] · 예상 true · 실제 \"<button class=\\\"icon-button\\\" type=\\\"button\\\" data-action=\\\"toggle\\\" aria-label=\\\"키보드 작업 완료 취소\\\" aria-pressed=\\\"true\\\">↶</button>\""
+    ],
+    "testedAt": 1790849936446,
+    "round": 4
+  },
+  {
+    "passed": true,
+    "checks": [
+      {
+        "id": "initial-empty-state",
+        "viewport": "desktop",
+        "passed": true
+      },
+      {
+        "id": "initial-empty-state-layout",
+        "viewport": "desktop",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 1440,
+          "body": true
+        }
+      },
+      {
+        "id": "button-add-trims-title",
+        "viewport": "desktop",
+        "passed": true
+      },
+      {
+        "id": "button-add-trims-title-layout",
+        "viewport": "desktop",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 1440,
+          "body": true
+        }
+      },
+      {
+        "id": "whitespace-title-rejected",
+        "viewport": "desktop",
+        "passed": true
+      },
+      {
+        "id": "whitespace-title-rejected-layout",
+        "viewport": "desktop",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 1440,
+          "body": true
+        }
+      },
+      {
+        "id": "enter-adds-title",
+        "viewport": "desktop",
+        "passed": true
+      },
+      {
+        "id": "enter-adds-title-layout",
+        "viewport": "desktop",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 1440,
+          "body": true
+        }
+      },
+      {
+        "id": "completion-and-cancel",
+        "viewport": "desktop",
+        "passed": true
+      },
+      {
+        "id": "completion-and-cancel-layout",
+        "viewport": "desktop",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 1440,
+          "body": true
+        }
+      },
+      {
+        "id": "duplicate-title-independent-delete",
+        "viewport": "desktop",
+        "passed": true
+      },
+      {
+        "id": "duplicate-title-independent-delete-layout",
+        "viewport": "desktop",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 1440,
+          "body": true
+        }
+      },
+      {
+        "id": "filter-all-active-completed",
+        "viewport": "desktop",
+        "passed": true
+      },
+      {
+        "id": "filter-all-active-completed-layout",
+        "viewport": "desktop",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 1440,
+          "body": true
+        }
+      },
+      {
+        "id": "search-combines-with-filter",
+        "viewport": "desktop",
+        "passed": true
+      },
+      {
+        "id": "search-combines-with-filter-layout",
+        "viewport": "desktop",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 1440,
+          "body": true
+        }
+      },
+      {
+        "id": "search-empty-state-distinction",
+        "viewport": "desktop",
+        "passed": true
+      },
+      {
+        "id": "search-empty-state-distinction-layout",
+        "viewport": "desktop",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 1440,
+          "body": true
+        }
+      },
+      {
+        "id": "save-completion-across-reload",
+        "viewport": "desktop",
+        "passed": true
+      },
+      {
+        "id": "save-completion-across-reload-layout",
+        "viewport": "desktop",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 1440,
+          "body": true
+        }
+      },
+      {
+        "id": "html-like-title-rendered-as-text",
+        "viewport": "desktop",
+        "passed": true
+      },
+      {
+        "id": "html-like-title-rendered-as-text-layout",
+        "viewport": "desktop",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 1440,
+          "body": true
+        }
+      },
+      {
+        "id": "keyboard-focus-toggle-delete",
+        "viewport": "desktop",
+        "passed": true
+      },
+      {
+        "id": "keyboard-focus-toggle-delete-layout",
+        "viewport": "desktop",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 1440,
+          "body": true
+        }
+      },
+      {
+        "id": "keyboard-filter-activation",
+        "viewport": "desktop",
+        "passed": true
+      },
+      {
+        "id": "keyboard-filter-activation-layout",
+        "viewport": "desktop",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 1440,
+          "body": true
+        }
+      },
+      {
+        "id": "long-title-layout",
+        "viewport": "desktop",
+        "passed": true
+      },
+      {
+        "id": "long-title-layout-layout",
+        "viewport": "desktop",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 1440,
+          "body": true
+        }
+      },
+      {
+        "id": "add-removes-last-task-empty-state",
+        "viewport": "desktop",
+        "passed": true
+      },
+      {
+        "id": "add-removes-last-task-empty-state-layout",
+        "viewport": "desktop",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 1440,
+          "body": true
+        }
+      },
+      {
+        "id": "search-filter-status-announcements",
+        "viewport": "desktop",
+        "passed": true
+      },
+      {
+        "id": "search-filter-status-announcements-layout",
+        "viewport": "desktop",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 1440,
+          "body": true
+        }
+      },
+      {
+        "id": "layout",
+        "viewport": "desktop",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 1440,
+          "body": true
+        }
+      },
+      {
+        "id": "initial-empty-state",
+        "viewport": "mobile",
+        "passed": true
+      },
+      {
+        "id": "initial-empty-state-layout",
+        "viewport": "mobile",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 390,
+          "body": true
+        }
+      },
+      {
+        "id": "button-add-trims-title",
+        "viewport": "mobile",
+        "passed": true
+      },
+      {
+        "id": "button-add-trims-title-layout",
+        "viewport": "mobile",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 390,
+          "body": true
+        }
+      },
+      {
+        "id": "whitespace-title-rejected",
+        "viewport": "mobile",
+        "passed": true
+      },
+      {
+        "id": "whitespace-title-rejected-layout",
+        "viewport": "mobile",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 390,
+          "body": true
+        }
+      },
+      {
+        "id": "enter-adds-title",
+        "viewport": "mobile",
+        "passed": true
+      },
+      {
+        "id": "enter-adds-title-layout",
+        "viewport": "mobile",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 390,
+          "body": true
+        }
+      },
+      {
+        "id": "completion-and-cancel",
+        "viewport": "mobile",
+        "passed": true
+      },
+      {
+        "id": "completion-and-cancel-layout",
+        "viewport": "mobile",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 390,
+          "body": true
+        }
+      },
+      {
+        "id": "duplicate-title-independent-delete",
+        "viewport": "mobile",
+        "passed": true
+      },
+      {
+        "id": "duplicate-title-independent-delete-layout",
+        "viewport": "mobile",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 390,
+          "body": true
+        }
+      },
+      {
+        "id": "filter-all-active-completed",
+        "viewport": "mobile",
+        "passed": true
+      },
+      {
+        "id": "filter-all-active-completed-layout",
+        "viewport": "mobile",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 390,
+          "body": true
+        }
+      },
+      {
+        "id": "search-combines-with-filter",
+        "viewport": "mobile",
+        "passed": true
+      },
+      {
+        "id": "search-combines-with-filter-layout",
+        "viewport": "mobile",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 390,
+          "body": true
+        }
+      },
+      {
+        "id": "search-empty-state-distinction",
+        "viewport": "mobile",
+        "passed": true
+      },
+      {
+        "id": "search-empty-state-distinction-layout",
+        "viewport": "mobile",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 390,
+          "body": true
+        }
+      },
+      {
+        "id": "save-completion-across-reload",
+        "viewport": "mobile",
+        "passed": true
+      },
+      {
+        "id": "save-completion-across-reload-layout",
+        "viewport": "mobile",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 390,
+          "body": true
+        }
+      },
+      {
+        "id": "html-like-title-rendered-as-text",
+        "viewport": "mobile",
+        "passed": true
+      },
+      {
+        "id": "html-like-title-rendered-as-text-layout",
+        "viewport": "mobile",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 390,
+          "body": true
+        }
+      },
+      {
+        "id": "keyboard-focus-toggle-delete",
+        "viewport": "mobile",
+        "passed": true
+      },
+      {
+        "id": "keyboard-focus-toggle-delete-layout",
+        "viewport": "mobile",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 390,
+          "body": true
+        }
+      },
+      {
+        "id": "keyboard-filter-activation",
+        "viewport": "mobile",
+        "passed": true
+      },
+      {
+        "id": "keyboard-filter-activation-layout",
+        "viewport": "mobile",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 390,
+          "body": true
+        }
+      },
+      {
+        "id": "long-title-layout",
+        "viewport": "mobile",
+        "passed": true
+      },
+      {
+        "id": "long-title-layout-layout",
+        "viewport": "mobile",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 390,
+          "body": true
+        }
+      },
+      {
+        "id": "add-removes-last-task-empty-state",
+        "viewport": "mobile",
+        "passed": true
+      },
+      {
+        "id": "add-removes-last-task-empty-state-layout",
+        "viewport": "mobile",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 390,
+          "body": true
+        }
+      },
+      {
+        "id": "search-filter-status-announcements",
+        "viewport": "mobile",
+        "passed": true
+      },
+      {
+        "id": "search-filter-status-announcements-layout",
+        "viewport": "mobile",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 390,
+          "body": true
+        }
+      },
+      {
+        "id": "layout",
+        "viewport": "mobile",
+        "passed": true,
+        "actual": {
+          "overflow": false,
+          "width": 390,
+          "body": true
+        }
+      }
+    ],
+    "failures": [],
+    "testedAt": 1790850025293,
+    "round": 5
+  }
+]

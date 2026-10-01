@@ -1,0 +1,88 @@
+{
+  "date": "2026-10-01",
+  "sourceCommit": "69af8e867afe9a21fec2ea3c8671ce6dc84fe72e",
+  "implementationCommit": "8c89bd5",
+  "historicalSourceCommit": "e34846c",
+  "scope": "포커스 QA 오판과 공유 파일 재판정까지 수정한 동일 최신 앱에서 신규 실행. 생성 코드 외부 수정 없이 검증·판정·자동 반영 및 공통 독립 QA를 비교한다.",
+  "samePrompt": true,
+  "sameIndependentQa": true,
+  "promptSha256": "fe81c8ea0c2cb9e635abcb53c28dc0916ca497393717512a5d06f0a16fce9042",
+  "qaSha256": "19e5e1a62d44d9ae2aaf0d84c30d84abc57931566927f541331eaa566e63add1",
+  "configuration": {
+    "planner": {
+      "source": "Gemini",
+      "model": "models/gemini-3-flash-preview",
+      "automatic": true,
+      "fallbacks": [
+        {
+          "source": "Codex",
+          "model": "gpt-6-luna",
+          "reasoningEffort": "high"
+        },
+        {
+          "source": "Codex",
+          "model": "gpt-6-sol",
+          "reasoningEffort": "high"
+        }
+      ]
+    },
+    "worker": {
+      "source": "Codex",
+      "model": "gpt-6-luna",
+      "reasoningEffort": "high",
+      "automatic": true,
+      "fallbacks": [
+        {
+          "source": "Codex",
+          "model": "gpt-6-sol",
+          "reasoningEffort": "high"
+        },
+        {
+          "source": "Codex",
+          "model": "gpt-6-astra",
+          "reasoningEffort": "high"
+        }
+      ]
+    },
+    "judge": {
+      "source": "Jev",
+      "model": "jev-latest",
+      "fallbacks": [
+        {
+          "source": "Codex",
+          "model": "gpt-6-luna",
+          "reasoningEffort": "max"
+        },
+        {
+          "source": "Codex",
+          "model": "gpt-6-sol",
+          "reasoningEffort": "high"
+        }
+      ]
+    }
+  },
+  "definitions": {
+    "complete": "status completed AND applied AND verificationPassed AND browserQaPassed",
+    "tokens": "합계는 공급자가 보고한 modelCalls.tokens만 포함. 미확인 호출은 별도 기록하고 최소 토큰으로 표시.",
+    "humanIntervention": "실행 시작 이후 프로젝트 코드 직접 편집, 강제 중지·재시작, 조건 변경. 독립 QA 입력과 보고서 준비는 제외.",
+    "runtime": "finishedAt - createdAt. 모델 호출·검증·브라우저 QA·반영 포함, 후속 독립 검사와 보고서 준비 제외."
+  },
+  "implementationCommits": [
+    "e0bc2c7",
+    "c7b24cb",
+    "e22f8ea",
+    "8829751",
+    "5c2b126",
+    "17a60af",
+    "342df9c",
+    "f1b2ef5",
+    "8c89bd5",
+    "791256e"
+  ],
+  "runtime": {
+    "nativeRestartConfirmed": true,
+    "pid": 24945,
+    "startedAtLocal": "2026-10-01 18:14:25",
+    "packageSourceCommit": "69af8e867afe9a21fec2ea3c8671ce6dc84fe72e"
+  }
+}

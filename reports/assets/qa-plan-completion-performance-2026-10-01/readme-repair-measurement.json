@@ -1,0 +1,136 @@
+{
+  "label": "독립 QA 후 실행 안내 별도 보완",
+  "id": "d59480d7-1792-438c-aa2d-5a3c5fc43263",
+  "sourceCommit": "e8310cf7cee4995970e5300ad870eeda9a4dbab1",
+  "status": "completed",
+  "summary": "gpt-6-luna · gpt-6-luna\n목표 충족 / Goal: pass · README.md의 Node 내장 HTTP 서버 명령에서 요청 경로가 `/`일 때만 `index.html`을 선택하도록 수정했습니다. HTML·CSS·MJS MIME 설정, 404·403 처리, `127.0.0.1` 바인딩, `node -e` 단일 따옴표 형식과 기존 설명은 유지됐고, 변경 파일은 README.md에 한정됐습니다.\n검증 충족 / Verification: pass · `node --test tests/readme-server.test.mjs`가 종료 코드 0으로 3개 테스트를 모두 통과했습니다. 검증 결과는 기본 주소의 HTML 응답, 모듈·스타일 리소스 MIME 유형, 누락 파일의 404와 디코딩된 상위 경로의 403을 확인합니다.",
+  "elapsedMs": 167742,
+  "reportedTokens": 237290,
+  "calls": 12,
+  "unknownUsageCalls": 0,
+  "workerCalls": 3,
+  "verificationPassed": true,
+  "browserQaPassed": false,
+  "applied": true,
+  "automaticallyCompleted": true,
+  "qaPlanChecks": 0,
+  "qaRuns": [],
+  "projectVerification": {
+    "status": "completed",
+    "tests": 3,
+    "passed": 3,
+    "testRuns": [
+      {
+        "tests": 3,
+        "passed": 3
+      }
+    ],
+    "output": "node --test tests/readme-server.test.mjs\n종료 코드: 0\n✔ documented base address serves the entry HTML (1.062667ms)\n✔ module and style resources have executable MIME types (0.710625ms)\n✔ missing resources and decoded parent paths are rejected (0.242584ms)\nℹ tests 3\nℹ suites 0\nℹ pass 3\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 47.99225\n\n"
+  },
+  "milestones": [
+    {
+      "id": "root-route",
+      "title": "루트 경로에서 index.html 제공",
+      "status": "completed"
+    },
+    {
+      "id": "server-regression",
+      "title": "서버 명령 전체 계약 검증",
+      "status": "completed"
+    }
+  ],
+  "formatFailureCalls": 0,
+  "browserQaFailures": 0,
+  "automaticWorkerFallbacks": 0,
+  "externalCodeEdits": 0,
+  "externalStops": 0,
+  "externalResumes": 0,
+  "modelBreakdown": [
+    {
+      "role": "planner",
+      "model": "gpt-6-luna",
+      "effort": "high",
+      "calls": 3,
+      "reportedTokens": 68265,
+      "unknownUsageCalls": 0,
+      "durationMs": 67416
+    },
+    {
+      "role": "judge",
+      "model": "jev-latest",
+      "effort": "default",
+      "calls": 2,
+      "reportedTokens": 2833,
+      "unknownUsageCalls": 0,
+      "durationMs": 819
+    },
+    {
+      "role": "judge",
+      "model": "gpt-6-luna",
+      "effort": "max",
+      "calls": 4,
+      "reportedTokens": 96801,
+      "unknownUsageCalls": 0,
+      "durationMs": 59057
+    },
+    {
+      "role": "worker",
+      "model": "gpt-6-luna",
+      "effort": "high",
+      "calls": 3,
+      "reportedTokens": 69391,
+      "unknownUsageCalls": 0,
+      "durationMs": 38429
+    }
+  ],
+  "nonWebDocumentationOnly": true,
+  "externalPostRunFeedbackJobs": 1,
+  "notSameBenchmarkPrompt": true,
+  "actualLaunchRetest": {
+    "method": "모델이 보완한 README의 같은 명령을 실제 생성 파일에서 실행. 충돌 방지를 위한 포트 번호만 변경.",
+    "isolatedPort": 49932,
+    "rootStatus": 200,
+    "rootContentType": "text/html; charset=utf-8",
+    "rootContentMatchesGeneratedIndex": true,
+    "immutableTestsUnchanged": true,
+    "checks": [
+      {
+        "path": "/index.html",
+        "status": 200,
+        "contentType": "text/html; charset=utf-8",
+        "bytes": 3841
+      },
+      {
+        "path": "/app.mjs",
+        "status": 200,
+        "contentType": "text/javascript; charset=utf-8",
+        "bytes": 4492
+      },
+      {
+        "path": "/styles.css",
+        "status": 200,
+        "contentType": "text/css; charset=utf-8",
+        "bytes": 8222
+      },
+      {
+        "path": "/task-store.mjs",
+        "status": 200,
+        "contentType": "text/javascript; charset=utf-8",
+        "bytes": 3214
+      },
+      {
+        "path": "/missing.mjs",
+        "status": 404,
+        "contentType": null,
+        "bytes": 9
+      },
+      {
+        "path": "/%2e%2e%2fsecret",
+        "status": 403,
+        "contentType": null,
+        "bytes": 0
+      }
+    ]
+  },
+  "originalSourceDocumentationTransfers": 1
+}

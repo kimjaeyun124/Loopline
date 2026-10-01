@@ -1,0 +1,1016 @@
+{
+  "entry": "index.html",
+  "checks": [
+    {
+      "id": "initial-empty-state",
+      "categories": [
+        "empty"
+      ],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "text",
+          "selector": "h1",
+          "value": "Focus Desk"
+        },
+        {
+          "action": "count",
+          "selector": "input#new-task[aria-label=\"새 작업\"]",
+          "value": 1
+        },
+        {
+          "action": "count",
+          "selector": "input#task-search[aria-label=\"작업 검색\"]",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": "#add-task-button",
+          "value": "추가"
+        },
+        {
+          "action": "count",
+          "selector": "ul#task-list",
+          "value": 1
+        },
+        {
+          "action": "count",
+          "selector": "ul#task-list li",
+          "value": 0
+        },
+        {
+          "action": "visible",
+          "selector": "#empty-state"
+        },
+        {
+          "action": "text",
+          "selector": "#empty-state",
+          "value": "아직 작업이 없습니다."
+        },
+        {
+          "action": "text",
+          "selector": "#total-count",
+          "value": "0"
+        },
+        {
+          "action": "text",
+          "selector": "#remaining-count",
+          "value": "0"
+        },
+        {
+          "action": "text",
+          "selector": "#completed-count",
+          "value": "0"
+        },
+        {
+          "action": "text",
+          "selector": "#progress-value",
+          "value": "0%"
+        },
+        {
+          "action": "count",
+          "selector": "#status[role=\"status\"][aria-live=\"polite\"]",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "id": "add-with-button",
+      "categories": [
+        "input"
+      ],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "fill",
+          "selector": "#new-task",
+          "value": "기획서 작성"
+        },
+        {
+          "action": "click",
+          "selector": "#add-task-button"
+        },
+        {
+          "action": "count",
+          "selector": "ul#task-list li",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": "#task-list li:first-child .task-title",
+          "value": "기획서 작성"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list li:first-child button[aria-label=\"기획서 작성 완료 처리\"]",
+          "value": 1
+        },
+        {
+          "action": "count",
+          "selector": "#task-list li:first-child button[aria-label=\"기획서 작성 삭제\"]",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": "#total-count",
+          "value": "1"
+        },
+        {
+          "action": "text",
+          "selector": "#remaining-count",
+          "value": "1"
+        },
+        {
+          "action": "hidden",
+          "selector": "#empty-state"
+        },
+        {
+          "action": "text",
+          "selector": "#status",
+          "value": "작업을 추가했습니다."
+        }
+      ]
+    },
+    {
+      "id": "reject-blank-title",
+      "categories": [
+        "input",
+        "empty"
+      ],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "fill",
+          "selector": "#new-task",
+          "value": "   "
+        },
+        {
+          "action": "click",
+          "selector": "#add-task-button"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list li",
+          "value": 0
+        },
+        {
+          "action": "visible",
+          "selector": "#validation-message"
+        },
+        {
+          "action": "text",
+          "selector": "#validation-message",
+          "value": "작업 제목을 입력해 주세요."
+        },
+        {
+          "action": "visible",
+          "selector": "#empty-state"
+        },
+        {
+          "action": "text",
+          "selector": "#total-count",
+          "value": "0"
+        },
+        {
+          "action": "text",
+          "selector": "#status",
+          "value": "작업 제목을 입력해 주세요."
+        }
+      ]
+    },
+    {
+      "id": "enter-trims-title",
+      "categories": [
+        "input",
+        "keyboard"
+      ],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "fill",
+          "selector": "#new-task",
+          "value": "  일정 정리  "
+        },
+        {
+          "action": "press",
+          "key": "Enter"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list li",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": "#task-list li:first-child .task-title",
+          "value": "일정 정리"
+        },
+        {
+          "action": "value",
+          "selector": "#new-task",
+          "value": ""
+        },
+        {
+          "action": "hidden",
+          "selector": "#validation-message"
+        }
+      ]
+    },
+    {
+      "id": "complete-and-cancel",
+      "categories": [],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "fill",
+          "selector": "#new-task",
+          "value": "자료 검토"
+        },
+        {
+          "action": "click",
+          "selector": "#add-task-button"
+        },
+        {
+          "action": "click",
+          "selector": "#task-list li:first-child button[aria-label=\"자료 검토 완료 처리\"]"
+        },
+        {
+          "action": "text",
+          "selector": "#completed-count",
+          "value": "1"
+        },
+        {
+          "action": "text",
+          "selector": "#remaining-count",
+          "value": "0"
+        },
+        {
+          "action": "text",
+          "selector": "#progress-value",
+          "value": "100%"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list li:first-child button[aria-label=\"자료 검토 완료 취소\"]",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": "#status",
+          "value": "작업을 완료했습니다."
+        },
+        {
+          "action": "click",
+          "selector": "#task-list li:first-child button[aria-label=\"자료 검토 완료 취소\"]"
+        },
+        {
+          "action": "text",
+          "selector": "#completed-count",
+          "value": "0"
+        },
+        {
+          "action": "text",
+          "selector": "#remaining-count",
+          "value": "1"
+        },
+        {
+          "action": "text",
+          "selector": "#progress-value",
+          "value": "0%"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list li:first-child button[aria-label=\"자료 검토 완료 처리\"]",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": "#status",
+          "value": "완료를 취소했습니다."
+        }
+      ]
+    },
+    {
+      "id": "duplicate-titles-delete-independently",
+      "categories": [
+        "empty"
+      ],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "fill",
+          "selector": "#new-task",
+          "value": "반복 작업"
+        },
+        {
+          "action": "click",
+          "selector": "#add-task-button"
+        },
+        {
+          "action": "fill",
+          "selector": "#new-task",
+          "value": "반복 작업"
+        },
+        {
+          "action": "click",
+          "selector": "#add-task-button"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list li",
+          "value": 2
+        },
+        {
+          "action": "click",
+          "selector": "#task-list li:first-child button[aria-label=\"반복 작업 완료 처리\"]"
+        },
+        {
+          "action": "text",
+          "selector": "#completed-count",
+          "value": "1"
+        },
+        {
+          "action": "click",
+          "selector": "#task-list li:first-child button[aria-label=\"반복 작업 삭제\"]"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list li",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": "#task-list li:first-child .task-title",
+          "value": "반복 작업"
+        },
+        {
+          "action": "text",
+          "selector": "#completed-count",
+          "value": "0"
+        },
+        {
+          "action": "text",
+          "selector": "#remaining-count",
+          "value": "1"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list li:first-child button[aria-label=\"반복 작업 완료 처리\"]",
+          "value": 1
+        },
+        {
+          "action": "click",
+          "selector": "#task-list li:first-child button[aria-label=\"반복 작업 삭제\"]"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list li",
+          "value": 0
+        },
+        {
+          "action": "visible",
+          "selector": "#empty-state"
+        },
+        {
+          "action": "text",
+          "selector": "#empty-state",
+          "value": "아직 작업이 없습니다."
+        }
+      ]
+    },
+    {
+      "id": "filter-with-pressed-state",
+      "categories": [],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "fill",
+          "selector": "#new-task",
+          "value": "초안 작성"
+        },
+        {
+          "action": "click",
+          "selector": "#add-task-button"
+        },
+        {
+          "action": "fill",
+          "selector": "#new-task",
+          "value": "검토 완료"
+        },
+        {
+          "action": "click",
+          "selector": "#add-task-button"
+        },
+        {
+          "action": "click",
+          "selector": "#task-list li:nth-child(2) button[aria-label=\"검토 완료 완료 처리\"]"
+        },
+        {
+          "action": "text",
+          "selector": "#filter-all",
+          "value": "전체"
+        },
+        {
+          "action": "text",
+          "selector": "#filter-todo",
+          "value": "할 일"
+        },
+        {
+          "action": "text",
+          "selector": "#filter-done",
+          "value": "완료"
+        },
+        {
+          "action": "click",
+          "selector": "#filter-todo"
+        },
+        {
+          "action": "count",
+          "selector": "#filter-todo[aria-pressed=\"true\"]",
+          "value": 1
+        },
+        {
+          "action": "count",
+          "selector": "#task-list li",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": "#task-list li:first-child .task-title",
+          "value": "초안 작성"
+        },
+        {
+          "action": "click",
+          "selector": "#filter-done"
+        },
+        {
+          "action": "count",
+          "selector": "#filter-done[aria-pressed=\"true\"]",
+          "value": 1
+        },
+        {
+          "action": "count",
+          "selector": "#task-list li",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": "#task-list li:first-child .task-title",
+          "value": "검토 완료"
+        },
+        {
+          "action": "click",
+          "selector": "#filter-all"
+        },
+        {
+          "action": "count",
+          "selector": "#filter-all[aria-pressed=\"true\"]",
+          "value": 1
+        },
+        {
+          "action": "count",
+          "selector": "#task-list li",
+          "value": 2
+        }
+      ]
+    },
+    {
+      "id": "search-combines-with-filter",
+      "categories": [
+        "input"
+      ],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "fill",
+          "selector": "#new-task",
+          "value": "보고서 초안"
+        },
+        {
+          "action": "click",
+          "selector": "#add-task-button"
+        },
+        {
+          "action": "fill",
+          "selector": "#new-task",
+          "value": "보고서 검토"
+        },
+        {
+          "action": "click",
+          "selector": "#add-task-button"
+        },
+        {
+          "action": "fill",
+          "selector": "#new-task",
+          "value": "운동"
+        },
+        {
+          "action": "click",
+          "selector": "#add-task-button"
+        },
+        {
+          "action": "click",
+          "selector": "#task-list li:nth-child(2) button[aria-label=\"보고서 검토 완료 처리\"]"
+        },
+        {
+          "action": "click",
+          "selector": "#filter-todo"
+        },
+        {
+          "action": "fill",
+          "selector": "#task-search",
+          "value": "보고서"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list li",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": "#task-list li:first-child .task-title",
+          "value": "보고서 초안"
+        },
+        {
+          "action": "click",
+          "selector": "#filter-done"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list li",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": "#task-list li:first-child .task-title",
+          "value": "보고서 검토"
+        }
+      ]
+    },
+    {
+      "id": "search-empty-state-distinction",
+      "categories": [
+        "input",
+        "empty"
+      ],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "fill",
+          "selector": "#new-task",
+          "value": "독서"
+        },
+        {
+          "action": "click",
+          "selector": "#add-task-button"
+        },
+        {
+          "action": "fill",
+          "selector": "#task-search",
+          "value": "운동"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list li",
+          "value": 0
+        },
+        {
+          "action": "visible",
+          "selector": "#empty-state"
+        },
+        {
+          "action": "text",
+          "selector": "#empty-state",
+          "value": "검색 결과가 없습니다."
+        },
+        {
+          "action": "fill",
+          "selector": "#task-search",
+          "value": ""
+        },
+        {
+          "action": "count",
+          "selector": "#task-list li",
+          "value": 1
+        },
+        {
+          "action": "hidden",
+          "selector": "#empty-state"
+        },
+        {
+          "action": "click",
+          "selector": "#task-list li:first-child button[aria-label=\"독서 삭제\"]"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list li",
+          "value": 0
+        },
+        {
+          "action": "text",
+          "selector": "#empty-state",
+          "value": "아직 작업이 없습니다."
+        }
+      ]
+    },
+    {
+      "id": "reload-restores-tasks-and-completion",
+      "categories": [
+        "save"
+      ],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "fill",
+          "selector": "#new-task",
+          "value": "저장된 작업"
+        },
+        {
+          "action": "click",
+          "selector": "#add-task-button"
+        },
+        {
+          "action": "fill",
+          "selector": "#new-task",
+          "value": "남은 작업"
+        },
+        {
+          "action": "click",
+          "selector": "#add-task-button"
+        },
+        {
+          "action": "click",
+          "selector": "#task-list li:first-child button[aria-label=\"저장된 작업 완료 처리\"]"
+        },
+        {
+          "action": "reload"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list li",
+          "value": 2
+        },
+        {
+          "action": "text",
+          "selector": "#total-count",
+          "value": "2"
+        },
+        {
+          "action": "text",
+          "selector": "#completed-count",
+          "value": "1"
+        },
+        {
+          "action": "text",
+          "selector": "#remaining-count",
+          "value": "1"
+        },
+        {
+          "action": "text",
+          "selector": "#progress-value",
+          "value": "50%"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list li button[aria-label=\"저장된 작업 완료 취소\"]",
+          "value": 1
+        },
+        {
+          "action": "count",
+          "selector": "#task-list li button[aria-label=\"남은 작업 완료 처리\"]",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "id": "html-like-title-is-literal",
+      "categories": [
+        "input"
+      ],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "fill",
+          "selector": "#new-task",
+          "value": "<b>중요</b>"
+        },
+        {
+          "action": "click",
+          "selector": "#add-task-button"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list li",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": "#task-list li:first-child .task-title",
+          "value": "<b>중요</b>"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list li b",
+          "value": 0
+        }
+      ]
+    },
+    {
+      "id": "keyboard-add-and-focus-visible",
+      "categories": [
+        "input",
+        "keyboard"
+      ],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "fill",
+          "selector": "#new-task",
+          "value": "키보드 추가"
+        },
+        {
+          "action": "press",
+          "key": "Tab"
+        },
+        {
+          "action": "focused",
+          "selector": "#add-task-button"
+        },
+        {
+          "action": "focus-visible",
+          "selector": "#add-task-button"
+        },
+        {
+          "action": "press",
+          "key": "Enter"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list li",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": "#task-list li:first-child .task-title",
+          "value": "키보드 추가"
+        }
+      ]
+    },
+    {
+      "id": "keyboard-filter-and-focus-visible",
+      "categories": [
+        "keyboard"
+      ],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "fill",
+          "selector": "#new-task",
+          "value": "진행 중"
+        },
+        {
+          "action": "click",
+          "selector": "#add-task-button"
+        },
+        {
+          "action": "fill",
+          "selector": "#new-task",
+          "value": "끝난 작업"
+        },
+        {
+          "action": "click",
+          "selector": "#add-task-button"
+        },
+        {
+          "action": "click",
+          "selector": "#task-list li:nth-child(2) button[aria-label=\"끝난 작업 완료 처리\"]"
+        },
+        {
+          "action": "click",
+          "selector": "#filter-all"
+        },
+        {
+          "action": "press",
+          "key": "Tab"
+        },
+        {
+          "action": "focused",
+          "selector": "#filter-todo"
+        },
+        {
+          "action": "focus-visible",
+          "selector": "#filter-todo"
+        },
+        {
+          "action": "press",
+          "key": "Space"
+        },
+        {
+          "action": "count",
+          "selector": "#filter-todo[aria-pressed=\"true\"]",
+          "value": 1
+        },
+        {
+          "action": "count",
+          "selector": "#task-list li",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": "#task-list li:first-child .task-title",
+          "value": "진행 중"
+        }
+      ]
+    },
+    {
+      "id": "keyboard-task-actions-and-focus-visible",
+      "categories": [
+        "keyboard",
+        "empty"
+      ],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "fill",
+          "selector": "#new-task",
+          "value": "키보드 작업"
+        },
+        {
+          "action": "click",
+          "selector": "#add-task-button"
+        },
+        {
+          "action": "click",
+          "selector": "#task-list li:first-child button[aria-label=\"키보드 작업 완료 처리\"]"
+        },
+        {
+          "action": "text",
+          "selector": "#completed-count",
+          "value": "1"
+        },
+        {
+          "action": "press",
+          "key": "Space"
+        },
+        {
+          "action": "text",
+          "selector": "#completed-count",
+          "value": "0"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list li:first-child button[aria-label=\"키보드 작업 완료 처리\"]",
+          "value": 1
+        },
+        {
+          "action": "press",
+          "key": "Tab"
+        },
+        {
+          "action": "focused",
+          "selector": "#task-list li:first-child button[aria-label=\"키보드 작업 삭제\"]"
+        },
+        {
+          "action": "focus-visible",
+          "selector": "#task-list li:first-child button[aria-label=\"키보드 작업 삭제\"]"
+        },
+        {
+          "action": "press",
+          "key": "Enter"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list li",
+          "value": 0
+        },
+        {
+          "action": "visible",
+          "selector": "#empty-state"
+        }
+      ]
+    },
+    {
+      "id": "reject-blank-title-with-enter",
+      "categories": [
+        "input",
+        "keyboard",
+        "empty"
+      ],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "fill",
+          "selector": "#new-task",
+          "value": " \t "
+        },
+        {
+          "action": "press",
+          "key": "Enter"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list li",
+          "value": 0
+        },
+        {
+          "action": "visible",
+          "selector": "#validation-message"
+        },
+        {
+          "action": "text",
+          "selector": "#validation-message",
+          "value": "작업 제목을 입력해 주세요."
+        },
+        {
+          "action": "visible",
+          "selector": "#empty-state"
+        }
+      ]
+    },
+    {
+      "id": "long-unbroken-title-layout",
+      "categories": [
+        "input"
+      ],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "fill",
+          "selector": "#new-task",
+          "value": "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+        },
+        {
+          "action": "click",
+          "selector": "#add-task-button"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list li",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": "#task-list li:first-child .task-title",
+          "value": "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list li:first-child button[aria-label*=\"완료 처리\"]",
+          "value": 1
+        },
+        {
+          "action": "count",
+          "selector": "#task-list li:first-child button[aria-label*=\"삭제\"]",
+          "value": 1
+        },
+        {
+          "action": "click",
+          "selector": "#task-list li:first-child button[aria-label*=\"완료 처리\"]"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list li:first-child button[aria-label*=\"완료 취소\"]",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": "#completed-count",
+          "value": "1"
+        }
+      ]
+    }
+  ],
+  "notApplicable": {}
+}

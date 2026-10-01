@@ -1,0 +1,34 @@
+[
+  {
+    "path": "README.md",
+    "sha256": "9f924e0766a7a3901958d47a381083576fc2b73bba561af3aba5bdfac3e631cb"
+  },
+  {
+    "path": "index.html",
+    "sha256": "07730bbd6a041bc9accb00c8f483f2a3b3e4bfcbf05b8b4a5c09b3b99aa2fb65"
+  },
+  {
+    "path": "package.json",
+    "sha256": "51f1c2e6cbe89fcd711cc8c385cd1a616cf8e3d67b0e2df3be0fe46d21001c4a"
+  },
+  {
+    "path": "src/app.js",
+    "sha256": "77783b9fc4d54dbdfbd33f0be414f2b4f4e1553e55e8a10e8462e2b6d3240d05"
+  },
+  {
+    "path": "src/tasks.js",
+    "sha256": "b6db7d2e5f0784f72e7c94e8cf6df2bb42c0b9e81e111a87dc0bf764b3acc1f8"
+  },
+  {
+    "path": "styles.css",
+    "sha256": "dbab4fd03376e47b9a8e7fce04af62344aa6a322aef66ec866c24dae33774693"
+  },
+  {
+    "path": "test/tasks.test.js",
+    "sha256": "e048cce8479562fdbc1df849560f75898fe81cc0624022b366e8c18755fa46ce"
+  },
+  {
+    "path": "test/ui.test.js",
+    "sha256": "cea84e16da5ec6fe6b4bb61551cb22fa596698da2d507a9d727577b7822b4f84"
+  }
+]

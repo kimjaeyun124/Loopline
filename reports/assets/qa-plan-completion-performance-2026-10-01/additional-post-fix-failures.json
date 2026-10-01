@@ -1,0 +1,193 @@
+[
+  {
+    "label": "QA 보완 연장 후 형식 오류 종료",
+    "id": "b107b41f-fad0-47a1-b8f2-ffc031dae156",
+    "sourceCommit": "70c614ecb4a477f51a2835279f96123de841dd67",
+    "status": "failed",
+    "summary": "기본 모델과 저장된 대체 모델 2개를 모두 시도했지만 응답 형식이 올바르지 않습니다. 독립 QA 계획 오류: 허용되지 않은 키 입력입니다.",
+    "elapsedMs": 530264,
+    "reportedTokens": 260128,
+    "calls": 12,
+    "unknownUsageCalls": 0,
+    "workerCalls": 0,
+    "verificationPassed": false,
+    "browserQaPassed": false,
+    "applied": false,
+    "automaticallyCompleted": false,
+    "qaPlanChecks": 0,
+    "qaRuns": [],
+    "projectVerification": null,
+    "milestones": [],
+    "formatFailureCalls": 3,
+    "browserQaFailures": 0,
+    "automaticWorkerFallbacks": 0,
+    "externalCodeEdits": 0,
+    "externalStops": 0,
+    "externalResumes": 0,
+    "modelBreakdown": [
+      {
+        "role": "judge",
+        "model": "jev-latest",
+        "effort": "default",
+        "calls": 3,
+        "reportedTokens": 17339,
+        "unknownUsageCalls": 0,
+        "durationMs": 970
+      },
+      {
+        "role": "planner",
+        "model": "gpt-6-sol",
+        "effort": "high",
+        "calls": 5,
+        "reportedTokens": 129499,
+        "unknownUsageCalls": 0,
+        "durationMs": 230684
+      },
+      {
+        "role": "judge",
+        "model": "gpt-6-luna",
+        "effort": "max",
+        "calls": 2,
+        "reportedTokens": 69825,
+        "unknownUsageCalls": 0,
+        "durationMs": 225800
+      },
+      {
+        "role": "planner",
+        "model": "models/gemini-3-flash-preview",
+        "effort": "default",
+        "calls": 1,
+        "reportedTokens": 16338,
+        "unknownUsageCalls": 0,
+        "durationMs": 48728
+      },
+      {
+        "role": "planner",
+        "model": "gpt-6-luna",
+        "effort": "high",
+        "calls": 1,
+        "reportedTokens": 27127,
+        "unknownUsageCalls": 0,
+        "durationMs": 23273
+      }
+    ]
+  },
+  {
+    "label": "공유 설정의 담당 범위 정체 진단 중지",
+    "id": "2b05d264-41a2-444e-a7eb-39120cc74bcb",
+    "sourceCommit": "c45d4d35ac6f174c076d83a6504d80d20909051d",
+    "status": "stopped",
+    "summary": "사용자가 실행을 중지했습니다.",
+    "elapsedMs": 1634130,
+    "reportedTokens": 1179226,
+    "calls": 40,
+    "unknownUsageCalls": 1,
+    "workerCalls": 14,
+    "verificationPassed": false,
+    "browserQaPassed": false,
+    "applied": false,
+    "automaticallyCompleted": false,
+    "qaPlanChecks": 16,
+    "qaRuns": [],
+    "projectVerification": {
+      "status": "failed",
+      "tests": 21,
+      "passed": 21,
+      "testRuns": [
+        {
+          "tests": 15,
+          "passed": 15
+        },
+        {
+          "tests": 6,
+          "passed": 6
+        }
+      ],
+      "output": "TMPDIR=\"$PWD\" node --test test/task-store.test.js test/integration.test.js && TMPDIR=\"$PWD\" node --input-type=module -e 'import assert from \"node:assert/strict\"; import { spawnSync } from \"node:child_process\"; const run = spawnSync(\"npm\", [\"test\"], { encoding: \"utf8\", env: { ...process.env, TMPDIR: process.cwd() } }); process.stdout.write(run.stdout); process.stderr.write(run.stderr); assert.equal(run.status, 0, \"npm test가 통과해야 합니다.\"); assert.match(run.stdout, /첫 시작은 비어 있고 공백 제목을 거부하며 제목의 앞뒤 공백을 정리한다/, \"npm test에 저장소 테스트가 포함되어야 합니다.\"); assert.match(run.stdout, /실제 HTML의 제목·입력·버튼·상태 영역과 키보드 순서를 검사한다/, \"npm test에 화면 통합 테스트가 포함되어야 합니다.\");'\n종료 코드: 1\n✔ 실제 HTML의 제목·입력·버튼·상태 영역과 키보드 순서를 검사한다 (1.524083ms)\n✔ 빈 화면에서 공백을 거부하고 submit으로 정리된 제목을 추가한다 (1.681125ms)\n✔ 완료·취소·삭제가 목록, 개수, 진행률, 알림과 포커스를 갱신한다 (0.299375ms)\n✔ 중복 제목은 독립적으로 조작되며 재마운트 시 완료 상태가 복원된다 (0.517084ms)\n✔ 즉시 검색과 필터가 결합되고 두 빈 상태와 선택 상태를 구별한다 (0.273833ms)\n✔ HTML 형태와 긴 제목을 텍스트로 유지하고 작업 버튼을 보존한다 (0.190333ms)\n✔ 저장소 접근 실패를 알리고 현재 화면의 작업은 유지한다 (0.40125ms)\n✔ 같은 작업 결과도 live region에 다시 전달한다 (61.837166ms)\n✔ 런타임은 외부 패키지·CDN·이미지·폰트·네트워크 API에 의존하지 않는다 (0.7955ms)\n✔ 첫 시작은 비어 있고 공백 제목을 거부하며 제목의 앞뒤 공백을 정리한다 (2.136625ms)\n✔ 완료와 취소는 해당 ID의 작업에만 적용된다 (0.105708ms)\n✔ 같은 제목의 작업을 ID별로 독립적으로 삭제한다 (0.071292ms)\n✔ 제목 검색과 상태 필터를 동시에 적용한다 (0.103666ms)\n✔ 빈 목록, 부분 완료, 전체 완료의 개수와 진행률을 계산한다 (0.096584ms)\n✔ 파일 입출력을 거쳐 작업과 완료 상태를 복원한다 (1.231041ms)\nℹ tests 15\nℹ suites 0\nℹ pass 15\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 100.539958\n\n> focus-desk@1.0.0 test\n> node --test test/task-store.test.js\n\n✔ 첫 시작은 비어 있고 공백 제목을 거부하며 제목의 앞뒤 공백을 정리한다 (2.084375ms)\n✔ 완료와 취소는 해당 ID의 작업에만 적용된다 (0.102584ms)\n✔ 같은 제목의 작업을 ID별로 독립적으로 삭제한다 (0.077542ms)\n✔ 제목 검색과 상태 필터를 동시에 적용한다 (0.103209ms)\n✔ 빈 목록, 부분 완료, 전체 완료의 개수와 진행률을 계산한다 (0.09675ms)\n✔ 파일 입출력을 거쳐 작업과 완료 상태를 복원한다 (3.127958ms)\nℹ tests 6\nℹ suites 0\nℹ pass 6\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 37.157375\n\nnode:internal/modules/run_main:107\n    triggerUncaughtException(\n    ^\n\nAssertionError [ERR_ASSERTION]: npm test에 화면 통합 테스트가 포함되어야 합니다.\n    at file:///Users/dgsw59/Library/Application%20Support/Mosaic%20Desk/harness/2b05d264-41a2-444e-a7eb-39120cc74bcb/workspace/[eval1]:1:429\n    at ModuleJob.run (node:internal/modules/esm/module_job:569:25)\n    at async node:internal/modules/esm/loader:226:26\n    at async ModuleLoader.executeModuleJob (node:internal/modules/esm/loader:223:20)\n    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5) {\n  generatedMessage: false,\n  code: 'ERR_ASSERTION',\n  actual: '\\n' +\n    '> focus-desk@1.0.0 test\\n' +\n    '> node --test test/task-store.test.js\\n' +\n    '\\n' +\n    '✔ 첫 시작은 비어 있고 공백 제목을 거부하며 제목의 앞뒤 공백을 정리한다 (2.084375ms)\\n' +\n    '✔ 완료와 취소는 해당 ID의 작업에만 적용된다 (0.102584ms)\\n' +\n    '✔ 같은 제목의 작업을 ID별로 독립적으로 삭제한다 (0.077542ms)\\n' +\n    '✔ 제목 검색과 상태 필터를 동시에 적용한다 (0.103209ms)\\n' +\n    '✔ 빈 목록, 부분 완료, 전체 완료의 개수와 진행률을 계산한다 (0.09675ms)\\n' +\n    '✔ 파일 입출력을 거쳐 작업과 완료 상태를 복원한다 (3.127958ms)\\n' +\n    'ℹ tests 6\\n' +\n    'ℹ suites 0\\n' +\n    'ℹ pass 6\\n' +\n    'ℹ fail 0\\n' +\n    'ℹ cancelled 0\\n' +\n    'ℹ skipped 0\\n' +\n    'ℹ todo 0\\n' +\n    'ℹ duration_ms 37.157375\\n',\n  expected: /실제 HTML의 제목·입력·버튼·상태 영역과 키보드 순서를 검사한다/,\n  operator: 'match',\n  diff: 'simple'\n}\n\nNode.js v26.8.2\n"
+    },
+    "milestones": [
+      {
+        "id": "core",
+        "title": "저장·작업 로직 구현 및 단독 검증",
+        "status": "completed"
+      },
+      {
+        "id": "integration",
+        "title": "화면 연결·문서화 및 전체 검증",
+        "status": "pending"
+      }
+    ],
+    "formatFailureCalls": 2,
+    "browserQaFailures": 0,
+    "automaticWorkerFallbacks": 0,
+    "externalCodeEdits": 0,
+    "externalStops": 1,
+    "externalResumes": 0,
+    "modelBreakdown": [
+      {
+        "role": "judge",
+        "model": "jev-latest",
+        "effort": "default",
+        "calls": 3,
+        "reportedTokens": 17173,
+        "unknownUsageCalls": 0,
+        "durationMs": 1027
+      },
+      {
+        "role": "planner",
+        "model": "gpt-6-sol",
+        "effort": "high",
+        "calls": 7,
+        "reportedTokens": 186883,
+        "unknownUsageCalls": 0,
+        "durationMs": 438757
+      },
+      {
+        "role": "judge",
+        "model": "gpt-6-luna",
+        "effort": "max",
+        "calls": 7,
+        "reportedTokens": 218108,
+        "unknownUsageCalls": 0,
+        "durationMs": 365664
+      },
+      {
+        "role": "worker",
+        "model": "gpt-6-luna",
+        "effort": "high",
+        "calls": 2,
+        "reportedTokens": 55848,
+        "unknownUsageCalls": 0,
+        "durationMs": 67019
+      },
+      {
+        "role": "worker",
+        "model": "gpt-6-sol",
+        "effort": "high",
+        "calls": 1,
+        "reportedTokens": 29711,
+        "unknownUsageCalls": 0,
+        "durationMs": 57882
+      },
+      {
+        "role": "judge",
+        "model": "gpt-6-sol",
+        "effort": "high",
+        "calls": 9,
+        "reportedTokens": 292762,
+        "unknownUsageCalls": 1,
+        "durationMs": 131396
+      },
+      {
+        "role": "worker",
+        "model": "gpt-6-astra",
+        "effort": "high",
+        "calls": 11,
+        "reportedTokens": 378741,
+        "unknownUsageCalls": 0,
+        "durationMs": 567639
+      }
+    ],
+    "diagnosticReason": "마지막 부분 작업의 전체 검증 실패가 package.json을 담당하는 완료된 선행 작업으로 반환되지 않아 같은 통합 작업에서 반복됐습니다."
+  }
+]

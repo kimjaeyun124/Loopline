@@ -1719,7 +1719,9 @@ export class HarnessEngine {
           if (!run.milestones.some((task) => `task_${task.id}` === value?.answers?.repairTask?.choice)) throw invalidStructuredOutput('통합 실패 담당 작업 선택이 올바르지 않습니다.');
         } });
         const value = typeof result === 'string' ? parseHarnessJson(result) : result;
-        owner = run.milestones.find((task) => `task_${task.id}` === value.answers.repairTask.choice);
+        const selected = run.milestones.find((task) => `task_${task.id}` === value?.answers?.repairTask?.choice);
+        if (!selected) throw invalidStructuredOutput('통합 실패 담당 작업 선택이 올바르지 않습니다.');
+        owner = selected;
       } catch (error) { aborted(signal); await this.event(record, '통합 수정 작업 선택 보완 / Integration owner fallback', '담당 작업 선택을 확인할 수 없어 마지막 통합 작업부터 수정합니다.'); }
       owner.status = 'pending';
       feedback += `\n전체 통합 검사 실패를 담당 부분 작업 ${owner.id}에서 수정하세요. 완료 기준과 담당 파일 범위를 유지하세요.`;

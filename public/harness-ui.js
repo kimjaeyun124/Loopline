@@ -30,6 +30,7 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
   const saveStatus = document.querySelector('#harnessSaveStatus');
   const search = document.querySelector('#harnessModelSearch');
   const expandedFallbacks = new Set();
+  let measuredModels = [];
   let activeRunId = null, watching = false, starting = false, stopRequested = false;
   const save = () => {
     try {
@@ -150,6 +151,7 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
           ${unavailableEffort ? `<option selected value="${escape(config.roles[role].effort)}">${escape(config.roles[role].effort)} · 지원 확인 필요</option>` : ''}
           ${supported.map((value) => `<option value="${escape(value)}"${config.roles[role].effort === value ? ' selected' : ''}>${escape(value)}</option>`).join('')}</select></label>
         <div class="harness-role-summary"><strong>${!config.roles[role].model ? '기본 후보 · ' : ''}${model ? escape(model.label) : '사용 가능한 모델 없음'}</strong><span>${model ? escape(budgetLabel(model)) : '연결과 잔여 한도를 확인하세요.'}</span></div>
+        <div class="harness-measured">${(() => { const item = measuredModels.find((m) => m.role === role && m.provider === model?.provider && m.model === model?.id && m.effort === (config.roles[role].effort || resolveEffort(role, model) || 'default')); return item ? `${item.type} 실측 ${item.runs}회 · 자동 반영 ${item.completedRuns}/${item.runs} · QA ${item.browserQaPassedRuns}/${item.browserQaRuns} · 호출 토큰 ${item.reportedTokens.toLocaleString()}${item.missingUsageCalls ? ` (사용량 누락 ${item.missingUsageCalls}호출)` : ''} · ${item.sufficientEvidence ? '선택 근거 제공' : '표본 축적 중'}` : '실측 기록 축적 중 · 같은 작업 유형·역할·Effort로 비교'; })()}</div>
         <small>${model ? `${escape(modelSelectionStrength(model) || effortLabel)} · ${escape(effortLabel)} · ${escape(roleGuidance[role])}` : '모델을 연결하거나 직접 선택해 주세요.'}</small>
         <div class="harness-agent-tools"><label><input type="checkbox" data-harness-native="${role}"${config.roles[role].nativePlugins ? ' checked' : ''}> 이 Agent의 Plugin·Skill·MCP 사용</label><label><input type="checkbox" data-harness-shared="${role}"${config.roles[role].loopMcp ? ' checked' : ''}> Loopline MCP 사용</label><small>Codex·Claude의 기존 연결을 사용합니다. API 모델은 Loopline MCP를 사용하며 Jev 판정에는 도구를 전달하지 않습니다.</small></div>
         <details class="harness-fallbacks" data-fallback-details="${role}"${expandedFallbacks.has(role) ? ' open' : ''}>
@@ -188,6 +190,7 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
     if (state.busy) return toast('실행이 끝난 뒤 구성을 변경해 주세요.');
     document.querySelector('#harnessAutoApply').checked = config.autoApply;
     search.value = ''; ensureFallbackPriority(); renderPriorities(); renderRoles(); renderMcpTools(); modal.hidden = false; document.querySelector('#harnessClose').focus();
+    void request('/api/harness/evidence').then((evidence) => { measuredModels = evidence.models || []; renderRoles(); }).catch(() => {});
     if (typeof refreshMcpTools === 'function') void Promise.resolve(refreshMcpTools({ quiet: true })).then(renderMcpTools);
   }
   function close() { modal.hidden = true; document.querySelector('#harnessConfigure').focus(); }

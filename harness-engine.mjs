@@ -5,6 +5,7 @@ import { dirname, join, isAbsolute } from 'node:path';
 import { homedir } from 'node:os';
 import { automaticLoopStartRounds, extendAutomaticLoopRounds, MAX_LOOP_ROUNDS, normalizeLoopPriorities } from './public/loop-policy.mjs';
 import { createHarnessWorkflow } from './harness-graph.mjs';
+import { HarnessEvidence, taskType } from './harness-evidence.mjs';
 import { needsBrowserQa, validateBrowserPlan } from './browser-qa.mjs';
 import { MAX_MCP_CALLS } from './mcp-connections.mjs';
 
@@ -466,7 +467,7 @@ export async function verifyWorkspace(workspace, command, runtime, signal) {
 
 export class HarnessEngine {
   constructor({ directory, invoke, verify = verifyWorkspace, mcpConnections = null, agentPlugins = null, verifyBrowser = null }) {
-    this.directory = join(directory, 'harness'); this.invoke = invoke; this.verify = verify; this.mcpConnections = mcpConnections; this.agentPlugins = agentPlugins; this.verifyBrowser = verifyBrowser;
+    this.directory = join(directory, 'harness'); this.invoke = invoke; this.verify = verify; this.mcpConnections = mcpConnections; this.agentPlugins = agentPlugins; this.verifyBrowser = verifyBrowser; this.evidence = new HarnessEvidence(this.directory);
     // Prompt text can contain project files, so keep inspection data in memory instead of run logs.
     this.runs = new Map(); this.sources = new Set(); this.promptDetails = new Map(); this.recoveryPromise = null; this.recoveryCompleted = false; this.closing = false;
   }
@@ -516,7 +517,7 @@ export class HarnessEngine {
       stagnantRounds: 0, lastRoundFingerprint: null, qualityTriedWorkerModels: [], source, task: input.task,
       priorities: normalizeLoopPriorities(input.priorities),
       roles, modelPriority,
-      modelBudgets: {}, modelUsage: {},
+      modelBudgets: {}, modelUsage: {}, modelCalls: [],
       stageModels: Object.fromEntries(['planner', 'worker', 'judge'].map((role) => {
         const selection = roles[role];
         return [role, { ...modelDetails(role, selection), reasoningEffort: selection.reasoningEffort || '' }];
@@ -769,8 +770,7 @@ export class HarnessEngine {
         let modelPrompt = initialModelPrompt;
         let toolCalls = 0;
         while (true) {
-          answer = await this.invoke(selection, modelPrompt, run.instructions, record.controller.signal,
-            (signal) => this.recordModelSignal(record, selection, signal));
+          answer = await this.invokeMeasured(record, role, selection, modelPrompt, event.id);
           let parsed = answer;
           if (typeof answer === 'string') {
             try { parsed = parseHarnessJson(answer); } catch { parsed = null; }
@@ -825,6 +825,10 @@ export class HarnessEngine {
         await this.persist(record);
         return answer;
       } catch (error) {
+        if (error?.invalidStructuredOutput) {
+          const sample = run.modelCalls?.findLast((call) => call.eventId === event.id);
+          if (sample) { sample.status = 'failed'; sample.failureKind = 'format'; }
+        }
         event.status = record.controller.signal.aborted ? 'stopped' : 'failed';
         event.detail += ` · ${String(error?.message || '모델 호출 실패').slice(0, 1200)}`;
         await this.persist(record);
@@ -902,6 +906,24 @@ export class HarnessEngine {
             ...(record.run.roles[role].decisionOnly ? { state: { ...prompt.state, responseFormatCorrection: correction } } : {}),
           };
       }
+    }
+  }
+
+  async invokeMeasured(record, role, selection, prompt, eventId) {
+    const startedAt = Date.now();
+    const sample = { eventId, role, provider: selection.provider, model: selection.model, effort: selection.reasoningEffort || 'default', round: record.run.round, tokens: null, status: 'success' };
+    try {
+      return await this.invoke(selection, prompt, record.run.instructions, record.controller.signal, (signal) => {
+        this.recordModelSignal(record, selection, signal);
+        if (signal?.type === 'usage') { const count = tokenCount(signal.usage); if (count !== null) sample.tokens = count; }
+      });
+    } catch (error) {
+      sample.status = record.controller.signal.aborted ? 'stopped' : 'failed';
+      sample.failureKind = quotaExhausted(error) ? 'quota' : [401, 403].includes(error.remoteStatus || error.status) ? 'authentication' : recoverableModelFailure(error) ? 'transport' : 'other';
+      throw error;
+    } finally {
+      sample.durationMs = Date.now() - startedAt;
+      record.run.modelCalls ||= []; record.run.modelCalls.push(sample);
     }
   }
 
@@ -1004,8 +1026,11 @@ export class HarnessEngine {
     }
     if (!Object.keys(questions).length) return;
     run.stage = 'selecting';
+    const measuredCandidates = {}, measurements = await this.evidence.summary(taskType(run.task));
+    for (const [role, models] of Object.entries(candidates)) measuredCandidates[role] = await Promise.all(models.map((model) => this.evidence.candidate(model, role, run.task, measurements)));
     const state = {
       task: run.task,
+      measurementPolicy: '같은 작업 유형·역할·Effort의 실행 관찰값입니다. 최소 3개 실행 전에는 성능 우위로 사용하지 않습니다. 혼합 모델의 최종 성공률은 해당 조합의 관찰값이며 특정 모델의 인과적 성능이 아닙니다. 사용량 미제공을 0토큰으로 계산하지 않습니다.',
       policy: '완료 안정성이 항상 최우선이며 사용자가 바꿀 수 없습니다. 그다음 사용자가 저장한 우선순위를 따릅니다. 자동 역할만 변경하고 후보에 없는 모델을 만들지 않습니다. 주 모델과 모든 대체 후보 순서를 한 번에 정한 뒤 실행을 시작합니다. 모델 선택 판단은 파일을 수정하거나 검증을 생략할 권한이 아닙니다.',
       priorities: [{ rank: 1, id: 'completion', label: '완료 안정성 · 고정 최우선' }, ...run.priorities.map((id, index) => ({ rank: index + 2, id }))],
       evidence: '현재 요청에 포함된 작업 내용, 후보별 제공자·모델 ID·추론 강도, 확인 가능한 잔여 한도만 사용합니다. 모델별 반복 실측 데이터가 없으므로 가격·속도·품질 점수를 추정하지 않습니다. 기준상 구분할 근거가 부족하면 기존 후보 순서를 보존합니다.',
@@ -1014,7 +1039,7 @@ export class HarnessEngine {
         effort: model.reasoningEffort || 'service default',
         remainingPercent: Number.isFinite(model.remainingPercent) ? model.remainingPercent : null,
         remainingTokens: Number.isSafeInteger(model.remainingTokens) ? model.remainingTokens : null,
-        source: model.source || '', qualityBenchmark: 'unknown', speedBenchmark: 'unknown', tokenEfficiencyBenchmark: 'unknown',
+        source: model.source || '', measuredEvidence: measuredCandidates[role][index], qualityBenchmark: measuredCandidates[role][index].sufficientEvidence ? 'observed mixed-run completion and QA only' : 'insufficient samples', speedBenchmark: measuredCandidates[role][index].sufficientEvidence ? measuredCandidates[role][index].meanModelTimeMs : 'insufficient samples', tokenEfficiencyBenchmark: measuredCandidates[role][index].sufficientEvidence ? measuredCandidates[role][index].meanReportedTokens : 'insufficient samples',
       }))])),
     };
     try {
@@ -1112,6 +1137,8 @@ export class HarnessEngine {
       run.finishedAt = Date.now(); this.sources.delete(run.source);
       await this.agentPlugins?.release(run.id).catch(() => {});
       await this.summarizeModelUsage(record);
+      try { await this.evidence.record(run); }
+      catch { await this.event(record, '실측 기록 저장 실패 / Measurement unavailable', '프로그램 실행 결과는 보존됐지만 모델 선택용 실측 기록을 저장하지 못했습니다.', 'failed'); }
       await this.event(record, run.status === 'completed' ? '완료 / Completed' : '실행 종료 / Run finished', run.summary, run.status === 'completed' || run.status === 'reviewed' ? 'completed' : run.status === 'stopped' ? 'stopped' : 'failed');
     }
   }

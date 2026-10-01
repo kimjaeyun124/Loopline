@@ -1124,3 +1124,5 @@ kbd { margin-left: auto; color: var(--muted); font-family: inherit; font-size: 1
 @media (prefers-reduced-motion: reduce) { .activity-inspector { animation: none; } }
 
 .harness-agent-tools{grid-column:1/-1;display:grid;gap:10px;padding:12px 0}.harness-agent-tools label{display:flex;gap:8px;align-items:center;font-size:13px}.harness-agent-tools input{accent-color:var(--text-primary)}
+
+.harness-measured{grid-column:1/-1;font-size:12px;color:var(--text-secondary);line-height:1.6;padding:8px 10px;border-radius:8px;background:var(--bg-secondary)}

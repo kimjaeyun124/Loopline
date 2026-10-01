@@ -2051,6 +2051,10 @@ const server = createServer(async (req, res) => {
     } catch (error) { return json(res, error.status || 500, { error: error.message || 'MCP 연결을 처리하지 못했습니다.', ...(error.code ? { code: error.code } : {}) }); }
   }
 
+  if (req.method === 'GET' && url.pathname === '/api/harness/evidence') {
+    try { return json(res, 200, await harness.evidence.summary(url.searchParams.get('type') || undefined)); }
+    catch { return json(res, 500, { error: '모델 실측 기록을 읽지 못했습니다.' }); }
+  }
   if (url.pathname.startsWith('/api/harness/runs')) {
     try {
       await harness.recoverInterruptedRuns();

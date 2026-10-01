@@ -78,6 +78,10 @@
       {
         "from": "browser-qa.mjs",
         "to": "app-server/browser-qa.mjs"
+      },
+      {
+        "from": "harness-evidence.mjs",
+        "to": "app-server/harness-evidence.mjs"
       }
     ],
     "mac": {

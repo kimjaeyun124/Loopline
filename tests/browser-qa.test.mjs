@@ -204,6 +204,49 @@ test('native QA inspects CSS rendering even when the hidden attribute is overrid
   assert.equal(inspect({ action: 'hidden', selector: '#empty-state' }).ok, true);
 });
 
+test('native focus QA checks the matching active element when action text also occurs in a task title', async () => {
+  const source = await readFile(new URL('../desktop/browser-qa.mjs', import.meta.url), 'utf8');
+  const body = runInNewContext('`' + source.match(/const inspect = \(step\) => js\(`([^]*?)`, step\);/)[1] + '`');
+  const makeElement = label => ({ outerHTML: `<button aria-label="${label}">`, textContent: label,
+    getBoundingClientRect: () => ({ width: 100, height: 40 }), matches: () => true });
+  const completion = makeElement('완료 처리: 키보드 삭제'), deletion = makeElement('삭제: 키보드 삭제');
+  const document = { querySelectorAll: () => [completion, deletion], activeElement: deletion };
+  const style = { display: 'block', visibility: 'visible', opacity: '1', outlineWidth: '3px', outlineStyle: 'solid', outlineColor: 'rgb(20, 50, 200)', boxShadow: 'none' };
+  const inspect = runInNewContext(`(${body})`, { document, getComputedStyle: () => style });
+  const selector = 'button[aria-label*="삭제"]';
+  assert.equal(inspect({ action: 'focused', selector }).ok, true);
+  assert.equal(inspect({ action: 'focused', selector }).actual, deletion.outerHTML);
+  assert.equal(inspect({ action: 'focus-visible', selector }).ok, true);
+  // Non-focus assertions retain their existing first-match semantics.
+  assert.equal(inspect({ action: 'text', selector, value: completion.textContent }).ok, true);
+  assert.equal(inspect({ action: 'count', selector, value: 2 }).ok, true);
+  document.activeElement = completion;
+  assert.equal(inspect({ action: 'focused', selector }).ok, true);
+});
+
+test('native multi-match focus QA still rejects outside focus, hidden targets and missing keyboard cues', async () => {
+  const source = await readFile(new URL('../desktop/browser-qa.mjs', import.meta.url), 'utf8');
+  const body = runInNewContext('`' + source.match(/const inspect = \(step\) => js\(`([^]*?)`, step\);/)[1] + '`');
+  let keyboard = true;
+  const first = {}, target = { matches: () => keyboard, getBoundingClientRect: () => ({ width: 100, height: 40 }) };
+  const document = { querySelectorAll: () => [first, target], activeElement: target };
+  const style = { display: 'block', visibility: 'visible', opacity: '1', outlineWidth: '2px', outlineStyle: 'solid', outlineColor: 'rgb(20, 50, 200)', boxShadow: 'none' };
+  const inspect = runInNewContext(`(${body})`, { document, getComputedStyle: () => style });
+  const step = { action: 'focus-visible', selector: 'button[aria-label*="삭제"]' };
+  assert.equal(inspect(step).ok, true);
+  document.activeElement = {};
+  assert.equal(inspect({ ...step, action: 'focused' }).ok, false); assert.equal(inspect(step).ok, false);
+  document.activeElement = null;
+  assert.equal(inspect({ ...step, action: 'focused' }).ok, false); assert.equal(inspect(step).ok, false);
+  document.activeElement = target;
+  keyboard = false; assert.equal(inspect(step).ok, false); keyboard = true;
+  style.display = 'none'; assert.equal(inspect(step).ok, false); style.display = 'block';
+  style.outlineWidth = '0px'; assert.equal(inspect(step).ok, false);
+  style.boxShadow = 'rgb(20, 50, 200) 0px 0px 0px 3px';
+  assert.equal(inspect({ ...step, unfocusedBoxShadow: style.boxShadow }).ok, false);
+  assert.equal(inspect({ ...step, unfocusedBoxShadow: 'none' }).ok, true);
+});
+
 test('visible focus is a selector assertion following an actual key press, not an arbitrary script', () => {
   const plan = structuredClone(qaPlan);
   plan.checks.push({ id: 'focus-cue', categories: ['keyboard'], steps: [{ action: 'press', key: 'Tab' }, { action: 'focus-visible', selector: '#add' }] });

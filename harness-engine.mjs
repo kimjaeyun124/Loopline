@@ -179,7 +179,12 @@ function formatWorkerHistory(history) {
   const currentFiles = files.filter(([path]) => !history.errors.some((entry) => entry.paths.includes(path)))
     .map(([path, file]) => ({ path, step: file.step, content: file.content }));
   for (const [path, file] of failedFiles) append(`최신 파일 내용입니다. ${path}\n${file.content}`, 'file');
-  if (currentFiles.length) append(`현재 파일 상태:\n${JSON.stringify(currentFiles)}`, 'file');
+  if (currentFiles.length) {
+    append('현재 파일 상태:');
+    // Bound each file separately so truncating older context cannot remove the
+    // middle of the latest successful read when that file fits the budget.
+    for (const file of currentFiles) append(JSON.stringify([file]), 'file');
+  }
   return sections.join('\n');
 }
 

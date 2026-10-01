@@ -1,0 +1,168 @@
+{
+  "kind": "controlled-response-real-browser-qa",
+  "runId": "1d914a9f-dfdf-4136-8661-bb54c2782a65",
+  "status": "completed",
+  "applied": true,
+  "round": 3,
+  "durationMs": 13546,
+  "modelCalls": 18,
+  "syntheticReportedTokens": 270,
+  "milestones": [
+    {
+      "id": "core",
+      "status": "completed",
+      "attempts": 1,
+      "verifiedAt": 1790823034424,
+      "verifyCommand": "node --test tests/core.test.mjs"
+    },
+    {
+      "id": "ui",
+      "status": "completed",
+      "attempts": 2,
+      "verifiedAt": 1790823043466,
+      "verifyCommand": "node --test tests/ui.test.mjs"
+    }
+  ],
+  "qa": [
+    {
+      "round": 2,
+      "passed": false,
+      "checks": [
+        {
+          "id": "empty",
+          "viewport": "desktop",
+          "passed": true
+        },
+        {
+          "id": "save",
+          "viewport": "desktop",
+          "passed": false,
+          "failure": "단계 4: hidden #empty-state · 예상 true · 실제 true"
+        },
+        {
+          "id": "keyboard",
+          "viewport": "desktop",
+          "passed": true
+        },
+        {
+          "id": "remove-last",
+          "viewport": "desktop",
+          "passed": true
+        },
+        {
+          "id": "layout",
+          "viewport": "desktop",
+          "passed": true,
+          "actual": {
+            "overflow": false,
+            "width": 1440,
+            "body": true
+          }
+        },
+        {
+          "id": "empty",
+          "viewport": "mobile",
+          "passed": true
+        },
+        {
+          "id": "save",
+          "viewport": "mobile",
+          "passed": false,
+          "failure": "단계 4: hidden #empty-state · 예상 true · 실제 true"
+        },
+        {
+          "id": "keyboard",
+          "viewport": "mobile",
+          "passed": true
+        },
+        {
+          "id": "remove-last",
+          "viewport": "mobile",
+          "passed": true
+        },
+        {
+          "id": "layout",
+          "viewport": "mobile",
+          "passed": true,
+          "actual": {
+            "overflow": false,
+            "width": 390,
+            "body": true
+          }
+        }
+      ],
+      "failures": [
+        "desktop/save: 단계 4: hidden #empty-state · 예상 true · 실제 true",
+        "mobile/save: 단계 4: hidden #empty-state · 예상 true · 실제 true"
+      ]
+    },
+    {
+      "round": 3,
+      "passed": true,
+      "checks": [
+        {
+          "id": "empty",
+          "viewport": "desktop",
+          "passed": true
+        },
+        {
+          "id": "save",
+          "viewport": "desktop",
+          "passed": true
+        },
+        {
+          "id": "keyboard",
+          "viewport": "desktop",
+          "passed": true
+        },
+        {
+          "id": "remove-last",
+          "viewport": "desktop",
+          "passed": true
+        },
+        {
+          "id": "layout",
+          "viewport": "desktop",
+          "passed": true,
+          "actual": {
+            "overflow": false,
+            "width": 1440,
+            "body": true
+          }
+        },
+        {
+          "id": "empty",
+          "viewport": "mobile",
+          "passed": true
+        },
+        {
+          "id": "save",
+          "viewport": "mobile",
+          "passed": true
+        },
+        {
+          "id": "keyboard",
+          "viewport": "mobile",
+          "passed": true
+        },
+        {
+          "id": "remove-last",
+          "viewport": "mobile",
+          "passed": true
+        },
+        {
+          "id": "layout",
+          "viewport": "mobile",
+          "passed": true,
+          "actual": {
+            "overflow": false,
+            "width": 390,
+            "body": true
+          }
+        }
+      ],
+      "failures": []
+    }
+  ],
+  "applyAfterQa": true
+}

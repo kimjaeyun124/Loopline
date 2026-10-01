@@ -1,0 +1,178 @@
+{
+  "kind": "controlled-response-real-browser-qa",
+  "runId": "529edf00-e075-437a-9eb1-7bf5b34d5600",
+  "status": "completed",
+  "applied": true,
+  "round": 3,
+  "durationMs": 14487,
+  "modelCalls": 19,
+  "syntheticReportedTokens": 285,
+  "realMcpGuideCalls": 1,
+  "humanGeneratedCodeEditsAfterStart": 0,
+  "recoveries": 1,
+  "recoveryBreakdown": {
+    "modelRetries": 0,
+    "browserQaFailures": 1,
+    "milestoneFailures": 0
+  },
+  "milestones": [
+    {
+      "id": "core",
+      "status": "completed",
+      "attempts": 1,
+      "verifiedAt": 1790823874962,
+      "verifyCommand": "node --test tests/core.test.mjs"
+    },
+    {
+      "id": "ui",
+      "status": "completed",
+      "attempts": 2,
+      "verifiedAt": 1790823884394,
+      "verifyCommand": "node --test tests/ui.test.mjs"
+    }
+  ],
+  "qa": [
+    {
+      "round": 2,
+      "passed": false,
+      "testedAt": 1790823883667,
+      "checks": [
+        {
+          "id": "empty",
+          "viewport": "desktop",
+          "passed": true
+        },
+        {
+          "id": "save",
+          "viewport": "desktop",
+          "passed": false,
+          "failure": "단계 4: hidden #empty-state · 예상 true · 실제 true"
+        },
+        {
+          "id": "keyboard",
+          "viewport": "desktop",
+          "passed": true
+        },
+        {
+          "id": "remove-last",
+          "viewport": "desktop",
+          "passed": true
+        },
+        {
+          "id": "layout",
+          "viewport": "desktop",
+          "passed": true,
+          "actual": {
+            "overflow": false,
+            "width": 1440,
+            "body": true
+          }
+        },
+        {
+          "id": "empty",
+          "viewport": "mobile",
+          "passed": true
+        },
+        {
+          "id": "save",
+          "viewport": "mobile",
+          "passed": false,
+          "failure": "단계 4: hidden #empty-state · 예상 true · 실제 true"
+        },
+        {
+          "id": "keyboard",
+          "viewport": "mobile",
+          "passed": true
+        },
+        {
+          "id": "remove-last",
+          "viewport": "mobile",
+          "passed": true
+        },
+        {
+          "id": "layout",
+          "viewport": "mobile",
+          "passed": true,
+          "actual": {
+            "overflow": false,
+            "width": 390,
+            "body": true
+          }
+        }
+      ],
+      "failures": [
+        "desktop/save: 단계 4: hidden #empty-state · 예상 true · 실제 true",
+        "mobile/save: 단계 4: hidden #empty-state · 예상 true · 실제 true"
+      ]
+    },
+    {
+      "round": 3,
+      "passed": true,
+      "testedAt": 1790823887336,
+      "checks": [
+        {
+          "id": "empty",
+          "viewport": "desktop",
+          "passed": true
+        },
+        {
+          "id": "save",
+          "viewport": "desktop",
+          "passed": true
+        },
+        {
+          "id": "keyboard",
+          "viewport": "desktop",
+          "passed": true
+        },
+        {
+          "id": "remove-last",
+          "viewport": "desktop",
+          "passed": true
+        },
+        {
+          "id": "layout",
+          "viewport": "desktop",
+          "passed": true,
+          "actual": {
+            "overflow": false,
+            "width": 1440,
+            "body": true
+          }
+        },
+        {
+          "id": "empty",
+          "viewport": "mobile",
+          "passed": true
+        },
+        {
+          "id": "save",
+          "viewport": "mobile",
+          "passed": true
+        },
+        {
+          "id": "keyboard",
+          "viewport": "mobile",
+          "passed": true
+        },
+        {
+          "id": "remove-last",
+          "viewport": "mobile",
+          "passed": true
+        },
+        {
+          "id": "layout",
+          "viewport": "mobile",
+          "passed": true,
+          "actual": {
+            "overflow": false,
+            "width": 390,
+            "body": true
+          }
+        }
+      ],
+      "failures": []
+    }
+  ],
+  "applyAfterQa": true
+}

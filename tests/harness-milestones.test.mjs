@@ -358,3 +358,115 @@ test('browser QA is executed again after milestone approval and a new failure bl
   assert.deepEqual(f.run.qaHistory.map(qa => qa.passed), [true, false]);
   await assert.rejects(readFile(join(f.source, 'index.html')));
 });
+
+async function dependencyOwnerFixture(t, { invalidOwner = false, reviewOnlyFailure = false } = {}) {
+  const root = await directory(t), source = join(root, 'source'); await mkdir(source);
+  const git = async (...args) => {
+    const result = await runCommand('git', ['-c', 'core.hooksPath=/dev/null', '-c', 'user.name=QA', '-c', 'user.email=qa@localhost', '-c', 'commit.gpgsign=false', ...args], { cwd: source });
+    assert.equal(result.code, 0, result.error); return result.output.trim();
+  };
+  await git('init');
+  await writeFile(join(source, 'verify-all.mjs'), `import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs'; import {spawnSync} from 'node:child_process';
+const command=JSON.parse(readFileSync('package.json','utf8')).scripts.test;
+assert.equal(command,'node --test','package.json must run both owned test files');
+const child=spawnSync(process.execPath,['--test'],{encoding:'utf8',env:process.env});
+process.stdout.write(child.stdout);process.stderr.write(child.stderr);
+assert.equal(child.status,0);assert.match(child.stdout,/core behavior/);assert.match(child.stdout,/UI contract/);\n`);
+  await git('add', '.'); await git('commit', '-m', 'independent full verification');
+  const tasks = { tasks: [
+    { id: 'core', title: 'Core and shared test settings', dependsOn: [], paths: ['core.js', 'package.json', 'test/core.test.mjs'], criteria: ['Core behavior is actually tested; shared settings retain all available tests'], verifyCommand: 'node --test test/core.test.mjs' },
+    { id: 'ui', title: 'UI integration', dependsOn: ['core'], paths: ['index.html', 'test/ui.test.mjs'], criteria: ['UI contract and whole verification plus independent browser QA pass'], verifyCommand: 'node --test test/ui.test.mjs' },
+  ] };
+  const qa = validateBrowserPlan({ entry: 'index.html', checks: [{ id: 'flow', categories: ['input', 'save', 'empty', 'keyboard'], steps: [
+    { action: 'reset' }, { action: 'visible', selector: '#empty' }, { action: 'fill', selector: '#input', value: 'QA' },
+    { action: 'press', key: 'Enter' }, { action: 'reload' }, { action: 'text', selector: '#list', value: 'QA' },
+  ] }] });
+  const workerTasks = [], ownerInputs = [], reviewInputs = [], verifyResults = [];
+  let coreWrites = 0, browserCalls = 0;
+  const engine = new HarnessEngine({ directory: join(root, 'runs'), verify: async (workspace, command) => {
+    const env = { ...process.env }; delete env.NODE_TEST_CONTEXT;
+    const args = command === 'node verify-all.mjs' ? ['verify-all.mjs'] : ['--test', command.endsWith('core.test.mjs') ? 'test/core.test.mjs' : 'test/ui.test.mjs'];
+    const result = await runCommand(process.execPath, args, { cwd: workspace, env });
+    verifyResults.push({ command, ...result }); return result;
+  }, verifyBrowser: async (input) => {
+    browserCalls++; assert.deepEqual(input.plan, qa);
+    assert.ok(verifyResults.some(v => v.command === 'node verify-all.mjs' && v.code === 0));
+    await assert.rejects(readFile(join(source, 'index.html')));
+    return { passed: true, checks: [{ id: 'flow', passed: true }], failures: [] };
+  }, invoke: async (_model, prompt) => {
+    if (typeof prompt === 'object') {
+      if (prompt.questions.repairTask) {
+        ownerInputs.push(structuredClone(prompt));
+        assert.equal(prompt.state.failedTask, 'ui');
+        assert.equal(prompt.state.integrationVerification.code, 1);
+        assert.match(prompt.state.integrationVerification.error, /package.json must run both owned test files/);
+        assert.equal(prompt.state.tasks.find(task => task.id === 'core').status, 'completed');
+        assert.deepEqual(prompt.state.tasks.find(task => task.id === 'core').paths, tasks.tasks[0].paths);
+        return { answers: { repairTask: { choice: invalidOwner ? 'task_unknown' : 'task_core', reason: 'Actual full check requires package.json, owned by core' } } };
+      }
+      if (prompt.state.milestone) reviewInputs.push(structuredClone(prompt.state));
+      return { answers: Object.fromEntries(Object.keys(prompt.questions).map(id => [id, {
+        choice: reviewOnlyFailure && prompt.state.milestone?.id === 'ui' ? 'revise' : 'pass', reason: 'Fixture decision, actual execution remains mandatory',
+      }])) };
+    }
+    if (prompt.includes('구현 계획과 검증 기준')) return 'Create core, integrate UI, verify all; repair shared settings in their owner.';
+    if (prompt.includes('구현 전에 독립 브라우저 QA 계획')) return qa;
+    if (prompt.includes('큰 프로젝트를 검증 가능한 작은 부분 작업')) return tasks;
+    const isCore = prompt.includes('"id":"core"'); workerTasks.push(isCore ? 'core' : 'ui');
+    if (isCore) {
+      coreWrites++;
+      const script = reviewOnlyFailure || coreWrites > 1 ? 'node --test' : 'node --test test/core.test.mjs';
+      return JSON.stringify({ done: true, summary: 'Core behavior and owned shared test settings', operations: [
+        { type: 'write', path: 'package.json', content: JSON.stringify({ type: 'module', scripts: { test: script } }) },
+        { type: 'write', path: 'core.js', content: 'export const value = 4;\n' },
+        { type: 'write', path: 'test/core.test.mjs', content: "import test from 'node:test'; import assert from 'node:assert/strict'; import {value} from '../core.js'; test('core behavior',()=>assert.equal(value,4));\n" },
+      ] });
+    }
+    return JSON.stringify({ done: true, summary: 'UI-owned files only; shared settings need their owning task', operations: [
+      { type: 'write', path: 'index.html', content: '<html><h1>QA</h1></html>' },
+      { type: 'write', path: 'test/ui.test.mjs', content: "import test from 'node:test'; import assert from 'node:assert/strict'; import {readFileSync} from 'node:fs'; test('UI contract',()=>assert.match(readFileSync('index.html','utf8'),/<h1>QA/));\n" },
+    ] });
+  } });
+  const model = { provider: 'api', model: 'fixture' }, created = await engine.create({ task: 'large project offline website', workspace: source,
+    rounds: invalidOwner || reviewOnlyFailure ? 3 : 4, verifyCommand: 'node verify-all.mjs', roles: { planner: model, worker: model, judge: model } });
+  await engine.runs.get(created.id).execution;
+  return { source, run: await engine.get(created.id), workerTasks, ownerInputs, reviewInputs, verifyResults, browserCalls, tasks, qa };
+}
+
+test('actual partial integration failure reopens the shared-file owner and rechecks dependents before automatic application', async (t) => {
+  const f = await dependencyOwnerFixture(t);
+  assert.equal(f.run.status, 'completed', f.run.summary); assert.equal(f.run.applied, true);
+  assert.equal(f.run.verificationPassed, true); assert.equal(f.run.browserQaPassed, true);
+  assert.deepEqual(f.workerTasks, ['core', 'ui', 'core']); assert.equal(f.run.round, 4);
+  assert.equal(f.ownerInputs.length, 1); assert.equal(f.browserCalls, 2);
+  assert.equal(f.run.milestoneContract, milestoneContract(validateMilestones(f.tasks)));
+  assert.deepEqual(f.run.qaPlan, f.qa); assert.ok(f.run.milestones.every(task => task.status === 'completed'));
+  assert.equal(f.run.milestones[0].evidenceHistory.length, 1);
+  assert.equal(f.reviewInputs.filter(input => input.milestone.id === 'ui').length, 2);
+  assert.ok(f.run.events.some(e => e.title === '선행 담당 작업 보완 / Repair owning milestone'));
+  assert.equal(JSON.parse(await readFile(join(f.source, 'package.json'), 'utf8')).scripts.test, 'node --test');
+  assert.ok(f.verifyResults.some(v => v.command === 'node verify-all.mjs' && v.code === 1));
+  assert.ok(f.verifyResults.some(v => v.command === 'node verify-all.mjs' && v.code === 0 && /tests 2/.test(v.output)));
+});
+
+test('invalid dependency repair ownership preserves the failing gate and original scope without reopening another task', async (t) => {
+  const f = await dependencyOwnerFixture(t, { invalidOwner: true });
+  assert.equal(f.run.status, 'limit', f.run.summary); assert.notEqual(f.run.applied, true);
+  assert.deepEqual(f.workerTasks, ['core', 'ui', 'ui']); assert.equal(f.browserCalls, 0);
+  assert.equal(f.run.milestones[0].status, 'completed'); assert.equal(f.run.milestones[0].evidenceHistory.length, 0);
+  assert.equal(f.run.milestones[1].status, 'pending');
+  assert.equal(f.run.milestoneContract, milestoneContract(validateMilestones(f.tasks)));
+  assert.ok(f.run.events.some(e => e.title === '부분 통합 담당 유지 / Milestone owner retained'));
+  await assert.rejects(readFile(join(f.source, 'index.html')));
+});
+
+test('a valid negative review with successful actual execution never reassigns another milestone', async (t) => {
+  const f = await dependencyOwnerFixture(t, { reviewOnlyFailure: true });
+  assert.equal(f.run.status, 'limit', f.run.summary); assert.notEqual(f.run.applied, true);
+  assert.deepEqual(f.ownerInputs, []); assert.deepEqual(f.workerTasks, ['core', 'ui', 'ui']);
+  assert.equal(f.run.milestones[0].status, 'completed'); assert.equal(f.run.milestones[0].evidenceHistory.length, 0);
+  assert.equal(f.run.browserQaPassed, true); assert.equal(f.browserCalls, 2);
+  assert.equal(f.run.milestoneContract, milestoneContract(validateMilestones(f.tasks))); assert.deepEqual(f.run.qaPlan, f.qa);
+  await assert.rejects(readFile(join(f.source, 'index.html')));
+});

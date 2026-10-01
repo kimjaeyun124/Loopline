@@ -7,7 +7,7 @@ import { automaticLoopStartRounds, extendAutomaticLoopRounds, MAX_LOOP_ROUNDS, n
 import { createHarnessWorkflow } from './harness-graph.mjs';
 import { needsMilestones, validateMilestones, matchesMilestone, milestoneContract, milestoneFiles, refreshMilestones, nextMilestone, milestoneCoverage } from './harness-milestones.mjs';
 import { HarnessEvidence, taskType } from './harness-evidence.mjs';
-import { needsBrowserQa, validateBrowserPlan, QA_CATEGORIES, BROWSER_QA_EXECUTOR } from './browser-qa.mjs';
+import { needsBrowserQa, validateBrowserPlan, applyBrowserPlanPatch, QA_CATEGORIES, BROWSER_QA_EXECUTOR } from './browser-qa.mjs';
 import { MAX_MCP_CALLS } from './mcp-connections.mjs';
 
 const MAX_FILE = 160_000;
@@ -1329,11 +1329,19 @@ export class HarnessEngine {
     if (run.qaPlan) return;
     const request = `구현 전에 독립 브라우저 QA 계획을 만드세요. 목표: ${run.task}\n구현 계획: ${implementationPlan}\n실행 후 실패 기준을 낮출 수 없습니다. 오프라인 정적/빌드 HTML을 Chromium에서 실제 실행하며 desktop 1440x900, mobile 390x844에서 같은 검사를 실행합니다. 목표의 기능을 검사하고 모든 check에 assertion을 넣으세요. 입력(input)은 fill, 저장(save)은 reload 후 assertion, 빈 상태(empty)는 visible/hidden/count, 키보드(keyboard)는 press와 focused 또는 동작 결과 assertion이 필요합니다. 해당 기능이 목표에 없으면 notApplicable에 기능이 필요 없는 구체적 이유를 적으세요. 각 검사 직후와 최종 상태에서 실행기가 두 화면 크기의 가로 넘침·빈 화면을 별도 검사합니다. 긴 제목을 입력한 상태도 검사 종료까지 유지하면 배치 검증에 포함됩니다. 포커스 표시 요구사항은 실제 Tab 이후 focus-visible assertion으로 검사하세요. focused만으로는 포커스 표시를 검증하지 않습니다. 각 검사는 필요한 경우 reset으로 시작해 저장 상태를 초기화하세요. selector는 구현 모델이 그대로 지켜야 하는 화면 계약입니다. JSON만 반환하세요: {"entry":"index.html","checks":[{"id":"empty-state","categories":["empty"],"steps":[{"action":"reset"},{"action":"visible","selector":"#empty-state"}]}],"notApplicable":{}}. 허용 동작: reset, reload, fill(selector,value문자열), click(selector), press(key:Tab/Enter/Escape/ArrowDown/ArrowUp/ArrowLeft/ArrowRight/Space/Backspace), visible/hidden/focused/focus-visible(selector), text/value(selector,value문자열), count(selector,value정수). 임의 JavaScript나 셸은 금지합니다. 검사는 최대16개, 검사별 단계는 최대24개입니다.`;
     const categoryContract = `\n각 check.categories는 ${JSON.stringify(QA_CATEGORIES)}에 있는 문자열만 담은 배열이어야 합니다. filter, search, delete, mobile, desktop, responsive 등 새 분류 이름은 허용되지 않습니다. 추가 기능 검사는 관련 기본 분류를 사용하거나 categories: []로 작성하되 실제 동작과 assertion을 포함하세요. 네 기본 분류는 각각 실제 검사로 충족하거나 notApplicable에 구체적인 근거를 제시해야 합니다. 검사 ID는 영문 소문자·숫자·하이픈으로 지정하세요. 한 검사에 전체 사용자 여정을 넣지 마세요. 독립적인 행동 사례 하나를 검사당 가능하면 12단계 이내로 작성하고, 절대 24단계를 넘기지 마세요. 긴 사례는 각각 필요한 reset·초기 입력·assertion을 포함한 독립 검사로 나누고 원래 기능 검사를 생략하지 마세요.`;
-    let feedback = '';
+    let feedback = '', proposal = null, replaceableCheckIds = [];
     const triedPlannerModels = new Set([selectionKey(run.roles.planner)]);
     for (let attempt = 0; attempt < 3; attempt++) {
-      const answer = await this.callValidated(record, 'planner', `${request}${categoryContract}\n직전 QA 계획 판정 피드백: ${feedback}`, '독립 QA 계획 / Independent QA plan', { validate: (value) => validateBrowserPlan(typeof value === 'string' ? parseHarnessJson(value) : value) });
-      const qaPlan = validateBrowserPlan(typeof answer === 'string' ? parseHarnessJson(answer) : answer);
+      const validate = (value) => {
+        const parsed = typeof value === 'string' ? parseHarnessJson(value) : value;
+        return proposal ? applyBrowserPlanPatch(proposal, parsed, replaceableCheckIds) : validateBrowserPlan(parsed);
+      };
+      const prompt = proposal
+        ? `구현 전에 독립 브라우저 QA 계획의 필요한 부분만 보완하세요. 목표: ${run.task}\n보존할 기존 QA 계획: ${JSON.stringify(proposal)}\n교체 허용 검사 ID: ${JSON.stringify(replaceableCheckIds)}\n직전 QA 계획 판정 피드백: ${feedback}\n이전 검사와 entry·selector·assertion·순서를 삭제하거나 전체 계획을 다시 만들지 마세요. 누락된 동작은 새 ID의 addChecks로 추가하고, 교체 허용 ID의 검사만 replaceChecks로 수정하세요. 교체는 동일 ID와 기존 categories를 유지하세요. 새 검사는 필요한 reset·초기 입력·assertion을 포함해 독립적으로 실행되게 하세요. 통과한 검사를 바꾸지 말고 실제 보완 내용만 반환하세요. 확정 후 이 QA 계약을 구현 모델이 지킵니다. 실행기 계약: ${JSON.stringify(BROWSER_QA_EXECUTOR)}\n응답 구조는 {"addChecks":[],"replaceChecks":[],"notApplicable":{}}입니다. 필요한 검사 전체 객체만 해당 배열에 넣고 실제 변경이 없는 빈 예시를 그대로 반환하지 마세요. check 객체는 기존 계획과 동일한 id·categories·steps 구조입니다. JSON만 반환하세요. 추가할 것이 없으면 addChecks는 빈 배열입니다. 검사는 병합 후 최대 16개, 각 검사 단계는 최대 24개입니다. 임의 JavaScript·셸은 금지합니다.${categoryContract}`
+        : `${request}${categoryContract}\n직전 QA 계획 판정 피드백: ${feedback}`;
+      const answer = await this.callValidated(record, 'planner', prompt, '독립 QA 계획 / Independent QA plan', { validate });
+      const qaPlan = validate(answer);
+      if (proposal) await this.event(record, '독립 QA 부분 보완 / QA patch applied', `기존 ${proposal.checks.length}개 검사 보존 · 새 검사 ${qaPlan.checks.length - proposal.checks.length}개 · 실패 검사 교체 허용 ${replaceableCheckIds.length}개. 전체 계획 재작성 없이 같은 기준으로 재판정합니다.`);
       triedPlannerModels.add(selectionKey(run.roles.planner));
       const verdict = await this.decide(record, { task: run.task, qaPlan, executor: BROWSER_QA_EXECUTOR }, {
         qaContract: { label: '독립 QA 기준', question: 'Does this pre-implementation QA plan cover the original requested behaviors with meaningful assertions and justified not-applicable categories? Evaluate the planned actions together with the explicitly supplied executor.fixedChecks and viewports, not whether unbuilt files already exist: selectors are a contract for forthcoming implementation. Runtime results will be independently checked before application.', pass: 'The plan covers the original requirements without weakening acceptance criteria.', revise: 'Add the missing observable behavior checks before implementation.' },
@@ -1341,8 +1349,16 @@ export class HarnessEngine {
         qaSave: { label: 'QA 저장 복원', question: 'For persistence required by the task, does the plan change data then reload and assert the restored data or state? If not applicable, is its concrete reason consistent with the original task?', pass: 'Planned persistence cases observe state after reload, or the original task justifies absence.', revise: 'Add a data change, reload, and assertion of the required restored state.' },
         qaEmpty: { label: 'QA 빈 상태', question: 'For empty behavior required by the task, does the plan assert the actual visible empty state and its transition after adding/removing data where requested? If not applicable, is its concrete reason consistent with the original task?', pass: 'Planned empty-state cases observe the requested transitions, or the original task justifies absence.', revise: 'Add observable initial empty and required add/remove transitions, including removal of the last item when requested.' },
         qaKeyboard: { label: 'QA 키보드 행동', question: 'For keyboard behavior required by the task, does the plan press real keys and then assert focus or the requested resulting action? When visible focus styling is required, use focus-visible: focused alone cannot establish a visible focus indicator. If not applicable, is its concrete reason consistent with the original task?', pass: 'Planned keyboard cases observe focus or action after real key presses, or the original task justifies absence.', revise: 'Add real keyboard presses followed by focus or action-result assertions.' },
+        ...Object.fromEntries(qaPlan.checks.map((check) => [`qaCheck_${check.id}`, {
+          label: `QA 검사 ${check.id}`,
+          question: `Inspect only check "${check.id}" in state.qaPlan. Are its planned actions and expected assertions logically consistent, feasible under state.executor, and appropriate to the requested behavior? This is a future implementation contract: do not require unbuilt files or runtime success yet. Missing behaviors outside this case belong to qaContract or the category questions and do not make this otherwise valid case fail.`,
+          pass: 'This individual planned case is meaningful and consistent; retain it unchanged while adding missing coverage.',
+          revise: `Correct the contradictory or inadequate actions/assertions of check ${check.id}, preserving its ID and categories.`,
+        }])),
       });
       if (verdict.decision === 'complete') { run.qaPlan = qaPlan; break; }
+      proposal = qaPlan;
+      replaceableCheckIds = qaPlan.checks.filter((check) => verdict.failedChecks.includes(`qaCheck_${check.id}`)).map((check) => check.id);
       feedback = verdict.feedback;
       await this.event(record, '독립 QA 계획 보완 / Refine QA contract', feedback);
       // Preserve the same judge and contract limits. A different saved planner

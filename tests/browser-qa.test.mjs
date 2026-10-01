@@ -425,8 +425,9 @@ test('QA recovery routes the last existing attempt only for automatic planners, 
             assert.match(prompt.questions.qaContract.instructions, /Do not omit any requested browser-observable behavior/);
             assert.match(prompt.questions.qaContract.instructions, /executor.fixedChecks and viewports/);
             assert.match(prompt.questions.qaKeyboard.instructions, /focused alone cannot establish/);
-            assert.match(prompt.questions.qaCheck_empty.instructions, /Compare exact selector literals.*number of repeated substrings/);
-            assert.match(prompt.questions.qaCheck_empty.instructions, /alter correct user data to match a typo/);
+            assert.match(prompt.questions.qaCheck_empty.instructions, /every requirement in state.individualCheckCriteria/);
+            assert.match(prompt.state.individualCheckCriteria, /Compare exact selector literals.*number of repeated substrings/);
+            assert.match(prompt.state.individualCheckCriteria, /alter correct user data to match a typo/);
             reviews++; if (reviews < 3) result.answers.qaInput = { choice: 'revise' };
           }
           return result;
@@ -643,6 +644,99 @@ test('a rejected individual QA case can be repaired without touching accepted ca
   const run = await engine.get(created.id);
   assert.equal(run.status, 'completed', run.summary); assert.equal(plans, 2); assert.equal(reviews, 2);
   assert.deepEqual(run.qaPlan.checks, [corrected, qaPlan.checks[1]]);
+});
+
+test('new actionable feedback after real QA patches gets a fourth review without weakening runtime gates', async (t) => {
+  for (const browserPassed of [true, false]) await t.test(browserPassed ? 'actual browser pass permits application' : 'actual browser failure blocks application', async (t) => {
+    const f = await fixture(t); let plans = 0, reviews = 0, browserCalls = 0;
+    const appends = [];
+    const engine = new HarnessEngine({ directory: f.directory, verify: async () => ({ code: 0, output: 'PASS' }),
+      verifyBrowser: async ({ plan }) => {
+        browserCalls++;
+        assert.deepEqual(plan.checks[1], qaPlan.checks[1]);
+        assert.deepEqual(plan.checks[0].steps, [...qaPlan.checks[0].steps, ...appends]);
+        return { passed: browserPassed, checks: plan.checks.map(({ id }) => ({ id, passed: browserPassed })), failures: browserPassed ? [] : ['Actual empty state is absent'] };
+      }, invoke: async (_selection, prompt) => {
+        if (typeof prompt === 'object') {
+          const answers = Object.fromEntries(Object.keys(prompt.questions).map(id => [id, { choice: 'pass', reason: 'Controlled evidence' }]));
+          if (prompt.questions.qaContract) {
+            reviews++;
+            assert.match(prompt.questions.qaCheck_empty.instructions, /state.individualCheckCriteria/);
+            assert.match(prompt.state.individualCheckCriteria, /do not require unbuilt files or runtime success/);
+            assert.match(prompt.state.individualCheckCriteria, /Missing behaviors outside this case belong to qaContract/);
+            assert.equal(JSON.stringify(prompt).split('Compare exact selector literals').length - 1, 1, 'common criteria occur only once');
+            assert.deepEqual(prompt.state.qaPlan.checks[1], qaPlan.checks[1]);
+            if (reviews < 4) answers.qaContract = { choice: 'revise', reason: `Observe original behavior ${reviews}.` };
+          }
+          return { answers };
+        }
+        if (prompt.includes('구현 계획과 검증 기준')) return 'Plan';
+        if (prompt.includes('구현 전에 독립 브라우저 QA 계획')) {
+          if (++plans === 1) { assert.match(prompt, /ul\/ol 또는 role=list/); return qaPlan; }
+          assert.match(prompt, /교체 허용 검사 ID: \[\]/);
+          if (plans === 4) { assert.match(prompt, /이전 보완 근거:.*Observe original behavior 1/); assert.match(prompt, /Observe original behavior 2/); assert.match(prompt, /Observe original behavior 3/); }
+          const step = { action: 'count', selector: `#list .original-behavior-${plans}`, value: 0 };
+          appends.push(step);
+          return { extendChecks: [{ id: 'empty', steps: [step] }] };
+        }
+        assert.equal(reviews, 4, 'implementation begins only after every review check passes');
+        return JSON.stringify({ done: true, summary: 'Fixture', operations: [{ type: 'write', path: 'index.html', content: '<html>fixture</html>' }] });
+      } });
+    const created = await engine.create({ ...f.input, rounds: 1 }); await engine.runs.get(created.id).execution;
+    const run = await engine.get(created.id);
+    assert.equal(plans, 4); assert.equal(reviews, 4); assert.equal(browserCalls, 1);
+    assert.equal(run.events.filter(event => event.title.startsWith('QA 계획 보완 연장')).length, 1);
+    assert.equal(run.status, browserPassed ? 'completed' : 'limit', run.summary);
+    assert.equal(run.applied === true, browserPassed); assert.equal(run.browserQaPassed, browserPassed);
+    assert.deepEqual(run.qaPlan.checks[0].steps, [...qaPlan.checks[0].steps, ...appends]);
+    if (!browserPassed) await assert.rejects(readFile(join(f.source, 'index.html')));
+  });
+});
+
+test('continually new QA feedback is bounded at six and cannot begin implementation or application', async (t) => {
+  const f = await fixture(t); let plans = 0, reviews = 0, workers = 0;
+  const engine = new HarnessEngine({ directory: f.directory,
+    verify: async () => assert.fail('No verification before QA plan acceptance'), verifyBrowser: async () => assert.fail('No browser before QA plan acceptance'),
+    invoke: async (_selection, prompt) => {
+      if (typeof prompt === 'object') {
+        const answers = Object.fromEntries(Object.keys(prompt.questions).map(id => [id, { choice: 'pass' }]));
+        if (prompt.questions.qaContract) answers.qaContract = { choice: 'revise', reason: `Missing original behavior ${++reviews}.` };
+        return { answers };
+      }
+      if (prompt.includes('구현 계획과 검증 기준')) return 'Plan';
+      if (prompt.includes('구현 전에 독립 브라우저 QA 계획')) return ++plans === 1 ? qaPlan
+        : { extendChecks: [{ id: 'empty', steps: [{ action: 'count', selector: `#list .behavior-${plans}`, value: 0 }] }] };
+      workers++; assert.fail('No implementation before approval');
+    } });
+  const created = await engine.create(f.input); await engine.runs.get(created.id).execution;
+  const run = await engine.get(created.id);
+  assert.equal(plans, 6); assert.equal(reviews, 6); assert.equal(workers, 0);
+  assert.equal(run.events.filter(event => event.title.startsWith('QA 계획 보완 연장')).length, 3);
+  assert.equal(run.status, 'failed'); assert.match(run.summary, /Missing original behavior 6/);
+  assert.equal(run.qaPlan, null); assert.notEqual(run.applied, true);
+  assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'original');
+});
+
+test('a repeated actionable rejection after an extended QA patch does not extend again', async (t) => {
+  const f = await fixture(t); let plans = 0, reviews = 0;
+  const engine = new HarnessEngine({ directory: f.directory,
+    verify: async () => assert.fail('No verification before QA plan acceptance'),
+    verifyBrowser: async () => assert.fail('No browser before QA plan acceptance'), invoke: async (_selection, prompt) => {
+    if (typeof prompt === 'object') {
+      const answers = Object.fromEntries(Object.keys(prompt.questions).map(id => [id, { choice: 'pass' }]));
+      if (prompt.questions.qaContract) answers.qaContract = { choice: 'revise', reason: `Missing original behavior ${Math.min(++reviews, 3)}.` };
+      return { answers };
+    }
+    if (prompt.includes('구현 계획과 검증 기준')) return 'Plan';
+    if (prompt.includes('구현 전에 독립 브라우저 QA 계획')) return ++plans === 1 ? qaPlan
+      : { extendChecks: [{ id: 'empty', steps: [{ action: 'count', selector: `#list .behavior-${plans}`, value: 0 }] }] };
+    assert.fail('No implementation before QA plan acceptance');
+  } });
+  const created = await engine.create(f.input); await engine.runs.get(created.id).execution;
+  const run = await engine.get(created.id);
+  assert.equal(plans, 4); assert.equal(reviews, 4); assert.equal(run.status, 'failed');
+  assert.equal(run.events.filter(event => event.title.startsWith('QA 계획 보완 연장')).length, 1);
+  assert.equal(run.qaPlan, null); assert.notEqual(run.applied, true);
 });
 
 test('unchanged QA patches exhaust format repair without repeating review or starting implementation', async (t) => {

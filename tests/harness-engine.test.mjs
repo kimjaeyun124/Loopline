@@ -1352,6 +1352,26 @@ test('large current files cannot hide inventory and the latest operation metadat
   assert.equal(r.status, 'completed', r.summary);
 });
 
+test('the latest read retains its complete middle when older file context exceeds the budget', async t => {
+  const f = await fixture(t); let steps = 0;
+  const latest = 'L'.repeat(9000) + 'LATEST_MIDDLE_MARKER' + 'Z'.repeat(11000);
+  const older = 'O'.repeat(20000);
+  await writeFile(join(f.source, 'file.txt'), latest);
+  await writeFile(join(f.source, 'older.txt'), older);
+  await f.git('add', '.'); await f.git('commit', '-m', 'bounded context fixture');
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (_selection, prompt) => {
+    if (hasText(prompt, '구현 계획과 검증 기준')) return 'Read both files and update file.txt.';
+    if (isJudgementPrompt(prompt)) return judgementResponse(prompt);
+    if (++steps === 1) return JSON.stringify({ operations: [{ type: 'read', path: 'older.txt' }, { type: 'read', path: 'file.txt' }] });
+    assert.ok(hasText(prompt, latest), 'the requested latest file must not lose its middle to older file content');
+    assert.ok(!hasText(prompt, older), 'the existing total context bound must still truncate older content');
+    return JSON.stringify({ operations: [{ type: 'write', path: 'file.txt', content: 'updated\n' }], done: true, summary: 'Changed using the complete latest file.' });
+  } });
+  const r = await settled(engine, (await engine.create({ ...f.input, rounds: 1 })).id);
+  assert.equal(r.status, 'completed', r.summary); assert.equal(steps, 2);
+  assert.equal(await readFile(join(f.source, 'older.txt'), 'utf8'), older);
+});
+
 test('read stagnation after an external MCP side effect never changes or replays the worker', async t => {
   const f = await fixture(t); let steps = 0;
   const worker = { ...f.input.roles.worker, model: 'side-effect-worker', fallbacks: [{ ...f.input.roles.worker, model: 'never-dispatched-backup' }] };

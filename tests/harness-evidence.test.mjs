@@ -44,3 +44,13 @@ test('user stop and shutdown interruption do not enter final completion performa
   const store = await fixture(t); await store.record(run({ status: 'stopped' })); await store.record(run({ status: 'interrupted' }));
   assert.equal((await store.summary()).recordedRuns, 0);
 });
+
+test('browser QA and milestone failures count as recovery work without double counting the same saved run', async (t) => {
+  const store = await fixture(t), value = run({ events: [{ title: '응답 형식 재요청 / Retry format' }, { title: '부분 작업 수정 / Milestone failed' }], qaHistory: [{ round: 2, passed: false }, { round: 3, passed: true }] });
+  await store.record(value); await store.record(value);
+  const saved = JSON.parse(await readFile(join(store.directory, `${value.id}.json`), 'utf8'));
+  assert.deepEqual(saved.recoveryBreakdown, { modelRetries: 1, browserQaFailures: 1, milestoneFailures: 1 });
+  assert.equal(saved.recoveries, 3);
+  const summary = await store.candidate(model, 'worker', 'website');
+  assert.equal(summary.runs, 1); assert.equal(summary.meanRunRecoveries, 3);
+});

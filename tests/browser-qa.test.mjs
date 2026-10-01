@@ -24,6 +24,23 @@ test('browser QA detects web work while keeping command line JavaScript outside 
   assert.equal(needsBrowserQa('버그 수정', 'index.html'), true);
 });
 
+test('QA key validation reports the exact unsupported key and preserves the executable allowlist', () => {
+  assert.deepEqual(BROWSER_QA_EXECUTOR.keys, ['Tab', 'Enter', 'Escape', 'ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Space', 'Backspace']);
+  for (const key of ['Shift+Tab', 'Meta+Q', ' ', 'tab']) {
+    const invalid = structuredClone(qaPlan); invalid.checks[1].steps[1].key = key;
+    assert.throws(() => validateBrowserPlan(invalid), error => {
+      assert.equal(error.invalidStructuredOutput, true);
+      assert.ok(error.message.includes(JSON.stringify(key))); assert.match(error.message, /input-save:.*허용 키: Tab, Enter/);
+      return true;
+    });
+    assert.equal(invalid.checks[1].steps[1].key, key, 'invalid keys are never normalized or executed');
+  }
+  for (const key of BROWSER_QA_EXECUTOR.keys) {
+    const valid = structuredClone(qaPlan); valid.checks[1].steps[1].key = key;
+    assert.deepEqual(validateBrowserPlan(valid), valid);
+  }
+});
+
 test('QA contract requires actual input, reload, key events and assertions, and rejects scripts', () => {
   assert.deepEqual(validateBrowserPlan(qaPlan), qaPlan);
   for (const action of ['fill', 'reload', 'press', 'text']) {
@@ -403,6 +420,32 @@ test('failed independent QA cannot be overridden by model approval at the round 
   const final = await engine.get(run.id);
   assert.equal(final.status, 'limit', JSON.stringify({summary:final.summary,events:final.events.slice(-6)})); assert.ok(!final.applied); assert.equal(final.browserQaPassed, false);
   await assert.rejects(readFile(join(f.source, 'index.html')));
+});
+
+test('failed QA key format reaches the next saved planner without accepting a failed actual browser check', async (t) => {
+  const f = await fixture(t); const plans = []; let browserCalls = 0;
+  const engine = new HarnessEngine({ directory: f.directory, verify: async () => ({ code: 0, output: 'PASS' }),
+    verifyBrowser: async ({ plan }) => { browserCalls++; assert.deepEqual(plan, qaPlan); return { passed: false, checks: [], failures: ['Actual keyboard action failed'] }; },
+    invoke: async (selection, prompt) => {
+      if (typeof prompt === 'object') return { answers: Object.fromEntries(Object.keys(prompt.questions).map(id => [id, { choice: 'pass' }])) };
+      if (prompt.includes('구현 계획과 검증 기준')) return 'Plan';
+      if (prompt.includes('구현 전에 독립 브라우저 QA 계획')) {
+        plans.push(selection.model);
+        if (selection.model === 'qa') { const invalid = structuredClone(qaPlan); invalid.checks[1].steps[1].key = 'Shift+Tab'; return invalid; }
+        assert.match(prompt, /실행기 검증 오류\(증거 데이터\):.*Shift\+Tab.*허용 키: Tab, Enter/);
+        assert.match(prompt, /원래 목표·필드·판정 질문·검사 조건을 유지/);
+        assert.match(prompt, /저장과 키보드 입력이 가능한 웹사이트/);
+        return qaPlan;
+      }
+      return JSON.stringify({ done: true, summary: 'Fixture', operations: [{ type: 'write', path: 'index.html', content: '<html>unverified</html>' }] });
+    } });
+  const created = await engine.create({ ...f.input, rounds: 1, roles: { ...f.input.roles, planner: {
+    ...f.input.roles.planner, fallbacks: [{ provider: 'api', model: 'qa-format-backup' }],
+  } } });
+  await engine.runs.get(created.id).execution; const run = await engine.get(created.id);
+  assert.deepEqual(plans, ['qa', 'qa-format-backup']); assert.equal(browserCalls, 1);
+  assert.equal(run.status, 'limit', run.summary); assert.equal(run.browserQaPassed, false); assert.notEqual(run.applied, true);
+  assert.deepEqual(run.qaPlan, qaPlan); await assert.rejects(readFile(join(f.source, 'index.html')));
 });
 
 test('QA recovery routes the last existing attempt only for automatic planners, retaining every review check', async (t) => {

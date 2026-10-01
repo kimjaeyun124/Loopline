@@ -501,14 +501,18 @@ test('an invalid verification plan falls back to the next saved planner and comp
 });
 
 test('an invalid judge decision falls back without requiring a task restart', async (t) => {
-  const f = await fixture(t), judgeCalls = [], script = modelScript(complete);
+  const f = await fixture(t), judgeCalls = [], script = modelScript(complete); let original;
   const judge = { ...f.input.roles.judge, model: 'judge-primary', fallbacks: [
     { ...f.input.roles.judge, model: 'judge-format-backup', label: 'Judge backup' },
   ] };
   const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (selection, prompt, ...rest) => {
     if (isJudgementPrompt(prompt)) {
       judgeCalls.push(selection.model);
-      if (selection.model === 'judge-primary') return JSON.stringify({ answers: {} });
+      if (selection.model === 'judge-primary') { original = structuredClone(prompt); return JSON.stringify({ answers: {} }); }
+      assert.deepEqual(prompt.questions, original.questions);
+      assert.deepEqual({ ...prompt.state, responseFormatCorrection: undefined }, { ...original.state, responseFormatCorrection: undefined });
+      assert.match(prompt.instruction, /판정이 누락/);
+      assert.match(prompt.state.responseFormatCorrection, /원래 목표·필드·판정 질문·검사 조건을 유지/);
       return judgementResponse(prompt);
     }
     return script(selection, prompt, ...rest);
@@ -517,6 +521,25 @@ test('an invalid judge decision falls back without requiring a task restart', as
   assert.equal(run.status, 'completed', run.summary);
   assert.deepEqual(judgeCalls, ['judge-primary', 'judge-format-backup']);
   assert.equal(run.stageModels.judge.id, 'judge-format-backup');
+});
+
+test('a valid negative judge verdict never invokes a fallback to chase approval', async (t) => {
+  for (const choice of ['revise', 'uncertain']) await t.test(choice, async (t) => {
+    const f = await fixture(t), calls = [], script = modelScript(complete);
+    const judge = { ...f.input.roles.judge, fallbacks: [{ ...f.input.roles.judge, model: 'optimistic-backup' }] };
+    const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (selection, prompt, ...rest) => {
+      if (isJudgementPrompt(prompt)) {
+        calls.push(selection.model);
+        assert.equal(prompt.state.responseFormatCorrection, undefined);
+        return { answers: Object.fromEntries(Object.keys(prompt.questions).map(id => [id, { choice, reason: 'Actual required behavior is not proven.' }])) };
+      }
+      return script(selection, prompt, ...rest);
+    } });
+    const run = await settled(engine, (await engine.create({ ...f.input, rounds: 1, roles: { ...f.input.roles, judge } })).id);
+    assert.deepEqual(calls, ['jev-fixture']); assert.equal(run.status, 'limit', run.summary);
+    assert.notEqual(run.applied, true); assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'original\n');
+    assert.equal(run.events.some(event => event.title.startsWith('응답 형식 오류')), false);
+  });
 });
 
 test('a malformed worker action uses the next saved implementation model', async (t) => {
@@ -528,6 +551,10 @@ test('a malformed worker action uses the next saved implementation model', async
     if (hasText(prompt, '최근 도구 결과:')) {
       workerCalls.push(selection.model);
       if (selection.model === 'worker-primary') return 'not JSON';
+      if (selection.model === 'worker-format-backup' && workerCalls.length === 2) {
+        assert.match(prompt, /모델 응답이 요청한 JSON 형식이 아닙니다/);
+        assert.match(prompt, /원래 목표·필드·판정 질문·검사 조건을 유지/);
+      }
     }
     return script(selection, prompt, ...rest);
   } });

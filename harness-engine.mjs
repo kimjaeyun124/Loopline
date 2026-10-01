@@ -253,7 +253,7 @@ async function git(cwd, args, signal) {
 export function parseHarnessJson(text) {
   const source = String(text).trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
   try { const value = JSON.parse(source); if (value && typeof value === 'object' && !Array.isArray(value)) return value; } catch { /* Reject prose and partial JSON rather than interpreting it as an approval. */ }
-  throw fail('모델 응답이 요청한 JSON 형식이 아닙니다.');
+  throw invalidStructuredOutput('모델 응답이 요청한 JSON 형식이 아닙니다.');
 }
 
 function parseStructuredObject(answer, label) {

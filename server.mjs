@@ -42,12 +42,12 @@ const port = Number(process.env.PORT || 4173);
 const host = process.env.HOST || '127.0.0.1';
 const apiConnections = new ApiConnections(userDataDir);
 const mcpConnections = new McpConnections(userDataDir);
-const agentPlugins = new AgentPlugins({ codexClient: async (accountId) => {
+const agentPlugins = new AgentPlugins({ codexClient: async (accountId, configurationCwd) => {
   const context = await getCodexAccountContext(accountId);
   const env = cliEnvironment('openai'); env.CODEX_HOME = context.account.home;
   const desktopCli = '/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex';
   const pluginCommand = process.env.CODEX_CLI || (await access(desktopCli).then(() => desktopCli).catch(() => providers.openai.command));
-  const client = new CodexAppServer({ command: pluginCommand, cwd: await codexSandboxDir(context), env, inheritMcp: true });
+  const client = new CodexAppServer({ command: pluginCommand, cwd: configurationCwd || await codexSandboxDir(context), env, inheritMcp: true });
   client.on('serverRequest', ({ id }) => client.respondError(id, -32601, '기존 인증이 필요한 Plugin 요청을 자동 승인할 수 없습니다.'));
   return client;
 } });

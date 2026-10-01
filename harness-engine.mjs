@@ -736,7 +736,7 @@ export class HarnessEngine {
       let toolDefinitions = [];
       try { toolDefinitions = selectedTools.length && this.mcpConnections ? await this.mcpConnections.selectedTools(selectedTools) : []; }
       catch (error) { event.status = 'failed'; event.detail += ` · ${String(error?.message || 'MCP 연결을 확인해 주세요.').slice(0, 500)}`; await this.persist(record); throw error; }
-      const pluginContext = { runId: run.id, cwd: run.workspace || run.source };
+      const pluginContext = { runId: run.id, cwd: run.workspace || run.source, configurationCwd: run.source };
       if (!selection.decisionOnly && this.agentPlugins && selection.nativePlugins !== false) {
         try { toolDefinitions.push(...await this.agentPlugins.toolsFor(selection, pluginContext)); }
         catch (error) {

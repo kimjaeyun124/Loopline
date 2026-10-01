@@ -22,27 +22,27 @@ export class AgentPlugins {
     this.sessions = new Map(); this.closing = false;
   }
 
-  async open(selection, { runId, cwd } = {}) {
+  async open(selection, { runId, cwd, configurationCwd = cwd } = {}) {
     if (!['openai', 'anthropic'].includes(selection.provider) || selection.nativePlugins === false) return null;
-    const key = JSON.stringify([runId, selection.provider, selection.codexAccountId || 'default', cwd || this.home]);
+    const key = JSON.stringify([runId, selection.provider, selection.codexAccountId || 'default', cwd || this.home, configurationCwd || this.home]);
     if (!this.sessions.has(key)) {
-      const pending = this.discover(selection, cwd).catch((error) => { this.sessions.delete(key); throw error; });
+      const pending = this.discover(selection, cwd, configurationCwd).catch((error) => { this.sessions.delete(key); throw error; });
       this.sessions.set(key, { runId, pending });
     }
     return this.sessions.get(key).pending;
   }
 
-  async discover(selection, cwd) {
+  async discover(selection, cwd, configurationCwd = cwd) {
     if (this.closing) throw fail('Plugin 연결이 종료 중입니다.');
     if (selection.provider === 'openai') {
-      const client = await this.codexClient(selection.codexAccountId || 'default');
+      const client = await this.codexClient(selection.codexAccountId || 'default', configurationCwd);
       try {
         const preview = await client.request('mcpServerStatus/list', { detail: 'toolsAndAuthOnly', limit: 50 }, 60_000);
-        const skillResult = await client.request('skills/list', { cwds: [cwd || this.home] }).catch(() => ({ data: [] }));
+        const skillResult = await client.request('skills/list', { cwds: [...new Set([cwd || this.home, configurationCwd || cwd || this.home])] }).catch(() => ({ data: [] }));
         const skills = (skillResult.data || []).flatMap((group) => group.skills || []).filter((skill) => skill.enabled !== false && typeof skill.path === 'string');
         // No configured servers means there is no reason to create even an ephemeral chat.
         if (!(preview.data || []).some((server) => !['disabled'].includes(server.runtimeStatus))) return { client, threadId: null, tools: [], skills, close: () => client.stop() };
-        const result = await client.request('thread/start', { cwd: cwd || this.home, ephemeral: true, sandbox: 'read-only', approvalPolicy: 'never' });
+        const result = await client.request('thread/start', { cwd: configurationCwd || cwd || this.home, ephemeral: true, sandbox: 'read-only', approvalPolicy: 'never' });
         const threadId = result.thread?.id;
         if (!threadId) throw fail('Plugin 임시 연결을 만들지 못했습니다.');
         const tools = []; let cursor = null;
@@ -60,14 +60,19 @@ export class AgentPlugins {
     const sdk = this.runtime || await import(new URL('./mcp-runtime.bundle.mjs', import.meta.url)).catch(() => import('@modelcontextprotocol/client'));
     const user = await jsonFile(join(this.home, '.claude.json'));
     const settings = await jsonFile(join(this.home, '.claude/settings.json'));
-    const project = cwd ? await jsonFile(join(cwd, '.mcp.json')) : {};
-    const definitions = { ...(user.mcpServers || {}), ...(user.projects?.[cwd]?.mcpServers || {}), ...(project.mcpServers || {}) };
+    for (const file of configurationCwd ? ['.claude/settings.json', '.claude/settings.local.json'] : []) {
+      const scoped = await jsonFile(join(configurationCwd, file));
+      settings.enabledPlugins = { ...settings.enabledPlugins, ...scoped.enabledPlugins };
+    }
+    const project = configurationCwd ? await jsonFile(join(configurationCwd, '.mcp.json')) : {};
+    // Connection settings may be ignored by Git and absent from the generated worktree.
+    const definitions = { ...(user.mcpServers || {}), ...(user.projects?.[configurationCwd]?.mcpServers || {}), ...(project.mcpServers || {}) };
     const skills = [];
     const installed = await jsonFile(join(this.home, '.claude/plugins/installed_plugins.json'));
     for (const [id, instances] of Object.entries(installed.plugins || {})) {
       if (settings.enabledPlugins?.[id] !== true) continue;
       for (const instance of Array.isArray(instances) ? instances : []) {
-        if (instance.scope === 'project' && instance.projectPath !== cwd) continue;
+        if (['project', 'local'].includes(instance.scope) && instance.projectPath !== configurationCwd) continue;
         if (typeof instance.installPath !== 'string') continue;
         const root = await realpath(instance.installPath).catch(() => null);
         if (!root) continue;

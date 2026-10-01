@@ -5,12 +5,69 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { HarnessEngine, runCommand } from '../harness-engine.mjs';
 import { validateMilestones, milestoneContract, milestoneFiles, refreshMilestones, matchesMilestone, nextMilestone, milestoneCoverage } from '../harness-milestones.mjs';
+import { validateBrowserPlan, BROWSER_QA_EXECUTOR } from '../browser-qa.mjs';
 
 const plan = { tasks: [
   { id: 'first', title: '첫 기능', dependsOn: [], paths: ['first.txt'], criteria: ['첫 기능 결과가 저장됩니다'], verifyCommand: 'test -f first.txt' },
   { id: 'second', title: '둘째 기능', dependsOn: ['first'], paths: ['second.txt'], criteria: ['첫 기능과 둘째 기능이 연결됩니다'], verifyCommand: 'test -f second.txt' },
 ] };
 async function directory(t) { const path = await mkdtemp(join(tmpdir(), 'loopline-milestones-')); t.after(() => rm(path, { recursive: true, force: true })); return path; }
+
+const planningRecord = (qaPlan) => ({ run: {
+  task: qaPlan ? '오프라인 작업 관리 웹사이트' : 'large project CLI',
+  roles: { planner: { provider: 'api', model: 'qa', automatic: false } },
+  modelPriority: { planner: [] }, modelBudgets: {}, milestones: [],
+  ...(qaPlan ? { qaPlan } : {}),
+} });
+
+test('milestone judgement receives the fixed browser contract and future planning phase without granting execution success', async (t) => {
+  const root = await directory(t), engine = new HarnessEngine({ directory: root, invoke: async () => assert.fail('Use the captured planning fixture') });
+  const qaPlan = validateBrowserPlan({ entry: 'index.html', checks: [{ id: 'task-flow', categories: ['input', 'save', 'empty', 'keyboard'], steps: [
+    { action: 'reset' }, { action: 'visible', selector: '#empty' }, { action: 'fill', selector: '#new-task', value: '검사' },
+    { action: 'press', key: 'Enter' }, { action: 'reload' }, { action: 'text', selector: '#tasks', value: '검사' },
+  ] }] });
+  const before = structuredClone(qaPlan), record = planningRecord(qaPlan);
+  engine.callValidated = async () => plan;
+  engine.decide = async (_record, state, questions) => {
+    assert.equal(state.phase, 'pre-implementation planning'); assert.equal(state.task, record.run.task);
+    assert.deepEqual(state.qaPlan, before); assert.deepEqual(state.executor, BROWSER_QA_EXECUTOR);
+    assert.deepEqual(state.tasks, validateMilestones(plan));
+    assert.match(questions.workPlan.question, /not whether unbuilt files exist or tests already pass/);
+    assert.match(questions.workPlan.question, /first task must be testable without later-task files/);
+    assert.match(questions.workPlan.question, /browser QA cannot replace meaningful per-task Node tests/);
+    assert.match(questions.workPlan.pass, /execution evidence is still required/);
+    return { decision: 'complete' };
+  };
+  engine.event = async () => {};
+  await engine.prepareMilestones(record, 'future implementation plan', '');
+  assert.deepEqual(qaPlan, before); assert.equal(record.run.milestoneContract, milestoneContract(record.run.milestones));
+  assert.ok(record.run.milestones.every(task => task.status === 'pending' && task.evidence === null));
+  for (const field of ['applied', 'verificationPassed', 'browserQaPassed']) assert.notEqual(record.run[field], true);
+});
+
+test('non-web milestone planning does not fabricate a browser executor or execution evidence', async (t) => {
+  const engine = new HarnessEngine({ directory: await directory(t), invoke: async () => assert.fail('Use the captured planning fixture') }), record = planningRecord();
+  engine.callValidated = async () => plan;
+  engine.decide = async (_record, state) => {
+    assert.equal(state.phase, 'pre-implementation planning');
+    assert.equal(Object.hasOwn(state, 'qaPlan'), false); assert.equal(Object.hasOwn(state, 'executor'), false);
+    return { decision: 'complete' };
+  };
+  engine.event = async () => {};
+  await engine.prepareMilestones(record, 'future CLI plan', '');
+  assert.equal(record.run.milestones.length, 2); assert.ok(record.run.milestones.every(task => task.evidence === null));
+});
+
+test('explicit milestone rejection retains the three-attempt bound and never grants a milestone contract', async (t) => {
+  const engine = new HarnessEngine({ directory: await directory(t), invoke: async () => assert.fail('Use the captured planning fixture') }), record = planningRecord();
+  let calls = 0, reviews = 0;
+  engine.callValidated = async () => { calls++; return plan; };
+  engine.decide = async () => { reviews++; return { decision: 'revise', feedback: 'Missing meaningful integration checks.' }; };
+  engine.event = async () => {};
+  await assert.rejects(engine.prepareMilestones(record, 'future plan', ''), /부분 작업 계획.*Missing meaningful integration checks/);
+  assert.equal(calls, 3); assert.equal(reviews, 3); assert.deepEqual(record.run.milestones, []);
+  assert.equal(record.run.milestoneContract, undefined); assert.notEqual(record.run.applied, true);
+});
 
 test('milestone plans reject cycles, unbounded ownership, empty criteria and fake checks', () => {
   assert.equal(validateMilestones(plan).length, 2);

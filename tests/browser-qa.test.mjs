@@ -46,6 +46,33 @@ test('QA assertions must follow input, reload and keyboard actions', () => {
   }
 });
 
+test('rendered QA assertions reject clear head metadata before freezing the contract', () => {
+  for (const selector of ['title', 'head > title', 'html head title', 'HEAD', 'meta', 'link', 'script', 'style']) {
+    for (const action of ['text', 'visible', 'fill', 'click', 'focused', 'focus-visible']) {
+      const plan = structuredClone(qaPlan);
+      plan.checks[0].steps.push({ action, selector, ...(['text', 'fill'].includes(action) ? { value: 'Focus Desk' } : {}) });
+      assert.throws(() => validateBrowserPlan(plan), error => {
+        assert.equal(error.invalidStructuredOutput, true);
+        assert.match(error.message, /표시되는 화면 요소/);
+        return true;
+      });
+    }
+  }
+  const plan = structuredClone(qaPlan);
+  plan.checks[0].steps.push({ action: 'text', selector: 'h1', value: 'Focus Desk' },
+    { action: 'count', selector: 'title', value: 1 },
+    { action: 'visible', selector: '#title' }, { action: 'visible', selector: 'button[aria-label="title"]' });
+  assert.deepEqual(validateBrowserPlan(plan), plan);
+  assert.match(BROWSER_QA_EXECUTOR.textEvidence, /visible.*document title/i);
+});
+
+test('QA partial additions cannot introduce metadata text assertions', () => {
+  const extension = { id: 'empty', steps: [{ action: 'text', selector: 'title', value: 'Focus Desk' }] };
+  const before = structuredClone(qaPlan);
+  assert.throws(() => applyBrowserPlanPatch(qaPlan, { extendChecks: [extension] }), /표시되는 화면 요소/);
+  assert.deepEqual(qaPlan, before);
+});
+
 const focusCheck = (id = 'keyboard-focus') => ({ id, categories: ['keyboard'], steps: [
   { action: 'reset' }, { action: 'press', key: 'Tab' }, { action: 'focus-visible', selector: '#name' },
 ] });
@@ -355,6 +382,8 @@ test('QA recovery routes the last existing attempt only for automatic planners, 
             assert.match(prompt.questions.qaContract.instructions, /Do not omit any requested browser-observable behavior/);
             assert.match(prompt.questions.qaContract.instructions, /executor.fixedChecks and viewports/);
             assert.match(prompt.questions.qaKeyboard.instructions, /focused alone cannot establish/);
+            assert.match(prompt.questions.qaCheck_empty.instructions, /Compare exact selector literals.*number of repeated substrings/);
+            assert.match(prompt.questions.qaCheck_empty.instructions, /alter correct user data to match a typo/);
             reviews++; if (reviews < 3) result.answers.qaInput = { choice: 'revise' };
           }
           return result;
@@ -362,6 +391,8 @@ test('QA recovery routes the last existing attempt only for automatic planners, 
         if (prompt.includes('구현 계획과 검증 기준')) return 'Implement the website and verify its behavior';
         if (prompt.includes('구현 전에 독립 브라우저 QA 계획')) {
           assert.match(prompt, /가능하면 12단계/); assert.match(prompt, /원래 기능 검사를 생략하지/);
+          assert.match(prompt, /text는 화면 가시성도 확인/); assert.match(prompt, /반복 수가 달라질 수/);
+          assert.match(prompt, /원래 요구한 대상별 동작과 실제 assertion은 유지/);
           if (!planners.length) { assert.match(prompt, /focus-visible assertion/); assert.match(prompt, /각 검사 직후와 최종 상태/); }
           else { assert.match(prompt, /Add the required input actions/); assert.match(prompt, /보존할 기존 QA 계획/); assert.match(prompt, /교체 허용 검사 ID: \[\]/); }
           planners.push(selection.model);

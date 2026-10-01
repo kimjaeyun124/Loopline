@@ -172,7 +172,7 @@ test('QA recovery routes the last existing attempt only for automatic planners, 
     const f = await fixture(t), planners = []; let reviews = 0;
     const base = f.input.roles.planner;
     const engine = new HarnessEngine({ directory: f.directory, verify: async () => ({ code: 0, output: 'PASS' }),
-      verifyBrowser: async () => ({ passed: true, checks: [], failures: [] }), invoke: async (selection, prompt) => {
+      verifyBrowser: async () => ({ passed: true, checks: [{ id: 'empty', passed: true }], failures: [] }), invoke: async (selection, prompt) => {
         if (typeof prompt === 'object') {
           const result = { answers: Object.fromEntries(Object.keys(prompt.questions).map(id => [id, { choice: 'pass', reason: 'Fixture evidence' }])) };
           if (prompt.questions.qaContract) {
@@ -227,7 +227,7 @@ test('QA recovery cannot bypass a failed individual category or start implementa
 test('fixed QA format repair receives the precise oversized check and succeeds without changing the contract', async (t) => {
   const f = await fixture(t); let plans = 0;
   const engine = new HarnessEngine({ directory: f.directory, verify: async () => ({ code: 0, output: 'PASS' }),
-    verifyBrowser: async () => ({ passed: true, checks: [], failures: [] }), invoke: async (_selection, prompt) => {
+    verifyBrowser: async () => ({ passed: true, checks: [{ id: 'empty', passed: true }], failures: [] }), invoke: async (_selection, prompt) => {
       if (typeof prompt === 'object') return { answers: Object.fromEntries(Object.keys(prompt.questions).map(id => [id, { choice: 'pass' }])) };
       if (prompt.includes('구현 계획과 검증 기준')) return 'Plan';
       if (prompt.includes('구현 전에 독립 브라우저 QA 계획')) {

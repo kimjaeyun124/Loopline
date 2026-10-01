@@ -1399,7 +1399,39 @@ export class HarnessEngine {
       const invalidated = await refreshMilestones(run.milestones, run.workspace, [...new Set([...inventory, ...changed])]);
       if (invalidated.length) await this.event(record, '부분 완료 재검증 / Revalidate milestones', `다른 작업의 완료 근거에 영향을 준 변경: ${invalidated.join(', ')}`);
     }
-    const feedback = passed ? '' : `${task.title}: ${verdict.feedback}\n검증 종료 코드 ${verification.code}: ${String(verification.output || verification.error || '').slice(-4000)}${integrationRequired && integrationVerification?.code !== 0 ? `\n전체 검증 실패: ${String(integrationVerification?.output || integrationVerification?.error || '전체 검증이 실행되지 않았습니다.').slice(-4000)}` : ''}${integrationRequired && independentBrowserQa?.passed !== true ? `\n독립 브라우저 QA 실패: ${(independentBrowserQa?.failures || ['실제 브라우저 QA가 완료되지 않았습니다.']).join('\n')}` : ''}${diff.length > 60_000 ? '\n부분 작업 변경량이 60,000자를 넘어 전체 검토가 불가능합니다. 담당 파일의 불필요한 중복과 과도한 변경을 줄이세요.' : ''}`;
+    let feedback = passed ? '' : `${task.title}: ${verdict.feedback}\n검증 종료 코드 ${verification.code}: ${String(verification.output || verification.error || '').slice(-4000)}${integrationRequired && integrationVerification?.code !== 0 ? `\n전체 검증 실패: ${String(integrationVerification?.output || integrationVerification?.error || '전체 검증이 실행되지 않았습니다.').slice(-4000)}` : ''}${integrationRequired && independentBrowserQa?.passed !== true ? `\n독립 브라우저 QA 실패: ${(independentBrowserQa?.failures || ['실제 브라우저 QA가 완료되지 않았습니다.']).join('\n')}` : ''}${diff.length > 60_000 ? '\n부분 작업 변경량이 60,000자를 넘어 전체 검토가 불가능합니다. 담당 파일의 불필요한 중복과 과도한 변경을 줄이세요.' : ''}`;
+    if (!passed && integrationRequired && (verification.code !== 0
+      || integrationVerification?.code !== 0 || independentBrowserQa?.passed === false)) {
+      // The final partial check can expose a defect in an already reviewed
+      // dependency. Keep file ownership and reopen its owner instead of asking
+      // the final worker to edit a file outside its immutable scope repeatedly.
+      try {
+        const result = await this.call(record, 'judge', {
+          instruction: 'Choose the existing partial task whose owned files contain the root cause of this actual verification/browser failure. A completed dependency can need repair. Return JSON {"answers":{"repairTask":{"choice":"task_ID","reason":"actual failure and owned file"}}}. This selects where to repair, never approves the failure or changes acceptance criteria, file ownership, or verification.',
+          state: { failedTask: task.id, feedback, verification, integrationVerification, browserQa: independentBrowserQa,
+            verifyCommand: run.verifyCommand, workspaceInventory, workspaceInventoryTruncated: completeInventory.length > MAX_PROJECT_FILE_LIST,
+            tasks: relatedMilestones },
+          questions: { repairTask: { type: 'choice', instructions: 'Select the task owning the required correction. Keep the current task when the failure belongs to its files. Do not require a worker to modify files outside its paths.',
+            criteria: Object.fromEntries(run.milestones.map((milestone) => [`task_${milestone.id}`, milestone.title])) } },
+        }, '부분 통합 실패 담당 선택 / Milestone integration repair owner', { validate: (answer) => {
+          const value = typeof answer === 'string' ? parseHarnessJson(answer) : answer;
+          if (!run.milestones.some((milestone) => `task_${milestone.id}` === value?.answers?.repairTask?.choice)) throw invalidStructuredOutput('부분 통합 실패 담당 작업 선택이 올바르지 않습니다.');
+        } });
+        const value = typeof result === 'string' ? parseHarnessJson(result) : result;
+        const owner = run.milestones.find((milestone) => `task_${milestone.id}` === value?.answers?.repairTask?.choice);
+        if (!owner) throw invalidStructuredOutput('부분 통합 실패 담당 작업 선택이 올바르지 않습니다.');
+        if (owner.id !== task.id) {
+          owner.status = 'pending';
+          for (const dependent of run.milestones) if (dependent.dependsOn.includes(owner.id)
+            && (dependent.id === task.id || dependent.status === 'completed')) dependent.status = 'needs-review';
+          feedback += `\n부분 통합 실패를 파일 담당 작업 ${owner.id}에서 먼저 수정하세요. 기존 paths·완료 기준·검증 명령을 유지하고 후속 작업을 다시 검증하세요.`;
+          await this.event(record, '선행 담당 작업 보완 / Repair owning milestone', `${task.id} → ${owner.id} · ${String(value.answers.repairTask.reason || '').slice(0, 500)}\n기존 완료 근거는 보존하며 실제 검증과 브라우저 QA가 통과하기 전에는 자동 반영하지 않습니다.`);
+        }
+      } catch (error) {
+        aborted(controller.signal);
+        await this.event(record, '부분 통합 담당 유지 / Milestone owner retained', '실패 담당을 확인할 수 없어 현재 작업의 수정 범위와 실패 판정을 유지합니다.');
+      }
+    }
     await this.event(record, passed ? '부분 작업 완료 / Milestone verified' : '부분 작업 수정 / Milestone failed', `${task.title} · ${task.verifyCommand}\n${passed ? verdict.summary : feedback}`, passed ? 'completed' : 'failed');
     return { passed, feedback, verification, diff };
   }

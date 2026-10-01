@@ -1,0 +1,167 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { HarnessEngine, runCommand } from '../harness-engine.mjs';
+
+const implementationPlan = '보관 파일의 형식을 유지하면서 입력 검증과 저장 후 재조회 동작을 구현하고 검사한다.';
+const pass = async () => ({ code: 0, output: 'PASS: actual fixture check', error: '' });
+const answers = (prompt, choice = 'pass') => ({ answers: Object.fromEntries(Object.keys(prompt.questions).map((id) => [id, { choice, reason: 'Supplied evidence matches the acceptance criteria.' }])) });
+
+async function fixture(t) {
+  const root = await mkdtemp(join(tmpdir(), 'loopline-plan-routing-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const source = join(root, 'source'), data = join(root, 'data'); await mkdir(source);
+  const git = async (...args) => {
+    const result = await runCommand('git', ['-c', 'core.hooksPath=/dev/null', '-c', 'user.name=QA', '-c', 'user.email=qa@localhost', '-c', 'commit.gpgsign=false', ...args], { cwd: source });
+    assert.equal(result.code, 0, result.error);
+  };
+  await git('init'); await writeFile(join(source, 'file.txt'), 'original'); await git('add', '.'); await git('commit', '-m', 'fixture');
+  const model = { provider: 'api', connectionId: 'fixture', model: 'primary', reasoningEffort: 'high', description: 'Provider description', supportedReasoningEfforts: ['low', 'high'], nativePlugins: false, loopMcp: false };
+  const input = { task: 'Update stored data in file.txt', workspace: source, verifyCommand: 'test -f file.txt', rounds: 3, roles: {
+    planner: model, worker: { ...model, automatic: true, fallbacks: [{ ...model, model: 'alternative' }] }, judge: { ...model, model: 'jev-fixture', decisionOnly: true },
+  } };
+  return { root, source, data, model, input };
+}
+
+function script({ route = (prompt) => answers(prompt, 'keep'), worker = () => ({ operations: [{ type: 'write', path: 'file.txt', content: 'updated' }], done: true, summary: 'Updated stored data' }), plan = null } = {}) {
+  return async (selection, prompt, _instructions, _signal, report) => {
+    report?.({ type: 'usage', usage: { total_tokens: 10 } });
+    if (prompt?.questions?.worker || prompt?.questions?.planner) return route(prompt, selection);
+    if (typeof prompt === 'object') return answers(prompt);
+    if (prompt.includes('구현 계획과 검증 기준')) return implementationPlan;
+    if (prompt.includes('큰 프로젝트를 검증 가능한 작은 부분 작업')) return JSON.stringify(plan);
+    return JSON.stringify(await worker(selection, prompt));
+  };
+}
+async function finish(engine, input) {
+  const created = await engine.create(input); await engine.runs.get(created.id).execution;
+  const run = await engine.get(created.id); assert.equal(run.status, 'completed', run.summary); assert.equal(run.applied, true);
+  return run;
+}
+
+test('implementation routing receives the actual plan before work and records model choice and usage', async (t) => {
+  const f = await fixture(t), routes = [], workers = [];
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: script({
+    route(prompt) {
+      routes.push(prompt);
+      if (!prompt.state.planContext) return answers(prompt, 'keep');
+      assert.deepEqual(Object.keys(prompt.questions), ['worker']);
+      assert.equal(prompt.state.planContext.plan, implementationPlan);
+      assert.equal(prompt.state.planContext.milestone, null);
+      assert.equal(prompt.state.candidates.worker[0].capabilities.description, 'Provider description');
+      assert.deepEqual(prompt.state.candidates.worker[0].capabilities.supportedReasoningEfforts, ['low', 'high']);
+      assert.match(prompt.state.candidates.worker[0].capabilities.evidenceType, /not measured/);
+      return { answers: { worker: { choice: 'candidate_1', order: ['candidate_1', 'candidate_0'], reason: 'Storage validation requires the supplied candidate capability.' } } };
+    },
+    worker(selection) { workers.push(selection.model); return { operations: [{ type: 'write', path: 'file.txt', content: 'updated' }], done: true, summary: 'Updated' }; },
+  }) });
+  const run = await finish(engine, f.input);
+  assert.equal(routes.length, 2); assert.deepEqual(workers, ['alternative']);
+  const decision = run.events.find((event) => event.title.startsWith('계획별 모델 배정 결과'));
+  assert.equal(decision.model.id, 'alternative'); assert.match(decision.detail, /Storage validation/);
+  const call = run.events.find((event) => event.title.startsWith('계획별 모델 배정 /'));
+  assert.match((await engine.getPromptDetails(run.id, call.id)).input, /보관 파일의 형식/);
+  assert.equal(run.modelCalls.filter((entry) => [call.id, run.events.find((event) => event.title === '모델 배정 / Model selection').id].includes(entry.eventId)).reduce((total, entry) => total + entry.tokens, 0), 20);
+});
+
+test('fixed manual worker choices never perform plan-based reassignment', async (t) => {
+  const f = await fixture(t); let routes = 0;
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: script({ route(prompt) { routes++; return answers(prompt, 'keep'); } }) });
+  const run = await finish(engine, { ...f.input, roles: { ...f.input.roles, worker: { ...f.input.roles.worker, automatic: false } } });
+  assert.equal(routes, 0); assert.equal(run.roles.worker.model, 'primary');
+});
+
+test('unchanged plan decisions survive reload without another call, while new failure evidence is considered', async (t) => {
+  const f = await fixture(t); let routes = 0;
+  const invoke = script({ route(prompt) { routes++; return answers(prompt, 'keep'); } });
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke });
+  const run = await finish(engine, f.input); assert.equal(routes, 2);
+  const restored = new HarnessEngine({ directory: f.data, verify: pass, invoke });
+  const record = await restored.record(run.id);
+  await restored.selectModels(record, { plan: implementationPlan, feedback: '' });
+  assert.equal(routes, 2); assert.equal((await restored.get(run.id)).modelRoutingContexts, undefined);
+  await restored.selectModels(record, { plan: implementationPlan, feedback: 'Actual validation failed: invalid input was saved.' });
+  assert.equal(routes, 3);
+  await restored.selectModels(record, { plan: implementationPlan, feedback: 'Actual validation failed: invalid input was saved.' });
+  assert.equal(routes, 3);
+});
+
+test('each milestone is routed against its immutable ownership, criteria and dependencies', async (t) => {
+  const f = await fixture(t), routes = [], workers = [];
+  const plan = { tasks: [
+    { id: 'first', title: 'Storage', dependsOn: [], paths: ['first.txt'], criteria: ['Persist the first result safely'], verifyCommand: 'test -f first.txt' },
+    { id: 'second', title: 'Integration', dependsOn: ['first'], paths: ['second.txt'], criteria: ['Connect the persisted results'], verifyCommand: 'test -f second.txt' },
+  ] };
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: script({ plan,
+    route(prompt) {
+      if (!prompt.state.planContext) return answers(prompt, 'keep');
+      const current = prompt.state.planContext.milestone; routes.push(current);
+      assert.equal(Object.hasOwn(current, 'status'), false); assert.equal(Object.hasOwn(current, 'attempts'), false);
+      return { answers: { worker: { choice: 'candidate_1', order: ['candidate_1', 'candidate_0'], reason: `Fit for ${current.title}` } } };
+    },
+    worker(selection, prompt) {
+      const part = prompt.includes('"id":"first"') ? 'first' : 'second'; workers.push([part, selection.model]);
+      return { operations: [{ type: 'write', path: `${part}.txt`, content: part }], done: true, summary: `${part} complete` };
+    },
+  }) });
+  const run = await finish(engine, { ...f.input, task: 'large project CLI with two parts', verifyCommand: 'test -f first.txt && test -f second.txt' });
+  assert.deepEqual(routes.map((item) => item.id), ['first', 'second']);
+  assert.deepEqual(routes[1].dependsOn, ['first']); assert.deepEqual(routes[0].criteria, plan.tasks[0].criteria);
+  assert.deepEqual(workers, [['first', 'alternative'], ['second', 'primary']]);
+  assert.ok(run.milestones.every((part) => part.status === 'completed' && part.evidence.reviewed));
+});
+
+test('actual failed verification reaches the next routing decision before repair', async (t) => {
+  const f = await fixture(t), routes = [], workers = []; let checks = 0;
+  const engine = new HarnessEngine({ directory: f.data, verify: async () => ++checks === 1 ? { code: 1, output: 'QA_SAVE: invalid input was stored', error: '' } : pass(), invoke: script({
+    route(prompt) {
+      if (!prompt.state.planContext) return answers(prompt, 'keep');
+      routes.push(prompt.state.planContext.failureFeedback);
+      return routes.length === 1 ? answers(prompt, 'keep') : { answers: { worker: { choice: 'candidate_1', reason: 'Use the other listed candidate to repair the observed save failure.' } } };
+    },
+    worker(selection) { workers.push(selection.model); return { operations: [{ type: 'write', path: 'file.txt', content: `updated ${workers.length}` }], done: true, summary: 'Stored update' }; },
+  }) });
+  const run = await finish(engine, f.input);
+  assert.equal(run.round, 2); assert.equal(routes.length, 2); assert.match(routes[1], /QA_SAVE/);
+  assert.deepEqual(workers, ['primary', 'alternative']);
+});
+
+test('invalid plan routing retains the saved assignment and is not repeated for the same context', async (t) => {
+  const f = await fixture(t); let plannedRoutes = 0;
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: script({ route(prompt) {
+    if (!prompt.state.planContext) return answers(prompt, 'keep');
+    plannedRoutes++; return { answers: { worker: { choice: 'candidate_1', order: ['candidate_1', 'candidate_1'] } } };
+  } }) });
+  const run = await finish(engine, f.input); const record = engine.runs.get(run.id);
+  assert.equal(run.roles.worker.model, 'primary'); assert.equal(plannedRoutes, 1);
+  await engine.selectModels(record, { plan: implementationPlan, feedback: '' });
+  assert.equal(plannedRoutes, 1); assert.ok(run.events.some((event) => event.title.startsWith('기본 배정 유지')));
+});
+
+test('routing reads current reported quota and passes immutable browser checks unchanged', async (t) => {
+  const f = await fixture(t), routes = [];
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: script({ route(prompt) { routes.push(prompt); return answers(prompt, 'keep'); } }) });
+  const run = await finish(engine, f.input), record = engine.runs.get(run.id);
+  record.run.roles.worker.remainingPercent = 99;
+  record.run.modelBudgets[JSON.stringify(['api', 'fixture', 'primary', 'default'])] = { remainingPercent: 22, remainingTokens: 1234 };
+  record.run.qaPlan = { entry: 'index.html', checks: [{ id: 'save', steps: [{ action: 'reload' }, { action: 'count', selector: '.item', value: 1 }] }] };
+  await engine.selectModels(record, { plan: implementationPlan, feedback: 'Check current QA contract' });
+  const state = routes.at(-1).state;
+  assert.equal(state.candidates.worker[0].remainingPercent, 22); assert.equal(state.candidates.worker[0].remainingTokens, 1234);
+  assert.deepEqual(state.planContext.browserQa, record.run.qaPlan);
+});
+
+test('quota fallback retains automatic mode and is not duplicated in later plan routing', async (t) => {
+  const f = await fixture(t), routes = [];
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: script({ route(prompt) { routes.push(prompt); return answers(prompt, 'keep'); },
+    worker(selection) {
+      if (selection.model === 'primary') throw Object.assign(new Error('HTTP 429 quota exhausted'), { status: 429 });
+      return { operations: [{ type: 'write', path: 'file.txt', content: 'recovered' }], done: true, summary: 'Recovered' };
+    },
+  }) });
+  const run = await finish(engine, f.input); assert.equal(run.roles.worker.automatic, true); assert.equal(run.roles.worker.model, 'alternative');
+  await engine.selectModels(engine.runs.get(run.id), { plan: `${implementationPlan} New part`, feedback: '' });
+  assert.equal(routes.length, 2, 'A single available model needs no extra judgement');
+});

@@ -1129,11 +1129,174 @@ test('automatic verification bounds repeated malformed plans without wasting eig
     if (startsWithText(prompt, '검증 방법을')) { verificationResponses++; return JSON.stringify({ reason: 'command omitted' }); }
     return script(selection, prompt, ...rest);
   } });
-  const run = await settled(engine, (await engine.create({ ...f.input, workspace: undefined, verifyCommand: undefined })).id);
-  assert.equal(run.status, 'failed'); assert.match(run.summary, /검증 명령 또는 선택 근거/);
+  const run = await settled(engine, (await engine.create({ ...f.input, workspace: undefined, verifyCommand: undefined, rounds: 1 })).id);
+  assert.equal(run.status, 'limit'); assert.match(run.summary, /검증 명령 또는 선택 근거/);
   assert.equal(verificationResponses, 3);
   assert.equal(run.events.filter((event) => event.title.startsWith('검증 응답 재요청')).length, 3);
   assert.equal(run.applied, undefined);
+});
+
+test('rejected verification plans return their evidence gaps to the worker and run real assertions before applying', { skip: process.platform !== 'darwin' }, async (t) => {
+  const f = await fixture(t);
+  let workerCalls = 0, plannerCalls = 0, commandReviews = 0, finalReviews = 0, verifications = 0;
+  const testSource = `import test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { readFileSync } from 'node:fs';\ntest('recovered output', () => assert.equal(readFileSync(new URL('../file.txt', import.meta.url), 'utf8'), 'updated\\n'));\n`;
+  const engine = new HarnessEngine({ directory: f.data, verify: async (...args) => {
+    assert.equal(commandReviews, 4); assert.equal(workerCalls, 2);
+    assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'original\n');
+    verifications++; return verifyWorkspace(...args);
+  }, invoke: async (_selection, prompt) => {
+    if (hasText(prompt, '구현 계획과 검증 기준')) return 'Update file.txt and verify its exact contents offline.';
+    if (startsWithText(prompt, '검증 방법을')) {
+      plannerCalls++;
+      return JSON.stringify({ verifyCommand: 'node --test tests/output.test.mjs', reason: 'Run an exact output assertion.' });
+    }
+    if (isJudgementPrompt(prompt)) {
+      if (prompt.questions.command) {
+        commandReviews++;
+        return judgementResponse(prompt, String(prompt.state.inspectedFiles).includes("test('recovered output'") ? 'complete' : 'revise',
+          'Add tests/output.test.mjs to assert the exact contents of file.txt; a test file is missing.');
+      }
+      finalReviews++; assert.equal(prompt.state.verification.code, 0);
+      return judgementResponse(prompt);
+    }
+    workerCalls++;
+    if (workerCalls === 2) {
+      assert.match(prompt, /판정 피드백: 자동 검증 준비/);
+      assert.match(prompt, /Add tests\/output.test.mjs/);
+      assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'original\n');
+    }
+    return JSON.stringify({ operations: workerCalls === 1
+      ? [{ type: 'write', path: 'file.txt', content: 'updated\n' }]
+      : [{ type: 'write', path: 'tests/output.test.mjs', content: testSource }], done: true, summary: 'Updated output and its verification evidence.' });
+  } });
+  const run = await settled(engine, (await engine.create({ ...f.input, verifyCommand: undefined })).id);
+  assert.equal(run.status, 'completed', run.summary); assert.equal(run.round, 2);
+  assert.equal(plannerCalls, 4); assert.equal(verifications, 1); assert.equal(finalReviews, 1);
+  assert.equal(run.verificationPassed, true); assert.equal(run.applied, true);
+  assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'updated\n');
+  assert.equal(await readFile(join(f.source, 'tests/output.test.mjs'), 'utf8'), testSource);
+  const titles = run.events.map((event) => event.title);
+  assert.equal(titles.filter((title) => title.startsWith('검증 준비 복구')).length, 1);
+  assert.ok(titles.findIndex((title) => title.startsWith('검증 준비 복구')) < titles.findIndex((title) => title === '검증 / Verification'));
+});
+
+test('missing verification commands recover in the next implementation round within the configured limit', async (t) => {
+  const f = await fixture(t), script = modelScript(complete);
+  let verificationPlans = 0, verifications = 0, sawFeedback = false;
+  const engine = new HarnessEngine({ directory: f.data, verify: async () => { verifications++; return pass(); }, invoke: async (selection, prompt, ...rest) => {
+    if (startsWithText(prompt, '검증 방법을')) {
+      verificationPlans++;
+      return JSON.stringify(verificationPlans <= 3 ? { reason: 'command omitted' }
+        : { verifyCommand: 'test -f file.txt', reason: 'Check the updated file.' });
+    }
+    if (hasText(prompt, '회차 2/2') && hasText(prompt, '최근 도구 결과:')) sawFeedback ||= hasText(prompt, '검증 명령 또는 선택 근거');
+    return script(selection, prompt, ...rest);
+  } });
+  const run = await settled(engine, (await engine.create({ ...f.input, verifyCommand: undefined })).id);
+  assert.equal(run.status, 'completed', run.summary); assert.equal(run.round, 2);
+  assert.equal(verificationPlans, 4); assert.equal(verifications, 1); assert.equal(sawFeedback, true);
+  assert.equal(run.applied, true); assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'updated 2\n');
+});
+
+test('verification preparation recovery exhausts the round limit without executing or applying unchecked changes', async (t) => {
+  const f = await fixture(t), script = modelScript(complete);
+  let verificationPlans = 0;
+  const engine = new HarnessEngine({ directory: f.data, verify: () => assert.fail('Unapproved commands must not execute'), invoke: async (selection, prompt, ...rest) => {
+    if (startsWithText(prompt, '검증 방법을')) { verificationPlans++; return JSON.stringify({ reason: 'command omitted' }); }
+    return script(selection, prompt, ...rest);
+  } });
+  const run = await settled(engine, (await engine.create({ ...f.input, verifyCommand: undefined })).id);
+  assert.equal(run.status, 'limit'); assert.equal(run.round, 2); assert.equal(verificationPlans, 6);
+  assert.equal(run.verificationPassed, false); assert.equal(run.verifyCommand, '');
+  assert.equal(run.applied, undefined); assert.equal(run.patchAvailable, true);
+  assert.match(run.summary, /검증은 실행되지 않았습니다/);
+  assert.equal(run.events.some((event) => event.title === '검증 / Verification' || event.title.startsWith('판정 결과')), false);
+  assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'original\n');
+});
+
+test('automatic rounds extend after verification preparation failures and complete when evidence becomes available', async (t) => {
+  const f = await fixture(t), script = modelScript(complete);
+  let verificationPlans = 0, verifications = 0;
+  const engine = new HarnessEngine({ directory: f.data, verify: async () => { verifications++; return pass(); }, invoke: async (selection, prompt, ...rest) => {
+    if (startsWithText(prompt, '검증 방법을')) {
+      verificationPlans++;
+      return JSON.stringify(verificationPlans <= 12 ? { reason: 'command omitted' }
+        : { verifyCommand: 'test -f file.txt', reason: 'Check the updated file.' });
+    }
+    return script(selection, prompt, ...rest);
+  } });
+  const run = await settled(engine, (await engine.create({ ...f.input, verifyCommand: undefined, rounds: 0 })).id);
+  assert.equal(run.status, 'completed', run.summary); assert.equal(run.round, 5); assert.equal(run.rounds, 6);
+  assert.equal(verificationPlans, 13); assert.equal(verifications, 1); assert.equal(run.applied, true);
+  assert.equal(run.events.filter((event) => event.title.startsWith('자동 회차 연장')).length, 1);
+});
+
+test('stop during verification preparation recovery prevents the next round from verifying or applying', async (t) => {
+  const f = await fixture(t), script = modelScript(complete);
+  let reachedRecovery;
+  const recovering = new Promise((resolve) => { reachedRecovery = resolve; });
+  const engine = new HarnessEngine({ directory: f.data, verify: () => assert.fail('Stopped recovery must not verify'), invoke: async (selection, prompt, instructions, signal, ...rest) => {
+    if (startsWithText(prompt, '검증 방법을')) return JSON.stringify({ reason: 'command omitted' });
+    if (hasText(prompt, '회차 2/2') && hasText(prompt, '최근 도구 결과:')) {
+      reachedRecovery();
+      return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+    }
+    return script(selection, prompt, instructions, signal, ...rest);
+  } });
+  const created = await engine.create({ ...f.input, verifyCommand: undefined });
+  await recovering; await engine.stop(created.id);
+  const run = await settled(engine, created.id);
+  assert.equal(run.status, 'stopped'); assert.equal(run.applied, undefined); assert.equal(run.verificationPassed, false);
+  assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'original\n');
+});
+
+test('authentication errors during verification planning do not enter implementation recovery', async (t) => {
+  const f = await fixture(t), script = modelScript(complete);
+  let verificationPlans = 0;
+  const engine = new HarnessEngine({ directory: f.data, verify: () => assert.fail('Authentication errors must not verify'), invoke: async (selection, prompt, ...rest) => {
+    if (startsWithText(prompt, '검증 방법을')) { verificationPlans++; throw Object.assign(new Error('planner authentication failed'), { remoteStatus: 401 }); }
+    return script(selection, prompt, ...rest);
+  } });
+  const run = await settled(engine, (await engine.create({ ...f.input, verifyCommand: undefined })).id);
+  assert.equal(run.status, 'failed'); assert.equal(run.round, 1); assert.equal(verificationPlans, 1);
+  assert.match(run.summary, /planner authentication failed/);
+  assert.equal(run.events.some((event) => event.title.startsWith('검증 준비 복구')), false);
+  assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'original\n');
+});
+
+test('verification preparation recovery clears a previously passing command and result before reaching the round limit', async (t) => {
+  const f = await fixture(t), script = modelScript(complete);
+  let verificationPlans = 0, verifications = 0;
+  const engine = new HarnessEngine({ directory: f.data, verify: async () => { verifications++; return pass(); }, invoke: async (selection, prompt, ...rest) => {
+    if (startsWithText(prompt, '검증 방법을')) {
+      verificationPlans++;
+      return JSON.stringify(verificationPlans === 1 ? { verifyCommand: 'test -f file.txt', reason: 'Check the updated file.' } : { reason: 'command omitted' });
+    }
+    if (isJudgementPrompt(prompt) && prompt.questions.verification) return judgementResponse(prompt, 'revise', 'The passing command lacks the required behavior assertions.');
+    return script(selection, prompt, ...rest);
+  } });
+  const run = await settled(engine, (await engine.create({ ...f.input, verifyCommand: undefined })).id);
+  assert.equal(run.status, 'limit'); assert.equal(run.round, 2); assert.equal(verifications, 1); assert.equal(verificationPlans, 4);
+  assert.equal(run.verifyCommand, ''); assert.equal(run.verificationPassed, false); assert.equal(run.applied, undefined);
+  assert.match(run.summary, /검증은 실행되지 않았습니다/);
+  assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'original\n');
+});
+
+test('stagnation replanning handles unexecuted verification while recovering missing plans', async (t) => {
+  const f = await fixture(t);
+  let workerRounds = 0, replans = 0;
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (_selection, prompt) => {
+    if (isJudgementPrompt(prompt)) return judgementResponse(prompt);
+    if (startsWithText(prompt, 'Loop가')) { replans++; assert.match(prompt, /검증 준비 실패로 실행되지 않음/); return 'Add the missing verification evidence.'; }
+    if (hasText(prompt, '구현 계획과 검증 기준')) return 'Update and test the file.';
+    if (startsWithText(prompt, '검증 방법을')) return JSON.stringify(workerRounds < 4 ? { reason: 'command omitted' }
+      : { verifyCommand: 'test -f file.txt', reason: 'Check the updated file.' });
+    workerRounds++;
+    return JSON.stringify({ operations: [{ type: 'write', path: 'file.txt', content: 'updated\n' }], done: true, summary: 'Updated the same file.' });
+  } });
+  const run = await settled(engine, (await engine.create({ ...f.input, verifyCommand: undefined, rounds: 4 })).id);
+  assert.equal(run.status, 'completed', run.summary); assert.equal(run.round, 4); assert.equal(replans, 1);
+  assert.equal(run.applied, true);
 });
 
 test('failed edit feedback includes current file contents so the worker can rebase its edit', async (t) => {

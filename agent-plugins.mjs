@@ -1,4 +1,4 @@
-import { readFile, realpath } from 'node:fs/promises';
+import { readFile, readdir, realpath } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join, resolve, sep } from 'node:path';
 import { createHash } from 'node:crypto';
@@ -69,14 +69,37 @@ export class AgentPlugins {
       for (const instance of Array.isArray(instances) ? instances : []) {
         if (instance.scope === 'project' && instance.projectPath !== cwd) continue;
         if (typeof instance.installPath !== 'string') continue;
-        const root = instance.installPath;
+        const root = await realpath(instance.installPath).catch(() => null);
+        if (!root) continue;
         const manifest = await jsonFile(join(root, '.claude-plugin/plugin.json'));
         const mcp = await jsonFile(join(root, '.mcp.json'));
         const env = { ...this.env, CLAUDE_PLUGIN_ROOT: root, CLAUDE_PROJECT_DIR: cwd || this.home };
-        for (const [name, config] of Object.entries(mcp.mcpServers || mcp)) definitions[`${id}:${name}`] = { ...config, pluginEnv: env };
-        for (const path of Array.isArray(manifest.skills) ? manifest.skills : typeof manifest.skills === 'string' ? [manifest.skills] : []) {
-          const skillPath = resolve(root, path, path.endsWith('.md') ? '' : 'SKILL.md');
-          if (skillPath.startsWith(root + sep)) skills.push({ name: `${id}:${path}`, path: skillPath });
+        const components = [mcp];
+        for (const item of Array.isArray(manifest.mcpServers) ? manifest.mcpServers : manifest.mcpServers ? [manifest.mcpServers] : []) {
+          if (object(item)) components.push(item);
+          else if (typeof item === 'string') {
+            const path = await realpath(resolve(root, item)).catch(() => null);
+            if (path?.startsWith(root + sep) && path.endsWith('.json')) components.push(await jsonFile(path));
+          }
+        }
+        for (const component of components) for (const [name, config] of Object.entries(component.mcpServers || component)) {
+          if (object(config)) definitions[`${id}:${name}`] = { ...config, pluginEnv: env };
+        }
+        // Claude scans the default skills directory as well as manifest-declared directories.
+        const directories = ['skills', ...(Array.isArray(manifest.skills) ? manifest.skills : typeof manifest.skills === 'string' ? [manifest.skills] : [])];
+        const seenSkills = new Set();
+        for (const declared of directories.slice(0, 24)) {
+          if (typeof declared !== 'string') continue;
+          const directory = await realpath(resolve(root, declared)).catch(() => null);
+          if (!directory || !(directory === root || directory.startsWith(root + sep))) continue;
+          const entries = await readdir(directory, { withFileTypes: true }).catch(() => []);
+          const candidates = [join(directory, 'SKILL.md'), ...entries.filter((entry) => entry.isDirectory()).slice(0, 100).map((entry) => join(directory, entry.name, 'SKILL.md'))];
+          for (const candidate of candidates) {
+            const path = await realpath(candidate).catch(() => null);
+            if (!path?.startsWith(root + sep) || seenSkills.has(path)) continue;
+            seenSkills.add(path);
+            skills.push({ name: `${id}:${path.slice(root.length + 1).replace(/\/SKILL\.md$/, '')}`, path });
+          }
         }
       }
     }

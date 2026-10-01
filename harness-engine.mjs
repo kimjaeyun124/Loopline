@@ -170,14 +170,16 @@ function formatWorkerHistory(history) {
   for (const entry of [...history.errors].reverse()) {
     append(`도구 오류: (단계 ${entry.step}) ${entry.detail}`);
   }
+  // Keep inventory and progress visible even when large source files consume
+  // the remaining context budget; a missing planned file must not be obscured.
+  if (history.listings.size) append(`현재 디렉터리 목록:\n${JSON.stringify([...history.listings.entries()].reverse())}`);
+  if (history.operations.length) append(`최근 작업 기록:\n[${history.operations.join(',')}]`);
   const files = [...history.files.entries()].reverse();
   const failedFiles = files.filter(([path]) => history.errors.some((entry) => entry.paths.includes(path)));
   const currentFiles = files.filter(([path]) => !history.errors.some((entry) => entry.paths.includes(path)))
     .map(([path, file]) => ({ path, step: file.step, content: file.content }));
   for (const [path, file] of failedFiles) append(`최신 파일 내용입니다. ${path}\n${file.content}`, 'file');
   if (currentFiles.length) append(`현재 파일 상태:\n${JSON.stringify(currentFiles)}`, 'file');
-  if (history.listings.size) append(`현재 디렉터리 목록:\n${JSON.stringify([...history.listings.entries()].reverse())}`);
-  if (history.operations.length) append(`최근 작업 기록:\n[${history.operations.join(',')}]`);
   return sections.join('\n');
 }
 
@@ -1519,10 +1521,12 @@ export class HarnessEngine {
       await this.selectModels(record, { plan: state.plan, milestone: activeMilestone, feedback });
       aborted(signal); run.stage = 'working';
     }
-    const history = createWorkerHistory(); let lastReadAction = '', repeatedReads = 0, repeatedReadFeedbackSent = false;
+    const history = createWorkerHistory(), seenReadOperations = new Set();
+    let repeatedReads = 0, repeatedReadFeedbackSent = false;
     let lastMalformedFingerprint = '', repeatedMalformedResponses = 0;
     const repeatedEditFailures = new Map();
     const triedEditRecoveryModels = new Set([selectionKey(run.roles.worker)]);
+    const triedReadRecoveryModels = new Set([selectionKey(run.roles.worker)]);
     const visualDesignGuidance = isVisualInterfaceTask(run.task, state.files)
       ? '\n웹 UI 작업 기준: 계획의 디자인 브리프를 실제 화면에 반영하세요. 색상·타입·간격을 일관된 디자인 토큰으로 구성하고, 모바일/데스크톱 레이아웃과 키보드 포커스·입력/빈 상태를 구현하세요. 기본 템플릿이나 임시 텍스트 장식에 기대지 말고 명확한 시각 위계를 만드세요.'
       : '';
@@ -1530,10 +1534,11 @@ export class HarnessEngine {
     for (let step = 0; !finished && step < 16; step++) {
       const protocol = '기본 CLI 도구 대신 Harness의 JSON 작업 도구만 사용하세요. 마크다운 없이 JSON 객체 하나만 반환하세요. 파일 경로는 작업 공간 기준 상대 경로입니다. 허용 형식: {"operations":[{"type":"list","path":"."},{"type":"read","path":"src/file.js"},{"type":"write","path":"new.txt","content":"full text"},{"type":"edit","path":"src/file.js","oldText":"unique exact text","newText":"replacement"},{"type":"delete","path":"old.txt"}]} 또는 모든 변경을 마친 뒤 {"done":true,"summary":"실제 변경 요약"}. 마지막 파일 작업과 완료 요약은 {"operations":[...],"done":true,"summary":"실제 변경 요약"}처럼 한 번에 반환해 추가 호출을 줄일 수 있습니다. 작업 도구가 성공한 경우에만 완료 처리됩니다. 먼저 필요한 파일을 읽고 수정하세요. 서로 독립적인 파일 작업은 operations 배열에 묶어 호출 횟수를 줄이세요. 새 프로젝트라면 오프라인 검증 가능한 테스트도 작성하세요. 검증 명령은 판정 모델이 정하고 Harness가 실행합니다. 편집 도구가 치환할 내용을 찾지 못하면 오류에 포함된 최신 파일 내용을 읽고, 그 내용에 실제로 존재하는 고유 구간으로 다시 편집하세요. 실패한 oldText를 그대로 반복하지 마세요. .git, node_modules, 심볼릭 링크에 접근하지 마세요. JSON에 추론 전문을 포함하지 마세요.';
       const batchGuidance = '\n긴 코드 응답 하나로 프로젝트 전체를 생성하지 마세요. 한 응답은 약 12,000자 이내, 파일 변경 2~3개를 목표로 나누세요. 큰 기존 파일은 읽은 최신 내용의 고유 구간을 edit로 수정하세요. 남은 파일이 있으면 done을 반환하지 말고 다음 단계에서 이어서 작업하세요. 전체 완료 조건을 낮추거나 필요한 파일과 테스트를 생략하지 마세요.';
+      const completionGuidance = '\n아직 없는 담당 파일은 read를 반복하지 말고 write로 생성하세요. done은 담당 파일·테스트·문서 작성을 마쳤다는 뜻이며 검증 통과나 전체 작업 완료의 주장이 아닙니다. 테스트 명령과 실제 브라우저 QA는 done 이후 Harness가 실행합니다. 직접 실행할 수 없는 검증을 기다리며 같은 파일을 반복해서 읽지 말고, 파일 작업을 마쳤으면 done과 실제 변경 요약을 반환하세요.';
       const inventory = step === 0 ? `\n파일 목록:\n${files}` : '';
       let answer;
       try {
-        answer = await this.call(record, 'worker', `${protocol}${batchGuidance}${visualDesignGuidance}${activeMilestone ? `\n이번 회차는 아래 부분 작업만 구현합니다. done은 이 부분 작업 완료를 뜻합니다. 다른 부분 작업 담당 파일은 읽을 수 있지만 수정하지 마세요. 전체 목표와 의존 작업 결과를 지키세요:\n${JSON.stringify(activeMilestone)}` : ''}${run.qaPlan ? `\n변경할 수 없는 독립 브라우저 QA 계약입니다. entry와 selector 및 동작을 실제 구현하세요. 이 계약을 변경하거나 생략하지 마세요:\n${JSON.stringify(run.qaPlan)}` : ''}\n목표: ${run.task}\n계획: ${state.plan}\n회차 ${round}/${run.rounds} · 단계 ${step + 1}/16\n이전 작업: ${previousSummary}\n판정 피드백: ${feedback}${inventory}\n아래 기록은 이번 회차의 최신 작업 상태입니다. 같은 파일의 과거 내용은 최신 상태로 교체되어 있습니다. 내용이 생략된 파일이 필요하면 read로 다시 확인하세요. 필요한 수정이 끝났으면 done과 실제 변경 요약을 반환하세요.\n최근 도구 결과:\n${formatWorkerHistory(history)}\n\n앞선 단계를 다시 하지 말고 다음 작업을 반환하세요.`);
+        answer = await this.call(record, 'worker', `${protocol}${batchGuidance}${completionGuidance}${visualDesignGuidance}${activeMilestone ? `\n이번 회차는 아래 부분 작업만 구현합니다. done은 이 부분 작업 완료를 뜻합니다. 다른 부분 작업 담당 파일은 읽을 수 있지만 수정하지 마세요. 전체 목표와 의존 작업 결과를 지키세요:\n${JSON.stringify(activeMilestone)}` : ''}${run.qaPlan ? `\n변경할 수 없는 독립 브라우저 QA 계약입니다. entry와 selector 및 동작을 실제 구현하세요. 이 계약을 변경하거나 생략하지 마세요:\n${JSON.stringify(run.qaPlan)}` : ''}\n목표: ${run.task}\n계획: ${state.plan}\n회차 ${round}/${run.rounds} · 단계 ${step + 1}/16\n이전 작업: ${previousSummary}\n판정 피드백: ${feedback}${inventory}\n아래 기록은 이번 회차의 최신 작업 상태입니다. 같은 파일의 과거 내용은 최신 상태로 교체되어 있습니다. 내용이 생략된 파일이 필요하면 read로 다시 확인하세요. 필요한 수정이 끝났으면 done과 실제 변경 요약을 반환하세요.\n최근 도구 결과:\n${formatWorkerHistory(history)}\n\n앞선 단계를 다시 하지 말고 다음 작업을 반환하세요.`);
       } catch (error) {
         aborted(signal);
         if (run.mcpSideEffectPossible || error.mcpDispatched || quotaExhausted(error) || !(error.transientModelFailure || recoverableModelFailure(error))) throw error;
@@ -1547,6 +1552,7 @@ export class HarnessEngine {
         continue;
       }
       triedEditRecoveryModels.add(selectionKey(run.roles.worker));
+      triedReadRecoveryModels.add(selectionKey(run.roles.worker));
       let action;
       try {
         action = parseHarnessJson(answer);
@@ -1564,15 +1570,29 @@ export class HarnessEngine {
       if (completion && (!Object.hasOwn(action, 'operations') || (Array.isArray(action.operations) && action.operations.length === 0))) {
         previousSummary = action.summary.slice(0, 8000); finished = true; break;
       }
-      const readAction = Array.isArray(action.operations) && action.operations.every((op) => ['read', 'list'].includes(op?.type)) ? JSON.stringify(action.operations) : '';
-      const repeatedRead = readAction && readAction === lastReadAction;
+      const readAction = Array.isArray(action.operations) && action.operations.length && action.operations.every((op) => ['read', 'list'].includes(op?.type));
+      const readKeys = readAction ? action.operations.map((op) => JSON.stringify([op.type, op.path || '.'])) : [];
+      const repeatedRead = readAction && readKeys.every((key) => seenReadOperations.has(key));
       repeatedReads = repeatedRead ? repeatedReads + 1 : 0;
       if (!repeatedRead) repeatedReadFeedbackSent = false;
-      lastReadAction = readAction;
+      if (!readAction) seenReadOperations.clear();
+      for (const key of readKeys) seenReadOperations.add(key);
       if (repeatedReads >= 2 && !completion) {
-        if (repeatedReadFeedbackSent) throw fail('모델이 같은 읽기 작업을 반복한 뒤 안내를 따르지 않아 실행을 멈췄습니다.');
+        if (repeatedReadFeedbackSent) {
+          const nextWorker = !run.mcpSideEffectPossible && (run.modelPriority.worker || []).find((selection) => {
+            const key = selectionKey(selection);
+            return !triedReadRecoveryModels.has(key) && !knownExhausted(run.modelBudgets[key] || {}, selection);
+          });
+          if (!nextWorker) throw fail('모델이 같은 읽기 작업을 반복한 뒤 안내를 따르지 않아 실행을 멈췄습니다.');
+          run.roles.worker = { ...nextWorker };
+          triedReadRecoveryModels.add(selectionKey(nextWorker));
+          run.stageModels.worker = { ...modelDetails('worker', nextWorker), reasoningEffort: nextWorker.reasoningEffort || '' };
+          seenReadOperations.clear(); repeatedReads = 0; repeatedReadFeedbackSent = false;
+          await this.event(record, '읽기 정체 · 대체 모델 전환 / Repeated read fallback', '같은 파일·목록만 다시 요청해 저장된 다음 구현 모델로 전환했습니다. 성공한 파일 작업과 기존 완료 기준을 유지하며 미작성 파일 또는 필요한 수정부터 이어갑니다.', 'completed', modelDetails('worker', nextWorker));
+          continue;
+        }
         repeatedReadFeedbackSent = true;
-        const detail = '같은 파일 읽기가 이미 성공했습니다. 현재 내용은 최근 도구 결과에 있습니다. 다시 읽지 말고 그 내용을 기준으로 필요한 edit/write를 하거나, 수정이 끝났으면 done으로 완료하세요.';
+        const detail = '같은 파일 또는 목록의 읽기 요청이 반복되고 있습니다. 최신 내용과 도구 오류는 최근 도구 결과에 있습니다. 요청 순서나 묶음을 바꿔 다시 읽지 말고 미작성 파일은 write로 생성하고 필요한 수정은 edit/write로 진행하세요. 파일 작업이 끝났으면 done으로 완료하세요. 실제 검증은 그 뒤 Harness가 실행합니다.';
         const paths = [...new Set(action.operations.map((operation) => typeof operation.path === 'string' ? operation.path : '.'))];
         history.errors.push({ step: step + 1, paths, detail });
         history.errors = history.errors.slice(-3);
@@ -1590,6 +1610,7 @@ export class HarnessEngine {
         if (completion) { previousSummary = action.summary.slice(0, 8000); finished = true; break; }
       } catch (error) {
         let toolFeedback = error.message;
+        if (error.code === 'ENOENT' && Array.isArray(action.operations) && action.operations.some((operation) => operation?.type === 'read')) toolFeedback += '\n요청한 파일이 아직 없습니다. 새 담당 파일은 읽기가 선행될 필요가 없으므로 write로 생성하세요. 다른 기존 파일을 다시 읽거나 같은 없는 파일을 반복 조회하지 마세요.';
         const editOperations = Array.isArray(action.operations) ? action.operations.filter((op) => op?.type === 'edit' && typeof op.path === 'string') : [];
         const failedEdit = editOperations.find((op) => error.message.includes(`: ${op.path}`)) || editOperations.at(-1);
         if (failedEdit) {

@@ -57,15 +57,16 @@ export function applyBrowserPlanPatch(plan, patch, replaceableCheckIds = []) {
   const base = validateBrowserPlan(plan);
   const invalid = (reason) => { throw Object.assign(new Error(`독립 QA 보완 오류: ${reason}`), { invalidStructuredOutput: true }); };
   if (!patch || typeof patch !== 'object' || Array.isArray(patch)) invalid('JSON 보완 객체가 필요합니다.');
-  const fields = new Set(['addChecks', 'replaceChecks', 'notApplicable']);
-  if (Object.keys(patch).some((field) => !fields.has(field))) invalid('전체 계획을 다시 작성하지 마세요. addChecks, replaceChecks, notApplicable만 반환하세요. entry와 기존 검사 순서는 유지합니다.');
+  const fields = new Set(['addChecks', 'replaceChecks', 'extendChecks', 'notApplicable']);
+  if (Object.keys(patch).some((field) => !fields.has(field))) invalid('전체 계획을 다시 작성하지 마세요. addChecks, replaceChecks, extendChecks, notApplicable만 반환하세요. entry와 기존 검사 순서는 유지합니다.');
   const additions = patch.addChecks === undefined ? [] : patch.addChecks;
   const replacements = patch.replaceChecks === undefined ? [] : patch.replaceChecks;
-  if (!Array.isArray(additions) || !Array.isArray(replacements)) invalid('addChecks와 replaceChecks는 배열이어야 합니다.');
-  if (additions.length + replacements.length > 16) invalid('한 번에 보완할 검사는 최대 16개입니다.');
+  const extensions = patch.extendChecks === undefined ? [] : patch.extendChecks;
+  if (!Array.isArray(additions) || !Array.isArray(replacements) || !Array.isArray(extensions)) invalid('addChecks, replaceChecks, extendChecks는 배열이어야 합니다.');
+  if (additions.length + replacements.length + extensions.length > 16) invalid('한 번에 보완할 검사는 최대 16개입니다.');
   const existing = new Map(base.checks.map((check) => [check.id, check]));
   const replaceable = new Set(replaceableCheckIds), changed = new Set(), replacementMap = new Map();
-  for (const check of [...replacements, ...additions]) {
+  for (const check of [...replacements, ...additions, ...extensions]) {
     if (!check || typeof check.id !== 'string' || changed.has(check.id)) invalid('추가·교체 검사 ID가 누락되거나 중복됐습니다.');
     changed.add(check.id);
   }
@@ -76,6 +77,15 @@ export function applyBrowserPlanPatch(plan, patch, replaceableCheckIds = []) {
     replacementMap.set(check.id, check);
   }
   for (const check of additions) if (existing.has(check.id)) invalid(`${check.id}: 기존 ID를 새 검사로 추가할 수 없습니다.`);
+  for (const extension of extensions) {
+    const previous = existing.get(extension.id);
+    if (!previous || Object.keys(extension).some((field) => !['id', 'steps'].includes(field))
+      || !Array.isArray(extension.steps) || extension.steps.length < 1 || extension.steps.length > 24) invalid(`${String(extension.id).slice(0, 64)}: extendChecks는 기존 ID와 끝에 추가할 steps만 포함해야 합니다.`);
+    if (!['visible', 'hidden', 'text', 'value', 'count', 'focused', 'focus-visible'].includes(extension.steps.at(-1)?.action)) invalid(`${extension.id}: 추가 단계는 실제 assertion으로 끝나야 합니다.`);
+    // Appending cannot hide an earlier failing assertion: the executor still
+    // performs every retained step before these additional observations.
+    replacementMap.set(extension.id, { ...previous, steps: [...previous.steps, ...extension.steps] });
+  }
   if (patch.notApplicable !== undefined && (!patch.notApplicable || typeof patch.notApplicable !== 'object' || Array.isArray(patch.notApplicable)
     || Object.keys(patch.notApplicable).some((category) => !QA_CATEGORIES.includes(category)))) invalid('notApplicable은 허용 분류에 대한 근거 객체여야 합니다.');
   for (const [category, reason] of Object.entries(patch.notApplicable || {})) {
@@ -83,7 +93,8 @@ export function applyBrowserPlanPatch(plan, patch, replaceableCheckIds = []) {
     if (typeof reason !== 'string' || reason.trim().length < 12 || reason.length > 500) invalid(`${category}: 해당 없음의 구체적인 근거가 필요합니다.`);
   }
   // Keep every earlier case, position and accepted selector. Only an explicit
-  // failed-check verdict grants replacement; a missing feature grants addition.
+  // failed-check verdict grants replacement; missing coverage permits new cases
+  // or observations appended after all retained assertions.
   const merged = validateBrowserPlan({ ...base,
     checks: [...base.checks.map((check) => replacementMap.get(check.id) || check), ...additions],
     ...(patch.notApplicable && Object.keys(patch.notApplicable).length ? { notApplicable: { ...(base.notApplicable || {}), ...patch.notApplicable } } : {}),

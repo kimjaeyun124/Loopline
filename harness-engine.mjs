@@ -1311,24 +1311,52 @@ export class HarnessEngine {
     await this.event(record, '부분 작업 기준 확정 / Milestones fixed', run.milestones.map((task, i) => `${i + 1}. ${task.title} · 의존 ${task.dependsOn.join(', ') || '없음'} · ${task.verifyCommand}`).join('\n'));
   }
 
-  async reviewMilestone(record, task, previousSummary) {
+  async reviewMilestone(record, task, previousSummary, implementationPlan = '') {
     const { run, controller } = record;
     run.stage = 'milestone-qa'; task.attempts++;
     await git(run.workspace, ['add', '-A'], controller.signal);
     const inventory = (await git(run.workspace, ['ls-files', '--cached', '--others', '--exclude-standard'], controller.signal)).split('\n').filter(Boolean);
     const changed = (await git(run.workspace, ['diff', '--cached', '--name-only', '-z', run.baseline], controller.signal)).split('\0').filter(Boolean);
     const owned = [...new Set([...inventory, ...changed])].filter((path) => matchesMilestone(path, task));
+    const invalidated = await refreshMilestones(run.milestones, run.workspace, [...new Set([...inventory, ...changed])]);
+    if (invalidated.length) await this.event(record, '부분 완료 재검증 / Revalidate milestones', `관련 파일 또는 의존 작업 변경: ${invalidated.join(', ')}. 마지막 부분 작업의 전체 QA 전에 선행 근거를 다시 확인합니다.`);
     const diff = owned.length ? await git(run.workspace, ['diff', '--cached', '--no-ext-diff', run.baseline, '--', ...owned], controller.signal) : '';
     const verification = await this.verify(run.workspace, task.verifyCommand, run.runtime, controller.signal);
+    // The final web milestone may itself require integration/browser evidence.
+    // Obtain that evidence before judging it; waiting for its approval first
+    // would prevent the required checks from ever running.
+    const integrationRequired = run.qaRequired && run.milestones.every((other) => other.id === task.id || other.status === 'completed');
+    let integrationVerification = null, independentBrowserQa = null;
+    if (integrationRequired && verification.code === 0) {
+      try {
+        if (run.automaticVerification && !run.verifyCommand) await this.configureVerification(record, implementationPlan, previousSummary);
+      } catch (error) {
+        aborted(controller.signal);
+        if (!error.verificationPreparationFailed) throw error;
+        const feedback = `${task.title}: 전체 검증 준비에 필요한 근거를 보완하세요. ${error.message}`;
+        await this.event(record, '부분 작업 수정 / Milestone failed', feedback, 'failed');
+        return { passed: false, feedback, verification, diff };
+      }
+      const event = await this.event(record, '부분 작업 통합 검증 / Milestone integration verification', run.verifyCommand, 'running');
+      integrationVerification = await this.verify(run.workspace, run.verifyCommand, run.runtime, controller.signal);
+      aborted(controller.signal);
+      event.status = integrationVerification.code === 0 ? 'completed' : 'failed';
+      event.detail = `${run.verifyCommand}\n종료 코드: ${integrationVerification.code}\n${integrationVerification.output}\n${integrationVerification.error}`.slice(-12_000);
+      if (integrationVerification.code === 0) independentBrowserQa = await this.runBrowserQa(record, run.round, '부분 작업 브라우저 QA / Milestone browser QA');
+      run.stage = 'milestone-qa';
+    }
     const actualFiles = [];
     for (const path of owned.slice(0, 8)) {
       try { actualFiles.push({ path, content: (await readFile(await workspacePath(run.workspace, path), 'utf8')).slice(0, 2500) }); }
       catch (error) { if (error.code !== 'ENOENT') throw error; }
     }
-    const verdict = await this.decide(record, { task: run.task, milestone: task, previousSummary, verification, diff: diff.slice(0, 60_000), diffTruncated: diff.length > 60_000, actualFiles }, {
+    const verdict = await this.decide(record, { task: run.task, milestone: task, previousSummary, verification,
+      ...(integrationRequired ? { integrationVerification, independentBrowserQa } : {}),
+      diff: diff.slice(0, 60_000), diffTruncated: diff.length > 60_000, actualFiles }, {
       milestone: { label: `${task.title} 완료`, question: 'Do the actual changed files and meaningful successful verification satisfy every immutable acceptance criterion of this partial task?', pass: 'All criteria are implemented and independently verified.', revise: 'Fix missing behavior or verification for this partial task without weakening its original criteria.' },
     });
-    const passed = verification.code === 0 && verdict.decision === 'complete' && diff.length <= 60_000;
+    const passed = verification.code === 0 && (!integrationRequired || (integrationVerification?.code === 0 && independentBrowserQa?.passed === true))
+      && verdict.decision === 'complete' && diff.length <= 60_000;
     if (passed) {
       task.status = 'completed';
       task.evidenceHistory ||= []; if (task.evidence) task.evidenceHistory.push(task.evidence);
@@ -1339,7 +1367,7 @@ export class HarnessEngine {
       const invalidated = await refreshMilestones(run.milestones, run.workspace, [...new Set([...inventory, ...changed])]);
       if (invalidated.length) await this.event(record, '부분 완료 재검증 / Revalidate milestones', `다른 작업의 완료 근거에 영향을 준 변경: ${invalidated.join(', ')}`);
     }
-    const feedback = passed ? '' : `${task.title}: ${verdict.feedback}\n검증 종료 코드 ${verification.code}: ${String(verification.output || verification.error || '').slice(-4000)}${diff.length > 60_000 ? '\n부분 작업 변경량이 60,000자를 넘어 전체 검토가 불가능합니다. 담당 파일의 불필요한 중복과 과도한 변경을 줄이세요.' : ''}`;
+    const feedback = passed ? '' : `${task.title}: ${verdict.feedback}\n검증 종료 코드 ${verification.code}: ${String(verification.output || verification.error || '').slice(-4000)}${integrationRequired && integrationVerification?.code !== 0 ? `\n전체 검증 실패: ${String(integrationVerification?.output || integrationVerification?.error || '전체 검증이 실행되지 않았습니다.').slice(-4000)}` : ''}${integrationRequired && independentBrowserQa?.passed !== true ? `\n독립 브라우저 QA 실패: ${(independentBrowserQa?.failures || ['실제 브라우저 QA가 완료되지 않았습니다.']).join('\n')}` : ''}${diff.length > 60_000 ? '\n부분 작업 변경량이 60,000자를 넘어 전체 검토가 불가능합니다. 담당 파일의 불필요한 중복과 과도한 변경을 줄이세요.' : ''}`;
     await this.event(record, passed ? '부분 작업 완료 / Milestone verified' : '부분 작업 수정 / Milestone failed', `${task.title} · ${task.verifyCommand}\n${passed ? verdict.summary : feedback}`, passed ? 'completed' : 'failed');
     return { passed, feedback, verification, diff };
   }
@@ -1481,7 +1509,7 @@ export class HarnessEngine {
       activeMilestone = nextMilestone(run.milestones);
       run.activeMilestone = activeMilestone?.id || null;
       if (activeMilestone?.status === 'needs-review') {
-        const review = await this.reviewMilestone(record, activeMilestone, previousSummary);
+        const review = await this.reviewMilestone(record, activeMilestone, previousSummary, state.plan);
         if (review.passed && nextMilestone(run.milestones)) return this.continueMilestones(record, state, round, previousSummary, '다음 미완료 부분 작업만 구현하세요. 완료된 파일은 필요한 경우에만 수정하세요.');
         if (review.passed) activeMilestone = null; else feedback += `\n${review.feedback}`;
       }
@@ -1604,7 +1632,7 @@ export class HarnessEngine {
     }
     await this.event(record, '회차 변경 요약 / Round summary', previousSummary);
     if (activeMilestone && !implementationIssue) {
-      const review = await this.reviewMilestone(record, activeMilestone, previousSummary);
+      const review = await this.reviewMilestone(record, activeMilestone, previousSummary, state.plan);
       if (!review.passed || nextMilestone(run.milestones)) return this.continueMilestones(record, state, round, previousSummary, review.feedback || '다음 미완료 부분 작업만 구현하세요. 완료 근거가 있는 작업을 처음부터 반복하지 마세요.');
     }
     if (activeMilestone && implementationIssue) return this.continueMilestones(record, state, round, previousSummary, feedback);
@@ -1636,19 +1664,7 @@ export class HarnessEngine {
       reselectVerification = run.automaticVerification && verificationCommandUnavailable(verification);
     }
     if (!implementationIssue && !preparationIssue && verification?.code === 0 && run.qaRequired) {
-      run.stage = 'browser-qa';
-      const event = await this.event(record, '독립 브라우저 QA / Independent browser QA', '실제 입력·저장·빈 상태·키보드·모바일 화면 검사', 'running');
-      let qa;
-      try {
-        if (!run.qaPlan || createHash('sha256').update(JSON.stringify(run.qaPlan)).digest('hex') !== run.qaPlanHash) throw fail('독립 QA 계약이 없거나 변경됐습니다.');
-        qa = await this.verifyBrowser({ workspace: run.workspace, runId: run.id, round, plan: run.qaPlan }, signal);
-      } catch (error) { aborted(signal); qa = { passed: false, checks: [], failures: [error.message] }; }
-      aborted(signal);
-      run.browserQaPassed = qa.passed === true && Array.isArray(qa.checks) && qa.checks.length > 0 && !qa.checks.some((check) => check.passed !== true) && !qa.failures?.length;
-      run.qaHistory = [...(run.qaHistory || []), { ...qa, passed: run.browserQaPassed, round }].slice(-10);
-      event.status = run.browserQaPassed ? 'completed' : 'failed';
-      event.detail = run.browserQaPassed ? `${qa.checks.length}개 실제 브라우저 검사 통과 · 화면 근거 보존` : (qa.failures || ['브라우저 검사 근거가 부족합니다.']).join('\n').slice(0, 10_000);
-      await this.persist(record);
+      await this.runBrowserQa(record, round);
     }
     await git(run.workspace, ['add', '-A'], signal);
     const patch = await git(run.workspace, ['diff', '--cached', '--no-ext-diff', '--binary', run.baseline, '--'], signal);
@@ -1763,6 +1779,25 @@ export class HarnessEngine {
     run.stage = 'finished';
     await this.persist(record);
     return { nextNode: 'done', decision: run.status, summary: run.summary };
+  }
+
+  async runBrowserQa(record, round, title = '독립 브라우저 QA / Independent browser QA') {
+    const { run, controller } = record, signal = controller.signal;
+    run.stage = 'browser-qa';
+    const event = await this.event(record, title, '실제 입력·저장·빈 상태·키보드·모바일 화면 검사', 'running');
+    let qa;
+    try {
+      if (!run.qaPlan || createHash('sha256').update(JSON.stringify(run.qaPlan)).digest('hex') !== run.qaPlanHash) throw fail('독립 QA 계약이 없거나 변경됐습니다.');
+      qa = await this.verifyBrowser({ workspace: run.workspace, runId: run.id, round, plan: run.qaPlan }, signal);
+    } catch (error) { aborted(signal); qa = { passed: false, checks: [], failures: [error.message] }; }
+    aborted(signal);
+    run.browserQaPassed = qa.passed === true && Array.isArray(qa.checks) && qa.checks.length > 0 && !qa.checks.some((check) => check.passed !== true) && !qa.failures?.length;
+    const result = { ...qa, passed: run.browserQaPassed, round };
+    run.qaHistory = [...(run.qaHistory || []), result].slice(-10);
+    event.status = run.browserQaPassed ? 'completed' : 'failed';
+    event.detail = run.browserQaPassed ? `${qa.checks.length}개 실제 브라우저 검사 통과 · 화면 근거 보존` : (qa.failures || ['브라우저 검사 근거가 부족합니다.']).join('\n').slice(0, 10_000);
+    await this.persist(record);
+    return result;
   }
 
   async configureVerification(record, plan, summary) {

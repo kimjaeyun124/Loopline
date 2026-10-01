@@ -1032,8 +1032,13 @@ export class HarnessEngine {
     const candidates = {}, questions = {};
     for (const role of context ? ['worker'] : ['planner', 'worker']) {
       if (run.roles[role].automatic !== true) continue;
+      const seenCandidates = new Set();
       candidates[role] = [run.roles[role], ...run.modelPriority[role]]
-        .filter((model) => !model.decisionOnly && !knownExhausted(run.modelBudgets[selectionKey(model)], model));
+        .filter((model) => {
+          const key = selectionKey(model);
+          if (seenCandidates.has(key) || model.decisionOnly || knownExhausted(run.modelBudgets[key], model)) return false;
+          seenCandidates.add(key); return true;
+        });
       if (candidates[role].length < 2) continue;
       questions[role] = {
         type: 'choice',
@@ -1576,6 +1581,7 @@ export class HarnessEngine {
       await this.event(record, '판정 결과 / Review result', `${verdict.decision}: ${verdict.summary}\n${verdict.feedback}`);
       run.summary = verdict.summary;
       feedback = verdict.feedback;
+      if (verification.code !== 0) feedback += `\n실제 검증 실패 · ${run.verifyCommand}\n${[verification.output, verification.error].filter(Boolean).join('\n').slice(-6000)}`;
       if (run.qaRequired && !run.browserQaPassed) feedback += `\n독립 브라우저 QA 실패(통과 전 자동 반영 금지):\n${(run.qaHistory.at(-1)?.failures || ['브라우저 QA가 완료되지 않았습니다.']).join('\n')}`;
       if (run.automaticVerification && verification.code === 0 && verdict.failedChecks?.includes('verification')) reselectVerification = true;
       if (verdict.decision === 'stop') { run.status = 'blocked'; return { completedRounds: round, previousSummary, feedback, reselectVerification, decision: 'stop', summary: run.summary, nextNode: 'finish' }; }

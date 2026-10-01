@@ -1013,7 +1013,7 @@ export class HarnessEngine {
     };
   }
 
-  async usePlanningReviewFallback(record, verdict, label) {
+  async usePlanningReviewFallback(record, verdict, label, rejections = 2) {
     const { run } = record, current = run.roles.judge;
     if (!current?.decisionOnly || !verdict.failedChecks?.length
       || verdict.unexplainedChecks?.length !== verdict.failedChecks.length) return false;
@@ -1027,7 +1027,7 @@ export class HarnessEngine {
     run.modelPriority.judge = run.modelPriority.judge.filter((model) => selectionKey(model) !== key);
     if (!run.modelPriority.judge.some((model) => selectionKey(model) === selectionKey(current))) run.modelPriority.judge.push(current);
     run.stageModels.judge = { ...modelDetails('judge', next), reasoningEffort: next.reasoningEffort || '' };
-    await this.event(record, '계획 판정 근거 복구 · 모델 전환 / Plan review feedback recovery', `${label}이 두 번 거부됐지만 구체적인 수정 사유가 없어 저장된 다음 판정 후보 ${next.label || next.model}가 같은 계획과 같은 질문을 다시 검토합니다. 자동 통과하지 않으며 실제 검증·브라우저 QA 조건을 유지합니다.`, 'completed', modelDetails('judge', next));
+    await this.event(record, '계획 판정 근거 복구 · 모델 전환 / Plan review feedback recovery', `${label}이 ${rejections}번 거부됐지만 구체적인 수정 사유가 없어 저장된 다음 판정 후보 ${next.label || next.model}가 같은 계획과 같은 질문을 다시 검토합니다. 자동 통과하지 않으며 실제 검증·브라우저 QA 조건을 유지합니다.`, 'completed', modelDetails('judge', next));
     return true;
   }
 
@@ -1395,7 +1395,11 @@ export class HarnessEngine {
         }])),
       };
       let verdict = await this.decide(record, reviewState, reviewChecks);
-      if (attempt === 1 && await this.usePlanningReviewFallback(record, verdict, '독립 QA 계획')) verdict = await this.decide(record, reviewState, reviewChecks);
+      // If every concrete case passed, an unexplained coverage-only rejection
+      // needs a specific critique before spending another speculative rewrite.
+      const coverageOnly = verdict.failedChecks?.length === 1 && verdict.failedChecks[0] === 'qaContract';
+      if ((attempt === 1 || (attempt === 0 && coverageOnly))
+        && await this.usePlanningReviewFallback(record, verdict, '독립 QA 계획', attempt + 1)) verdict = await this.decide(record, reviewState, reviewChecks);
       if (verdict.decision === 'complete') { run.qaPlan = qaPlan; break; }
       proposal = qaPlan;
       replaceableCheckIds = qaPlan.checks.filter((check) => verdict.failedChecks.includes(`qaCheck_${check.id}`)).map((check) => check.id);

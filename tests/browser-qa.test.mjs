@@ -404,7 +404,7 @@ test('QA recovery cannot bypass a failed individual category or start implementa
   assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'original');
 });
 
-test('explanatory judge rechecks the identical QA contract after two unexplained rejections but cannot override failed runtime QA', async (t) => {
+test('coverage-only unexplained rejection obtains an identical review before speculative QA edits and cannot override failed runtime QA', async (t) => {
   const f = await fixture(t); let plans = 0, browserChecks = 0; const reviews = [];
   const engine = new HarnessEngine({ directory: f.directory, verify: async () => ({ code: 0, output: 'PASS' }),
     verifyBrowser: async () => { browserChecks++; return { passed: false, checks: [{ id: 'empty', passed: false }], failures: ['Actual empty state missing'] }; },
@@ -425,11 +425,37 @@ test('explanatory judge rechecks the identical QA contract after two unexplained
     judge: { provider: 'api', model: 'jev', decisionOnly: true, fallbacks: [{ provider: 'api', model: 'reviewer' }] },
   } });
   await engine.runs.get(created.id).execution; const run = await engine.get(created.id);
-  assert.equal(plans, 2); assert.deepEqual(reviews.map(review => review.model), ['jev', 'jev', 'reviewer']);
-  assert.deepEqual(reviews[2].prompt, reviews[1].prompt); assert.equal(browserChecks, 1);
+  assert.equal(plans, 1); assert.deepEqual(reviews.map(review => review.model), ['jev', 'reviewer']);
+  assert.deepEqual(reviews[1].prompt, reviews[0].prompt); assert.equal(browserChecks, 1);
   assert.equal(run.status, 'limit', run.summary); assert.notEqual(run.applied, true); assert.equal(run.browserQaPassed, false);
   assert.equal(run.events.filter(event => event.title.startsWith('계획 판정 근거 복구')).length, 1);
+  assert.match(run.events.find(event => event.title.startsWith('계획 판정 근거 복구')).detail, /1번 거부/);
   await assert.rejects(readFile(join(f.source, 'index.html')));
+});
+
+test('an individual QA rejection retains the first repair opportunity before switching an unexplained judge', async (t) => {
+  const f = await fixture(t); let plans = 0; const reviews = [];
+  const engine = new HarnessEngine({ directory: f.directory, verifyBrowser: async () => ({ passed: false, checks: [], failures: ['Not accepted'] }),
+    invoke: async (selection, prompt) => {
+      if (typeof prompt === 'object') {
+        const answers = Object.fromEntries(Object.keys(prompt.questions).map(id => [id, { choice: 'pass' }]));
+        if (prompt.questions.qaContract) {
+          reviews.push({ model: selection.model, plans });
+          if (selection.decisionOnly) answers.qaInput = { choice: 'revise' };
+        }
+        return { answers };
+      }
+      if (prompt.includes('구현 계획과 검증 기준')) return 'Plan';
+      if (prompt.includes('구현 전에 독립 브라우저 QA 계획')) return ++plans === 1 ? qaPlan : { addChecks: [focusCheck()] };
+      return JSON.stringify({ done: true, summary: 'Fixture', operations: [{ type: 'write', path: 'index.html', content: '<html>fixture</html>' }] });
+    } });
+  const created = await engine.create({ ...f.input, rounds: 1, roles: { ...f.input.roles,
+    judge: { provider: 'api', model: 'jev', decisionOnly: true, fallbacks: [{ provider: 'api', model: 'reviewer' }] },
+  } });
+  await engine.runs.get(created.id).execution; const run = await engine.get(created.id);
+  assert.deepEqual(reviews, [{ model: 'jev', plans: 1 }, { model: 'jev', plans: 2 }, { model: 'reviewer', plans: 2 }]);
+  assert.match(run.events.find(event => event.title.startsWith('계획 판정 근거 복구')).detail, /2번 거부/);
+  assert.notEqual(run.applied, true);
 });
 
 test('explanatory judge rejection supplies concrete repair feedback and still blocks implementation after the bounded attempts', async (t) => {

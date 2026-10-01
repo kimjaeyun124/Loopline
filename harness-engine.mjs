@@ -1354,13 +1354,30 @@ export class HarnessEngine {
     }
     const actualFiles = [];
     for (const path of owned.slice(0, 8)) {
-      try { actualFiles.push({ path, content: (await readFile(await workspacePath(run.workspace, path), 'utf8')).slice(0, 2500) }); }
+      try {
+        const content = await readFile(await workspacePath(run.workspace, path), 'utf8');
+        actualFiles.push({ path, content: content.slice(0, 2500), contentTruncated: content.length > 2500 });
+      }
       catch (error) { if (error.code !== 'ENOENT') throw error; }
     }
+    // Shared configuration can refer to tests owned by another milestone.
+    // A scoped diff/preview is not the complete workspace inventory.
+    const completeInventory = [...new Set(inventory)].sort().join('\n');
+    const workspaceInventory = boundedFileInventory(completeInventory);
+    const relatedMilestones = run.milestones.map(({ id, title, dependsOn, paths, status, verifyCommand, evidence }) => ({
+      id, title, dependsOn, paths, status, verifyCommand,
+      ...(status === 'completed' && evidence ? { evidence: {
+        reviewed: evidence.reviewed, round: evidence.round, verifiedAt: evidence.verifiedAt,
+        verifyCommand: evidence.verifyCommand, verificationOutput: evidence.verificationOutput,
+      } } : {}),
+    }));
     const verdict = await this.decide(record, { task: run.task, milestone: task, previousSummary, verification,
       ...(integrationRequired ? { integrationVerification, independentBrowserQa } : {}),
+      workspaceInventory, workspaceInventoryTruncated: completeInventory.length > MAX_PROJECT_FILE_LIST,
+      relatedMilestones, ownedFiles: owned,
+      actualFilesTruncated: owned.length > 8,
       diff: diff.slice(0, 60_000), diffTruncated: diff.length > 60_000, actualFiles }, {
-      milestone: { label: `${task.title} 완료`, question: 'Do the actual changed files and meaningful successful verification satisfy every immutable acceptance criterion of this partial task?', pass: 'All criteria are implemented and independently verified.', revise: 'Fix missing behavior or verification for this partial task without weakening its original criteria.' },
+      milestone: { label: `${task.title} 완료`, question: 'Do the actual changed files and meaningful successful verification satisfy every immutable acceptance criterion of this partial task? The diff and actualFiles previews are scoped to ownedFiles; absence from them is not evidence that another milestone file is missing. Use workspaceInventory for file presence and relatedMilestones for ownership and current review status. A truncated inventory cannot establish file absence. Shared configuration may include tests from another milestone. Inventory and prior review evidence do not replace the current verification or required integration/browser evidence. Judge this milestone\'s original criteria without requiring an unrelated milestone to be complete.', pass: 'All criteria are implemented and independently verified.', revise: 'Fix missing behavior or verification for this partial task without weakening its original criteria.' },
     });
     const passed = verification.code === 0 && (!integrationRequired || (integrationVerification?.code === 0 && independentBrowserQa?.passed === true))
       && verdict.decision === 'complete' && diff.length <= 60_000;

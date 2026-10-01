@@ -1,0 +1,241 @@
+{
+  "date": "2026-10-01",
+  "implementationCommit": "da9008f",
+  "testCommit": "257452d",
+  "appTests": {
+    "tests": 156,
+    "pass": 156,
+    "fail": 0,
+    "skipped": 0,
+    "durationMs": 39967.1785
+  },
+  "realProject": {
+    "id": "8dd97323-d9a0-4b7e-99b2-136e71d0ba5a",
+    "model": "gpt-6.1-sol",
+    "effort": "max",
+    "status": "completed",
+    "round": 1,
+    "automaticRounds": 6,
+    "applied": true,
+    "verificationPassed": true,
+    "elapsedMs": 476516,
+    "reportedCalls": 8,
+    "usage": {
+      "totalTokens": 215050,
+      "inputTokens": 201237,
+      "outputTokens": 13813,
+      "cachedInputTokens": 100224,
+      "reasoningOutputTokens": 9229
+    },
+    "usageLedgerMatchesHarness": true,
+    "source": "/Users/dgsw59/Documents/Codex/2026-09-26/sj/outputs/harness-qa/autocomplete-recovery-20261001/data/harness/projects/8dd97323-d9a0-4b7e-99b2-136e71d0ba5a/task-summary",
+    "manualSourceEdits": 0,
+    "externalRunRestarts": 0,
+    "repairEvents": 0,
+    "mcpTools": [],
+    "sourceIntegrity": {
+      "README.md": {
+        "bytes": 1834,
+        "sha256": "90ec40d633862a54afc350bbdffa33f22c21b9342c9488476bd510f35acb88a3",
+        "matchesWorkspace": true
+      },
+      "package.json": {
+        "bytes": 197,
+        "sha256": "222b9694e030eb448739eaa6346da89c7481e8a7758c9b7b2f458ca1e533c8b8",
+        "matchesWorkspace": true
+      },
+      "task-summary.mjs": {
+        "bytes": 1511,
+        "sha256": "faf4340f337bf87751683ac4f7c9d8b916bf337063785388f9cb621dd1988272",
+        "matchesWorkspace": true
+      },
+      "task-summary.test.mjs": {
+        "bytes": 5416,
+        "sha256": "b18d65ba54b013d57ffada2458a5e62af18e78d5d3080c88c3362f30c9f95ce2",
+        "matchesWorkspace": true
+      }
+    },
+    "fileBatches": [
+      [
+        "write: package.json",
+        "write: task-summary.mjs"
+      ],
+      [
+        "write: task-summary.test.mjs",
+        "write: README.md"
+      ]
+    ],
+    "nativeJevAdapter": "모의 API 프로토콜 회귀 검사로 검증했습니다. 이번 실제 GPT 제작에서는 사용하지 않았습니다.",
+    "smokeHarnessSha256": "e671a6bb873d78b27f122daa4949f187fba75294a834bba4618e71e20e9944cd",
+    "note": "Jev 오류 분류와 native 요청 피드백 보완은 실제 GPT 제작 시작 이후 추가했으며, 최종 전체 회귀 검사에서 따로 검증했습니다.",
+    "sourceCommits": {
+      "implementation": "879e7ed",
+      "tests": "49db168"
+    }
+  },
+  "independentQa": {
+    "passed": 8,
+    "total": 8,
+    "results": [
+      {
+        "name": "빈 배열과 import 부작용 없음",
+        "passed": true
+      },
+      {
+        "name": "완료/미완료 집계와 정수 반올림",
+        "passed": true
+      },
+      {
+        "name": "원본 입력 보존",
+        "passed": true
+      },
+      {
+        "name": "공백 제목 거부",
+        "passed": true
+      },
+      {
+        "name": "잘못된 done 타입 거부",
+        "passed": true
+      },
+      {
+        "name": "배열/객체/제목 타입 검증",
+        "passed": true
+      },
+      {
+        "name": "정상 CLI 종료와 JSON 출력",
+        "passed": true
+      },
+      {
+        "name": "오류 CLI 종료 코드와 메시지",
+        "passed": true
+      }
+    ],
+    "internal": {
+      "passed": 19,
+      "total": 19,
+      "code": 0
+    }
+  },
+  "usageLedger": [
+    {
+      "provider": "codex",
+      "model": "gpt-6.1-sol",
+      "timestamp": 1790819599590,
+      "usageAvailable": true,
+      "usage": {
+        "totalTokens": 22872,
+        "inputTokens": 22577,
+        "outputTokens": 295,
+        "cachedInputTokens": 18432,
+        "reasoningOutputTokens": 242
+      }
+    },
+    {
+      "provider": "codex",
+      "model": "gpt-6.1-sol",
+      "timestamp": 1790819611225,
+      "usageAvailable": true,
+      "usage": {
+        "totalTokens": 23028,
+        "inputTokens": 22800,
+        "outputTokens": 228,
+        "cachedInputTokens": 0,
+        "reasoningOutputTokens": 169
+      }
+    },
+    {
+      "provider": "codex",
+      "model": "gpt-6.1-sol",
+      "timestamp": 1790819688809,
+      "usageAvailable": true,
+      "usage": {
+        "totalTokens": 24759,
+        "inputTokens": 22601,
+        "outputTokens": 2158,
+        "cachedInputTokens": 18432,
+        "reasoningOutputTokens": 1336
+      }
+    },
+    {
+      "provider": "codex",
+      "model": "gpt-6.1-sol",
+      "timestamp": 1790819769167,
+      "usageAvailable": true,
+      "usage": {
+        "totalTokens": 26187,
+        "inputTokens": 23853,
+        "outputTokens": 2334,
+        "cachedInputTokens": 0,
+        "reasoningOutputTokens": 1783
+      }
+    },
+    {
+      "provider": "codex",
+      "model": "gpt-6.1-sol",
+      "timestamp": 1790819966164,
+      "usageAvailable": true,
+      "usage": {
+        "totalTokens": 30830,
+        "inputTokens": 24440,
+        "outputTokens": 6390,
+        "cachedInputTokens": 18432,
+        "reasoningOutputTokens": 3978
+      }
+    },
+    {
+      "provider": "codex",
+      "model": "gpt-6.1-sol",
+      "timestamp": 1790819996052,
+      "usageAvailable": true,
+      "usage": {
+        "totalTokens": 29065,
+        "inputTokens": 28280,
+        "outputTokens": 785,
+        "cachedInputTokens": 18432,
+        "reasoningOutputTokens": 624
+      }
+    },
+    {
+      "provider": "codex",
+      "model": "gpt-6.1-sol",
+      "timestamp": 1790820023148,
+      "usageAvailable": true,
+      "usage": {
+        "totalTokens": 29727,
+        "inputTokens": 29087,
+        "outputTokens": 640,
+        "cachedInputTokens": 18432,
+        "reasoningOutputTokens": 448
+      }
+    },
+    {
+      "provider": "codex",
+      "model": "gpt-6.1-sol",
+      "timestamp": 1790820062005,
+      "usageAvailable": true,
+      "usage": {
+        "totalTokens": 28582,
+        "inputTokens": 27599,
+        "outputTokens": 983,
+        "cachedInputTokens": 8064,
+        "reasoningOutputTokens": 649
+      }
+    }
+  ],
+  "desktopPackage": {
+    "rebuilt": true,
+    "normalQuitAndRelaunchVerified": true,
+    "sources": {
+      "harness-engine.mjs": {
+        "sourceSha256": "32175b669ee4d4871bbfba27fc7c87b64dd14f8e976b54c49c73d7e6383d151e",
+        "packagedSha256": "32175b669ee4d4871bbfba27fc7c87b64dd14f8e976b54c49c73d7e6383d151e",
+        "matches": true
+      },
+      "api-connections.mjs": {
+        "sourceSha256": "b5b1959d57529623c19079052da1a04af2f7680c4b9dfb536b49abfa87e80279",
+        "packagedSha256": "b5b1959d57529623c19079052da1a04af2f7680c4b9dfb536b49abfa87e80279",
+        "matches": true
+      }
+    }
+  }
+}

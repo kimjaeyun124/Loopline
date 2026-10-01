@@ -74,7 +74,7 @@ async function readLimitedJson(response) {
     parts.push(chunk);
   }
   try { return JSON.parse(Buffer.concat(parts).toString('utf8')); }
-  catch { throw fail('API가 올바른 JSON 응답을 반환하지 않았습니다.', 502); }
+  catch { throw Object.assign(fail('API가 올바른 JSON 응답을 반환하지 않았습니다.', 502), { invalidJsonOutput: true }); }
 }
 
 // 암호화는 renderer나 HTTP에 노출하지 않고 Electron 부모 프로세스에만 요청합니다.
@@ -381,6 +381,11 @@ export class ApiConnections {
       const budget = tokenBudgetHeaders(response.headers);
       if (budget) await onBudget?.(budget, connection, model);
       const result = await readLimitedJson(response);
+      if (!result || typeof result !== 'object' || Array.isArray(result)) {
+        throw Object.assign(fail('Jev 판정 응답이 불완전합니다. 변경을 자동 반영하지 않았습니다.', 502), {
+          invalidStructuredOutput: true, invalidJudgeOutput: true,
+        });
+      }
       await onUsage?.(result.usage, connection, result.model || model);
       // 판정 누락·잘못된 확률을 성공으로 취급하지 않습니다.
       for (const [id, question] of Object.entries(questions)) {
@@ -391,13 +396,16 @@ export class ApiConnections {
           || keys.some((key) => !probability(answer.probabilities?.[key]))
           || Math.abs(keys.reduce((sum, key) => sum + answer.probabilities[key], 0) - 1) > 0.02
           || keys.some((key) => answer.probabilities[key] > answer.probabilities[answer.choice] + 0.000001)) {
-          throw fail('Jev 판정 응답이 불완전합니다. 변경을 자동 반영하지 않았습니다.', 502);
+          throw Object.assign(fail('Jev 판정 응답이 불완전합니다. 변경을 자동 반영하지 않았습니다.', 502), {
+            invalidStructuredOutput: true, invalidJudgeOutput: true,
+          });
         }
       }
       return { model: result.model, answers: result.answers, usage: result.usage };
     } catch (error) {
       if (signal.aborted) throw signal.reason;
       if (timeout.aborted) throw fail('Jev 판정 시간이 초과되었습니다.', 504);
+      if (error.invalidJsonOutput) { error.invalidStructuredOutput = true; error.invalidJudgeOutput = true; }
       throw error;
     } finally {
       const count = (this.#active.get(id) || 1) - 1;

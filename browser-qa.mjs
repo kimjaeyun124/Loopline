@@ -8,6 +8,7 @@ export const BROWSER_QA_EXECUTOR = Object.freeze({
   actions: [...ACTIONS],
   fixedChecks: [{ id: 'layout', after: 'every planned check and the final state', criteria: ['nonblank rendered page', 'no horizontal overflow', 'requested viewport width'] }],
   focusVisibleEvidence: 'focus-visible asserts keyboard focus plus a visible outline or a box shadow that changed from its unfocused style; focused alone asserts only the active element.',
+  textEvidence: 'text asserts rendered, visible text. A document title or head metadata is not visible page text; use a visible heading for page-title UI assertions.',
 });
 const KEYS = new Set(['Tab', 'Enter', 'Escape', 'ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Space', 'Backspace']);
 export function needsBrowserQa(task, files = '') {
@@ -41,6 +42,10 @@ export function validateBrowserPlan(plan) {
     for (const step of check.steps) {
       if (!step || !ACTIONS.has(step.action)) invalid('허용되지 않은 브라우저 동작입니다.');
       if (!['reset', 'reload', 'press'].includes(step.action) && (typeof step.selector !== 'string' || !step.selector.trim() || step.selector.length > 300)) invalid('검사할 selector가 필요합니다.');
+      // Head metadata cannot satisfy a rendered-text assertion. Reject these
+      // clear cases before freezing a contract the implementation cannot meet.
+      if (['text', 'visible', 'fill', 'click', 'focused', 'focus-visible'].includes(step.action)
+        && /^(?:html\s*(?:>\s*)?)?(?:head\s*(?:>\s*)?)?(?:head|title|meta|link|script|style)$/i.test(step.selector.trim())) invalid(`${check.id}: ${step.action} ${step.selector}는 표시되는 화면 요소를 검사할 수 없습니다. text는 가시성도 확인하므로 문서 메타데이터 대신 화면의 heading 등 실제 표시 요소를 검사하세요.`);
       if (step.action === 'press' && !KEYS.has(step.key)) invalid('허용되지 않은 키 입력입니다.');
       if (['fill', 'text', 'value'].includes(step.action) && (typeof step.value !== 'string' || step.value.length > 2000)) invalid('검사 값이 올바르지 않습니다.');
       if (step.action === 'count' && (!Number.isSafeInteger(step.value) || step.value < 0 || step.value > 1000)) invalid('검사 개수가 올바르지 않습니다.');

@@ -92,3 +92,33 @@ test('a provider without MCP servers creates no temporary chat', async () => {
   assert.equal(calls.includes('thread/start'), false);
   await manager.close();
 });
+
+test('Claude project settings survive worktree isolation and discover default and declared Plugin components', async (t) => {
+  const home = await mkdtemp(join(tmpdir(), 'loopline-plugin-scope-'));
+  t.after(() => rm(home, { recursive: true, force: true }));
+  const source = join(home, 'source'), workspace = join(home, 'worktree'), plugin = join(home, 'plugin');
+  for (const path of [join(home, '.claude/plugins'), source, workspace, join(plugin, '.claude-plugin'), join(plugin, 'skills/check'), join(plugin, 'extra/read')]) await mkdir(path, { recursive: true });
+  await writeFile(join(source, '.mcp.json'), JSON.stringify({ mcpServers: { project: { command: 'project-tool' } } }));
+  await writeFile(join(home, '.claude/settings.json'), JSON.stringify({ enabledPlugins: { 'quality@local': true } }));
+  await writeFile(join(home, '.claude/plugins/installed_plugins.json'), JSON.stringify({ plugins: { 'quality@local': [{ scope: 'project', projectPath: source, installPath: plugin }] } }));
+  await writeFile(join(plugin, '.claude-plugin/plugin.json'), JSON.stringify({ skills: ['./extra'], mcpServers: { inline: { command: 'plugin-tool' } } }));
+  await writeFile(join(plugin, 'skills/check/SKILL.md'), 'Default quality skill');
+  await writeFile(join(plugin, 'extra/read/SKILL.md'), 'Additional read skill');
+  const transports = [];
+  const manager = new AgentPlugins({ directory: home, runtime: {
+    StdioClientTransport: class { constructor(options) { transports.push(options); } },
+    Client: class { async connect() {} async listTools() { return { tools: [{ name: 'read' }] }; } async close() {} },
+  } });
+  t.after(() => manager.close());
+  const scoped = { runId: 'project-scope', cwd: workspace, configurationCwd: source };
+  const result = JSON.parse((await manager.call({ provider: 'anthropic' }, scoped, { action: 'search' })).output);
+  assert.deepEqual(result.tools.map(tool => tool.server).sort(), ['project', 'quality@local:inline']);
+  assert.equal(result.skills.length, 2);
+  assert.ok(transports.every(transport => transport.cwd === workspace));
+  const skill = await manager.call({ provider: 'anthropic' }, scoped, { action: 'read_skill', skill: result.skills.find(skill => skill.name.includes('skills/check')).name });
+  assert.match(skill.output, /Default quality skill/);
+  await mkdir(join(source, '.claude'));
+  await writeFile(join(source, '.claude/settings.local.json'), JSON.stringify({ enabledPlugins: { 'quality@local': false } }));
+  const disabled = JSON.parse((await manager.call({ provider: 'anthropic' }, { ...scoped, runId: 'disabled-project' }, { action: 'search' })).output);
+  assert.deepEqual(disabled.tools.map(tool => tool.server), ['project']); assert.equal(disabled.skills.length, 0);
+});

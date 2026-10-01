@@ -4,8 +4,11 @@ import { EventEmitter } from 'node:events';
 import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { runInNewContext } from 'node:vm';
 import { BrowserQaBridge, needsBrowserQa, validateBrowserPlan } from '../browser-qa.mjs';
 import { HarnessEngine, runCommand } from '../harness-engine.mjs';
+import { browserPlan, milestonePlan, responseFor } from './fixtures/browser-desktop-qa.mjs';
+import { validateMilestones } from '../harness-milestones.mjs';
 
 export const qaPlan = { entry: 'index.html', checks: [
   { id: 'empty', categories: ['empty'], steps: [{ action: 'reset' }, { action: 'visible', selector: '#empty' }] },
@@ -29,6 +32,36 @@ test('QA contract requires actual input, reload, key events and assertions, and 
   assert.throws(() => validateBrowserPlan(malicious), /허용되지 않은/);
   const traversal = structuredClone(qaPlan); traversal.entry = '../private/index.html';
   assert.throws(() => validateBrowserPlan(traversal), /상대 HTML/);
+});
+
+test('QA assertions must follow input, reload and keyboard actions', () => {
+  for (const action of ['fill', 'reload', 'press']) {
+    const plan = structuredClone(qaPlan);
+    const operation = plan.checks[1].steps.find((step) => step.action === action);
+    plan.checks[1].steps = [...plan.checks[1].steps.filter((step) => step.action !== action), operation];
+    assert.throws(() => validateBrowserPlan(plan), /이후의 assertion/);
+  }
+});
+
+test('native QA inspects CSS rendering even when the hidden attribute is overridden', async () => {
+  const source = await readFile(new URL('../desktop/browser-qa.mjs', import.meta.url), 'utf8');
+  const body = source.match(/const inspect = \(step\) => js\(`([^]*?)`, step\);/)[1];
+  const element = { hidden: true, getBoundingClientRect: () => ({ width: 100, height: 30 }) };
+  let display = 'grid';
+  const inspect = runInNewContext(`(${body})`, { document: { querySelectorAll: () => [element] }, getComputedStyle: () => ({ display, visibility: 'visible' }) });
+  assert.equal(inspect({ action: 'hidden', selector: '#empty-state' }).ok, false);
+  display = 'none';
+  assert.equal(inspect({ action: 'hidden', selector: '#empty-state' }).ok, true);
+});
+
+test('packaged desktop fixture preserves QA and milestone contracts across a targeted repair', () => {
+  validateBrowserPlan(browserPlan); validateMilestones(milestonePlan);
+  const defect = responseFor('이번 회차는 아래 부분 작업만 구현합니다\n{"id":"ui"}');
+  const repair = responseFor('이번 회차는 아래 부분 작업만 구현합니다\n{"id":"ui"}\nmobile/save: hidden #empty-state');
+  assert.equal(defect.kind, 'ui-defect'); assert.equal(repair.kind, 'repair');
+  assert.deepEqual(repair.answer.operations.map(op => op.path), ['styles.css']);
+  assert.match(repair.answer.operations[0].content, /empty-state\[hidden\]\{display:none\}/);
+  assert.equal(JSON.stringify(repair.answer).includes('qaPlan'), false);
 });
 
 test('browser IPC cancellation removes pending work and standalone mode never claims success', async () => {

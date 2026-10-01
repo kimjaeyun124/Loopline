@@ -82,6 +82,10 @@
       {
         "from": "harness-evidence.mjs",
         "to": "app-server/harness-evidence.mjs"
+      },
+      {
+        "from": "harness-milestones.mjs",
+        "to": "app-server/harness-milestones.mjs"
       }
     ],
     "mac": {

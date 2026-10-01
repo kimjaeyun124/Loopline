@@ -5,6 +5,7 @@ import { dirname, join, isAbsolute } from 'node:path';
 import { homedir } from 'node:os';
 import { automaticLoopStartRounds, extendAutomaticLoopRounds, MAX_LOOP_ROUNDS, normalizeLoopPriorities } from './public/loop-policy.mjs';
 import { createHarnessWorkflow } from './harness-graph.mjs';
+import { needsMilestones, validateMilestones, matchesMilestone, milestoneContract, milestoneFiles, refreshMilestones, nextMilestone, milestoneCoverage } from './harness-milestones.mjs';
 import { HarnessEvidence, taskType } from './harness-evidence.mjs';
 import { needsBrowserQa, validateBrowserPlan } from './browser-qa.mjs';
 import { MAX_MCP_CALLS } from './mcp-connections.mjs';
@@ -523,7 +524,7 @@ export class HarnessEngine {
         return [role, { ...modelDetails(role, selection), reasoningEffort: selection.reasoningEffort || '' }];
       })),
       managedProject: !source, automaticVerification: !input.verifyCommand?.trim(), verifyCommand: input.verifyCommand?.trim() || '', instructions: typeof input.instructions === 'string' ? input.instructions.slice(0, 24_000) : '',
-      qaRequired: Boolean(this.verifyBrowser && needsBrowserQa(input.task)), qaPlan: null, qaHistory: [],
+      qaRequired: Boolean(this.verifyBrowser && needsBrowserQa(input.task)), qaPlan: null, qaHistory: [], milestones: [],
       autoApply: input.autoApply !== false, mcpTools, mcpSideEffectPossible: false,
       events: [], createdAt: Date.now(), summary: '', patchAvailable: false,
       workflowEngine: 'langgraph',
@@ -1210,7 +1211,68 @@ export class HarnessEngine {
     const plan = String(await this.call(record, 'planner', `목표: ${run.task}\n파일 목록:\n${files}\n작업을 수행할 모델을 위한 짧은 구현 계획과 검증 기준을 작성하세요. 다음 항목을 짧게 구분하고, 관찰 가능한 완료 기준과 실제 검증 기준을 포함하세요: 요구사항, 완료 기준, 작업 순서, 검증 기준.${visualDesignGuidance} 실제 도구를 실행하지 마세요. 실행할 수 없는 가정은 표시하고 핵심만 1,800자 이내로 작성하세요.`)).trim().slice(0, 6_000);
     await this.event(record, '구현 계획 / Implementation plan', plan);
     if (this.verifyBrowser && needsBrowserQa(run.task, files)) { run.qaRequired = true; await this.prepareBrowserQa(record, plan); }
+    if (needsMilestones(run.task, files)) await this.prepareMilestones(record, plan, files);
     return { plan, files, completedRounds: 0, previousSummary: '', feedback: '', reselectVerification: false, decision: '', summary: '' };
+  }
+
+  async prepareMilestones(record, plan, files) {
+    const { run } = record;
+    if (run.milestones?.length) return;
+    let feedback = '';
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const answer = await this.callValidated(record, 'planner', `큰 프로젝트를 검증 가능한 작은 부분 작업 2~8개로 나누세요. 목표: ${run.task}\n기존 계획: ${plan}\n파일 목록: ${files}\n독립 QA 계약: ${JSON.stringify(run.qaPlan)}\n각 부분 작업은 실제 파일과 동작을 만들고 오프라인에서 단독 검증할 수 있어야 합니다. 뒤 작업에 의존하는 전체 테스트를 앞 단계 검증에 쓰지 말고 해당 부분 테스트를 계획하세요. 파일당 책임과 의존 순서를 명확히 하고 모든 원래 요구사항을 포함하세요. 각 작업의 변경은 판정이 전체 내용을 읽을 수 있도록 60,000자 이내를 목표로 나누세요. paths는 담당 파일 이름 또는 폴더/** 패턴입니다. 임의 전체 경로 **는 금지입니다. 부분 완료로 최종 완료를 대체하지 않으며 마지막에 전체 통합 검증과 브라우저 QA를 수행합니다. JSON만 반환하세요: {"tasks":[{"id":"core","title":"핵심 동작","dependsOn":[],"paths":["src/core.js","tests/core.test.mjs"],"criteria":["핵심 동작을 입력과 출력으로 확인"],"verifyCommand":"node --test tests/core.test.mjs"},{"id":"integration","title":"전체 연결","dependsOn":["core"],"paths":["index.html","tests/integration.test.mjs"],"criteria":["핵심 동작을 화면과 연결해 검사"],"verifyCommand":"node --test tests/integration.test.mjs"}]}\n직전 계획 판정 피드백: ${feedback}`, '부분 작업 계획 / Milestone plan', { validate: (value) => validateMilestones(typeof value === 'string' ? parseHarnessJson(value) : value) });
+      const tasks = validateMilestones(typeof answer === 'string' ? parseHarnessJson(answer) : answer);
+      const verdict = await this.decide(record, { task: run.task, tasks }, { workPlan: { label: '부분 작업 범위', question: 'Does this dependency-ordered plan cover every original requirement, with sensible file ownership, observable acceptance criteria and meaningful independently executable checks for each task?', pass: 'All requirements are covered and each task can be independently verified.', revise: 'Repair missing requirements, dependencies or ineffective per-task verification.' } });
+      if (verdict.decision === 'complete') { run.milestones = tasks; break; }
+      feedback = verdict.feedback;
+    }
+    if (!run.milestones?.length) throw fail(`부분 작업 계획이 완료 기준을 충족하지 못했습니다. ${feedback}`);
+    run.milestoneContract = milestoneContract(run.milestones);
+    await this.event(record, '부분 작업 기준 확정 / Milestones fixed', run.milestones.map((task, i) => `${i + 1}. ${task.title} · 의존 ${task.dependsOn.join(', ') || '없음'} · ${task.verifyCommand}`).join('\n'));
+  }
+
+  async reviewMilestone(record, task, previousSummary) {
+    const { run, controller } = record;
+    run.stage = 'milestone-qa'; task.attempts++;
+    await git(run.workspace, ['add', '-A'], controller.signal);
+    const inventory = (await git(run.workspace, ['ls-files', '--cached', '--others', '--exclude-standard'], controller.signal)).split('\n').filter(Boolean);
+    const changed = (await git(run.workspace, ['diff', '--cached', '--name-only', '-z', run.baseline], controller.signal)).split('\0').filter(Boolean);
+    const owned = [...new Set([...inventory, ...changed])].filter((path) => matchesMilestone(path, task));
+    const diff = owned.length ? await git(run.workspace, ['diff', '--cached', '--no-ext-diff', run.baseline, '--', ...owned], controller.signal) : '';
+    const verification = await this.verify(run.workspace, task.verifyCommand, run.runtime, controller.signal);
+    const actualFiles = [];
+    for (const path of owned.slice(0, 8)) {
+      try { actualFiles.push({ path, content: (await readFile(await workspacePath(run.workspace, path), 'utf8')).slice(0, 2500) }); }
+      catch (error) { if (error.code !== 'ENOENT') throw error; }
+    }
+    const verdict = await this.decide(record, { task: run.task, milestone: task, previousSummary, verification, diff: diff.slice(0, 60_000), diffTruncated: diff.length > 60_000, actualFiles }, {
+      milestone: { label: `${task.title} 완료`, question: 'Do the actual changed files and meaningful successful verification satisfy every immutable acceptance criterion of this partial task?', pass: 'All criteria are implemented and independently verified.', revise: 'Fix missing behavior or verification for this partial task without weakening its original criteria.' },
+    });
+    const passed = verification.code === 0 && verdict.decision === 'complete' && diff.length <= 60_000;
+    if (passed) {
+      task.status = 'completed';
+      task.evidenceHistory ||= []; if (task.evidence) task.evidenceHistory.push(task.evidence);
+      task.evidence = { reviewed: true, round: run.round, verifiedAt: Date.now(), verifyCommand: task.verifyCommand, verificationOutput: String(verification.output || '').slice(-2500), reviewSummary: verdict.summary,
+        files: await milestoneFiles(run.workspace, [...new Set([...inventory, ...changed])], task) };
+    }
+    if (passed) {
+      const invalidated = await refreshMilestones(run.milestones, run.workspace, [...new Set([...inventory, ...changed])]);
+      if (invalidated.length) await this.event(record, '부분 완료 재검증 / Revalidate milestones', `다른 작업의 완료 근거에 영향을 준 변경: ${invalidated.join(', ')}`);
+    }
+    const feedback = passed ? '' : `${task.title}: ${verdict.feedback}\n검증 종료 코드 ${verification.code}: ${String(verification.output || verification.error || '').slice(-4000)}${diff.length > 60_000 ? '\n부분 작업 변경량이 60,000자를 넘어 전체 검토가 불가능합니다. 담당 파일의 불필요한 중복과 과도한 변경을 줄이세요.' : ''}`;
+    await this.event(record, passed ? '부분 작업 완료 / Milestone verified' : '부분 작업 수정 / Milestone failed', `${task.title} · ${task.verifyCommand}\n${passed ? verdict.summary : feedback}`, passed ? 'completed' : 'failed');
+    return { passed, feedback, verification, diff };
+  }
+
+  async continueMilestones(record, state, round, previousSummary, feedback) {
+    const { run } = record;
+    if (run.autoRounds && round >= run.rounds && run.rounds < run.roundCeiling) {
+      const before = run.rounds; run.rounds = extendAutomaticLoopRounds(run.rounds, run.roundCeiling);
+      await this.event(record, '부분 작업 회차 연장 / Milestone continuation', `${before}회 → ${run.rounds}회 · 완료 근거를 유지하고 다음 부분 작업을 이어갑니다.`);
+    }
+    run.summary = `부분 작업 ${run.milestones.filter((t) => t.status === 'completed').length}/${run.milestones.length} 검증 완료. 전체 통합 검증은 아직 완료되지 않았습니다.`;
+    if (round >= run.rounds) { run.status = 'limit'; run.summary += ' 회차 한도에 도달해 근거와 작업 공간을 보존했습니다.'; }
+    return { completedRounds: round, previousSummary, feedback, decision: 'revise', summary: run.summary, nextNode: run.status === 'limit' ? 'finish' : 'round' };
   }
 
   async prepareBrowserQa(record, implementationPlan) {
@@ -1279,6 +1341,20 @@ export class HarnessEngine {
     let { feedback = '', previousSummary = '', reselectVerification = false } = state;
     aborted(signal); run.round = round; run.stage = 'working';
     const files = boundedFileInventory(await git(run.workspace, ['ls-files', '--cached', '--others', '--exclude-standard'], signal));
+    let activeMilestone = null;
+    if (run.milestones?.length) {
+      if (milestoneContract(run.milestones) !== run.milestoneContract) throw fail('부분 작업 완료 기준이 변경되어 실행할 수 없습니다.');
+      const changedPaths = (await git(run.workspace, ['diff', '--cached', '--name-only', '-z', run.baseline], signal)).split('\0').filter(Boolean);
+      const invalidated = await refreshMilestones(run.milestones, run.workspace, [...new Set([...files.split('\n').filter(Boolean), ...changedPaths])]);
+      if (invalidated.length) await this.event(record, '부분 완료 재검증 / Revalidate milestones', `관련 파일 또는 의존 작업 변경: ${invalidated.join(', ')}. 기존 근거를 보존하고 다시 검증합니다.`);
+      activeMilestone = nextMilestone(run.milestones);
+      run.activeMilestone = activeMilestone?.id || null;
+      if (activeMilestone?.status === 'needs-review') {
+        const review = await this.reviewMilestone(record, activeMilestone, previousSummary);
+        if (review.passed && nextMilestone(run.milestones)) return this.continueMilestones(record, state, round, previousSummary, '다음 미완료 부분 작업만 구현하세요. 완료된 파일은 필요한 경우에만 수정하세요.');
+        if (review.passed) activeMilestone = null; else feedback += `\n${review.feedback}`;
+      }
+    }
     const history = createWorkerHistory(); let lastReadAction = '', repeatedReads = 0, repeatedReadFeedbackSent = false;
     let lastMalformedFingerprint = '', repeatedMalformedResponses = 0;
     const repeatedEditFailures = new Map();
@@ -1286,14 +1362,14 @@ export class HarnessEngine {
     const visualDesignGuidance = isVisualInterfaceTask(run.task, state.files)
       ? '\n웹 UI 작업 기준: 계획의 디자인 브리프를 실제 화면에 반영하세요. 색상·타입·간격을 일관된 디자인 토큰으로 구성하고, 모바일/데스크톱 레이아웃과 키보드 포커스·입력/빈 상태를 구현하세요. 기본 템플릿이나 임시 텍스트 장식에 기대지 말고 명확한 시각 위계를 만드세요.'
       : '';
-    let finished = false, implementationIssue = '', transientRetries = 0;
-    for (let step = 0; step < 16; step++) {
+    let finished = Boolean(run.milestones?.length && !activeMilestone), implementationIssue = '', transientRetries = 0;
+    for (let step = 0; !finished && step < 16; step++) {
       const protocol = '기본 CLI 도구 대신 Harness의 JSON 작업 도구만 사용하세요. 마크다운 없이 JSON 객체 하나만 반환하세요. 파일 경로는 작업 공간 기준 상대 경로입니다. 허용 형식: {"operations":[{"type":"list","path":"."},{"type":"read","path":"src/file.js"},{"type":"write","path":"new.txt","content":"full text"},{"type":"edit","path":"src/file.js","oldText":"unique exact text","newText":"replacement"},{"type":"delete","path":"old.txt"}]} 또는 모든 변경을 마친 뒤 {"done":true,"summary":"실제 변경 요약"}. 마지막 파일 작업과 완료 요약은 {"operations":[...],"done":true,"summary":"실제 변경 요약"}처럼 한 번에 반환해 추가 호출을 줄일 수 있습니다. 작업 도구가 성공한 경우에만 완료 처리됩니다. 먼저 필요한 파일을 읽고 수정하세요. 서로 독립적인 파일 작업은 operations 배열에 묶어 호출 횟수를 줄이세요. 새 프로젝트라면 오프라인 검증 가능한 테스트도 작성하세요. 검증 명령은 판정 모델이 정하고 Harness가 실행합니다. 편집 도구가 치환할 내용을 찾지 못하면 오류에 포함된 최신 파일 내용을 읽고, 그 내용에 실제로 존재하는 고유 구간으로 다시 편집하세요. 실패한 oldText를 그대로 반복하지 마세요. .git, node_modules, 심볼릭 링크에 접근하지 마세요. JSON에 추론 전문을 포함하지 마세요.';
       const batchGuidance = '\n긴 코드 응답 하나로 프로젝트 전체를 생성하지 마세요. 한 응답은 약 12,000자 이내, 파일 변경 2~3개를 목표로 나누세요. 큰 기존 파일은 읽은 최신 내용의 고유 구간을 edit로 수정하세요. 남은 파일이 있으면 done을 반환하지 말고 다음 단계에서 이어서 작업하세요. 전체 완료 조건을 낮추거나 필요한 파일과 테스트를 생략하지 마세요.';
       const inventory = step === 0 ? `\n파일 목록:\n${files}` : '';
       let answer;
       try {
-        answer = await this.call(record, 'worker', `${protocol}${batchGuidance}${visualDesignGuidance}${run.qaPlan ? `\n변경할 수 없는 독립 브라우저 QA 계약입니다. entry와 selector 및 동작을 실제 구현하세요. 이 계약을 변경하거나 생략하지 마세요:\n${JSON.stringify(run.qaPlan)}` : ''}\n목표: ${run.task}\n계획: ${state.plan}\n회차 ${round}/${run.rounds} · 단계 ${step + 1}/16\n이전 작업: ${previousSummary}\n판정 피드백: ${feedback}${inventory}\n아래 기록은 이번 회차의 최신 작업 상태입니다. 같은 파일의 과거 내용은 최신 상태로 교체되어 있습니다. 내용이 생략된 파일이 필요하면 read로 다시 확인하세요. 필요한 수정이 끝났으면 done과 실제 변경 요약을 반환하세요.\n최근 도구 결과:\n${formatWorkerHistory(history)}\n\n앞선 단계를 다시 하지 말고 다음 작업을 반환하세요.`);
+        answer = await this.call(record, 'worker', `${protocol}${batchGuidance}${visualDesignGuidance}${activeMilestone ? `\n이번 회차는 아래 부분 작업만 구현합니다. done은 이 부분 작업 완료를 뜻합니다. 다른 부분 작업 담당 파일은 읽을 수 있지만 수정하지 마세요. 전체 목표와 의존 작업 결과를 지키세요:\n${JSON.stringify(activeMilestone)}` : ''}${run.qaPlan ? `\n변경할 수 없는 독립 브라우저 QA 계약입니다. entry와 selector 및 동작을 실제 구현하세요. 이 계약을 변경하거나 생략하지 마세요:\n${JSON.stringify(run.qaPlan)}` : ''}\n목표: ${run.task}\n계획: ${state.plan}\n회차 ${round}/${run.rounds} · 단계 ${step + 1}/16\n이전 작업: ${previousSummary}\n판정 피드백: ${feedback}${inventory}\n아래 기록은 이번 회차의 최신 작업 상태입니다. 같은 파일의 과거 내용은 최신 상태로 교체되어 있습니다. 내용이 생략된 파일이 필요하면 read로 다시 확인하세요. 필요한 수정이 끝났으면 done과 실제 변경 요약을 반환하세요.\n최근 도구 결과:\n${formatWorkerHistory(history)}\n\n앞선 단계를 다시 하지 말고 다음 작업을 반환하세요.`);
       } catch (error) {
         aborted(signal);
         if (run.mcpSideEffectPossible || error.mcpDispatched || quotaExhausted(error) || !(error.transientModelFailure || recoverableModelFailure(error))) throw error;
@@ -1340,6 +1416,7 @@ export class HarnessEngine {
         continue;
       }
       try {
+        if (activeMilestone && action.operations.some((op) => ['write', 'edit', 'delete'].includes(op?.type) && !matchesMilestone(op.path, activeMilestone))) throw fail('현재 부분 작업 담당 범위 밖 파일 수정입니다. 현재 작업의 paths 안에서 구현하세요.');
         const results = await applyWorkspaceOperations(run.workspace, action.operations, signal);
         recordWorkerResults(history, step + 1, action.operations, results);
         for (const operation of action.operations) {
@@ -1391,6 +1468,11 @@ export class HarnessEngine {
       await this.event(record, '구현 이어가기 / Continue implementation', feedback, 'completed', modelDetails('worker', run.roles.worker));
     }
     await this.event(record, '회차 변경 요약 / Round summary', previousSummary);
+    if (activeMilestone && !implementationIssue) {
+      const review = await this.reviewMilestone(record, activeMilestone, previousSummary);
+      if (!review.passed || nextMilestone(run.milestones)) return this.continueMilestones(record, state, round, previousSummary, review.feedback || '다음 미완료 부분 작업만 구현하세요. 완료 근거가 있는 작업을 처음부터 반복하지 마세요.');
+    }
+    if (activeMilestone && implementationIssue) return this.continueMilestones(record, state, round, previousSummary, feedback);
     let preparationIssue = '';
     let verification = null;
     if (!implementationIssue && run.automaticVerification && (!run.verifyCommand || reselectVerification)) {
@@ -1435,11 +1517,17 @@ export class HarnessEngine {
     }
     await git(run.workspace, ['add', '-A'], signal);
     const patch = await git(run.workspace, ['diff', '--cached', '--no-ext-diff', '--binary', run.baseline, '--'], signal);
+    const integrationPaths = (await git(run.workspace, ['diff', '--cached', '--name-only', '-z', run.baseline], signal)).split('\0').filter(Boolean);
+    if (run.milestones?.length) {
+      const inventory = (await git(run.workspace, ['ls-files', '--cached', '--others', '--exclude-standard'], signal)).split('\n').filter(Boolean);
+      await refreshMilestones(run.milestones, run.workspace, [...new Set([...inventory, ...integrationPaths])]);
+    }
+    const allChangesReviewed = milestoneCoverage(run.milestones || [], integrationPaths);
     await writeFile(join(this.directory, run.id, 'final.patch'), patch, { mode: 0o600 }); run.patchAvailable = Boolean(patch);
     if (!implementationIssue && !preparationIssue) {
       run.stage = 'judging';
       const reviewChecks = {
-        goal: { label: '목표 충족 / Goal', question: 'Does the actual diff implement the requested task?', pass: 'The diff satisfies the task.', revise: 'Fix the missing or incorrect implementation against the original task; inspect the diff and do not rely on the summary alone.' },
+        goal: { label: '목표 충족 / Goal', question: 'Does the actual diff, together with any verified partial review evidence, implement every original requirement?', pass: 'The diff satisfies the task.', revise: 'Fix the missing or incorrect implementation against the original task; inspect the diff and do not rely on the summary alone.' },
         verification: { label: '검증 충족 / Verification', question: 'Does the actual verification command and successful output provide meaningful evidence for the requested behavior?', pass: verification.code === 0 ? 'Relevant behavior is tested and the command exits successfully.' : 'The verification command exits successfully and tests relevant behavior.', revise: 'Fix failures and add meaningful behavior checks; do not replace verification with an unconditional successful command.' },
       };
       if (isVisualInterfaceTask(run.task, state.files)) {
@@ -1452,7 +1540,7 @@ export class HarnessEngine {
       }
       const verdict = await this.decide(record, {
         task: run.task, plan: state.plan, summary: previousSummary, verifyCommand: run.verifyCommand,
-        verification, independentBrowserQa: run.qaRequired ? run.qaHistory.at(-1) : 'not required', diff: patch.slice(0, 60_000), diffTruncated: patch.length > 60_000,
+        verification, partialReviewEvidence: (run.milestones || []).map(({ id, title, criteria, evidence }) => ({ id, title, criteria, evidence })), allChangesReviewed, independentBrowserQa: run.qaRequired ? run.qaHistory.at(-1) : 'not required', diff: patch.slice(0, 60_000), diffTruncated: patch.length > 60_000,
       }, reviewChecks);
       if (!['complete', 'revise', 'stop'].includes(verdict.decision) || typeof verdict.summary !== 'string' || typeof verdict.feedback !== 'string') throw fail('판정 모델의 결과 형식이 올바르지 않아 실행을 멈췄습니다.');
       await this.event(record, '판정 결과 / Review result', `${verdict.decision}: ${verdict.summary}\n${verdict.feedback}`);
@@ -1461,11 +1549,29 @@ export class HarnessEngine {
       if (run.qaRequired && !run.browserQaPassed) feedback += `\n독립 브라우저 QA 실패(통과 전 자동 반영 금지):\n${(run.qaHistory.at(-1)?.failures || ['브라우저 QA가 완료되지 않았습니다.']).join('\n')}`;
       if (run.automaticVerification && verification.code === 0 && verdict.failedChecks?.includes('verification')) reselectVerification = true;
       if (verdict.decision === 'stop') { run.status = 'blocked'; return { completedRounds: round, previousSummary, feedback, reselectVerification, decision: 'stop', summary: run.summary, nextNode: 'finish' }; }
-      if (verdict.decision === 'complete' && verification.code === 0 && (!run.qaRequired || run.browserQaPassed) && patch.length <= 60_000) {
+      if (verdict.decision === 'complete' && verification.code === 0 && (!run.qaRequired || run.browserQaPassed) && (!run.milestones?.length || run.milestones.every((task) => task.status === 'completed')) && (patch.length <= 60_000 || allChangesReviewed)) {
         run.stagnantRounds = 0;
         return { completedRounds: round, previousSummary, feedback, reselectVerification, decision: 'complete', summary: run.summary, nextNode: 'apply' };
       }
       if (verdict.decision === 'complete') feedback += '\n검증이 통과하지 않았거나 변경이 너무 커 전체 검토할 수 없습니다. 이 문제를 먼저 해결하세요.';
+    }
+    if (run.milestones?.length && run.milestones.every((task) => task.status === 'completed')) {
+      let owner = run.milestones.at(-1);
+      try {
+        const result = await this.call(record, 'judge', {
+          instruction: 'Choose the partial task that owns the root cause of the actual integration or browser QA failure. Return JSON {"answers":{"repairTask":{"choice":"task_ID","reason":"evidence"}}}. Do not weaken existing acceptance criteria.',
+          state: { feedback, verification, browserQa: run.qaHistory.at(-1), tasks: run.milestones.map(({ id, paths, criteria }) => ({ id, paths, criteria })) },
+          questions: { repairTask: { type: 'choice', instructions: 'Choose the task whose owned files need the next targeted repair.', criteria: Object.fromEntries(run.milestones.map((task) => [`task_${task.id}`, task.title])) } },
+        }, '통합 실패 담당 선택 / Integration repair owner', { validate: (answer) => {
+          const value = typeof answer === 'string' ? parseHarnessJson(answer) : answer;
+          if (!run.milestones.some((task) => `task_${task.id}` === value?.answers?.repairTask?.choice)) throw invalidStructuredOutput('통합 실패 담당 작업 선택이 올바르지 않습니다.');
+        } });
+        const value = typeof result === 'string' ? parseHarnessJson(result) : result;
+        owner = run.milestones.find((task) => `task_${task.id}` === value.answers.repairTask.choice);
+      } catch (error) { aborted(signal); await this.event(record, '통합 수정 작업 선택 보완 / Integration owner fallback', '담당 작업 선택을 확인할 수 없어 마지막 통합 작업부터 수정합니다.'); }
+      owner.status = 'pending';
+      feedback += `\n전체 통합 검사 실패를 담당 부분 작업 ${owner.id}에서 수정하세요. 완료 기준과 담당 파일 범위를 유지하세요.`;
+      for (const task of run.milestones) if (task.dependsOn.includes(owner.id)) task.status = 'needs-review';
     }
     const fingerprint = createHash('sha256').update(patch).digest('hex');
     run.stagnantRounds = run.lastRoundFingerprint === fingerprint ? (run.stagnantRounds || 0) + 1 : 0;
@@ -1502,6 +1608,7 @@ export class HarnessEngine {
 
   async applyWorkflow(record) {
     const { run, controller } = record;
+    if (run.milestones?.some((task) => task.status !== 'completed')) throw fail('모든 부분 작업의 완료 근거가 유효해야 자동 반영할 수 있습니다.');
     if (run.qaRequired && !run.browserQaPassed) throw fail('독립 브라우저 QA를 통과하지 못해 자동 반영할 수 없습니다.');
     if (run.status === 'running' && run.autoApply && run.patchAvailable && !run.applied) {
       aborted(controller.signal);

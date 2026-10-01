@@ -5,6 +5,7 @@ import { dirname, join, isAbsolute } from 'node:path';
 import { homedir } from 'node:os';
 import { automaticLoopStartRounds, extendAutomaticLoopRounds, MAX_LOOP_ROUNDS, normalizeLoopPriorities } from './public/loop-policy.mjs';
 import { createHarnessWorkflow } from './harness-graph.mjs';
+import { needsBrowserQa, validateBrowserPlan } from './browser-qa.mjs';
 import { MAX_MCP_CALLS } from './mcp-connections.mjs';
 
 const MAX_FILE = 160_000;
@@ -464,8 +465,8 @@ export async function verifyWorkspace(workspace, command, runtime, signal) {
 }
 
 export class HarnessEngine {
-  constructor({ directory, invoke, verify = verifyWorkspace, mcpConnections = null, agentPlugins = null }) {
-    this.directory = join(directory, 'harness'); this.invoke = invoke; this.verify = verify; this.mcpConnections = mcpConnections; this.agentPlugins = agentPlugins;
+  constructor({ directory, invoke, verify = verifyWorkspace, mcpConnections = null, agentPlugins = null, verifyBrowser = null }) {
+    this.directory = join(directory, 'harness'); this.invoke = invoke; this.verify = verify; this.mcpConnections = mcpConnections; this.agentPlugins = agentPlugins; this.verifyBrowser = verifyBrowser;
     // Prompt text can contain project files, so keep inspection data in memory instead of run logs.
     this.runs = new Map(); this.sources = new Set(); this.promptDetails = new Map(); this.recoveryPromise = null; this.recoveryCompleted = false; this.closing = false;
   }
@@ -521,6 +522,7 @@ export class HarnessEngine {
         return [role, { ...modelDetails(role, selection), reasoningEffort: selection.reasoningEffort || '' }];
       })),
       managedProject: !source, automaticVerification: !input.verifyCommand?.trim(), verifyCommand: input.verifyCommand?.trim() || '', instructions: typeof input.instructions === 'string' ? input.instructions.slice(0, 24_000) : '',
+      qaRequired: Boolean(this.verifyBrowser && needsBrowserQa(input.task)), qaPlan: null, qaHistory: [],
       autoApply: input.autoApply !== false, mcpTools, mcpSideEffectPossible: false,
       events: [], createdAt: Date.now(), summary: '', patchAvailable: false,
       workflowEngine: 'langgraph',
@@ -1180,7 +1182,29 @@ export class HarnessEngine {
       : '';
     const plan = String(await this.call(record, 'planner', `목표: ${run.task}\n파일 목록:\n${files}\n작업을 수행할 모델을 위한 짧은 구현 계획과 검증 기준을 작성하세요. 다음 항목을 짧게 구분하고, 관찰 가능한 완료 기준과 실제 검증 기준을 포함하세요: 요구사항, 완료 기준, 작업 순서, 검증 기준.${visualDesignGuidance} 실제 도구를 실행하지 마세요. 실행할 수 없는 가정은 표시하고 핵심만 1,800자 이내로 작성하세요.`)).trim().slice(0, 6_000);
     await this.event(record, '구현 계획 / Implementation plan', plan);
+    if (this.verifyBrowser && needsBrowserQa(run.task, files)) { run.qaRequired = true; await this.prepareBrowserQa(record, plan); }
     return { plan, files, completedRounds: 0, previousSummary: '', feedback: '', reselectVerification: false, decision: '', summary: '' };
+  }
+
+  async prepareBrowserQa(record, implementationPlan) {
+    const { run } = record;
+    if (run.qaPlan) return;
+    const request = `구현 전에 독립 브라우저 QA 계획을 만드세요. 목표: ${run.task}\n구현 계획: ${implementationPlan}\n실행 후 실패 기준을 낮출 수 없습니다. 오프라인 정적/빌드 HTML을 Chromium에서 실제 실행하며 desktop 1440x900, mobile 390x844에서 같은 검사를 실행합니다. 목표의 기능을 검사하고 모든 check에 assertion을 넣으세요. 입력(input)은 fill, 저장(save)은 reload 후 assertion, 빈 상태(empty)는 visible/hidden/count, 키보드(keyboard)는 press와 focused 또는 동작 결과 assertion이 필요합니다. 해당 기능이 목표에 없으면 notApplicable에 기능이 필요 없는 구체적 이유를 적으세요. 모바일 가로 넘침과 빈 화면은 실행기가 별도 검사합니다. 각 검사는 필요한 경우 reset으로 시작해 저장 상태를 초기화하세요. selector는 구현 모델이 그대로 지켜야 하는 화면 계약입니다. JSON만 반환하세요: {"entry":"index.html","checks":[{"id":"empty-state","categories":["empty"],"steps":[{"action":"reset"},{"action":"visible","selector":"#empty-state"}]}],"notApplicable":{}}. 허용 동작: reset, reload, fill(selector,value문자열), click(selector), press(key:Tab/Enter/Escape/ArrowDown/ArrowUp/ArrowLeft/ArrowRight/Space/Backspace), visible/hidden/focused(selector), text/value(selector,value문자열), count(selector,value정수). 임의 JavaScript나 셸은 금지합니다. 검사는 최대16개, 검사별 단계는 최대24개입니다.`;
+    let feedback = '';
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const answer = await this.callValidated(record, 'planner', `${request}\n직전 QA 계획 판정 피드백: ${feedback}`, '독립 QA 계획 / Independent QA plan', { validate: (value) => validateBrowserPlan(typeof value === 'string' ? parseHarnessJson(value) : value) });
+      const qaPlan = validateBrowserPlan(typeof answer === 'string' ? parseHarnessJson(answer) : answer);
+      const verdict = await this.decide(record, { task: run.task, qaPlan }, {
+        qaContract: { label: '독립 QA 기준', question: 'Does this pre-implementation QA plan exercise the original requested behaviors, with justified not-applicable categories and meaningful assertions, including persistence after reload and keyboard actions where required?', pass: 'The plan covers the original requirements without weakening acceptance criteria.', revise: 'Add the missing observable behavior checks before implementation.' },
+      });
+      if (verdict.decision === 'complete') { run.qaPlan = qaPlan; break; }
+      feedback = verdict.feedback;
+      await this.event(record, '독립 QA 계획 보완 / Refine QA contract', feedback);
+    }
+    if (!run.qaPlan) throw fail(`독립 QA 계획이 목표를 충족하지 못했습니다. ${feedback}`);
+    const qaPlan = run.qaPlan;
+    run.qaPlanHash = createHash('sha256').update(JSON.stringify(qaPlan)).digest('hex');
+    await this.event(record, '독립 QA 기준 확정 / QA contract fixed', `${qaPlan.checks.length}개 기능 검사 · 데스크톱/모바일 · 작업 중 검사 기준을 변경하지 않습니다.`);
   }
 
   async recoverStagnation(record, { round, plan, feedback, previousSummary, verification, patch }) {
@@ -1242,7 +1266,7 @@ export class HarnessEngine {
       const inventory = step === 0 ? `\n파일 목록:\n${files}` : '';
       let answer;
       try {
-        answer = await this.call(record, 'worker', `${protocol}${batchGuidance}${visualDesignGuidance}\n목표: ${run.task}\n계획: ${state.plan}\n회차 ${round}/${run.rounds} · 단계 ${step + 1}/16\n이전 작업: ${previousSummary}\n판정 피드백: ${feedback}${inventory}\n아래 기록은 이번 회차의 최신 작업 상태입니다. 같은 파일의 과거 내용은 최신 상태로 교체되어 있습니다. 내용이 생략된 파일이 필요하면 read로 다시 확인하세요. 필요한 수정이 끝났으면 done과 실제 변경 요약을 반환하세요.\n최근 도구 결과:\n${formatWorkerHistory(history)}\n\n앞선 단계를 다시 하지 말고 다음 작업을 반환하세요.`);
+        answer = await this.call(record, 'worker', `${protocol}${batchGuidance}${visualDesignGuidance}${run.qaPlan ? `\n변경할 수 없는 독립 브라우저 QA 계약입니다. entry와 selector 및 동작을 실제 구현하세요. 이 계약을 변경하거나 생략하지 마세요:\n${JSON.stringify(run.qaPlan)}` : ''}\n목표: ${run.task}\n계획: ${state.plan}\n회차 ${round}/${run.rounds} · 단계 ${step + 1}/16\n이전 작업: ${previousSummary}\n판정 피드백: ${feedback}${inventory}\n아래 기록은 이번 회차의 최신 작업 상태입니다. 같은 파일의 과거 내용은 최신 상태로 교체되어 있습니다. 내용이 생략된 파일이 필요하면 read로 다시 확인하세요. 필요한 수정이 끝났으면 done과 실제 변경 요약을 반환하세요.\n최근 도구 결과:\n${formatWorkerHistory(history)}\n\n앞선 단계를 다시 하지 말고 다음 작업을 반환하세요.`);
       } catch (error) {
         aborted(signal);
         if (run.mcpSideEffectPossible || error.mcpDispatched || quotaExhausted(error) || !(error.transientModelFailure || recoverableModelFailure(error))) throw error;
@@ -1367,6 +1391,21 @@ export class HarnessEngine {
       run.verificationPassed = verification.code === 0;
       reselectVerification = run.automaticVerification && verificationCommandUnavailable(verification);
     }
+    if (!implementationIssue && !preparationIssue && verification?.code === 0 && run.qaRequired) {
+      run.stage = 'browser-qa';
+      const event = await this.event(record, '독립 브라우저 QA / Independent browser QA', '실제 입력·저장·빈 상태·키보드·모바일 화면 검사', 'running');
+      let qa;
+      try {
+        if (!run.qaPlan || createHash('sha256').update(JSON.stringify(run.qaPlan)).digest('hex') !== run.qaPlanHash) throw fail('독립 QA 계약이 없거나 변경됐습니다.');
+        qa = await this.verifyBrowser({ workspace: run.workspace, runId: run.id, round, plan: run.qaPlan }, signal);
+      } catch (error) { aborted(signal); qa = { passed: false, checks: [], failures: [error.message] }; }
+      aborted(signal);
+      run.browserQaPassed = qa.passed === true && Array.isArray(qa.checks) && qa.checks.length > 0 && !qa.checks.some((check) => check.passed !== true) && !qa.failures?.length;
+      run.qaHistory = [...(run.qaHistory || []), { ...qa, passed: run.browserQaPassed, round }].slice(-10);
+      event.status = run.browserQaPassed ? 'completed' : 'failed';
+      event.detail = run.browserQaPassed ? `${qa.checks.length}개 실제 브라우저 검사 통과 · 화면 근거 보존` : (qa.failures || ['브라우저 검사 근거가 부족합니다.']).join('\n').slice(0, 10_000);
+      await this.persist(record);
+    }
     await git(run.workspace, ['add', '-A'], signal);
     const patch = await git(run.workspace, ['diff', '--cached', '--no-ext-diff', '--binary', run.baseline, '--'], signal);
     await writeFile(join(this.directory, run.id, 'final.patch'), patch, { mode: 0o600 }); run.patchAvailable = Boolean(patch);
@@ -1386,15 +1425,16 @@ export class HarnessEngine {
       }
       const verdict = await this.decide(record, {
         task: run.task, plan: state.plan, summary: previousSummary, verifyCommand: run.verifyCommand,
-        verification, diff: patch.slice(0, 60_000), diffTruncated: patch.length > 60_000,
+        verification, independentBrowserQa: run.qaRequired ? run.qaHistory.at(-1) : 'not required', diff: patch.slice(0, 60_000), diffTruncated: patch.length > 60_000,
       }, reviewChecks);
       if (!['complete', 'revise', 'stop'].includes(verdict.decision) || typeof verdict.summary !== 'string' || typeof verdict.feedback !== 'string') throw fail('판정 모델의 결과 형식이 올바르지 않아 실행을 멈췄습니다.');
       await this.event(record, '판정 결과 / Review result', `${verdict.decision}: ${verdict.summary}\n${verdict.feedback}`);
       run.summary = verdict.summary;
       feedback = verdict.feedback;
+      if (run.qaRequired && !run.browserQaPassed) feedback += `\n독립 브라우저 QA 실패(통과 전 자동 반영 금지):\n${(run.qaHistory.at(-1)?.failures || ['브라우저 QA가 완료되지 않았습니다.']).join('\n')}`;
       if (run.automaticVerification && verification.code === 0 && verdict.failedChecks?.includes('verification')) reselectVerification = true;
       if (verdict.decision === 'stop') { run.status = 'blocked'; return { completedRounds: round, previousSummary, feedback, reselectVerification, decision: 'stop', summary: run.summary, nextNode: 'finish' }; }
-      if (verdict.decision === 'complete' && verification.code === 0 && patch.length <= 60_000) {
+      if (verdict.decision === 'complete' && verification.code === 0 && (!run.qaRequired || run.browserQaPassed) && patch.length <= 60_000) {
         run.stagnantRounds = 0;
         return { completedRounds: round, previousSummary, feedback, reselectVerification, decision: 'complete', summary: run.summary, nextNode: 'apply' };
       }
@@ -1435,6 +1475,7 @@ export class HarnessEngine {
 
   async applyWorkflow(record) {
     const { run, controller } = record;
+    if (run.qaRequired && !run.browserQaPassed) throw fail('독립 브라우저 QA를 통과하지 못해 자동 반영할 수 없습니다.');
     if (run.status === 'running' && run.autoApply && run.patchAvailable && !run.applied) {
       aborted(controller.signal);
       run.stage = 'applying'; await this.persist(record);

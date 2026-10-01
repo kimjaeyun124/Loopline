@@ -3,6 +3,7 @@ import { mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { delimiter, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { verifyBrowser } from './browser-qa.mjs';
 import { CHATGPT_URL, GEMINI_URL, createChatGptView, createGeminiView } from './chatgpt-window.mjs';
 
 const APP_NAME = 'Loopline';
@@ -113,7 +114,21 @@ function startBackend() {
     }
 
     const child = backendProcess;
+    const browserChecks = new Map();
+    child.once('exit', () => { for (const controller of browserChecks.values()) controller.abort(new Error('서버 종료')); });
     child.on('message', async (message) => {
+      if (message?.scope === 'loopline-browser-qa') {
+        if (message.action === 'cancel') { browserChecks.get(message.id)?.abort(new Error('브라우저 QA 중지')); return; }
+        if (message.action !== 'verify' || browserChecks.has(message.id)) return;
+        const controller = new AbortController(); browserChecks.set(message.id, controller);
+        try {
+          const result = await verifyBrowser(message.input, userDataPath, controller.signal);
+          if (child.pid) child.postMessage({ scope: 'loopline-browser-qa', id: message.id, result });
+        } catch (error) {
+          if (child.pid) child.postMessage({ scope: 'loopline-browser-qa', id: message.id, result: { passed: false, checks: [], failures: [String(error.message).slice(0, 1000)] } });
+        } finally { browserChecks.delete(message.id); }
+        return;
+      }
       if (message?.scope !== 'mosaic-secrets' || !['encrypt', 'decrypt'].includes(message.action)) return;
       try {
         if (typeof message.value !== 'string' || message.value.length > 64_000 || !await safeStorage.isAsyncEncryptionAvailable()) throw new Error('Keychain unavailable');

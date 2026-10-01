@@ -19,7 +19,8 @@
     },
     "files": [
       "desktop/**/*",
-      "package.json"
+      "package.json",
+      "browser-qa.mjs"
     ],
     "extraResources": [
       {
@@ -73,6 +74,10 @@
       {
         "from": "agent-plugins.mjs",
         "to": "app-server/agent-plugins.mjs"
+      },
+      {
+        "from": "browser-qa.mjs",
+        "to": "app-server/browser-qa.mjs"
       }
     ],
     "mac": {

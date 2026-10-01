@@ -12,6 +12,7 @@ import { CodexAppServer } from './codex-app-server.mjs';
 import { ApiConnections } from './api-connections.mjs';
 import { McpConnections } from './mcp-connections.mjs';
 import { AgentPlugins } from './agent-plugins.mjs';
+import { BrowserQaBridge } from './browser-qa.mjs';
 import { ConversationHistory } from './conversation-history.mjs';
 import { TokenUsageStore } from './token-usage.mjs';
 import { accountActivity, localActivity } from './usage-activity.mjs';
@@ -50,7 +51,8 @@ const agentPlugins = new AgentPlugins({ codexClient: async (accountId) => {
   client.on('serverRequest', ({ id }) => client.respondError(id, -32601, '기존 인증이 필요한 Plugin 요청을 자동 승인할 수 없습니다.'));
   return client;
 } });
-const harness = new HarnessEngine({ directory: userDataDir, invoke: invokeHarnessModel, mcpConnections, agentPlugins });
+const browserQa = new BrowserQaBridge();
+const harness = new HarnessEngine({ directory: userDataDir, invoke: invokeHarnessModel, mcpConnections, agentPlugins, verifyBrowser: (input, signal) => browserQa.verify(input, signal) });
 const tokenUsageStore = new TokenUsageStore(userDataDir);
 const conversationHistory = new ConversationHistory({ codexHome: defaultCodexHome });
 
@@ -2064,6 +2066,14 @@ const server = createServer(async (req, res) => {
           }
         }
         return json(res, 202, await harness.create(input));
+      }
+      const imageMatch = url.pathname.match(/^\/api\/harness\/runs\/([a-f0-9-]{36})\/qa\/([1-9]|10)\/((?:desktop|mobile)-[a-z0-9-]{1,64}\.png)$/);
+      if (req.method === 'GET' && imageMatch) {
+        const run = await harness.get(imageMatch[1]);
+        const round = Number(imageMatch[2]);
+        if (!(run.qaHistory || []).some((qa) => qa.round === round && qa.screenshots?.some((image) => image.name === imageMatch[3]))) return json(res, 404, { error: '검사 화면을 찾을 수 없습니다.' });
+        const content = await readFile(join(userDataDir, 'harness', run.id, 'browser-qa', `round-${round}`, imageMatch[3]));
+        res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'no-store' }); return res.end(content);
       }
       const promptMatch = url.pathname.match(/^\/api\/harness\/runs\/([a-f0-9-]{36})\/events\/([a-f0-9-]{36})\/prompt$/);
       if (req.method === 'GET' && promptMatch) {

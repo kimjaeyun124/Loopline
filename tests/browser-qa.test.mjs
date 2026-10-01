@@ -1,11 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
-import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
-import { join } from 'node:path';
+import { mkdtemp, mkdir, readFile, writeFile, rm, realpath, stat } from 'node:fs/promises';
+import { dirname, extname, join, relative, sep } from 'node:path';
 import { tmpdir } from 'node:os';
+import { randomUUID } from 'node:crypto';
+import { createServer } from 'node:http';
+import { once } from 'node:events';
 import { runInNewContext } from 'node:vm';
-import { BrowserQaBridge, needsBrowserQa, validateBrowserPlan } from '../browser-qa.mjs';
+import { BrowserQaBridge, needsBrowserQa, validateBrowserPlan, BROWSER_QA_EXECUTOR } from '../browser-qa.mjs';
 import { HarnessEngine, runCommand } from '../harness-engine.mjs';
 import { browserPlan, milestonePlan, responseFor } from './fixtures/browser-desktop-qa.mjs';
 import { validateMilestones } from '../harness-milestones.mjs';
@@ -71,13 +74,84 @@ test('QA step limit errors include the exact check and count while keeping the s
 
 test('native QA inspects CSS rendering even when the hidden attribute is overridden', async () => {
   const source = await readFile(new URL('../desktop/browser-qa.mjs', import.meta.url), 'utf8');
-  const body = source.match(/const inspect = \(step\) => js\(`([^]*?)`, step\);/)[1];
+  const body = runInNewContext('`' + source.match(/const inspect = \(step\) => js\(`([^]*?)`, step\);/)[1] + '`');
   const element = { hidden: true, getBoundingClientRect: () => ({ width: 100, height: 30 }) };
   let display = 'grid';
   const inspect = runInNewContext(`(${body})`, { document: { querySelectorAll: () => [element] }, getComputedStyle: () => ({ display, visibility: 'visible' }) });
   assert.equal(inspect({ action: 'hidden', selector: '#empty-state' }).ok, false);
   display = 'none';
   assert.equal(inspect({ action: 'hidden', selector: '#empty-state' }).ok, true);
+});
+
+test('visible focus is a selector assertion following an actual key press, not an arbitrary script', () => {
+  const plan = structuredClone(qaPlan);
+  plan.checks.push({ id: 'focus-cue', categories: ['keyboard'], steps: [{ action: 'press', key: 'Tab' }, { action: 'focus-visible', selector: '#add' }] });
+  assert.deepEqual(validateBrowserPlan(plan), plan);
+  delete plan.checks.at(-1).steps.at(-1).selector;
+  assert.throws(() => validateBrowserPlan(plan), /selector/);
+  plan.checks.at(-1).steps = [{ action: 'focus-visible', selector: '#add' }, { action: 'press', key: 'Tab' }];
+  assert.throws(() => validateBrowserPlan(plan), /키 입력 이후/);
+});
+
+test('native visible focus rejects invisible outlines and permanent shadows while accepting keyboard cues', async () => {
+  const source = await readFile(new URL('../desktop/browser-qa.mjs', import.meta.url), 'utf8');
+  const body = runInNewContext('`' + source.match(/const inspect = \(step\) => js\(`([^]*?)`, step\);/)[1] + '`');
+  let keyboard = true, style = { display: 'block', visibility: 'visible', opacity: '1', outlineWidth: '2px', outlineStyle: 'solid', outlineColor: 'rgb(20, 50, 200)', outline: 'rgb(20, 50, 200) solid 2px', boxShadow: 'none' };
+  const element = { getBoundingClientRect: () => ({ width: 120, height: 40 }), matches: () => keyboard };
+  const document = { querySelectorAll: () => [element], activeElement: element };
+  const inspect = runInNewContext(`(${body})`, { document, getComputedStyle: () => style });
+  const step = { action: 'focus-visible', selector: '#add', unfocusedBoxShadow: 'none' };
+  assert.equal(inspect(step).ok, true);
+  keyboard = false; assert.equal(inspect(step).ok, false); keyboard = true;
+  document.activeElement = null; assert.equal(inspect(step).ok, false); document.activeElement = element;
+  style.outlineColor = 'rgba(20, 50, 200, 0)'; assert.equal(inspect(step).ok, false);
+  style.outlineWidth = '0px'; style.boxShadow = 'rgb(20, 50, 200) 0px 0px 0px 3px';
+  assert.equal(inspect(step).ok, true);
+  assert.equal(inspect({ ...step, unfocusedBoxShadow: style.boxShadow }).ok, false);
+  assert.equal(inspect({ ...step, unfocusedBoxShadow: undefined }).ok, false);
+  style.boxShadow = 'rgba(20, 50, 200, 0) 0px 0px 0px 3px'; assert.equal(inspect(step).ok, false);
+  style.outlineWidth = '2px'; style.outlineColor = 'rgb(20, 50, 200)'; style.opacity = '0'; assert.equal(inspect(step).ok, false);
+});
+
+test('native QA catches overflow immediately after a long input even if a later reset removes it', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'loopline-native-layout-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const runId = randomUUID(), workspace = join(directory, 'harness', runId, 'workspace');
+  await mkdir(workspace, { recursive: true }); await writeFile(join(workspace, 'index.html'), '<html>fixture</html>');
+  const source = await readFile(new URL('../desktop/browser-qa.mjs', import.meta.url), 'utf8');
+  const body = source.slice(source.indexOf('export async function verifyBrowser'))
+    .replace('export async function verifyBrowser', 'async function verifyBrowser')
+    .replace(/const \{ validateBrowserPlan, BROWSER_QA_EXECUTOR \} = await import\([^]*?\);/, 'const { validateBrowserPlan, BROWSER_QA_EXECUTOR } = shared;');
+  const windows = [];
+  class MockWindow {
+    constructor({ width }) {
+      windows.push(this); this.width = width; this.destroyed = false;
+      const input = { value: '', focus() {}, select() {}, getBoundingClientRect: () => ({ width: 150, height: 40 }) };
+      const document = this.document = { documentElement: { scrollWidth: width }, body: { scrollWidth: width, innerText: 'Fixture' }, querySelectorAll: () => [input], querySelector: () => input };
+      this.webContents = { session: { setPermissionRequestHandler() {}, setPermissionCheckHandler() {}, webRequest: { onBeforeRequest() {} }, async clearStorageData() {}, async closeAllConnections() {} },
+        setWindowOpenHandler() {}, on() {}, executeJavaScript: async code => runInNewContext(code, { document, innerWidth: width, localStorage: { clear() {} }, sessionStorage: { clear() {} }, getComputedStyle: () => ({ display: 'block', visibility: 'visible' }) }),
+        debugger: { attach() {}, on() {}, async sendCommand(name) { if (name === 'Input.insertText') document.documentElement.scrollWidth = width + 200; } },
+        capturePage: async () => ({ toPNG: () => Buffer.from('fixture') }) };
+    }
+    async loadURL() { this.document.documentElement.scrollWidth = this.width; }
+    isDestroyed() { return this.destroyed; }
+    destroy() { this.destroyed = true; }
+  }
+  const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+  const load = new AsyncFunction('shared', 'BrowserWindow', 'createServer', 'once', 'mkdir', 'readFile', 'realpath', 'stat', 'writeFile', 'dirname', 'extname', 'join', 'relative', 'sep', 'randomUUID', source.slice(source.indexOf('const mime'), source.indexOf('export async function')) + body + '\nreturn verifyBrowser;');
+  const verify = await load({ validateBrowserPlan, BROWSER_QA_EXECUTOR }, MockWindow, createServer, once, mkdir, readFile, realpath, stat, writeFile, dirname, extname, join, relative, sep, randomUUID);
+  const plan = { entry: 'index.html', checks: [
+    { id: 'long', categories: ['input'], steps: [{ action: 'reset' }, { action: 'fill', selector: '#input', value: 'Long title' }, { action: 'visible', selector: '#input' }] },
+    { id: 'empty', categories: ['empty'], steps: [{ action: 'reset' }, { action: 'visible', selector: '#input' }] },
+  ], notApplicable: { save: 'This fixture has no persistence requirement.', keyboard: 'This fixture has no keyboard behavior requirement.' } };
+  const result = await verify({ workspace, runId, round: 1, plan }, directory);
+  assert.equal(result.passed, false); assert.equal(windows.length, 2);
+  for (const viewport of ['desktop', 'mobile']) {
+    assert.equal(result.checks.find(c => c.id === 'long-layout' && c.viewport === viewport).passed, false);
+    assert.equal(result.checks.find(c => c.id === 'empty-layout' && c.viewport === viewport).passed, true);
+    assert.equal(result.checks.find(c => c.id === 'layout' && c.viewport === viewport).passed, true);
+  }
+  assert.equal(result.screenshots.length, 4); assert.ok(windows.every(w => w.destroyed));
 });
 
 test('packaged desktop fixture preserves QA and milestone contracts across a targeted repair', () => {
@@ -178,6 +252,9 @@ test('QA recovery routes the last existing attempt only for automatic planners, 
           if (prompt.questions.qaContract) {
             assert.deepEqual(Object.keys(prompt.questions), ['qaContract', 'qaInput', 'qaSave', 'qaEmpty', 'qaKeyboard']);
             assert.match(prompt.questions.qaContract.instructions, /not whether unbuilt files already exist/);
+            assert.deepEqual(prompt.state.executor, BROWSER_QA_EXECUTOR);
+            assert.match(prompt.questions.qaContract.instructions, /executor.fixedChecks and viewports/);
+            assert.match(prompt.questions.qaKeyboard.instructions, /focused alone cannot establish/);
             reviews++; if (reviews < 3) result.answers.qaInput = { choice: 'revise' };
           }
           return result;
@@ -185,6 +262,7 @@ test('QA recovery routes the last existing attempt only for automatic planners, 
         if (prompt.includes('구현 계획과 검증 기준')) return 'Implement the website and verify its behavior';
         if (prompt.includes('구현 전에 독립 브라우저 QA 계획')) {
           assert.match(prompt, /가능하면 12단계/); assert.match(prompt, /원래 기능 검사를 생략하지/);
+          assert.match(prompt, /focus-visible assertion/); assert.match(prompt, /각 검사 직후와 최종 상태/);
           if (planners.length) assert.match(prompt, /Add the required input actions/);
           planners.push(selection.model); return qaPlan;
         }

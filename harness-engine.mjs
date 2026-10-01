@@ -1328,17 +1328,38 @@ export class HarnessEngine {
     const { run } = record;
     if (run.qaPlan) return;
     const request = `구현 전에 독립 브라우저 QA 계획을 만드세요. 목표: ${run.task}\n구현 계획: ${implementationPlan}\n실행 후 실패 기준을 낮출 수 없습니다. 오프라인 정적/빌드 HTML을 Chromium에서 실제 실행하며 desktop 1440x900, mobile 390x844에서 같은 검사를 실행합니다. 목표의 기능을 검사하고 모든 check에 assertion을 넣으세요. 입력(input)은 fill, 저장(save)은 reload 후 assertion, 빈 상태(empty)는 visible/hidden/count, 키보드(keyboard)는 press와 focused 또는 동작 결과 assertion이 필요합니다. 해당 기능이 목표에 없으면 notApplicable에 기능이 필요 없는 구체적 이유를 적으세요. 모바일 가로 넘침과 빈 화면은 실행기가 별도 검사합니다. 각 검사는 필요한 경우 reset으로 시작해 저장 상태를 초기화하세요. selector는 구현 모델이 그대로 지켜야 하는 화면 계약입니다. JSON만 반환하세요: {"entry":"index.html","checks":[{"id":"empty-state","categories":["empty"],"steps":[{"action":"reset"},{"action":"visible","selector":"#empty-state"}]}],"notApplicable":{}}. 허용 동작: reset, reload, fill(selector,value문자열), click(selector), press(key:Tab/Enter/Escape/ArrowDown/ArrowUp/ArrowLeft/ArrowRight/Space/Backspace), visible/hidden/focused(selector), text/value(selector,value문자열), count(selector,value정수). 임의 JavaScript나 셸은 금지합니다. 검사는 최대16개, 검사별 단계는 최대24개입니다.`;
-    const categoryContract = `\n각 check.categories는 ${JSON.stringify(QA_CATEGORIES)}에 있는 문자열만 담은 배열이어야 합니다. filter, search, delete, mobile, desktop, responsive 등 새 분류 이름은 허용되지 않습니다. 추가 기능 검사는 관련 기본 분류를 사용하거나 categories: []로 작성하되 실제 동작과 assertion을 포함하세요. 네 기본 분류는 각각 실제 검사로 충족하거나 notApplicable에 구체적인 근거를 제시해야 합니다. 검사 ID는 영문 소문자·숫자·하이픈으로 지정하세요.`;
+    const categoryContract = `\n각 check.categories는 ${JSON.stringify(QA_CATEGORIES)}에 있는 문자열만 담은 배열이어야 합니다. filter, search, delete, mobile, desktop, responsive 등 새 분류 이름은 허용되지 않습니다. 추가 기능 검사는 관련 기본 분류를 사용하거나 categories: []로 작성하되 실제 동작과 assertion을 포함하세요. 네 기본 분류는 각각 실제 검사로 충족하거나 notApplicable에 구체적인 근거를 제시해야 합니다. 검사 ID는 영문 소문자·숫자·하이픈으로 지정하세요. 한 검사에 전체 사용자 여정을 넣지 마세요. 독립적인 행동 사례 하나를 검사당 가능하면 12단계 이내로 작성하고, 절대 24단계를 넘기지 마세요. 긴 사례는 각각 필요한 reset·초기 입력·assertion을 포함한 독립 검사로 나누고 원래 기능 검사를 생략하지 마세요.`;
     let feedback = '';
+    const triedPlannerModels = new Set([selectionKey(run.roles.planner)]);
     for (let attempt = 0; attempt < 3; attempt++) {
       const answer = await this.callValidated(record, 'planner', `${request}${categoryContract}\n직전 QA 계획 판정 피드백: ${feedback}`, '독립 QA 계획 / Independent QA plan', { validate: (value) => validateBrowserPlan(typeof value === 'string' ? parseHarnessJson(value) : value) });
       const qaPlan = validateBrowserPlan(typeof answer === 'string' ? parseHarnessJson(answer) : answer);
+      triedPlannerModels.add(selectionKey(run.roles.planner));
       const verdict = await this.decide(record, { task: run.task, qaPlan }, {
-        qaContract: { label: '독립 QA 기준', question: 'Does this pre-implementation QA plan exercise the original requested behaviors, with justified not-applicable categories and meaningful assertions, including persistence after reload and keyboard actions where required?', pass: 'The plan covers the original requirements without weakening acceptance criteria.', revise: 'Add the missing observable behavior checks before implementation.' },
+        qaContract: { label: '독립 QA 기준', question: 'Does this pre-implementation QA plan cover the original requested behaviors with meaningful assertions and justified not-applicable categories? Evaluate the planned actions, not whether unbuilt files already exist: selectors are a contract for forthcoming implementation. Runtime results will be independently checked before application.', pass: 'The plan covers the original requirements without weakening acceptance criteria.', revise: 'Add the missing observable behavior checks before implementation.' },
+        qaInput: { label: 'QA 입력 행동', question: 'For input behavior required by the task, are actual fills/actions followed by assertions of the requested accepted and rejected inputs? If not applicable, is its concrete reason consistent with the original task?', pass: 'Planned input cases observe the required results, or the original task justifies absence.', revise: 'Add the required input actions and observable accepted/rejected outcomes.' },
+        qaSave: { label: 'QA 저장 복원', question: 'For persistence required by the task, does the plan change data then reload and assert the restored data or state? If not applicable, is its concrete reason consistent with the original task?', pass: 'Planned persistence cases observe state after reload, or the original task justifies absence.', revise: 'Add a data change, reload, and assertion of the required restored state.' },
+        qaEmpty: { label: 'QA 빈 상태', question: 'For empty behavior required by the task, does the plan assert the actual visible empty state and its transition after adding/removing data where requested? If not applicable, is its concrete reason consistent with the original task?', pass: 'Planned empty-state cases observe the requested transitions, or the original task justifies absence.', revise: 'Add observable initial empty and required add/remove transitions, including removal of the last item when requested.' },
+        qaKeyboard: { label: 'QA 키보드 행동', question: 'For keyboard behavior required by the task, does the plan press real keys and then assert focus or the requested resulting action? If not applicable, is its concrete reason consistent with the original task?', pass: 'Planned keyboard cases observe focus or action after real key presses, or the original task justifies absence.', revise: 'Add real keyboard presses followed by focus or action-result assertions.' },
       });
       if (verdict.decision === 'complete') { run.qaPlan = qaPlan; break; }
       feedback = verdict.feedback;
       await this.event(record, '독립 QA 계획 보완 / Refine QA contract', feedback);
+      // Preserve the same judge and contract limits. A different saved planner
+      // gets only the last existing attempt when typed feedback keeps repeating.
+      if (attempt === 1 && run.roles.planner.automatic === true) {
+        const current = run.roles.planner;
+        const next = run.modelPriority.planner.find((model) => !triedPlannerModels.has(selectionKey(model))
+          && !model.decisionOnly && !knownExhausted(run.modelBudgets[selectionKey(model)], model));
+        if (next) {
+          const nextKey = selectionKey(next);
+          run.roles.planner = { ...next, automatic: true };
+          run.modelPriority.planner = run.modelPriority.planner.filter((model) => selectionKey(model) !== nextKey);
+          if (!run.modelPriority.planner.some((model) => selectionKey(model) === selectionKey(current))) run.modelPriority.planner.push(current);
+          run.stageModels.planner = { ...modelDetails('planner', next), reasoningEffort: next.reasoningEffort || '' };
+          await this.event(record, 'QA 계획 판정 복구 · 모델 전환 / QA planning review recovery', `QA 계획이 두 번 판정을 통과하지 못해 저장된 다음 후보 ${next.label || next.model}로 마지막 계획 시도를 진행합니다. 검사 조건과 판정 역할은 유지합니다.`, 'completed', modelDetails('planner', next));
+        }
+      }
     }
     if (!run.qaPlan) throw fail(`독립 QA 계획이 목표를 충족하지 못했습니다. ${feedback}`);
     const qaPlan = run.qaPlan;

@@ -20,7 +20,7 @@ export function validateBrowserPlan(plan) {
     const unsupportedCategories = check.categories.filter((category) => !QA_CATEGORIES.includes(category));
     if (unsupportedCategories.length) invalid(`${check.id}: 지원하지 않는 검사 분류 ${JSON.stringify(unsupportedCategories).slice(0, 180)}입니다. 허용 분류: ${QA_CATEGORIES.join(', ')}. 추가 동작 검사는 기존 분류 또는 빈 배열을 사용하고 assertion을 유지하세요.`);
     check.categories.forEach((category) => covered.add(category));
-    if (!Array.isArray(check.steps) || check.steps.length < 1 || check.steps.length > 24) invalid('검사 단계는 1~24개여야 합니다.');
+    if (!Array.isArray(check.steps) || check.steps.length < 1 || check.steps.length > 24) invalid(`${check.id}: 검사 단계는 1~24개여야 합니다. 실제 단계 수: ${Array.isArray(check.steps) ? check.steps.length : '배열 아님'}. 긴 시나리오는 필요한 초기 입력과 assertion을 유지해 독립 검사로 나누세요.`);
     const assertions = check.steps.filter((step) => ['visible', 'hidden', 'text', 'value', 'count', 'focused'].includes(step?.action));
     if (!assertions.length) invalid('각 검사에 실제 assertion이 필요합니다.');
     const assertsAfter = (action) => {

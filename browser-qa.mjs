@@ -1,7 +1,13 @@
 import { randomUUID } from 'node:crypto';
 
 export const QA_CATEGORIES = ['input', 'save', 'empty', 'keyboard'];
-const ACTIONS = new Set(['reset', 'reload', 'fill', 'click', 'press', 'visible', 'hidden', 'text', 'value', 'count', 'focused']);
+const ACTIONS = new Set(['reset', 'reload', 'fill', 'click', 'press', 'visible', 'hidden', 'text', 'value', 'count', 'focused', 'focus-visible']);
+export const BROWSER_QA_EXECUTOR = Object.freeze({
+  viewports: [{ id: 'desktop', width: 1440, height: 900 }, { id: 'mobile', width: 390, height: 844 }],
+  actions: [...ACTIONS],
+  fixedChecks: [{ id: 'layout', after: 'every planned check and the final state', criteria: ['nonblank rendered page', 'no horizontal overflow', 'requested viewport width'] }],
+  focusVisibleEvidence: 'focus-visible asserts keyboard focus plus a visible outline or a box shadow that changed from its unfocused style; focused alone asserts only the active element.',
+});
 const KEYS = new Set(['Tab', 'Enter', 'Escape', 'ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Space', 'Backspace']);
 export function needsBrowserQa(task, files = '') {
   return /(?:website|web\s*(?:app|page|site)|front[- ]end|dashboard|landing\s*page|\bUI\b|웹\s*(?:사이트|앱|페이지)|프론트엔드|대시보드|랜딩|화면|디자인)/i.test(task)
@@ -21,7 +27,7 @@ export function validateBrowserPlan(plan) {
     if (unsupportedCategories.length) invalid(`${check.id}: 지원하지 않는 검사 분류 ${JSON.stringify(unsupportedCategories).slice(0, 180)}입니다. 허용 분류: ${QA_CATEGORIES.join(', ')}. 추가 동작 검사는 기존 분류 또는 빈 배열을 사용하고 assertion을 유지하세요.`);
     check.categories.forEach((category) => covered.add(category));
     if (!Array.isArray(check.steps) || check.steps.length < 1 || check.steps.length > 24) invalid(`${check.id}: 검사 단계는 1~24개여야 합니다. 실제 단계 수: ${Array.isArray(check.steps) ? check.steps.length : '배열 아님'}. 긴 시나리오는 필요한 초기 입력과 assertion을 유지해 독립 검사로 나누세요.`);
-    const assertions = check.steps.filter((step) => ['visible', 'hidden', 'text', 'value', 'count', 'focused'].includes(step?.action));
+    const assertions = check.steps.filter((step) => ['visible', 'hidden', 'text', 'value', 'count', 'focused', 'focus-visible'].includes(step?.action));
     if (!assertions.length) invalid('각 검사에 실제 assertion이 필요합니다.');
     const assertsAfter = (action) => {
       const index = check.steps.findLastIndex((step) => step.action === action);

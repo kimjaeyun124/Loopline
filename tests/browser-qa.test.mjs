@@ -99,6 +99,38 @@ test('a not-applicable rationale can be corrected without losing earlier cases',
   assert.throws(() => applyBrowserPlanPatch(base, { notApplicable: { save: 'none' } }), /구체적인 근거/);
 });
 
+test('full QA plans accept additional observations while retaining every existing step and the sixteen-check limit', () => {
+  const base = { ...structuredClone(qaPlan), checks: [...structuredClone(qaPlan.checks), ...Array.from({ length: 14 }, (_, i) => focusCheck(`focus-${i}`))] };
+  const patch = { extendChecks: [{ id: 'empty', steps: [{ action: 'count', selector: '#list .task', value: 0 }] }] };
+  const before = structuredClone({ base, patch }), result = applyBrowserPlanPatch(base, patch);
+  assert.equal(result.checks.length, 16); assert.deepEqual(result.checks[0].steps.slice(0, base.checks[0].steps.length), base.checks[0].steps);
+  assert.deepEqual(result.checks.slice(1), base.checks.slice(1)); assert.deepEqual(result.checks[0].categories, base.checks[0].categories);
+  result.checks[0].steps.at(-1).selector = '#changed'; assert.deepEqual({ base, patch }, before);
+  assert.throws(() => applyBrowserPlanPatch(base, { addChecks: [focusCheck('overflow')] }), /1~16/);
+});
+
+test('QA extension rejects rewrites, unknown IDs, duplicated operations and missing appended assertions', () => {
+  const steps = [{ action: 'count', selector: '#list', value: 0 }];
+  for (const patch of [ { extendChecks: null }, { extendChecks: [{ id: 'missing', steps }] },
+    { extendChecks: [{ id: 'empty', steps, categories: [] }] }, { extendChecks: [{ id: 'empty', steps: [] }] },
+    { extendChecks: [{ id: 'empty', steps: [{ action: 'click', selector: '#add' }] }] },
+    { replaceChecks: [qaPlan.checks[0]], extendChecks: [{ id: 'empty', steps }] },
+    { extendChecks: [{ id: 'empty', steps }, { id: 'empty', steps }] },
+  ]) assert.throws(() => applyBrowserPlanPatch(qaPlan, patch, ['empty']), error => {
+    assert.equal(error.invalidStructuredOutput, true); assert.match(error.message, /QA 보완 오류/); return true;
+  });
+});
+
+test('QA extension preserves assertion sequencing, script rejection and the twenty-four-step bound', () => {
+  const maximum = structuredClone(qaPlan); maximum.checks[0].steps = Array.from({ length: 23 }, () => ({ action: 'visible', selector: '#empty' }));
+  const observation = { id: 'empty', steps: [{ action: 'count', selector: '#list', value: 0 }] };
+  assert.equal(applyBrowserPlanPatch(maximum, { extendChecks: [observation] }).checks[0].steps.length, 24);
+  maximum.checks[0].steps.push({ action: 'visible', selector: '#empty' });
+  assert.throws(() => applyBrowserPlanPatch(maximum, { extendChecks: [observation] }), /1~24/);
+  assert.throws(() => applyBrowserPlanPatch(qaPlan, { extendChecks: [{ id: 'input-save', steps: [{ action: 'fill', selector: '#name', value: 'new' }] }] }), /assertion/);
+  assert.throws(() => applyBrowserPlanPatch(qaPlan, { extendChecks: [{ id: 'empty', steps: [{ action: 'evaluate', script: 'window.accept = true' }, observation.steps[0]] }] }), /허용되지 않은/);
+});
+
 test('malformed JSON is classified for bounded format repair without accepting prose, arrays or partial objects', () => {
   for (const answer of ['No JSON here', '{"entry":', '[]', 'null']) {
     assert.throws(() => parseHarnessJson(answer), error => {
@@ -315,6 +347,12 @@ test('QA recovery routes the last existing attempt only for automatic planners, 
             assert.deepEqual(Object.keys(prompt.questions), ['qaContract', 'qaInput', 'qaSave', 'qaEmpty', 'qaKeyboard', ...prompt.state.qaPlan.checks.map(check => `qaCheck_${check.id}`)]);
             assert.match(prompt.questions.qaContract.instructions, /not whether unbuilt files already exist/);
             assert.deepEqual(prompt.state.executor, BROWSER_QA_EXECUTOR);
+            assert.equal(prompt.state.phase, 'pre-implementation planning');
+            assert.match(prompt.state.completionGates[0], /per-task and full offline project tests/);
+            assert.match(prompt.state.completionGates[1], /both viewports before application/);
+            assert.match(prompt.questions.qaContract.instructions, /all originally requested user-visible behaviors/);
+            assert.match(prompt.questions.qaContract.instructions, /separate mandatory completion gates/);
+            assert.match(prompt.questions.qaContract.instructions, /Do not omit any requested browser-observable behavior/);
             assert.match(prompt.questions.qaContract.instructions, /executor.fixedChecks and viewports/);
             assert.match(prompt.questions.qaKeyboard.instructions, /focused alone cannot establish/);
             reviews++; if (reviews < 3) result.answers.qaInput = { choice: 'revise' };
@@ -397,6 +435,36 @@ test('QA delta repair blocks changes to accepted cases and recovers with only th
   assert.equal(plans, 3); assert.equal(reviews, 2);
   assert.equal(run.events.filter(e => e.title.startsWith('독립 QA 부분 보완')).length, 1);
   assert.deepEqual(run.qaPlan.checks, [...qaPlan.checks, focusCheck()]);
+});
+
+test('missing coverage can extend a full accepted QA plan before independent execution and application', async (t) => {
+  const f = await fixture(t); let plans = 0, reviews = 0;
+  const full = { ...structuredClone(qaPlan), checks: [...structuredClone(qaPlan.checks), ...Array.from({ length: 14 }, (_, i) => focusCheck(`focus-${i}`))] };
+  const appended = { action: 'count', selector: '#list .task', value: 0 };
+  const engine = new HarnessEngine({ directory: f.directory, verify: async () => ({ code: 0, output: 'PASS' }),
+    verifyBrowser: async (input) => {
+      assert.equal(input.plan.checks.length, 16); assert.deepEqual(input.plan.checks.slice(1), full.checks.slice(1));
+      assert.deepEqual(input.plan.checks[0].steps, [...full.checks[0].steps, appended]);
+      return { passed: true, checks: input.plan.checks.map(({ id }) => ({ id, passed: true })), failures: [] };
+    }, invoke: async (_selection, prompt) => {
+      if (typeof prompt === 'object') {
+        const result = { answers: Object.fromEntries(Object.keys(prompt.questions).map(id => [id, { choice: 'pass', reason: 'Fixture evidence' }])) };
+        if (prompt.questions.qaContract && ++reviews === 1) result.answers.qaContract = { choice: 'revise', reason: 'Also observe the number of rows.' };
+        return result;
+      }
+      if (prompt.includes('구현 계획과 검증 기준')) return 'Plan';
+      if (prompt.includes('구현 전에 독립 브라우저 QA 계획')) {
+        if (++plans === 1) return full;
+        assert.match(prompt, /새 검사 여유: 0개/); assert.match(prompt, /extendChecks/); assert.match(prompt, /교체 허용 검사 ID: \[\]/);
+        return { extendChecks: [{ id: 'empty', steps: [appended] }] };
+      }
+      return JSON.stringify({ done: true, summary: 'Implemented', operations: [{ type: 'write', path: 'index.html', content: '<html>fixture</html>' }] });
+    } });
+  const created = await engine.create(f.input); await engine.runs.get(created.id).execution;
+  const run = await engine.get(created.id);
+  assert.equal(run.status, 'completed', run.summary); assert.equal(run.applied, true); assert.equal(run.browserQaPassed, true);
+  assert.equal(plans, 2); assert.equal(reviews, 2); assert.equal(run.qaPlan.checks.length, 16);
+  assert.match(run.events.find(event => event.title.startsWith('독립 QA 부분 보완')).detail, /추가 확인 1단계/);
 });
 
 test('a rejected individual QA case can be repaired without touching accepted cases', async (t) => {

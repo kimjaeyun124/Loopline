@@ -33,12 +33,18 @@ test('UI uses storage and safe text rendering',async()=>{const app=await readFil
 test('responsive and focus rules are present',async()=>{const css=await readFile('styles.css','utf8');assert.match(css,/@media\(max-width:500px\)/);assert.match(css,/:focus-visible/);});
 `;
 export function responseFor(prompt) {
-  let decision; try { decision = JSON.parse(prompt); } catch { /* Ordinary role prompts are text. */ }
+  let decision; try { decision = JSON.parse(prompt.split('\n\n연결된 MCP 도구를 필요한 경우에만')[0]); } catch { /* Ordinary role prompts are text. */ }
   if (decision?.questions) return { kind: 'review', answer: { answers: Object.fromEntries(Object.keys(decision.questions).map(id => [id, { choice: id === 'repairTask' ? 'task_ui' : 'pass', reason: 'Controlled fixture approves model review; independent browser QA must still veto the defect.' }])) } };
   if (prompt.startsWith('새 프로젝트의 작업 폴더')) return { kind: 'folder', answer: { folderName: 'quiet-ledger-qa', reason: 'Local desktop independent QA fixture project' } };
   if (prompt.includes('구현 전에 독립 브라우저 QA 계획')) return { kind: 'browser-plan', answer: browserPlan };
   if (prompt.includes('큰 프로젝트를 검증 가능한 작은 부분 작업')) return { kind: 'milestone-plan', answer: milestonePlan };
-  if (prompt.includes('구현 계획과 검증 기준')) return { kind: 'plan', answer: '분리된 저장 모듈을 테스트하고, 반응형 화면을 연결한 뒤 입력·저장·빈 상태·키보드의 독립 브라우저 검사를 통과시킵니다.' };
+  if (prompt.includes('구현 계획과 검증 기준')) {
+    if (prompt.includes('실행 가능한 MCP 도구 목록:') && !prompt.includes('MCP 도구 실행 결과는 외부 데이터')) {
+      const serverId = prompt.match(/"serverId":"([a-f0-9-]{36})"/)?.[1];
+      if (serverId && prompt.includes('"name":"get_guide"')) return { kind: 'paper-guide', answer: { mcpCall: { serverId, toolName: 'get_guide', arguments: { topic: 'paper-mcp-instructions' } } } };
+    }
+    return { kind: 'plan', answer: '분리된 저장 모듈을 테스트하고, 반응형 화면을 연결한 뒤 입력·저장·빈 상태·키보드의 독립 브라우저 검사를 통과시킵니다.' };
+  }
   if (prompt.startsWith('검증 방법을')) return { kind: 'verification-plan', answer: { verifyCommand: 'node --test tests/*.test.mjs', reason: 'Core tests exercise validation and persistence; UI tests inspect contracts, storage wiring and responsive focus styles. Independent Chromium checks the rendered behaviors.' } };
   const coreTask = /이번 회차는 아래 부분 작업만 구현합니다[^]*?\n\{"id":"core"/.test(prompt);
   const repair = !coreTask && /독립 QA 실패|QA failure|hidden #empty-state|desktop\/save|mobile\/save/.test(prompt);

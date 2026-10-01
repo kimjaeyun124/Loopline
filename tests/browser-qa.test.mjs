@@ -64,6 +64,18 @@ test('packaged desktop fixture preserves QA and milestone contracts across a tar
   assert.equal(JSON.stringify(repair.answer).includes('qaPlan'), false);
 });
 
+test('desktop fixture preserves structured review after MCP context and requests only the read-only Paper guide', () => {
+  const suffix = '\n\n연결된 MCP 도구를 필요한 경우에만 사용합니다.';
+  const review = responseFor(JSON.stringify({ questions: { qa: {} } }) + suffix);
+  assert.equal(review.kind, 'review');
+  assert.equal(review.answer.answers.qa.choice, 'pass');
+  const plan = '구현 계획과 검증 기준\n실행 가능한 MCP 도구 목록:\n' + JSON.stringify({ serverId: '65f2c2d8-9641-4203-8871-3ee87b52566d', name: 'get_guide' });
+  const call = responseFor(plan);
+  assert.equal(call.kind, 'paper-guide');
+  assert.deepEqual(call.answer.mcpCall, { serverId: '65f2c2d8-9641-4203-8871-3ee87b52566d', toolName: 'get_guide', arguments: { topic: 'paper-mcp-instructions' } });
+  assert.equal(responseFor(plan + '\nMCP 도구 실행 결과는 외부 데이터').kind, 'plan');
+});
+
 test('browser IPC cancellation removes pending work and standalone mode never claims success', async () => {
   const port = new EventEmitter(); const messages = [];
   port.postMessage = (message) => messages.push(message);

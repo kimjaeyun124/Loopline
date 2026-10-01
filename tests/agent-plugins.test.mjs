@@ -27,7 +27,7 @@ test('native Plugin catalog is lazy, uses an ephemeral thread and preserves acco
   const definitions = await f.manager.toolsFor(selection, context);
   assert.equal(definitions.length, 1);
   assert.equal(definitions[0].name, 'plugin_tools');
-  assert.equal(f.calls[0].params.ephemeral, true);
+  assert.equal(f.calls.find((call) => call.method === 'thread/start').params.ephemeral, true);
   const search = JSON.parse((await f.manager.call(selection, context, { action: 'search', query: 'design' })).output);
   assert.equal(search.tools[0].server, 'figma');
   const a = await f.manager.call(selection, context, { action: 'call', server: 'figma', tool: 'inspect', arguments: {} });
@@ -82,4 +82,13 @@ test('Claude configured MCP inherits scoped environment without returning creden
   assert.equal(transportOptions.env.TOKEN, 'private-test-token');
   assert.equal(JSON.stringify(tools).includes('private-test-token'), false);
   await manager.close(); assert.equal(closed, 1);
+});
+
+
+test('a provider without MCP servers creates no temporary chat', async () => {
+  const calls = [];
+  const manager = new AgentPlugins({ codexClient: async () => ({ request: async (method) => { calls.push(method); return { data: [] }; }, stop() {} }) });
+  assert.deepEqual(await manager.toolsFor(selection, context), []);
+  assert.equal(calls.includes('thread/start'), false);
+  await manager.close();
 });

@@ -39,7 +39,7 @@ test('role, effort and options save without the completion button', (t) => {
   s.node('#harnessRoles').fire('change', { dataset: { harnessEffort: 'worker' }, value: 'high' });
   s.node('#harnessAutoApply').checked = false; s.node('#harnessAutoApply').fire('change');
   s.node('#harnessClose').fire('click');
-  assert.deepEqual(s.saved().roles.worker, { model: 'jev-test', effort: 'high', fallbacks: [] });
+  assert.deepEqual(s.saved().roles.worker, { model: 'jev-test', effort: 'high', nativePlugins: true, loopMcp: true, fallbacks: [] });
   assert.equal(s.saved().autoApply, false);
   assert.match(s.node('#harnessSaveStatus').textContent, /자동 저장됨/);
 });
@@ -51,7 +51,7 @@ test('model settings survive a fresh UI instance without workspace inputs', (t) 
   s.node('#harnessModal').fire('keydown');
   const reloaded = setup(t, { storage: s.storage }); reloaded.ui.open();
   assert.match(reloaded.node('#harnessRoles').innerHTML, /value="high" selected/);
-  assert.deepEqual(reloaded.saved().roles.worker, { model: 'jev-test', effort: 'high', fallbacks: [] });
+  assert.deepEqual(reloaded.saved().roles.worker, { model: 'jev-test', effort: 'high', nativePlugins: true, loopMcp: true, fallbacks: [] });
 });
 
 test('Loop role model choices show and search by model strengths', (t) => {
@@ -95,7 +95,7 @@ test('opening settings preserves saved effort when the model is temporarily unav
   const storage = new Map([[KEY, JSON.stringify({ roles: { worker: { model: 'disconnected', effort: 'high', fallbacks: [] } } })]]);
   const s = setup(t, { storage }); s.ui.open();
   s.node('#harnessAutoApply').fire('change');
-  assert.deepEqual(s.saved().roles.worker, { model: 'disconnected', effort: 'high', fallbacks: [] });
+  assert.deepEqual(s.saved().roles.worker, { model: 'disconnected', effort: 'high', nativePlugins: true, loopMcp: true, fallbacks: [] });
 });
 
 
@@ -159,7 +159,7 @@ test('search keeps the selected model and automatic reset preserves fallback pri
   assert.match(s.fields.innerHTML, /value="a" selected/);
   assert.match(s.fields.innerHTML, /검색 결과 없음/);
   s.node('#harnessUseAutomatic').fire('click');
-  assert.deepEqual(s.saved().roles.worker, { model: '', effort: '', fallbacks: ['c', 'b'] });
+  assert.deepEqual(s.saved().roles.worker, { model: '', effort: '', nativePlugins: true, loopMcp: true, fallbacks: ['c', 'b'] });
 });
 
 test('all role selectors use the concise automatic label with or without Jev', (t) => {
@@ -174,4 +174,17 @@ test('all role selectors use the concise automatic label with or without Jev', (
       assert.doesNotMatch(options, /자동 ·/);
     }
   }
+});
+
+
+test('Agent Plugin and Loopline MCP role switches persist independently', (t) => {
+  const s = setup(t); s.ui.open();
+  s.fields.fire('change', { dataset: { harnessNative: 'worker' }, checked: false });
+  s.fields.fire('change', { dataset: { harnessShared: 'judge' }, checked: false });
+  assert.equal(s.saved().roles.worker.nativePlugins, false);
+  assert.equal(s.saved().roles.worker.loopMcp, true);
+  assert.equal(s.saved().roles.judge.nativePlugins, true);
+  assert.equal(s.saved().roles.judge.loopMcp, false);
+  const reloaded = setup(t, { storage: s.storage }); reloaded.ui.open();
+  assert.doesNotMatch(reloaded.fields.innerHTML, /data-harness-native="worker" checked/);
 });

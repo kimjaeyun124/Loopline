@@ -25,13 +25,13 @@ async function fixture(t) {
   return { root, source, data, model, input };
 }
 
-function script({ route = (prompt) => answers(prompt, 'keep'), worker = () => ({ operations: [{ type: 'write', path: 'file.txt', content: 'updated' }], done: true, summary: 'Updated stored data' }), plan = null } = {}) {
+function script({ route = (prompt) => answers(prompt, 'keep'), judge = (prompt) => answers(prompt), worker = () => ({ operations: [{ type: 'write', path: 'file.txt', content: 'updated' }], done: true, summary: 'Updated stored data' }), plan = null } = {}) {
   return async (selection, prompt, _instructions, _signal, report) => {
     report?.({ type: 'usage', usage: { total_tokens: 10 } });
     if (prompt?.questions?.worker || prompt?.questions?.planner) return route(prompt, selection);
-    if (typeof prompt === 'object') return answers(prompt);
+    if (typeof prompt === 'object') return judge(prompt, selection);
     if (prompt.includes('구현 계획과 검증 기준')) return implementationPlan;
-    if (prompt.includes('큰 프로젝트를 검증 가능한 작은 부분 작업')) return JSON.stringify(plan);
+    if (prompt.includes('큰 프로젝트를 검증 가능한 작은 부분 작업')) return JSON.stringify(typeof plan === 'function' ? await plan(selection, prompt) : plan);
     return JSON.stringify(await worker(selection, prompt));
   };
 }
@@ -164,4 +164,48 @@ test('quota fallback retains automatic mode and is not duplicated in later plan 
   const run = await finish(engine, f.input); assert.equal(run.roles.worker.automatic, true); assert.equal(run.roles.worker.model, 'alternative');
   await engine.selectModels(engine.runs.get(run.id), { plan: `${implementationPlan} New part`, feedback: '' });
   assert.equal(routes.length, 2, 'A single available model needs no extra judgement');
+});
+
+const twoPartPlan = { tasks: [
+  { id: 'first', title: 'Storage', dependsOn: [], paths: ['first.txt'], criteria: ['Persist the first result safely'], verifyCommand: 'test -f first.txt' },
+  { id: 'second', title: 'Integration', dependsOn: ['first'], paths: ['second.txt'], criteria: ['Connect the persisted results'], verifyCommand: 'test -f second.txt' },
+] };
+const partWorker = (_selection, prompt) => {
+  const part = prompt.includes('"id":"first"') ? 'first' : 'second';
+  return { operations: [{ type: 'write', path: `${part}.txt`, content: part }], done: true, summary: `${part} complete` };
+};
+
+test('repeated plan rejection changes only automatic planners and preserves the final review gate', async (t) => {
+  for (const automatic of [true, false]) await t.test(automatic ? 'automatic planner skips exhausted alternatives' : 'fixed planner stays selected', async (t) => {
+    const f = await fixture(t), planners = []; let reviews = 0;
+    const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: script({ worker: partWorker,
+      plan(selection, prompt) { planners.push(selection.model); assert.match(prompt, /담당 파일과 기능을 실제로 검사/); return twoPartPlan; },
+      judge(prompt) { return answers(prompt, prompt.questions.workPlan && ++reviews < 3 ? 'revise' : 'pass'); },
+    }) });
+    const run = await finish(engine, { ...f.input, task: 'large project CLI with two parts', verifyCommand: 'test -f first.txt && test -f second.txt', roles: {
+      ...f.input.roles, worker: { ...f.model, automatic: false }, planner: { ...f.model, automatic, fallbacks: [
+        { ...f.model, model: 'exhausted-planner', remainingPercent: 0 }, { ...f.model, model: 'alternative' },
+      ] },
+    } });
+    assert.equal(reviews, 3);
+    assert.deepEqual(planners, automatic ? ['primary', 'primary', 'alternative'] : ['primary', 'primary', 'primary']);
+    assert.equal(run.events.filter(e => e.title.startsWith('계획 판정 복구')).length, automatic ? 1 : 0);
+    assert.equal(run.roles.worker.model, 'primary'); assert.ok(run.milestones.every(part => part.status === 'completed'));
+  });
+});
+
+test('planning recovery remains bounded and cannot bypass three rejected reviews', async (t) => {
+  const f = await fixture(t), planners = []; let workerCalls = 0, reviews = 0;
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: script({
+    plan(selection) { planners.push(selection.model); return twoPartPlan; },
+    judge(prompt) { if (prompt.questions.workPlan) { reviews++; return answers(prompt, 'revise'); } return answers(prompt); },
+    worker() { workerCalls++; throw new Error('Implementation must not start'); },
+  }) });
+  const created = await engine.create({ ...f.input, task: 'large project CLI', roles: { ...f.input.roles,
+    planner: { ...f.model, automatic: true, fallbacks: [{ ...f.model, model: 'alternative' }] }, worker: { ...f.model, automatic: false },
+  } });
+  await engine.runs.get(created.id).execution; const run = await engine.get(created.id);
+  assert.equal(run.status, 'failed'); assert.equal(run.applied, undefined); assert.equal(reviews, 3); assert.equal(workerCalls, 0);
+  assert.deepEqual(planners, ['primary', 'primary', 'alternative']);
+  assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'original');
 });

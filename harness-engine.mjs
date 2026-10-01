@@ -1008,8 +1008,27 @@ export class HarnessEngine {
     return {
       decision: failed.length ? 'revise' : 'complete', summary,
       failedChecks: failed.map(([id]) => id),
+      unexplainedChecks: failed.filter(([id]) => typeof answers[id].reason !== 'string' || !answers[id].reason.trim()).map(([id]) => id),
       feedback: failed.map(([id, check]) => [check.revise, typeof answers[id].reason === 'string' ? answers[id].reason.trim() : ''].filter(Boolean).join(' ')).join('\n'),
     };
+  }
+
+  async usePlanningReviewFallback(record, verdict, label) {
+    const { run } = record, current = run.roles.judge;
+    if (!current?.decisionOnly || !verdict.failedChecks?.length
+      || verdict.unexplainedChecks?.length !== verdict.failedChecks.length) return false;
+    const next = (run.modelPriority.judge || []).find((model) => !model.decisionOnly
+      && selectionKey(model) !== selectionKey(current) && !knownExhausted(run.modelBudgets[selectionKey(model)], model));
+    if (!next) return false;
+    // A probability-only rejection cannot explain which requirement to repair.
+    // Re-review the identical contract once; runtime evidence is still mandatory.
+    const key = selectionKey(next);
+    run.roles.judge = { ...next };
+    run.modelPriority.judge = run.modelPriority.judge.filter((model) => selectionKey(model) !== key);
+    if (!run.modelPriority.judge.some((model) => selectionKey(model) === selectionKey(current))) run.modelPriority.judge.push(current);
+    run.stageModels.judge = { ...modelDetails('judge', next), reasoningEffort: next.reasoningEffort || '' };
+    await this.event(record, '계획 판정 근거 복구 · 모델 전환 / Plan review feedback recovery', `${label}이 두 번 거부됐지만 구체적인 수정 사유가 없어 저장된 다음 판정 후보 ${next.label || next.model}가 같은 계획과 같은 질문을 다시 검토합니다. 자동 통과하지 않으며 실제 검증·브라우저 QA 조건을 유지합니다.`, 'completed', modelDetails('judge', next));
+    return true;
   }
 
   async selectModels(record, planContext = null) {
@@ -1258,15 +1277,17 @@ export class HarnessEngine {
       triedPlannerModels.add(selectionKey(run.roles.planner));
       // This gate judges a future verification strategy. Actual files, test results
       // and browser evidence remain required by the later completion gates.
-      const verdict = await this.decide(record, {
+      const reviewState = {
         phase: 'pre-implementation planning', task: run.task, tasks,
         ...(run.qaPlan ? { qaPlan: run.qaPlan, executor: BROWSER_QA_EXECUTOR } : {}),
-      }, { workPlan: {
+      }, reviewChecks = { workPlan: {
         label: '부분 작업 범위',
         question: 'Evaluate this pre-implementation milestone plan. Does it cover every original requirement with sensible file ownership, dependency order, observable acceptance criteria and meaningful independently executable checks for each task? Judge the declared verification strategy, not whether unbuilt files exist or tests already pass. The first task must be testable without later-task files. When state.qaPlan exists, evaluate the proposed Node tests together with that fixed browser QA plan and state.executor: Node tests must meaningfully check logic and integration contracts, while actual DOM behavior, keyboard focus, persistence and layout are independently executed after implementation and before application. Planned browser QA cannot replace meaningful per-task Node tests. Execution evidence will be required by later completion gates.',
         pass: 'The future implementation plan covers the original requirements and each task has meaningful verification that can run in dependency order; execution evidence is still required after implementation.',
         revise: 'Repair missing original requirements, invalid dependencies or ineffective per-task verification.',
-      } });
+      } };
+      let verdict = await this.decide(record, reviewState, reviewChecks);
+      if (attempt === 1 && await this.usePlanningReviewFallback(record, verdict, '부분 작업 계획')) verdict = await this.decide(record, reviewState, reviewChecks);
       if (verdict.decision === 'complete') { run.milestones = tasks; break; }
       feedback = verdict.feedback;
       // A typed judge can reject a feasible-looking plan without a useful prose
@@ -1357,10 +1378,10 @@ export class HarnessEngine {
         await this.event(record, '독립 QA 부분 보완 / QA patch applied', `기존 ${proposal.checks.length}개 검사 보존 · 새 검사 ${qaPlan.checks.length - proposal.checks.length}개 · 추가 확인 ${addedSteps}단계 · 실패 검사 교체 허용 ${replaceableCheckIds.length}개. 전체 계획 재작성 없이 같은 기준으로 재판정합니다.`);
       }
       triedPlannerModels.add(selectionKey(run.roles.planner));
-      const verdict = await this.decide(record, {
+      const reviewState = {
         phase: 'pre-implementation planning', task: run.task, qaPlan, executor: BROWSER_QA_EXECUTOR,
         completionGates: ['Meaningful per-task and full offline project tests are required after implementation.', 'This fixed browser contract is executed in both viewports before application.', 'Final goal and visual-design review assess the actual changed code and execution evidence before application.'],
-      }, {
+      }, reviewChecks = {
         qaContract: { label: '독립 QA 기준', question: 'Does this pre-implementation browser QA plan cover all originally requested user-visible behaviors that the supplied executor can observe, with meaningful assertions and justified not-applicable categories? Evaluate the planned actions together with the explicitly supplied executor.fixedChecks and viewports, not whether unbuilt files already exist: selectors are a contract for forthcoming implementation. This gate covers browser interactions and layout. Node test execution, project planning, documentation and final code/visual-design review are separate mandatory completion gates in state.completionGates; do not require those to be expressed as browser actions. Do not omit any requested browser-observable behavior. Runtime results will be independently checked before application.', pass: 'The browser plan covers all original browser-observable requirements without weakening acceptance criteria; other mandatory completion gates remain in place.', revise: 'Add the missing observable behavior checks before implementation.' },
         qaInput: { label: 'QA 입력 행동', question: 'For input behavior required by the task, are actual fills/actions followed by assertions of the requested accepted and rejected inputs? If not applicable, is its concrete reason consistent with the original task?', pass: 'Planned input cases observe the required results, or the original task justifies absence.', revise: 'Add the required input actions and observable accepted/rejected outcomes.' },
         qaSave: { label: 'QA 저장 복원', question: 'For persistence required by the task, does the plan change data then reload and assert the restored data or state? If not applicable, is its concrete reason consistent with the original task?', pass: 'Planned persistence cases observe state after reload, or the original task justifies absence.', revise: 'Add a data change, reload, and assertion of the required restored state.' },
@@ -1372,14 +1393,16 @@ export class HarnessEngine {
           pass: 'This individual planned case is meaningful and consistent; retain it unchanged while adding missing coverage.',
           revise: `Correct the contradictory or inadequate actions/assertions of check ${check.id}, preserving its ID and categories.`,
         }])),
-      });
+      };
+      let verdict = await this.decide(record, reviewState, reviewChecks);
+      if (attempt === 1 && await this.usePlanningReviewFallback(record, verdict, '독립 QA 계획')) verdict = await this.decide(record, reviewState, reviewChecks);
       if (verdict.decision === 'complete') { run.qaPlan = qaPlan; break; }
       proposal = qaPlan;
       replaceableCheckIds = qaPlan.checks.filter((check) => verdict.failedChecks.includes(`qaCheck_${check.id}`)).map((check) => check.id);
       feedback = verdict.feedback;
       await this.event(record, '독립 QA 계획 보완 / Refine QA contract', feedback);
-      // Preserve the same judge and contract limits. A different saved planner
-      // gets only the last existing attempt when typed feedback keeps repeating.
+      // A different saved planner gets only the last existing attempt when
+      // feedback keeps repeating. Contract limits and runtime gates are unchanged.
       if (attempt === 1 && run.roles.planner.automatic === true) {
         const current = run.roles.planner;
         const next = run.modelPriority.planner.find((model) => !triedPlannerModels.has(selectionKey(model))

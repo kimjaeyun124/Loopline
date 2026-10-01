@@ -69,6 +69,55 @@ test('explicit milestone rejection retains the three-attempt bound and never gra
   assert.equal(record.run.milestoneContract, undefined); assert.notEqual(record.run.applied, true);
 });
 
+test('unexplained planning rejection uses the first available saved explanatory judge without granting approval', async (t) => {
+  const engine = new HarnessEngine({ directory: await directory(t), invoke: async () => assert.fail('No model invocation in candidate selection') });
+  const current = { provider: 'api', model: 'jev', decisionOnly: true }, next = { provider: 'api', model: 'reviewer' };
+  const record = { run: { roles: { judge: current, planner: { model: 'planner' }, worker: { model: 'worker' } }, modelBudgets: {}, stageModels: {},
+    modelPriority: { judge: [current, { provider: 'api', model: 'empty', remainingPercent: 0 }, next, { provider: 'api', model: 'later' }] } } };
+  const events = []; engine.event = async (...args) => events.push(args);
+  const verdict = { decision: 'revise', failedChecks: ['workPlan'], unexplainedChecks: ['workPlan'] };
+  assert.equal(await engine.usePlanningReviewFallback(record, verdict, '부분 작업 계획'), true);
+  assert.deepEqual(record.run.roles.judge, next); assert.equal(record.run.stageModels.judge.id, 'reviewer');
+  assert.deepEqual(record.run.modelPriority.judge.map(model => model.model), ['jev', 'empty', 'later']);
+  assert.equal(record.run.roles.planner.model, 'planner'); assert.equal(record.run.roles.worker.model, 'worker');
+  assert.equal(verdict.decision, 'revise'); assert.notEqual(record.run.applied, true); assert.equal(events.length, 1);
+  assert.match(events[0][2], /같은 계획과 같은 질문/);
+  assert.equal(await engine.usePlanningReviewFallback(record, verdict, '부분 작업 계획'), false);
+});
+
+test('planning review keeps fixed explanatory judges, concrete critiques and unavailable fallback configurations', async (t) => {
+  const engine = new HarnessEngine({ directory: await directory(t), invoke: async () => assert.fail('No invocation') });
+  engine.event = async () => assert.fail('No candidate should be selected');
+  const make = () => ({ run: { roles: { judge: { provider: 'api', model: 'jev', decisionOnly: true } }, modelBudgets: {}, stageModels: {}, modelPriority: { judge: [{ provider: 'api', model: 'reviewer' }] } } });
+  const rejected = { decision: 'revise', failedChecks: ['workPlan'], unexplainedChecks: ['workPlan'] };
+  for (const verdict of [{ decision: 'complete', failedChecks: [], unexplainedChecks: [] }, { ...rejected, unexplainedChecks: [] },
+    { ...rejected, failedChecks: ['workPlan', 'another'] }]) assert.equal(await engine.usePlanningReviewFallback(make(), verdict, '계획'), false);
+  const fixed = make(); delete fixed.run.roles.judge.decisionOnly;
+  assert.equal(await engine.usePlanningReviewFallback(fixed, rejected, '계획'), false);
+  const absent = make(); absent.run.modelPriority.judge = [];
+  assert.equal(await engine.usePlanningReviewFallback(absent, rejected, '계획'), false);
+  const exhausted = make(); exhausted.run.modelPriority.judge[0].remainingTokens = 0;
+  assert.equal(await engine.usePlanningReviewFallback(exhausted, rejected, '계획'), false);
+});
+
+test('milestone review changes judge after two unexplained rejections and rechecks the identical pending plan', async (t) => {
+  const engine = new HarnessEngine({ directory: await directory(t), invoke: async () => assert.fail('Captured planning fixture') }), record = planningRecord();
+  record.run.roles.judge = { provider: 'api', model: 'jev', decisionOnly: true };
+  record.run.modelPriority.judge = [{ provider: 'api', model: 'reviewer' }]; record.run.stageModels = {};
+  let plans = 0; const reviews = [];
+  engine.callValidated = async () => { plans++; return plan; };
+  engine.decide = async (record, state, checks) => {
+    reviews.push({ model: record.run.roles.judge.model, state: structuredClone(state), checks: structuredClone(checks) });
+    assert.notEqual(record.run.applied, true); assert.deepEqual(record.run.milestones, []);
+    return record.run.roles.judge.model === 'jev' ? { decision: 'revise', failedChecks: ['workPlan'], unexplainedChecks: ['workPlan'], feedback: 'Repair verification.' } : { decision: 'complete' };
+  };
+  engine.event = async () => {};
+  await engine.prepareMilestones(record, 'future plan', '');
+  assert.equal(plans, 2); assert.deepEqual(reviews.map(review => review.model), ['jev', 'jev', 'reviewer']);
+  assert.deepEqual(reviews[2].state, reviews[1].state); assert.deepEqual(reviews[2].checks, reviews[1].checks);
+  assert.ok(record.run.milestones.every(task => task.status === 'pending' && task.evidence === null));
+});
+
 test('milestone plans reject cycles, unbounded ownership, empty criteria and fake checks', () => {
   assert.equal(validateMilestones(plan).length, 2);
   const forward = structuredClone(plan); forward.tasks[0].dependsOn = ['second']; assert.throws(() => validateMilestones(forward), /의존 작업/);

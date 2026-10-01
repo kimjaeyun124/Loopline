@@ -404,6 +404,60 @@ test('QA recovery cannot bypass a failed individual category or start implementa
   assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'original');
 });
 
+test('explanatory judge rechecks the identical QA contract after two unexplained rejections but cannot override failed runtime QA', async (t) => {
+  const f = await fixture(t); let plans = 0, browserChecks = 0; const reviews = [];
+  const engine = new HarnessEngine({ directory: f.directory, verify: async () => ({ code: 0, output: 'PASS' }),
+    verifyBrowser: async () => { browserChecks++; return { passed: false, checks: [{ id: 'empty', passed: false }], failures: ['Actual empty state missing'] }; },
+    invoke: async (selection, prompt) => {
+      if (typeof prompt === 'object') {
+        const answers = Object.fromEntries(Object.keys(prompt.questions).map(id => [id, { choice: 'pass', reason: 'Controlled review' }]));
+        if (prompt.questions.qaContract) {
+          reviews.push({ model: selection.model, prompt: structuredClone(prompt) });
+          if (selection.decisionOnly) answers.qaContract = { choice: 'revise' };
+        }
+        return { answers };
+      }
+      if (prompt.includes('구현 계획과 검증 기준')) return 'Plan';
+      if (prompt.includes('구현 전에 독립 브라우저 QA 계획')) return ++plans === 1 ? qaPlan : { addChecks: [focusCheck()] };
+      return JSON.stringify({ done: true, summary: 'Fixture', operations: [{ type: 'write', path: 'index.html', content: '<html>unverified fixture</html>' }] });
+    } });
+  const created = await engine.create({ ...f.input, rounds: 1, roles: { ...f.input.roles,
+    judge: { provider: 'api', model: 'jev', decisionOnly: true, fallbacks: [{ provider: 'api', model: 'reviewer' }] },
+  } });
+  await engine.runs.get(created.id).execution; const run = await engine.get(created.id);
+  assert.equal(plans, 2); assert.deepEqual(reviews.map(review => review.model), ['jev', 'jev', 'reviewer']);
+  assert.deepEqual(reviews[2].prompt, reviews[1].prompt); assert.equal(browserChecks, 1);
+  assert.equal(run.status, 'limit', run.summary); assert.notEqual(run.applied, true); assert.equal(run.browserQaPassed, false);
+  assert.equal(run.events.filter(event => event.title.startsWith('계획 판정 근거 복구')).length, 1);
+  await assert.rejects(readFile(join(f.source, 'index.html')));
+});
+
+test('explanatory judge rejection supplies concrete repair feedback and still blocks implementation after the bounded attempts', async (t) => {
+  const f = await fixture(t); let plans = 0, reviews = 0, workers = 0;
+  const engine = new HarnessEngine({ directory: f.directory,
+    verifyBrowser: async () => assert.fail('No runtime QA for rejected planning'), invoke: async (selection, prompt) => {
+      if (typeof prompt === 'object') {
+        const answers = Object.fromEntries(Object.keys(prompt.questions).map(id => [id, { choice: 'pass' }]));
+        if (prompt.questions.qaContract) { reviews++; answers.qaContract = selection.decisionOnly ? { choice: 'revise' } : { choice: 'revise', reason: 'Missing a live status assertion after completion.' }; }
+        return { answers };
+      }
+      if (prompt.includes('구현 계획과 검증 기준')) return 'Plan';
+      if (prompt.includes('구현 전에 독립 브라우저 QA 계획')) {
+        if (++plans === 3) assert.match(prompt, /Missing a live status assertion after completion/);
+        return plans === 1 ? qaPlan : { addChecks: [focusCheck(`extra-${plans}`)] };
+      }
+      workers++; assert.fail('No implementation after rejected plan');
+    } });
+  const created = await engine.create({ ...f.input, roles: { ...f.input.roles,
+    judge: { provider: 'api', model: 'jev', decisionOnly: true, fallbacks: [{ provider: 'api', model: 'reviewer' }] },
+  } });
+  await engine.runs.get(created.id).execution; const run = await engine.get(created.id);
+  assert.equal(plans, 3); assert.equal(reviews, 4); assert.equal(workers, 0);
+  assert.equal(run.status, 'failed'); assert.notEqual(run.applied, true); assert.equal(run.qaPlan, null);
+  assert.match(run.summary, /Missing a live status assertion after completion/);
+  assert.equal(run.events.filter(event => event.title.startsWith('계획 판정 근거 복구')).length, 1);
+});
+
 test('QA delta repair blocks changes to accepted cases and recovers with only the missing check', async (t) => {
   const f = await fixture(t); let plans = 0, reviews = 0;
   const engine = new HarnessEngine({ directory: f.directory, verify: async () => ({ code: 0, output: 'PASS' }),

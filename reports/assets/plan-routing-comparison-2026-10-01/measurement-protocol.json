@@ -1,0 +1,18 @@
+{
+  "criteria": [
+    "동일 프롬프트와 빈 프로젝트로 순차 실행",
+    "단일은 모든 역할 Luna Max 고정, Loop는 자동 배정",
+    "양쪽 모두 같은 Harness·최대 10회 자동 회차·실제 데스크톱 브라우저 QA",
+    "원본 코드 직접 편집·수동 stop/resume 없이 완료 관찰",
+    "외부 공통 브라우저 QA 18개를 생성 전에 고정",
+    "서로 다른 localhost 포트로 저장 데이터 분리"
+  ],
+  "definitions": {
+    "automaticCompletion": "completed && applied && verificationPassed && browserQaPassed",
+    "externalIntervention": "실행 시작 뒤 프로젝트 코드 편집, 강제 중지·재시작, 실행 조건 변경. QA 입력과 보고서 준비 시간은 별도.",
+    "tokenUsage": "각 modelCalls 항목의 tokens를 합산. null 호출은 unknown으로 별도 표기.",
+    "runtime": "finishedAt-createdAt, 모델/검증/브라우저 QA/반영 포함. 비교 후 추가 QA와 보고서 작성은 제외.",
+    "successRate": "한 과제·방식당 1회 관찰, 일반 성공 확률로 해석하지 않음",
+    "quality": "사전 공통 18개 브라우저 검사 통과 수와 직접 화면 비교. 미학적 점수는 임의 산출하지 않음"
+  }
+}

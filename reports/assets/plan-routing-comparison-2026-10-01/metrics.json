@@ -1,0 +1,236 @@
+{
+  "date": "2026-10-01",
+  "sourceCommit": "e34846c",
+  "task": "Focus Desk offline task manager",
+  "observationsPerArm": 1,
+  "comparison": "fixed single-model Harness vs automatic mixed-model Harness",
+  "arms": {
+    "single": {
+      "runId": "8dcb96df-e094-455a-a003-356b05a01f9f",
+      "status": "failed",
+      "stage": "planning",
+      "summary": "모델 응답이 요청한 JSON 형식이 아닙니다.",
+      "applied": false,
+      "verificationPassed": false,
+      "browserQaPassed": false,
+      "automaticallyCompleted": false,
+      "elapsedMs": 1566109,
+      "rounds": 0,
+      "modelCalls": 8,
+      "reportedTokens": 251842,
+      "unreportedCalls": 0,
+      "externalCodeEdits": 0,
+      "externalStops": 0,
+      "externalResumes": 0,
+      "formatRepairs": 0,
+      "fallbackSwitches": 0,
+      "planningRecoverySwitches": 0,
+      "qaPlanningRevisions": 2,
+      "planningReviews": [
+        {
+          "title": "모델 판정 / Live model decision",
+          "model": {
+            "role": "judge",
+            "provider": "openai",
+            "source": "Codex",
+            "id": "gpt-6-luna",
+            "label": "gpt-6-luna",
+            "effort": "max"
+          },
+          "detail": "gpt-6-luna · gpt-6-luna\n독립 QA 기준: revise · 대부분의 동작과 반응형 기준을 확인하지만, 화면에 ‘Focus Desk’ 제목이 표시되는지와 추가·완료·삭제 같은 성공 동작이 role=\"status\" aria-live=\"polite\" 영역에 안내되는지 확인하지 않습니다. 이 관찰 검사를 계획에 추가하세요.\nQA 입력 행동: pass · 공백 제목을 입력해 목록이 비어 있고 안내 문구가 표시되는지 확인하며, 앞뒤 공백이 있는 제목은 Enter로 추가한 뒤 정리된 제목과 입력란 초기화를 확인합니다. 버튼 추가와 검색 입력 결과도 검사합니다.\nQA 저장 복원: pass · 작업을 추가하고 완료 처리한 뒤 페이지를 새로고침하고, 항목·완료 상태·요약 수치·진행률이 복원되는지 확인합니다.\nQA 빈 상태: pass · 초기 빈 상태와 요약 수치를 확인하고, 마지막 작업 삭제 후 빈 상태로 전환되는지 검사합니다. 검색 결과 없음 상태가 실제 빈 목록 상태와 구분되는지도 확인합니다.\nQA 키보드 행동: pass · Enter와 Space 입력 후 추가·완료·삭제·필터 결과를 확인하고, 키보드로 이동한 입력란과 버튼의 focus-visible 표시도 검사합니다."
+        },
+        {
+          "title": "모델 판정 / Live model decision",
+          "model": {
+            "role": "judge",
+            "provider": "openai",
+            "source": "Codex",
+            "id": "gpt-6-luna",
+            "label": "gpt-6-luna",
+            "effort": "max"
+          },
+          "detail": "gpt-6-luna · gpt-6-luna\n독립 QA 기준: revise · 초기 개수·진행률과 저장 후 완료 상태는 확인하지만, 작업 추가·완료 후 개수와 진행률이 갱신되는지는 확인하지 않습니다. 입력·검색의 접근성 이름, HTML처럼 생긴 제목의 안전한 표시, 시각 디자인 요구사항에 대한 확인도 빠져 있어 구현 요구 전체를 판정하기 어렵습니다.\nQA 입력 행동: pass · 앞뒤 공백을 정리한 제목 추가, 공백 제목 거부, 검색어별 결과 변경을 실제 입력 동작과 결과 단언으로 확인합니다.\nQA 저장 복원: pass · 작업을 추가하고 완료한 뒤 새로고침하며, 작업 제목과 완료 취소 버튼으로 저장된 목록 및 완료 상태의 복원을 확인합니다.\nQA 빈 상태: pass · 초기 빈 목록, 검색 결과 없음과 빈 목록의 구분, 마지막 작업 삭제 후 빈 상태 복귀를 확인합니다.\nQA 키보드 행동: pass · Tab과 focus-visible로 키보드 포커스 표시를 확인하고, Enter·Space 입력 뒤 추가·필터 선택·완료·삭제 결과를 단언합니다."
+        }
+      ],
+      "failedBrowserQaRounds": 0,
+      "lastBrowserQa": null,
+      "milestones": [],
+      "modelBreakdown": [
+        {
+          "role": "planner",
+          "model": "gpt-6-luna",
+          "effort": "max",
+          "calls": 5,
+          "reportedTokens": 172257,
+          "unreportedCalls": 0,
+          "failedCalls": 0,
+          "modelTimeMs": 1485318
+        },
+        {
+          "role": "judge",
+          "model": "gpt-6-luna",
+          "effort": "max",
+          "calls": 3,
+          "reportedTokens": 79585,
+          "unreportedCalls": 0,
+          "failedCalls": 0,
+          "modelTimeMs": 80118
+        }
+      ],
+      "phaseBreakdown": [
+        {
+          "phase": "구현 전 계획·QA 계약·판정",
+          "calls": 8,
+          "reportedTokens": 251842,
+          "unreportedCalls": 0,
+          "modelTimeMs": 1565436
+        }
+      ],
+      "planRouting": [],
+      "assignments": [],
+      "verification": []
+    },
+    "loop": {
+      "runId": "9ece8c62-1d10-47d9-9e00-44d37cf58a5f",
+      "status": "failed",
+      "stage": "planning",
+      "summary": "모델 응답이 요청한 JSON 형식이 아닙니다.",
+      "applied": false,
+      "verificationPassed": false,
+      "browserQaPassed": false,
+      "automaticallyCompleted": false,
+      "elapsedMs": 388085,
+      "rounds": 0,
+      "modelCalls": 11,
+      "reportedTokens": 116648,
+      "unreportedCalls": 1,
+      "externalCodeEdits": 0,
+      "externalStops": 0,
+      "externalResumes": 0,
+      "formatRepairs": 0,
+      "fallbackSwitches": 1,
+      "planningRecoverySwitches": 1,
+      "qaPlanningRevisions": 2,
+      "planningReviews": [
+        {
+          "title": "Jev 실제 판정 / Live Jev decision",
+          "model": {
+            "role": "judge",
+            "provider": "api",
+            "source": "Jev",
+            "id": "jev-1.13.0",
+            "label": "Jev latest",
+            "effort": ""
+          },
+          "detail": "Jev · jev-1.13.0\n독립 QA 기준: revise · 신뢰도 / Confidence 79.0%\nQA 입력 행동: pass · 신뢰도 / Confidence 76.0%\nQA 저장 복원: pass · 신뢰도 / Confidence 98.0%\nQA 빈 상태: revise · 신뢰도 / Confidence 28.0%\nQA 키보드 행동: pass · 신뢰도 / Confidence 95.0%"
+        },
+        {
+          "title": "Jev 실제 판정 / Live Jev decision",
+          "model": {
+            "role": "judge",
+            "provider": "api",
+            "source": "Jev",
+            "id": "jev-1.13.0",
+            "label": "Jev latest",
+            "effort": ""
+          },
+          "detail": "Jev · jev-1.13.0\n독립 QA 기준: revise · 신뢰도 / Confidence 44.0%\nQA 입력 행동: pass · 신뢰도 / Confidence 75.0%\nQA 저장 복원: pass · 신뢰도 / Confidence 98.0%\nQA 빈 상태: pass · 신뢰도 / Confidence 97.0%\nQA 키보드 행동: pass · 신뢰도 / Confidence 97.0%"
+        }
+      ],
+      "failedBrowserQaRounds": 0,
+      "lastBrowserQa": null,
+      "milestones": [],
+      "modelBreakdown": [
+        {
+          "role": "judge",
+          "model": "jev-latest",
+          "effort": "default",
+          "calls": 4,
+          "reportedTokens": 17678,
+          "unreportedCalls": 0,
+          "failedCalls": 0,
+          "modelTimeMs": 1270
+        },
+        {
+          "role": "planner",
+          "model": "models/gemini-3-flash-preview",
+          "effort": "default",
+          "calls": 4,
+          "reportedTokens": 11805,
+          "unreportedCalls": 1,
+          "failedCalls": 1,
+          "modelTimeMs": 46702
+        },
+        {
+          "role": "planner",
+          "model": "gpt-6-luna",
+          "effort": "high",
+          "calls": 2,
+          "reportedTokens": 58277,
+          "unreportedCalls": 0,
+          "failedCalls": 1,
+          "modelTimeMs": 229621
+        },
+        {
+          "role": "planner",
+          "model": "gpt-6-sol",
+          "effort": "high",
+          "calls": 1,
+          "reportedTokens": 28888,
+          "unreportedCalls": 0,
+          "failedCalls": 0,
+          "modelTimeMs": 109672
+        }
+      ],
+      "phaseBreakdown": [
+        {
+          "phase": "구현 전 계획·QA 계약·판정",
+          "calls": 11,
+          "reportedTokens": 116648,
+          "unreportedCalls": 1,
+          "modelTimeMs": 387265
+        }
+      ],
+      "planRouting": [],
+      "assignments": [
+        {
+          "title": "모델 배정 결과 / Model assigned",
+          "detail": "계획 → Gemini 3 Flash Preview · 대체 2개 순위 저장",
+          "model": {
+            "role": "planner",
+            "provider": "api",
+            "source": "Gemini",
+            "id": "models/gemini-3-flash-preview",
+            "label": "Gemini 3 Flash Preview",
+            "effort": ""
+          }
+        },
+        {
+          "title": "모델 배정 결과 / Model assigned",
+          "detail": "구현 → 기존 기본 모델 유지",
+          "model": {
+            "role": "worker",
+            "provider": "openai",
+            "source": "Codex",
+            "id": "gpt-6-luna",
+            "label": "gpt-6-luna",
+            "effort": "high"
+          }
+        },
+        {
+          "title": "우선순위 모델 전환 / Priority model selected",
+          "detail": "planner 역할이 저장된 순서에 따라 gpt-6-sol로 전환했습니다. 남은 사용 한도 67%.",
+          "model": {
+            "role": "planner",
+            "provider": "openai",
+            "source": "Codex",
+            "id": "gpt-6-sol",
+            "label": "gpt-6-sol",
+            "effort": "high"
+          }
+        }
+      ],
+      "verification": []
+    }
+  }
+}

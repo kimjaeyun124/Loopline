@@ -1,0 +1,279 @@
+{
+  "date": "2026-10-01",
+  "registeredBeforeGeneration": true,
+  "executedAfterGeneration": false,
+  "arms": {
+    "single": {
+      "runId": "8dcb96df-e094-455a-a003-356b05a01f9f",
+      "artifactAvailable": false,
+      "executed": false,
+      "passed": null,
+      "total": 18,
+      "reason": "구현 전 QA 계획 응답의 JSON 검증 실패로 웹사이트가 생성되지 않았습니다.",
+      "workspaceFiles": []
+    },
+    "loop": {
+      "runId": "9ece8c62-1d10-47d9-9e00-44d37cf58a5f",
+      "artifactAvailable": false,
+      "executed": false,
+      "passed": null,
+      "total": 18,
+      "reason": "구현 전 QA 계획 응답의 JSON 검증 실패로 웹사이트가 생성되지 않았습니다.",
+      "workspaceFiles": []
+    }
+  },
+  "checks": [
+    {
+      "id": 1,
+      "name": "처음 시작 시 실제 빈 상태와 작업 0개 표시",
+      "single": {
+        "executed": false,
+        "passed": null,
+        "reason": "구현 전 QA 계획 응답의 JSON 검증 실패로 웹사이트가 생성되지 않았습니다."
+      },
+      "loop": {
+        "executed": false,
+        "passed": null,
+        "reason": "구현 전 QA 계획 응답의 JSON 검증 실패로 웹사이트가 생성되지 않았습니다."
+      }
+    },
+    {
+      "id": 2,
+      "name": "공백 입력 거부와 안내",
+      "single": {
+        "executed": false,
+        "passed": null,
+        "reason": "구현 전 QA 계획 응답의 JSON 검증 실패로 웹사이트가 생성되지 않았습니다."
+      },
+      "loop": {
+        "executed": false,
+        "passed": null,
+        "reason": "구현 전 QA 계획 응답의 JSON 검증 실패로 웹사이트가 생성되지 않았습니다."
+      }
+    },
+    {
+      "id": 3,
+      "name": "추가 버튼으로 앞뒤 공백을 정리한 작업 추가",
+      "single": {
+        "executed": false,
+        "passed": null,
+        "reason": "구현 전 QA 계획 응답의 JSON 검증 실패로 웹사이트가 생성되지 않았습니다."
+      },
+      "loop": {
+        "executed": false,
+        "passed": null,
+        "reason": "구현 전 QA 계획 응답의 JSON 검증 실패로 웹사이트가 생성되지 않았습니다."
+      }
+    },
+    {
+      "id": 4,
+      "name": "Enter로 두 번째 작업 추가",
+      "single": {
+        "executed": false,
+        "passed": null,
+        "reason": "구현 전 QA 계획 응답의 JSON 검증 실패로 웹사이트가 생성되지 않았습니다."
+      },
+      "loop": {
+        "executed": false,
+        "passed": null,
+        "reason": "구현 전 QA 계획 응답의 JSON 검증 실패로 웹사이트가 생성되지 않았습니다."
+      }
+    },
+    {
+      "id": 5,
+      "name": "동일 제목 두 작업의 독립 생성",
+      "single": {
+        "executed": false,
+        "passed": null,
+        "reason": "구현 전 QA 계획 응답의 JSON 검증 실패로 웹사이트가 생성되지 않았습니다."
+      },
+      "loop": {
+        "executed": false,
+        "passed": null,
+        "reason": "구현 전 QA 계획 응답의 JSON 검증 실패로 웹사이트가 생성되지 않았습니다."
+      }
+    },
+    {
+      "id": 6,
+      "name": "지정 작업 완료 처리와 개수 갱신",
+      "single": {
+        "executed": false,
+        "passed": null,
+        "reason": "구현 전 QA 계획 응답의 JSON 검증 실패로 웹사이트가 생성되지 않았습니다."
+      },
+      "loop": {
+        "executed": false,
+        "passed": null,
+        "reason": "구현 전 QA 계획 응답의 JSON 검증 실패로 웹사이트가 생성되지 않았습니다."
+      }
+    },
+    {
+      "id": 7,
+      "name": "완료 취소와 개수 갱신",
+      "single": {
+        "executed": false,
+        "passed": null,
+        "reason": "구현 전 QA 계획 응답의 JSON 검증 실패로 웹사이트가 생성되지 않았습니다."
+      },
+      "loop": {
+        "executed": false,
+        "passed": null,
+        "reason": "구현 전 QA 계획 응답의 JSON 검증 실패로 웹사이트가 생성되지 않았습니다."
+      }
+    },
+    {
+      "id": 8,
+      "name": "전체·할 일·완료 필터의 항목과 aria-pressed",
+      "single": {
+        "executed": false,
+        "passed": null,
+        "reason": "구현 전 QA 계획 응답의 JSON 검증 실패로 웹사이트가 생성되지 않았습니다."
+      },
+      "loop": {
+        "executed": false,
+        "passed": null,
+        "reason": "구현 전 QA 계획 응답의 JSON 검증 실패로 웹사이트가 생성되지 않았습니다."
+      }
+    },
+    {
+      "id": 9,
+      "name": "제목 검색 즉시 반영",
+      "single": {
+        "executed": false,
+        "passed": null,
+        "reason": "구현 전 QA 계획 응답의 JSON 검증 실패로 웹사이트가 생성되지 않았습니다."
+      },
+      "loop": {
+        "executed": false,
+        "passed": null,
+        "reason": "구현 전 QA 계획 응답의 JSON 검증 실패로 웹사이트가 생성되지 않았습니다."
+      }
+    },
+    {
+      "id": 10,
+      "name": "검색과 완료 필터 동시 적용",
+      "single": {
+        "executed": false,
+        "passed": null,
+        "reason": "구현 전 QA 계획 응답의 JSON 검증 실패로 웹사이트가 생성되지 않았습니다."
+      },
+      "loop": {
+        "executed": false,
+        "passed": null,
+        "reason": "구현 전 QA 계획 응답의 JSON 검증 실패로 웹사이트가 생성되지 않았습니다."
+      }
+    },
+    {
+      "id": 11,
+      "name": "검색 결과 없음 안내",
+      "single": {
+        "executed": false,
+        "passed": null,
+        "reason": "구현 전 QA 계획 응답의 JSON 검증 실패로 웹사이트가 생성되지 않았습니다."
+      },
+      "loop": {
+        "executed": false,
+        "passed": null,
+        "reason": "구현 전 QA 계획 응답의 JSON 검증 실패로 웹사이트가 생성되지 않았습니다."
+      }
+    },
+    {
+      "id": 12,
+      "name": "새로고침 후 목록과 완료 상태 복원",
+      "single": {
+        "executed": false,
+        "passed": null,
+        "reason": "구현 전 QA 계획 응답의 JSON 검증 실패로 웹사이트가 생성되지 않았습니다."
+      },
+      "loop": {
+        "executed": false,
+        "passed": null,
+        "reason": "구현 전 QA 계획 응답의 JSON 검증 실패로 웹사이트가 생성되지 않았습니다."
+      }
+    },
+    {
+      "id": 13,
+      "name": "중복 제목 중 하나만 삭제",
+      "single": {
+        "executed": false,
+        "passed": null,
+        "reason": "구현 전 QA 계획 응답의 JSON 검증 실패로 웹사이트가 생성되지 않았습니다."
+      },
+      "loop": {
+        "executed": false,
+        "passed": null,
+        "reason": "구현 전 QA 계획 응답의 JSON 검증 실패로 웹사이트가 생성되지 않았습니다."
+      }
+    },
+    {
+      "id": 14,
+      "name": "마지막 항목 삭제 후 실제 빈 상태 복귀",
+      "single": {
+        "executed": false,
+        "passed": null,
+        "reason": "구현 전 QA 계획 응답의 JSON 검증 실패로 웹사이트가 생성되지 않았습니다."
+      },
+      "loop": {
+        "executed": false,
+        "passed": null,
+        "reason": "구현 전 QA 계획 응답의 JSON 검증 실패로 웹사이트가 생성되지 않았습니다."
+      }
+    },
+    {
+      "id": 15,
+      "name": "HTML 형태의 제목을 문자로 표시",
+      "single": {
+        "executed": false,
+        "passed": null,
+        "reason": "구현 전 QA 계획 응답의 JSON 검증 실패로 웹사이트가 생성되지 않았습니다."
+      },
+      "loop": {
+        "executed": false,
+        "passed": null,
+        "reason": "구현 전 QA 계획 응답의 JSON 검증 실패로 웹사이트가 생성되지 않았습니다."
+      }
+    },
+    {
+      "id": 16,
+      "name": "동작 결과를 라이브 status 영역에 표시",
+      "single": {
+        "executed": false,
+        "passed": null,
+        "reason": "구현 전 QA 계획 응답의 JSON 검증 실패로 웹사이트가 생성되지 않았습니다."
+      },
+      "loop": {
+        "executed": false,
+        "passed": null,
+        "reason": "구현 전 QA 계획 응답의 JSON 검증 실패로 웹사이트가 생성되지 않았습니다."
+      }
+    },
+    {
+      "id": 17,
+      "name": "Tab/Enter 조작과 현재 포커스 표시",
+      "single": {
+        "executed": false,
+        "passed": null,
+        "reason": "구현 전 QA 계획 응답의 JSON 검증 실패로 웹사이트가 생성되지 않았습니다."
+      },
+      "loop": {
+        "executed": false,
+        "passed": null,
+        "reason": "구현 전 QA 계획 응답의 JSON 검증 실패로 웹사이트가 생성되지 않았습니다."
+      }
+    },
+    {
+      "id": 18,
+      "name": "긴 제목을 포함한 모바일·데스크톱 가로 넘침 없음",
+      "single": {
+        "executed": false,
+        "passed": null,
+        "reason": "구현 전 QA 계획 응답의 JSON 검증 실패로 웹사이트가 생성되지 않았습니다."
+      },
+      "loop": {
+        "executed": false,
+        "passed": null,
+        "reason": "구현 전 QA 계획 응답의 JSON 검증 실패로 웹사이트가 생성되지 않았습니다."
+      }
+    }
+  ]
+}

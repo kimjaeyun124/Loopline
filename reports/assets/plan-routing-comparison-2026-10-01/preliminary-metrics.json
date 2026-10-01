@@ -1,0 +1,148 @@
+{
+  "date": "2026-10-01",
+  "sourceCommit": "599ddd4",
+  "task": "Focus Desk offline task manager",
+  "observationsPerArm": 1,
+  "comparison": "fixed single-model Harness vs automatic mixed-model Harness",
+  "arms": {
+    "single": {
+      "runId": "f11d109f-cc3d-41e8-bf6a-7b8c7c422f2c",
+      "status": "failed",
+      "applied": false,
+      "verificationPassed": false,
+      "browserQaPassed": false,
+      "automaticallyCompleted": false,
+      "elapsedMs": 403924,
+      "rounds": 0,
+      "modelCalls": 5,
+      "reportedTokens": 128855,
+      "unreportedCalls": 0,
+      "externalCodeEdits": 0,
+      "externalStops": 0,
+      "externalResumes": 0,
+      "formatRepairs": 1,
+      "fallbackSwitches": 0,
+      "failedBrowserQaRounds": 0,
+      "lastBrowserQa": null,
+      "milestones": [],
+      "modelBreakdown": [
+        {
+          "role": "planner",
+          "model": "gpt-6-luna",
+          "effort": "max",
+          "calls": 4,
+          "reportedTokens": 106765,
+          "unreportedCalls": 0,
+          "failedCalls": 1,
+          "modelTimeMs": 396668
+        },
+        {
+          "role": "judge",
+          "model": "gpt-6-luna",
+          "effort": "max",
+          "calls": 1,
+          "reportedTokens": 22090,
+          "unreportedCalls": 0,
+          "failedCalls": 0,
+          "modelTimeMs": 6561
+        }
+      ],
+      "planRouting": [],
+      "assignments": [],
+      "verification": []
+    },
+    "loop": {
+      "runId": "147aa695-6d51-466c-930c-bb809ef1c1fb",
+      "status": "failed",
+      "applied": false,
+      "verificationPassed": false,
+      "browserQaPassed": false,
+      "automaticallyCompleted": false,
+      "elapsedMs": 233712,
+      "rounds": 0,
+      "modelCalls": 13,
+      "reportedTokens": 131837,
+      "unreportedCalls": 0,
+      "externalCodeEdits": 0,
+      "externalStops": 0,
+      "externalResumes": 0,
+      "formatRepairs": 0,
+      "fallbackSwitches": 1,
+      "failedBrowserQaRounds": 0,
+      "lastBrowserQa": null,
+      "milestones": [],
+      "modelBreakdown": [
+        {
+          "role": "judge",
+          "model": "jev-latest",
+          "effort": "default",
+          "calls": 6,
+          "reportedTokens": 17321,
+          "unreportedCalls": 0,
+          "failedCalls": 0,
+          "modelTimeMs": 2023
+        },
+        {
+          "role": "planner",
+          "model": "models/gemini-3-flash-preview",
+          "effort": "default",
+          "calls": 3,
+          "reportedTokens": 9936,
+          "unreportedCalls": 0,
+          "failedCalls": 1,
+          "modelTimeMs": 44444
+        },
+        {
+          "role": "planner",
+          "model": "gpt-6-luna",
+          "effort": "high",
+          "calls": 4,
+          "reportedTokens": 104580,
+          "unreportedCalls": 0,
+          "failedCalls": 0,
+          "modelTimeMs": 186635
+        }
+      ],
+      "planRouting": [],
+      "assignments": [
+        {
+          "title": "모델 배정 결과 / Model assigned",
+          "detail": "계획 → 기존 기본 모델 유지",
+          "model": {
+            "role": "planner",
+            "provider": "api",
+            "source": "Gemini",
+            "id": "models/gemini-3-flash-preview",
+            "label": "Gemini 3 Flash Preview",
+            "effort": ""
+          }
+        },
+        {
+          "title": "모델 배정 결과 / Model assigned",
+          "detail": "구현 → 기존 기본 모델 유지",
+          "model": {
+            "role": "worker",
+            "provider": "openai",
+            "source": "Codex",
+            "id": "gpt-6-luna",
+            "label": "gpt-6-luna",
+            "effort": "high"
+          }
+        },
+        {
+          "title": "우선순위 모델 전환 / Priority model selected",
+          "detail": "planner 역할이 저장된 순서에 따라 gpt-6-luna로 전환했습니다. 남은 사용 한도 73%.",
+          "model": {
+            "role": "planner",
+            "provider": "openai",
+            "source": "Codex",
+            "id": "gpt-6-luna",
+            "label": "gpt-6-luna",
+            "effort": "high"
+          }
+        }
+      ],
+      "verification": []
+    }
+  }
+}

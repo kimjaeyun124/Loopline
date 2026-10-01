@@ -1,0 +1,71 @@
+{
+  "app": {
+    "tests": 210,
+    "passed": 210,
+    "failed": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "durationMs": 90259.020458
+  },
+  "focused": {
+    "tests": 132,
+    "passed": 132,
+    "failed": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "durationMs": 87486.946125
+  },
+  "package": {
+    "success": true,
+    "resourcesMatch": true,
+    "nativeBrowserQaMatches": true,
+    "sourceCommit": "a792569"
+  },
+  "projects": {
+    "single": {
+      "path": "/Users/dgsw59/Library/Application Support/Mosaic Desk/harness/projects/8dcb96df-e094-455a-a003-356b05a01f9f/focus-desk",
+      "workspace": "/Users/dgsw59/Library/Application Support/Mosaic Desk/harness/8dcb96df-e094-455a-a003-356b05a01f9f/workspace",
+      "summary": "웹사이트 파일이 생성되지 않아 프로젝트 추가 테스트와 공통 브라우저 QA 18개를 실행하지 못했습니다.",
+      "codeGenerated": false,
+      "manuallyEdited": false
+    },
+    "loop": {
+      "path": "/Users/dgsw59/Library/Application Support/Mosaic Desk/harness/projects/9ece8c62-1d10-47d9-9e00-44d37cf58a5f/focus-desk",
+      "workspace": "/Users/dgsw59/Library/Application Support/Mosaic Desk/harness/9ece8c62-1d10-47d9-9e00-44d37cf58a5f/workspace",
+      "summary": "웹사이트 파일이 생성되지 않아 프로젝트 추가 테스트와 공통 브라우저 QA 18개를 실행하지 못했습니다.",
+      "codeGenerated": false,
+      "manuallyEdited": false
+    }
+  },
+  "measuredEngineValidation": {
+    "app": {
+      "tests": 205,
+      "passed": 205,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "durationMs": 79333.956125
+    },
+    "focused": {
+      "tests": 31,
+      "passed": 31,
+      "failed": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "durationMs": 10639.33325
+    },
+    "package": {
+      "success": true,
+      "resourcesMatch": true,
+      "nativeBrowserQaMatches": true,
+      "sourceCommit": "e34846c"
+    }
+  },
+  "postBenchmarkFix": {
+    "implementationCommit": "c40b14f",
+    "testCommit": "a792569",
+    "purpose": "parseHarnessJson의 일반 오류를 invalidStructuredOutput으로 분류해 기존 자동 형식 복구와 대체 모델 전환을 연결",
+    "realComparisonRepeated": false,
+    "regressionOnly": true
+  }
+}

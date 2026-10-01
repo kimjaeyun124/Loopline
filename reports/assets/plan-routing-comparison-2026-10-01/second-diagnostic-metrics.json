@@ -1,0 +1,126 @@
+{
+  "date": "2026-10-01",
+  "sourceCommit": "e990a57",
+  "task": "Focus Desk offline task manager",
+  "observationsPerArm": 1,
+  "comparison": "fixed single-model Harness vs automatic mixed-model Harness",
+  "arms": {
+    "single": {
+      "runId": "654236d0-00a7-4e11-a423-68ca81e8ad49",
+      "status": "failed",
+      "applied": false,
+      "verificationPassed": false,
+      "browserQaPassed": false,
+      "automaticallyCompleted": false,
+      "elapsedMs": 433620,
+      "rounds": 0,
+      "modelCalls": 5,
+      "reportedTokens": 133003,
+      "unreportedCalls": 0,
+      "externalCodeEdits": 0,
+      "externalStops": 0,
+      "externalResumes": 0,
+      "formatRepairs": 1,
+      "fallbackSwitches": 0,
+      "failedBrowserQaRounds": 0,
+      "lastBrowserQa": null,
+      "milestones": [],
+      "modelBreakdown": [
+        {
+          "role": "planner",
+          "model": "gpt-6-luna",
+          "effort": "max",
+          "calls": 4,
+          "reportedTokens": 110949,
+          "unreportedCalls": 0,
+          "failedCalls": 2,
+          "modelTimeMs": 420854
+        },
+        {
+          "role": "judge",
+          "model": "gpt-6-luna",
+          "effort": "max",
+          "calls": 1,
+          "reportedTokens": 22054,
+          "unreportedCalls": 0,
+          "failedCalls": 0,
+          "modelTimeMs": 11785
+        }
+      ],
+      "planRouting": [],
+      "assignments": [],
+      "verification": []
+    },
+    "loop": {
+      "runId": "b3a66a92-9db1-4fd2-a7c4-edfcf6d25238",
+      "status": "failed",
+      "applied": false,
+      "verificationPassed": false,
+      "browserQaPassed": false,
+      "automaticallyCompleted": false,
+      "elapsedMs": 87086,
+      "rounds": 0,
+      "modelCalls": 10,
+      "reportedTokens": 39498,
+      "unreportedCalls": 0,
+      "externalCodeEdits": 0,
+      "externalStops": 0,
+      "externalResumes": 0,
+      "formatRepairs": 0,
+      "fallbackSwitches": 0,
+      "failedBrowserQaRounds": 0,
+      "lastBrowserQa": null,
+      "milestones": [],
+      "modelBreakdown": [
+        {
+          "role": "judge",
+          "model": "jev-latest",
+          "effort": "default",
+          "calls": 5,
+          "reportedTokens": 16183,
+          "unreportedCalls": 0,
+          "failedCalls": 0,
+          "modelTimeMs": 1796
+        },
+        {
+          "role": "planner",
+          "model": "models/gemini-3-flash-preview",
+          "effort": "default",
+          "calls": 5,
+          "reportedTokens": 23315,
+          "unreportedCalls": 0,
+          "failedCalls": 0,
+          "modelTimeMs": 84681
+        }
+      ],
+      "planRouting": [],
+      "assignments": [
+        {
+          "title": "모델 배정 결과 / Model assigned",
+          "detail": "계획 → 기존 기본 모델 유지",
+          "model": {
+            "role": "planner",
+            "provider": "api",
+            "source": "Gemini",
+            "id": "models/gemini-3-flash-preview",
+            "label": "Gemini 3 Flash Preview",
+            "effort": ""
+          }
+        },
+        {
+          "title": "모델 배정 결과 / Model assigned",
+          "detail": "구현 → 기존 기본 모델 유지",
+          "model": {
+            "role": "worker",
+            "provider": "openai",
+            "source": "Codex",
+            "id": "gpt-6-luna",
+            "label": "gpt-6-luna",
+            "effort": "high"
+          }
+        }
+      ],
+      "verification": []
+    }
+  }
+}

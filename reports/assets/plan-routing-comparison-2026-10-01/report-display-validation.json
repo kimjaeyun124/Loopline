@@ -1,0 +1,60 @@
+{
+  "scope": "비교 보고서의 표시 및 이미지 전환 검증",
+  "method": "실제 Codex 내장 브라우저에서 CUA로 확인",
+  "generatedWebsiteQa": false,
+  "desktop": {
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "documentScrollWidth": 1440,
+    "horizontalPageOverflow": false
+  },
+  "mobile": {
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "documentScrollWidth": 390,
+    "horizontalPageOverflow": false
+  },
+  "imageSwitch": {
+    "desktop": {
+      "selected": true,
+      "loaded": 2
+    },
+    "mobile": {
+      "selected": true,
+      "loaded": 2
+    }
+  },
+  "sourceImages": [
+    {
+      "file": "single-desktop.jpg",
+      "width": 1440,
+      "height": 900,
+      "loaded": true
+    },
+    {
+      "file": "loop-desktop.jpg",
+      "width": 1440,
+      "height": 900,
+      "loaded": true
+    },
+    {
+      "file": "single-mobile.jpg",
+      "width": 390,
+      "height": 844,
+      "loaded": true
+    },
+    {
+      "file": "loop-mobile.jpg",
+      "width": 390,
+      "height": 844,
+      "loaded": true
+    }
+  ],
+  "consoleErrorsObserved": [],
+  "temporaryViewportReset": true,
+  "note": "이미지은 실측 실패 안내 화면입니다. 보고서 표시 검증은 생성 웹사이트의 공통 독립 QA 18개 통과를 뜻하지 않습니다."
+}

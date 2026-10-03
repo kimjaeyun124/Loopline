@@ -8,7 +8,7 @@ import { randomUUID } from 'node:crypto';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
 import { runInNewContext } from 'node:vm';
-import { BrowserQaBridge, needsBrowserQa, validateBrowserPlan, applyBrowserPlanPatch, BROWSER_QA_EXECUTOR } from '../browser-qa.mjs';
+import { BrowserQaBridge, needsBrowserQa, validateBrowserPlan, applyBrowserPlanPatch, BROWSER_QA_EXECUTOR, inspectReadmeLaunch, verifyReadmeLaunch } from '../browser-qa.mjs';
 import { HarnessEngine, runCommand, parseHarnessJson } from '../harness-engine.mjs';
 import { browserPlan, milestonePlan, responseFor } from './fixtures/browser-desktop-qa.mjs';
 import { validateMilestones } from '../harness-milestones.mjs';
@@ -22,6 +22,101 @@ test('browser QA detects web work while keeping command line JavaScript outside 
   assert.equal(needsBrowserQa('Task ledger CLI', 'cli.mjs\ncli.js'), false);
   assert.equal(needsBrowserQa('웹사이트 제작', ''), true);
   assert.equal(needsBrowserQa('버그 수정', 'index.html'), true);
+});
+
+function documentedNodeServer(source) {
+  return `# Example website\n\n## 실행\n\n\`\`\`sh\nnode -e '${source}'\n\`\`\`\n`;
+}
+
+async function executeReadmeServer(workspace, launch, preload, signal) {
+  const args = ['--import', `data:text/javascript,${encodeURIComponent(preload)}`];
+  if (launch.kind === 'inline') args.push('-e', launch.source);
+  else args.push(launch.path);
+  return runCommand(process.execPath, args, { cwd: workspace, signal, timeout: 5000, limit: 20_000,
+    env: { ...process.env, LOOPLINE_README_QA: '1' } });
+}
+
+test('README local Node launch checks the documented root and referenced web assets without opening a port', async (t) => {
+  const workspace = await mkdtemp(join(tmpdir(), 'loopline-readme-launch-'));
+  t.after(() => rm(workspace, { recursive: true, force: true }));
+  await writeFile(join(workspace, 'index.html'), '<!doctype html><html><head><link rel="stylesheet" href="/styles.css"></head><body><h1>Focus Desk</h1><script type="module" src="/app.mjs"></script></body></html>');
+  await writeFile(join(workspace, 'styles.css'), 'body { color: navy; }');
+  await writeFile(join(workspace, 'app.mjs'), 'export const ready = true;');
+  const server = `const http=require("node:http"),fs=require("node:fs"),path=require("node:path");const types={".html":"text/html; charset=utf-8",".css":"text/css; charset=utf-8",".mjs":"text/javascript; charset=utf-8"};http.createServer((req,res)=>{const pathname=decodeURIComponent(new URL(req.url,"http://localhost").pathname);const file=path.resolve(process.cwd(),pathname==="/"?"index.html":"."+pathname);if(!file.startsWith(process.cwd()+path.sep)){res.writeHead(403).end();return}fs.readFile(file,(err,data)=>{if(err){res.writeHead(404).end("Not found");return}res.writeHead(200,{"Content-Type":types[path.extname(file)]||"application/octet-stream"});res.end(data)})}).listen(8000,"127.0.0.1")`;
+  await writeFile(join(workspace, 'README.md'), documentedNodeServer(server));
+
+  const inspected = await inspectReadmeLaunch(workspace);
+  assert.equal(inspected.applicable, true); assert.equal(inspected.launch.kind, 'inline');
+  let execution;
+  const result = await verifyReadmeLaunch(workspace, { execute: async (launch, { preload, signal }) => {
+    execution = await executeReadmeServer(workspace, launch, preload, signal); return execution;
+  } });
+  assert.equal(result.passed, true, JSON.stringify({ result, execution }));
+  assert.deepEqual(result.checks.map(({ id, passed }) => [id, passed]), [['root', true], ['asset:/styles.css', true], ['asset:/app.mjs', true]]);
+  assert.deepEqual(result.ownerPaths, ['README.md']);
+  assert.equal(JSON.stringify(result).includes(server), false, 'the README script is not copied into run evidence');
+});
+
+test('README Node server files retain a concrete code owner and use the same route smoke check', async (t) => {
+  const workspace = await mkdtemp(join(tmpdir(), 'loopline-readme-entry-'));
+  t.after(() => rm(workspace, { recursive: true, force: true }));
+  const source = `import http from "node:http";import fs from "node:fs";http.createServer((_req,res)=>fs.readFile("index.html",(err,body)=>{if(err){res.writeHead(404).end();return}res.writeHead(200,{"Content-Type":"text/html"});res.end(body)})).listen(8000,"127.0.0.1")`;
+  await writeFile(join(workspace, 'index.html'), '<!doctype html><html><body><h1>Focus Desk</h1></body></html>');
+  await writeFile(join(workspace, 'server.mjs'), source);
+  await writeFile(join(workspace, 'README.md'), '## 실행\n\n```sh\nnode server.mjs\n```\n');
+  const inspected = await inspectReadmeLaunch(workspace);
+  assert.deepEqual(inspected.ownerPaths, ['server.mjs', 'README.md']);
+  let execution;
+  const result = await verifyReadmeLaunch(workspace, { execute: async (launch, { preload, signal }) => {
+    execution = await executeReadmeServer(workspace, launch, preload, signal); return execution;
+  } });
+  assert.equal(result.passed, true, JSON.stringify({ result, execution }));
+  assert.deepEqual(result.checks.map(({ id, passed }) => [id, passed]), [['root', true]]);
+});
+
+test('default Harness README smoke keeps the project command inside the offline execution sandbox', async (t) => {
+  if (process.platform !== 'darwin') { t.skip('The project sandbox is available only on macOS.'); return; }
+  const directory = await mkdtemp(join(tmpdir(), 'loopline-readme-sandbox-'));
+  const workspace = join(directory, 'workspace'), runtime = join(directory, 'runtime');
+  await mkdir(workspace); await mkdir(runtime); t.after(() => rm(directory, { recursive: true, force: true }));
+  await writeFile(join(workspace, 'index.html'), '<!doctype html><html><body><h1>Sandbox QA</h1></body></html>');
+  const source = `const http=require("node:http"),fs=require("node:fs");http.createServer((_req,res)=>fs.readFile("index.html",(err,body)=>{if(err){res.writeHead(404).end();return}res.writeHead(200,{"Content-Type":"text/html"});res.end(body)})).listen(8000,"127.0.0.1")`;
+  await writeFile(join(workspace, 'README.md'), documentedNodeServer(source));
+  const engine = new HarnessEngine({ directory, invoke: async () => assert.fail('README smoke does not call a model') });
+  const record = { run: { id: randomUUID(), workspace, runtime, events: [] }, controller: new AbortController(), writes: Promise.resolve() };
+  const result = await engine.runReadmeLaunchQa(record, 1);
+  assert.equal(result.passed, true, JSON.stringify(result));
+  assert.equal(record.run.readmeQaPassed, true); assert.equal(record.run.readmeQaRequired, true);
+  assert.match(record.run.events.at(-1).detail, /HTTP|검사 통과/);
+});
+
+test('README root routing failures return concrete evidence for a targeted automatic repair', async (t) => {
+  const workspace = await mkdtemp(join(tmpdir(), 'loopline-readme-failure-'));
+  t.after(() => rm(workspace, { recursive: true, force: true }));
+  await writeFile(join(workspace, 'index.html'), '<!doctype html><html><body><h1>Focus Desk</h1></body></html>');
+  const brokenRoot = `const http=require("node:http"),fs=require("node:fs"),path=require("node:path");http.createServer((req,res)=>{const pathname=new URL(req.url,"http://localhost").pathname;if(pathname==="/"){res.writeHead(403).end();return}const file=path.resolve(process.cwd(),"."+pathname);fs.readFile(file,(err,data)=>{if(err){res.writeHead(404).end();return}res.writeHead(200,{"Content-Type":"text/javascript"});res.end(data)})}).listen(8000,"127.0.0.1")`;
+  await writeFile(join(workspace, 'README.md'), documentedNodeServer(brokenRoot));
+  const result = await verifyReadmeLaunch(workspace, { execute: (launch, { preload, signal }) => executeReadmeServer(workspace, launch, preload, signal) });
+  assert.equal(result.passed, false);
+  assert.match(result.failures.join('\n'), /README 실행 안내.*\/.*HTTP 403/);
+  assert.equal(result.checks[0].actual.status, 403);
+});
+
+test('README smoke test skips absent or unsupported instructions without executing shell fragments', async (t) => {
+  const workspace = await mkdtemp(join(tmpdir(), 'loopline-readme-unsupported-'));
+  t.after(() => rm(workspace, { recursive: true, force: true }));
+  let executions = 0;
+  const execute = async () => { executions++; return { code: 0, output: '' }; };
+  const absent = await verifyReadmeLaunch(workspace, { execute });
+  assert.equal(absent.passed, true); assert.equal(absent.applicable, false); assert.equal(executions, 0);
+  await writeFile(join(workspace, 'README.md'), '## 실행\n\n```sh\nnpm run dev\n```\n');
+  const unsupported = await inspectReadmeLaunch(workspace);
+  assert.equal(unsupported.applicable, false); assert.match(unsupported.reason, /지원하는 로컬 Node 실행 명령/);
+  const skipped = await verifyReadmeLaunch(workspace, { execute });
+  assert.equal(skipped.passed, true); assert.equal(skipped.applicable, false); assert.equal(executions, 0);
+  await writeFile(join(workspace, 'README.md'), '## 실행\n\n```sh\nnode -e \'process.exit(0)\' && touch compromised\n```\n');
+  const injection = await inspectReadmeLaunch(workspace);
+  assert.equal(injection.applicable, false); assert.equal(executions, 0);
 });
 
 test('QA key validation reports the exact unsupported key and preserves the executable allowlist', () => {

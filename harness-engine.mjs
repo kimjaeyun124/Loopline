@@ -7,7 +7,7 @@ import { automaticLoopStartRounds, extendAutomaticLoopRounds, MAX_LOOP_ROUNDS, n
 import { createHarnessWorkflow } from './harness-graph.mjs';
 import { needsMilestones, validateMilestones, matchesMilestone, milestoneContract, milestoneFiles, refreshMilestones, nextMilestone, milestoneCoverage } from './harness-milestones.mjs';
 import { HarnessEvidence, taskType } from './harness-evidence.mjs';
-import { needsBrowserQa, validateBrowserPlan, applyBrowserPlanPatch, QA_CATEGORIES, BROWSER_QA_EXECUTOR } from './browser-qa.mjs';
+import { needsBrowserQa, validateBrowserPlan, applyBrowserPlanPatch, verifyReadmeLaunch, QA_CATEGORIES, BROWSER_QA_EXECUTOR } from './browser-qa.mjs';
 import { MAX_MCP_CALLS } from './mcp-connections.mjs';
 
 const MAX_FILE = 160_000;
@@ -461,7 +461,7 @@ export async function applyWorkspaceOperations(root, operations, signal) {
   return results;
 }
 
-export async function verifyWorkspace(workspace, command, runtime, signal) {
+async function workspaceSandboxProfile(workspace, runtime) {
   if (process.platform !== 'darwin') throw fail('프로젝트 명령의 격리 실행은 현재 macOS에서 지원합니다.');
   await access('/usr/bin/sandbox-exec');
   workspace = await realpath(workspace); runtime = await realpath(runtime);
@@ -470,13 +470,37 @@ export async function verifyWorkspace(workspace, command, runtime, signal) {
   const quote = (value) => JSON.stringify(value);
   // dyld needs to read the root directory itself while locating system libraries.
   const profile = `(version 1)(allow default)(deny network*)(deny file-read*)(deny file-write*)(allow file-read-metadata)(allow file-read* (literal "/") ${paths.map((path) => `(subpath ${quote(path)})`).join(' ')})(allow file-write* (subpath ${quote(workspace)}) (subpath ${quote(runtime)}))`;
-  const env = { PATH: process.env.PATH, HOME: runtime, TMPDIR: runtime, LANG: 'en_US.UTF-8', CI: '1' };
-  return runCommand('/usr/bin/sandbox-exec', ['-p', profile, '/bin/sh', '-c', command], { cwd: workspace, env, signal, timeout: 180_000, limit: 100_000 });
+  return { workspace, runtime, profile };
+}
+
+function workspaceCommandEnvironment(runtime, additions = {}) {
+  return { PATH: process.env.PATH, HOME: runtime, TMPDIR: runtime, LANG: 'en_US.UTF-8', CI: '1', ...additions };
+}
+
+function readmeLaunchOwner(milestones, qa) {
+  if (qa?.passed !== false || qa.applicable !== true || !Array.isArray(qa.ownerPaths)) return null;
+  for (const path of qa.ownerPaths) {
+    const owner = milestones.find((task) => matchesMilestone(path, task));
+    if (owner) return owner;
+  }
+  return null;
+}
+
+function reopenMilestoneOwner(milestones, owner, failedTaskId) {
+  owner.status = 'pending';
+  for (const dependent of milestones) if (dependent.dependsOn.includes(owner.id)
+    && (dependent.id === failedTaskId || dependent.status === 'completed')) dependent.status = 'needs-review';
+}
+
+export async function verifyWorkspace(workspace, command, runtime, signal) {
+  const sandbox = await workspaceSandboxProfile(workspace, runtime);
+  const env = workspaceCommandEnvironment(sandbox.runtime);
+  return runCommand('/usr/bin/sandbox-exec', ['-p', sandbox.profile, '/bin/sh', '-c', command], { cwd: sandbox.workspace, env, signal, timeout: 180_000, limit: 100_000 });
 }
 
 export class HarnessEngine {
-  constructor({ directory, invoke, verify = verifyWorkspace, mcpConnections = null, agentPlugins = null, verifyBrowser = null }) {
-    this.directory = join(directory, 'harness'); this.invoke = invoke; this.verify = verify; this.mcpConnections = mcpConnections; this.agentPlugins = agentPlugins; this.verifyBrowser = verifyBrowser; this.evidence = new HarnessEvidence(this.directory);
+  constructor({ directory, invoke, verify = verifyWorkspace, mcpConnections = null, agentPlugins = null, verifyBrowser = null, verifyReadme = null }) {
+    this.directory = join(directory, 'harness'); this.invoke = invoke; this.verify = verify; this.mcpConnections = mcpConnections; this.agentPlugins = agentPlugins; this.verifyBrowser = verifyBrowser; this.verifyReadme = verifyReadme; this.evidence = new HarnessEvidence(this.directory);
     // Prompt text can contain project files, so keep inspection data in memory instead of run logs.
     this.runs = new Map(); this.sources = new Set(); this.promptDetails = new Map(); this.recoveryPromise = null; this.recoveryCompleted = false; this.closing = false;
   }
@@ -1341,7 +1365,7 @@ export class HarnessEngine {
     // Obtain that evidence before judging it; waiting for its approval first
     // would prevent the required checks from ever running.
     const integrationRequired = run.qaRequired && run.milestones.every((other) => other.id === task.id || other.status === 'completed');
-    let integrationVerification = null, independentBrowserQa = null;
+    let integrationVerification = null, independentBrowserQa = null, readmeLaunchQa = null;
     if (integrationRequired && verification.code === 0) {
       try {
         if (run.automaticVerification && !run.verifyCommand) await this.configureVerification(record, implementationPlan, previousSummary);
@@ -1357,7 +1381,10 @@ export class HarnessEngine {
       aborted(controller.signal);
       event.status = integrationVerification.code === 0 ? 'completed' : 'failed';
       event.detail = `${run.verifyCommand}\n종료 코드: ${integrationVerification.code}\n${integrationVerification.output}\n${integrationVerification.error}`.slice(-12_000);
-      if (integrationVerification.code === 0) independentBrowserQa = await this.runBrowserQa(record, run.round, '부분 작업 브라우저 QA / Milestone browser QA');
+      if (integrationVerification.code === 0) {
+        independentBrowserQa = await this.runBrowserQa(record, run.round, '부분 작업 브라우저 QA / Milestone browser QA');
+        readmeLaunchQa = await this.runReadmeLaunchQa(record, run.round, 'README 실행 안내 QA / Milestone README launch QA');
+      }
       run.stage = 'milestone-qa';
     }
     const actualFiles = [];
@@ -1380,14 +1407,15 @@ export class HarnessEngine {
       } } : {}),
     }));
     const verdict = await this.decide(record, { task: run.task, milestone: task, previousSummary, verification,
-      ...(integrationRequired ? { integrationVerification, independentBrowserQa } : {}),
+      ...(integrationRequired ? { integrationVerification, independentBrowserQa, readmeLaunchQa } : {}),
       workspaceInventory, workspaceInventoryTruncated: completeInventory.length > MAX_PROJECT_FILE_LIST,
       relatedMilestones, ownedFiles: owned,
       actualFilesTruncated: owned.length > 8,
       diff: diff.slice(0, 60_000), diffTruncated: diff.length > 60_000, actualFiles }, {
-      milestone: { label: `${task.title} 완료`, question: 'Do the actual changed files and meaningful successful verification satisfy every immutable acceptance criterion of this partial task? The diff and actualFiles previews are scoped to ownedFiles; absence from them is not evidence that another milestone file is missing. Use workspaceInventory for file presence and relatedMilestones for ownership and current review status. A truncated inventory cannot establish file absence. Shared configuration may include tests from another milestone. Inventory and prior review evidence do not replace the current verification or required integration/browser evidence. Judge this milestone\'s original criteria without requiring an unrelated milestone to be complete.', pass: 'All criteria are implemented and independently verified.', revise: 'Fix missing behavior or verification for this partial task without weakening its original criteria.' },
+      milestone: { label: `${task.title} 완료`, question: 'Do the actual changed files and meaningful successful verification satisfy every immutable acceptance criterion of this partial task? The diff and actualFiles previews are scoped to ownedFiles; absence from them is not evidence that another milestone file is missing. Use workspaceInventory for file presence and relatedMilestones for ownership and current review status. A truncated inventory cannot establish file absence. Shared configuration may include tests from another milestone. Inventory and prior review evidence do not replace the current verification, required integration/browser evidence, or applicable README launch smoke evidence. A skipped README smoke test is explicitly marked not applicable and must not be treated as a failure or as a passed execution check. Judge this milestone\'s original criteria without requiring an unrelated milestone to be complete.', pass: 'All criteria are implemented and independently verified.', revise: 'Fix missing behavior or verification for this partial task without weakening its original criteria.' },
     });
-    const passed = verification.code === 0 && (!integrationRequired || (integrationVerification?.code === 0 && independentBrowserQa?.passed === true))
+    const passed = verification.code === 0 && (!integrationRequired || (integrationVerification?.code === 0 && independentBrowserQa?.passed === true
+      && readmeLaunchQa?.passed === true))
       && verdict.decision === 'complete' && diff.length <= 60_000;
     if (passed) {
       task.status = 'completed';
@@ -1399,33 +1427,36 @@ export class HarnessEngine {
       const invalidated = await refreshMilestones(run.milestones, run.workspace, [...new Set([...inventory, ...changed])]);
       if (invalidated.length) await this.event(record, '부분 완료 재검증 / Revalidate milestones', `다른 작업의 완료 근거에 영향을 준 변경: ${invalidated.join(', ')}`);
     }
-    let feedback = passed ? '' : `${task.title}: ${verdict.feedback}\n검증 종료 코드 ${verification.code}: ${String(verification.output || verification.error || '').slice(-4000)}${integrationRequired && integrationVerification?.code !== 0 ? `\n전체 검증 실패: ${String(integrationVerification?.output || integrationVerification?.error || '전체 검증이 실행되지 않았습니다.').slice(-4000)}` : ''}${integrationRequired && independentBrowserQa?.passed !== true ? `\n독립 브라우저 QA 실패: ${(independentBrowserQa?.failures || ['실제 브라우저 QA가 완료되지 않았습니다.']).join('\n')}` : ''}${diff.length > 60_000 ? '\n부분 작업 변경량이 60,000자를 넘어 전체 검토가 불가능합니다. 담당 파일의 불필요한 중복과 과도한 변경을 줄이세요.' : ''}`;
+    let feedback = passed ? '' : `${task.title}: ${verdict.feedback}\n검증 종료 코드 ${verification.code}: ${String(verification.output || verification.error || '').slice(-4000)}${integrationRequired && integrationVerification?.code !== 0 ? `\n전체 검증 실패: ${String(integrationVerification?.output || integrationVerification?.error || '전체 검증이 실행되지 않았습니다.').slice(-4000)}` : ''}${integrationRequired && independentBrowserQa?.passed !== true ? `\n독립 브라우저 QA 실패: ${(independentBrowserQa?.failures || ['실제 브라우저 QA가 완료되지 않았습니다.']).join('\n')}` : ''}${integrationRequired && readmeLaunchQa?.passed !== true ? `\nREADME 실행 안내 QA 실패: ${(readmeLaunchQa?.failures || [readmeLaunchQa?.reason || 'README의 기본 주소 검증이 완료되지 않았습니다.']).join('\n')}` : ''}${diff.length > 60_000 ? '\n부분 작업 변경량이 60,000자를 넘어 전체 검토가 불가능합니다. 담당 파일의 불필요한 중복과 과도한 변경을 줄이세요.' : ''}`;
     if (!passed && integrationRequired && (verification.code !== 0
-      || integrationVerification?.code !== 0 || independentBrowserQa?.passed === false)) {
+      || integrationVerification?.code !== 0 || independentBrowserQa?.passed === false || readmeLaunchQa?.passed === false)) {
       // The final partial check can expose a defect in an already reviewed
       // dependency. Keep file ownership and reopen its owner instead of asking
       // the final worker to edit a file outside its immutable scope repeatedly.
       try {
-        const result = await this.call(record, 'judge', {
-          instruction: 'Choose the existing partial task whose owned files contain the root cause of this actual verification/browser failure. A completed dependency can need repair. Return JSON {"answers":{"repairTask":{"choice":"task_ID","reason":"actual failure and owned file"}}}. This selects where to repair, never approves the failure or changes acceptance criteria, file ownership, or verification.',
-          state: { failedTask: task.id, feedback, verification, integrationVerification, browserQa: independentBrowserQa,
-            verifyCommand: run.verifyCommand, workspaceInventory, workspaceInventoryTruncated: completeInventory.length > MAX_PROJECT_FILE_LIST,
-            tasks: relatedMilestones },
-          questions: { repairTask: { type: 'choice', instructions: 'Select the task owning the required correction. Keep the current task when the failure belongs to its files. Do not require a worker to modify files outside its paths.',
-            criteria: Object.fromEntries(run.milestones.map((milestone) => [`task_${milestone.id}`, milestone.title])) } },
-        }, '부분 통합 실패 담당 선택 / Milestone integration repair owner', { validate: (answer) => {
-          const value = typeof answer === 'string' ? parseHarnessJson(answer) : answer;
-          if (!run.milestones.some((milestone) => `task_${milestone.id}` === value?.answers?.repairTask?.choice)) throw invalidStructuredOutput('부분 통합 실패 담당 작업 선택이 올바르지 않습니다.');
-        } });
-        const value = typeof result === 'string' ? parseHarnessJson(result) : result;
-        const owner = run.milestones.find((milestone) => `task_${milestone.id}` === value?.answers?.repairTask?.choice);
+        let owner = readmeLaunchOwner(run.milestones, readmeLaunchQa), reason = '';
+        if (owner) reason = `실패한 실행 안내가 소유한 파일: ${readmeLaunchQa.ownerPaths.join(', ')}`;
+        else {
+          const result = await this.call(record, 'judge', {
+            instruction: 'Choose the existing partial task whose owned files contain the root cause of this actual verification/browser failure. A completed dependency can need repair. Return JSON {"answers":{"repairTask":{"choice":"task_ID","reason":"actual failure and owned file"}}}. This selects where to repair, never approves the failure or changes acceptance criteria, file ownership, or verification.',
+            state: { failedTask: task.id, feedback, verification, integrationVerification, browserQa: independentBrowserQa, readmeLaunchQa,
+              verifyCommand: run.verifyCommand, workspaceInventory, workspaceInventoryTruncated: completeInventory.length > MAX_PROJECT_FILE_LIST,
+              tasks: relatedMilestones },
+            questions: { repairTask: { type: 'choice', instructions: 'Select the task owning the required correction. Keep the current task when the failure belongs to its files. Do not require a worker to modify files outside its paths.',
+              criteria: Object.fromEntries(run.milestones.map((milestone) => [`task_${milestone.id}`, milestone.title])) } },
+          }, '부분 통합 실패 담당 선택 / Milestone integration repair owner', { validate: (answer) => {
+            const value = typeof answer === 'string' ? parseHarnessJson(answer) : answer;
+            if (!run.milestones.some((milestone) => `task_${milestone.id}` === value?.answers?.repairTask?.choice)) throw invalidStructuredOutput('부분 통합 실패 담당 작업 선택이 올바르지 않습니다.');
+          } });
+          const value = typeof result === 'string' ? parseHarnessJson(result) : result;
+          owner = run.milestones.find((milestone) => `task_${milestone.id}` === value?.answers?.repairTask?.choice);
+          reason = String(value?.answers?.repairTask?.reason || '실제 실패 근거로 기존 부분 작업을 선택했습니다.');
+        }
         if (!owner) throw invalidStructuredOutput('부분 통합 실패 담당 작업 선택이 올바르지 않습니다.');
         if (owner.id !== task.id) {
-          owner.status = 'pending';
-          for (const dependent of run.milestones) if (dependent.dependsOn.includes(owner.id)
-            && (dependent.id === task.id || dependent.status === 'completed')) dependent.status = 'needs-review';
+          reopenMilestoneOwner(run.milestones, owner, task.id);
           feedback += `\n부분 통합 실패를 파일 담당 작업 ${owner.id}에서 먼저 수정하세요. 기존 paths·완료 기준·검증 명령을 유지하고 후속 작업을 다시 검증하세요.`;
-          await this.event(record, '선행 담당 작업 보완 / Repair owning milestone', `${task.id} → ${owner.id} · ${String(value.answers.repairTask.reason || '').slice(0, 500)}\n기존 완료 근거는 보존하며 실제 검증과 브라우저 QA가 통과하기 전에는 자동 반영하지 않습니다.`);
+          await this.event(record, '선행 담당 작업 보완 / Repair owning milestone', `${task.id} → ${owner.id} · ${reason.slice(0, 500)}\n기존 완료 근거는 보존하며 실제 검증, 브라우저 QA, 적용 가능한 README 실행 QA가 통과하기 전에는 자동 반영하지 않습니다.`);
         }
       } catch (error) {
         aborted(controller.signal);
@@ -1761,8 +1792,10 @@ export class HarnessEngine {
       run.verificationPassed = verification.code === 0;
       reselectVerification = run.automaticVerification && verificationCommandUnavailable(verification);
     }
+    let readmeLaunchQa = null;
     if (!implementationIssue && !preparationIssue && verification?.code === 0 && run.qaRequired) {
       await this.runBrowserQa(record, round);
+      readmeLaunchQa = await this.runReadmeLaunchQa(record, round);
     }
     await git(run.workspace, ['add', '-A'], signal);
     const patch = await git(run.workspace, ['diff', '--cached', '--no-ext-diff', '--binary', run.baseline, '--'], signal);
@@ -1787,9 +1820,15 @@ export class HarnessEngine {
           revise: 'Improve the interface styles and semantics to establish a task-specific visual direction, stronger hierarchy/spacing, responsive layout, and clear keyboard/focus states. Base feedback on the diff, not assumptions about runtime appearance.',
         };
       }
+      if (run.readmeQaRequired) reviewChecks.readmeLaunch = {
+        label: 'README 실행 안내 / README launch instructions',
+        question: 'Does the separately documented local Node launch command serve the project entry page at / with valid HTML content type, and return each referenced local CSS/JavaScript module with the right response and MIME? Use state.readmeLaunchQa evidence; a failed actual result requires repair even if the harness preview succeeded.',
+        pass: 'The documented local Node launch returned the page and referenced local assets successfully.',
+        revise: 'Correct the README-owned launch command or its owned server/entry file, then rerun this smoke check. Do not lower the browser or project verification criteria.',
+      };
       const verdict = await this.decide(record, {
         task: run.task, plan: state.plan, summary: previousSummary, verifyCommand: run.verifyCommand,
-        verification, partialReviewEvidence: (run.milestones || []).map(({ id, title, criteria, evidence }) => ({ id, title, criteria, evidence })), allChangesReviewed, independentBrowserQa: run.qaRequired ? run.qaHistory.at(-1) : 'not required', diff: patch.slice(0, 60_000), diffTruncated: patch.length > 60_000,
+        verification, readmeLaunchQa, partialReviewEvidence: (run.milestones || []).map(({ id, title, criteria, evidence }) => ({ id, title, criteria, evidence })), allChangesReviewed, independentBrowserQa: run.qaRequired ? run.qaHistory.at(-1) : 'not required', diff: patch.slice(0, 60_000), diffTruncated: patch.length > 60_000,
       }, reviewChecks);
       if (!['complete', 'revise', 'stop'].includes(verdict.decision) || typeof verdict.summary !== 'string' || typeof verdict.feedback !== 'string') throw fail('판정 모델의 결과 형식이 올바르지 않아 실행을 멈췄습니다.');
       await this.event(record, '판정 결과 / Review result', `${verdict.decision}: ${verdict.summary}\n${verdict.feedback}`);
@@ -1797,20 +1836,25 @@ export class HarnessEngine {
       feedback = verdict.feedback;
       if (verification.code !== 0) feedback += `\n실제 검증 실패 · ${run.verifyCommand}\n${[verification.output, verification.error].filter(Boolean).join('\n').slice(-6000)}`;
       if (run.qaRequired && !run.browserQaPassed) feedback += `\n독립 브라우저 QA 실패(통과 전 자동 반영 금지):\n${(run.qaHistory.at(-1)?.failures || ['브라우저 QA가 완료되지 않았습니다.']).join('\n')}`;
+      if (run.readmeQaRequired && !run.readmeQaPassed) feedback += `\nREADME 실행 안내 QA 실패(통과 전 자동 반영 금지):\n${(run.readmeQaHistory.at(-1)?.failures || ['README의 기본 주소 검증이 완료되지 않았습니다.']).join('\n')}`;
       if (run.automaticVerification && verification.code === 0 && verdict.failedChecks?.includes('verification')) reselectVerification = true;
       if (verdict.decision === 'stop') { run.status = 'blocked'; return { completedRounds: round, previousSummary, feedback, reselectVerification, decision: 'stop', summary: run.summary, nextNode: 'finish' }; }
-      if (verdict.decision === 'complete' && verification.code === 0 && (!run.qaRequired || run.browserQaPassed) && (!run.milestones?.length || run.milestones.every((task) => task.status === 'completed')) && (patch.length <= 60_000 || allChangesReviewed)) {
+      if (verdict.decision === 'complete' && verification.code === 0 && (!run.qaRequired || run.browserQaPassed)
+        && (!run.readmeQaRequired || run.readmeQaPassed)
+        && (!run.milestones?.length || run.milestones.every((task) => task.status === 'completed')) && (patch.length <= 60_000 || allChangesReviewed)) {
         run.stagnantRounds = 0;
         return { completedRounds: round, previousSummary, feedback, reselectVerification, decision: 'complete', summary: run.summary, nextNode: 'apply' };
       }
       if (verdict.decision === 'complete') feedback += '\n검증이 통과하지 않았거나 변경이 너무 커 전체 검토할 수 없습니다. 이 문제를 먼저 해결하세요.';
     }
     if (run.milestones?.length && run.milestones.every((task) => task.status === 'completed')) {
-      let owner = run.milestones.at(-1);
-      try {
+      const qaOwner = readmeLaunchOwner(run.milestones, run.readmeQaHistory?.at(-1));
+      let owner = qaOwner || run.milestones.at(-1);
+      if (qaOwner) await this.event(record, '선행 담당 작업 보완 / Repair owning milestone', `${run.milestones.at(-1).id} → ${owner.id} · 실패한 README 실행 안내가 소유한 파일: ${run.readmeQaHistory.at(-1).ownerPaths.join(', ')}\n판정 호출 없이 해당 파일의 담당 작업을 다시 열었습니다.`);
+      else try {
         const result = await this.call(record, 'judge', {
-          instruction: 'Choose the partial task that owns the root cause of the actual integration or browser QA failure. Return JSON {"answers":{"repairTask":{"choice":"task_ID","reason":"evidence"}}}. Do not weaken existing acceptance criteria.',
-          state: { feedback, verification, browserQa: run.qaHistory.at(-1), tasks: run.milestones.map(({ id, paths, criteria }) => ({ id, paths, criteria })) },
+          instruction: 'Choose the partial task that owns the root cause of the actual integration, browser QA, or documented README launch failure. Return JSON {"answers":{"repairTask":{"choice":"task_ID","reason":"evidence"}}}. If the README basic URL or asset route failed, choose the task owning README.md or the server/entry file proven by the result. Do not weaken existing acceptance criteria.',
+          state: { feedback, verification, browserQa: run.qaHistory.at(-1), readmeLaunchQa: run.readmeQaHistory?.at(-1), tasks: run.milestones.map(({ id, paths, criteria }) => ({ id, paths, criteria })) },
           questions: { repairTask: { type: 'choice', instructions: 'Choose the task whose owned files need the next targeted repair.', criteria: Object.fromEntries(run.milestones.map((task) => [`task_${task.id}`, task.title])) } },
         }, '통합 실패 담당 선택 / Integration repair owner', { validate: (answer) => {
           const value = typeof answer === 'string' ? parseHarnessJson(answer) : answer;
@@ -1821,9 +1865,8 @@ export class HarnessEngine {
         if (!selected) throw invalidStructuredOutput('통합 실패 담당 작업 선택이 올바르지 않습니다.');
         owner = selected;
       } catch (error) { aborted(signal); await this.event(record, '통합 수정 작업 선택 보완 / Integration owner fallback', '담당 작업 선택을 확인할 수 없어 마지막 통합 작업부터 수정합니다.'); }
-      owner.status = 'pending';
+      reopenMilestoneOwner(run.milestones, owner, null);
       feedback += `\n전체 통합 검사 실패를 담당 부분 작업 ${owner.id}에서 수정하세요. 완료 기준과 담당 파일 범위를 유지하세요.`;
-      for (const task of run.milestones) if (task.dependsOn.includes(owner.id)) task.status = 'needs-review';
     }
     const fingerprint = createHash('sha256').update(patch).digest('hex');
     run.stagnantRounds = run.lastRoundFingerprint === fingerprint ? (run.stagnantRounds || 0) + 1 : 0;
@@ -1862,6 +1905,7 @@ export class HarnessEngine {
     const { run, controller } = record;
     if (run.milestones?.some((task) => task.status !== 'completed')) throw fail('모든 부분 작업의 완료 근거가 유효해야 자동 반영할 수 있습니다.');
     if (run.qaRequired && !run.browserQaPassed) throw fail('독립 브라우저 QA를 통과하지 못해 자동 반영할 수 없습니다.');
+    if (run.readmeQaRequired && !run.readmeQaPassed) throw fail('README 실행 안내 QA를 통과하지 못해 자동 반영할 수 없습니다.');
     if (run.status === 'running' && run.autoApply && run.patchAvailable && !run.applied) {
       aborted(controller.signal);
       run.stage = 'applying'; await this.persist(record);
@@ -1896,6 +1940,42 @@ export class HarnessEngine {
     run.qaHistory = [...(run.qaHistory || []), result].slice(-10);
     event.status = run.browserQaPassed ? 'completed' : 'failed';
     event.detail = run.browserQaPassed ? `${qa.checks.length}개 실제 브라우저 검사 통과 · 화면 근거 보존` : (qa.failures || ['브라우저 검사 근거가 부족합니다.']).join('\n').slice(0, 10_000);
+    await this.persist(record);
+    return result;
+  }
+
+  async runReadmeLaunchQa(record, round, title = 'README 실행 안내 QA / README launch smoke QA') {
+    const { run, controller } = record, signal = controller.signal;
+    run.stage = 'readme-launch-qa';
+    const event = await this.event(record, title, 'README 기본 주소와 화면에서 참조하는 로컬 CSS·JavaScript 응답 검사', 'running');
+    let qa;
+    try {
+      if (this.verifyReadme) qa = await this.verifyReadme({ workspace: run.workspace, runtime: run.runtime, runId: run.id, round }, signal);
+      else qa = await verifyReadmeLaunch(run.workspace, { signal, execute: async (launch, { preload }) => {
+        const sandbox = await workspaceSandboxProfile(run.workspace, run.runtime);
+        const hook = `data:text/javascript,${encodeURIComponent(preload)}`;
+        const args = ['-p', sandbox.profile, process.execPath, '--import', hook];
+        if (launch.kind === 'inline') args.push('-e', launch.source);
+        else args.push(launch.path);
+        return runCommand('/usr/bin/sandbox-exec', args, { cwd: sandbox.workspace,
+          env: workspaceCommandEnvironment(sandbox.runtime, { LOOPLINE_README_QA: '1' }), signal,
+          timeout: 180_000, limit: 100_000 });
+      } });
+    } catch (error) {
+      aborted(signal);
+      qa = { passed: false, applicable: true, skipped: false, display: '', checks: [], failures: [String(error.message || error).slice(0, 1000)] };
+    }
+    aborted(signal);
+    run.readmeQaRequired = qa.applicable === true;
+    run.readmeQaPassed = qa.passed === true;
+    const result = { ...qa, round };
+    run.readmeQaHistory = [...(run.readmeQaHistory || []), result].slice(-10);
+    event.status = run.readmeQaPassed ? 'completed' : 'failed';
+    event.detail = qa.skipped
+      ? `실행 명령 검사 생략 · ${qa.reason}\n독립 브라우저 QA는 별도로 계속 적용됩니다.`
+      : run.readmeQaPassed
+        ? `${qa.display} · ${qa.checks.length}개 기본 주소·자산 응답 검사 통과`
+        : (qa.failures || ['README 기본 주소 검증에 실패했습니다.']).join('\n').slice(0, 10_000);
     await this.persist(record);
     return result;
   }

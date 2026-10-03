@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
+import { lstat, readFile, realpath, stat } from 'node:fs/promises';
+import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 
 export const QA_CATEGORIES = ['input', 'save', 'empty', 'keyboard'];
 const ACTIONS = new Set(['reset', 'reload', 'fill', 'click', 'press', 'visible', 'hidden', 'text', 'value', 'count', 'focused', 'focus-visible']);
@@ -12,6 +14,175 @@ export const BROWSER_QA_EXECUTOR = Object.freeze({
   focusVisibleEvidence: 'focus-visible asserts keyboard focus plus a visible outline or a box shadow that changed from its unfocused style; focused alone asserts only the active element.',
   textEvidence: 'text asserts rendered, visible text. A document title or head metadata is not visible page text; use a visible heading for page-title UI assertions.',
 });
+
+const README_LAUNCH_RESULT = '__LOOPLINE_README_LAUNCH_QA__';
+const README_MAX_BYTES = 160_000;
+const inside = (root, path) => path === root || path.startsWith(root + sep);
+
+function parseSimpleNodeLaunch(command) {
+  const line = String(command || '').trim();
+  const inline = line.match(/^node\s+-e\s+'([^'\r\n]*)'\s*$/);
+  if (inline) return { kind: 'inline', source: inline[1], display: 'node -e' };
+  const file = line.match(/^node\s+((?:\.?\/?)[A-Za-z0-9_.\/-]+\.(?:mjs|cjs|js))\s*$/);
+  if (file && !isAbsolute(file[1]) && !file[1].split(/[\\/]/).includes('..')) return { kind: 'file', path: file[1], display: `node ${file[1]}` };
+  return null;
+}
+
+function supportsStaticHttpSmoke(source) {
+  return /(?:node:)?http/.test(source) && /createServer/.test(source) && /\.listen\s*\(/.test(source)
+    && /(?:readFile|sendFile|express\.static)/.test(source) && !/createReadStream|\.pipe\s*\(/.test(source);
+}
+
+export async function inspectReadmeLaunch(workspace) {
+  let readme;
+  try {
+    const path = resolve(workspace, 'README.md'), info = await lstat(path);
+    if (!info.isFile() || info.size > README_MAX_BYTES) return { applicable: false, reason: 'README.md가 일반 문서가 아니거나 검사 크기를 초과했습니다.' };
+    readme = await readFile(path, 'utf8');
+  } catch (error) {
+    if (error.code === 'ENOENT') return { applicable: false, reason: 'README.md가 없어 실행 안내 검사를 생략했습니다.' };
+    throw error;
+  }
+  const lines = readme.split(/\r?\n/), heading = lines.findIndex((line) => /^#{1,3}\s*(?:실행|시작|run|getting\s+started)(?:\s|$)/i.test(line));
+  if (heading < 0) return { applicable: false, reason: 'README.md에 실행 안내 구역이 없어 실행 안내 검사를 생략했습니다.' };
+  const end = lines.findIndex((line, index) => index > heading && /^#{1,3}\s/.test(line));
+  const section = lines.slice(heading + 1, end < 0 ? lines.length : end).join('\n');
+  const blocks = [...section.matchAll(/^```(?:sh|bash|shell)\s*\r?\n([\s\S]*?)^```\s*$/gim)].map((match) => match[1]);
+  const commands = blocks.map((block) => block.split(/\r?\n/).map((line) => line.trim()).find((line) => line && !line.startsWith('#'))).filter(Boolean);
+  for (const command of commands) {
+    const direct = parseSimpleNodeLaunch(command);
+    if (direct) return await resolveReadmeNodeLaunch(workspace, direct);
+    const npm = command.match(/^npm\s+(?:run\s+)?(start|dev|serve)\s*$/);
+    if (!npm) continue;
+    let pkg;
+    try {
+      const path = resolve(workspace, 'package.json'), info = await lstat(path);
+      if (!info.isFile() || info.size > 64_000) continue;
+      pkg = JSON.parse(await readFile(path, 'utf8'));
+    } catch { continue; }
+    const scripted = parseSimpleNodeLaunch(pkg?.scripts?.[npm[1]]);
+    if (scripted) return await resolveReadmeNodeLaunch(workspace, scripted, `npm ${npm[1]} → ${scripted.display}`, ['README.md', 'package.json']);
+  }
+  return { applicable: false, reason: 'README에 지원하는 로컬 Node 실행 명령이 없습니다. 임의 셸 명령은 실행하지 않았습니다.' };
+}
+
+async function resolveReadmeNodeLaunch(workspace, launch, display = launch.display, ownerPaths = ['README.md']) {
+  if (launch.kind === 'inline') return supportsStaticHttpSmoke(launch.source) && launch.source.length <= 32_000
+    ? { applicable: true, launch: { kind: 'inline', source: launch.source }, display, ownerPaths }
+    : { applicable: false, reason: 'README Node 명령이 검사 가능한 내장 정적 HTTP 서버 형태가 아니어서 실행하지 않았습니다.' };
+  const root = await realpath(workspace), target = resolve(root, launch.path);
+  if (!inside(root, target)) return { applicable: false, reason: 'README 실행 파일이 프로젝트 폴더 밖을 가리켜 검사를 생략했습니다.' };
+  let actual;
+  try { actual = await realpath(target); }
+  catch (error) { if (error.code === 'ENOENT') return { applicable: false, reason: `README 실행 파일 ${launch.path}이 없어 검사를 생략했습니다.` }; throw error; }
+  if (!inside(root, actual) || !(await stat(actual)).isFile()) return { applicable: false, reason: 'README 실행 파일이 프로젝트 내부의 일반 파일이 아니어서 검사를 생략했습니다.' };
+  const source = await readFile(actual, 'utf8');
+  if (!supportsStaticHttpSmoke(source)) return { applicable: false, reason: 'README Node 명령이 검사 가능한 내장 정적 HTTP 서버 형태가 아니어서 실행하지 않았습니다.' };
+  const launchPath = relative(root, actual);
+  return { applicable: true, launch: { kind: 'file', path: launchPath }, display, ownerPaths: [...new Set([launchPath, ...ownerPaths])] };
+}
+
+export const README_LAUNCH_QA_PRELOAD = String.raw`
+import http from 'node:http';
+const marker = '__LOOPLINE_README_LAUNCH_QA__';
+if (process.env.LOOPLINE_README_QA === '1') {
+  const originalListen = http.Server.prototype.listen;
+  const originalAddress = http.Server.prototype.address;
+  const originalClose = http.Server.prototype.close;
+  const active = new WeakMap();
+  const emit = (payload) => process.stdout.write(marker + JSON.stringify(payload) + '\n');
+  const header = (headers, name) => Object.entries(headers).find(([key]) => key.toLowerCase() === name)?.[1] || '';
+  const request = (handler, url) => new Promise((resolve) => {
+    const result = { url, status: 200, headers: {}, body: '', error: '' };
+    let done = false;
+    const finish = () => { if (!done) { done = true; clearTimeout(timer); resolve(result); } };
+    const timer = setTimeout(() => { result.error = '응답 제한 시간 초과'; finish(); }, 1800);
+    const response = {
+      statusCode: 200, headersSent: false,
+      writeHead(status, headers = {}) { result.status = this.statusCode = status; Object.assign(result.headers, headers); this.headersSent = true; return this; },
+      setHeader(name, value) { result.headers[name] = value; return this; },
+      getHeader(name) { return header(result.headers, String(name).toLowerCase()); },
+      hasHeader(name) { return Object.keys(result.headers).some((key) => key.toLowerCase() === String(name).toLowerCase()); },
+      removeHeader(name) { for (const key of Object.keys(result.headers)) if (key.toLowerCase() === String(name).toLowerCase()) delete result.headers[key]; },
+      write(chunk) { result.body += String(chunk ?? ''); return true; },
+      end(chunk) { if (chunk != null) result.body += String(chunk); result.status = this.statusCode || result.status; finish(); return this; },
+      flushHeaders() { this.headersSent = true; },
+      destroy(error) { if (error) result.error = String(error.message || error); finish(); },
+    };
+    try {
+      const returned = handler({ method: 'GET', url, headers: { host: '127.0.0.1' }, socket: { remoteAddress: '127.0.0.1' } }, response);
+      returned?.catch?.((error) => { result.error = String(error.message || error); finish(); });
+    } catch (error) { result.error = String(error.message || error); finish(); }
+  });
+  const verify = async (server) => {
+    const handler = server.listeners('request')[0];
+    const checks = [], failures = [];
+    if (typeof handler !== 'function') {
+      emit({ passed: false, checks, failures: ['README 실행 안내가 HTTP 요청 처리기를 등록하지 않았습니다.'] });
+      process.exitCode = 1; return;
+    }
+    const root = await request(handler, '/');
+    const rootType = String(header(root.headers, 'content-type')).toLowerCase();
+    const rootPassed = root.status === 200 && /text\/html/.test(rootType) && /<(?:!doctype\s+html|html)\b/i.test(root.body) && !root.error;
+    checks.push({ id: 'root', passed: rootPassed, actual: { status: root.status, contentType: rootType || null, html: /<(?:!doctype\s+html|html)\b/i.test(root.body), ...(root.error ? { error: root.error } : {}) } });
+    if (!rootPassed) failures.push('README 실행 안내 / 경로 / HTTP ' + root.status + ': 기본 주소가 실행 가능한 HTML을 반환하지 않았습니다' + (root.error ? ' (' + root.error + ')' : '') + '.');
+    const assets = new Set();
+    for (const match of root.body.matchAll(/<(script|link)\b[^>]*>/gi)) {
+      const tag = match[0], kind = match[1].toLowerCase();
+      const raw = kind === 'script' ? tag.match(/\bsrc\s*=\s*(["'])(.*?)\1/i)?.[2]
+        : /\brel\s*=\s*(["'])[^"']*stylesheet[^"']*\1/i.test(tag) ? tag.match(/\bhref\s*=\s*(["'])(.*?)\1/i)?.[2] : null;
+      if (!raw || /^(?:[a-z][a-z0-9+.-]*:|\/\/|#)/i.test(raw)) continue;
+      try {
+        const url = new URL(raw, 'http://127.0.0.1/');
+        if (url.origin !== 'http://127.0.0.1') continue;
+        if (/\.(?:css|m?js|cjs)$/i.test(url.pathname)) assets.add(url.pathname + url.search);
+      } catch { /* Invalid external asset references are covered by browser QA. */ }
+      if (assets.size >= 20) break;
+    }
+    for (const url of assets) {
+      const result = await request(handler, url), type = String(header(result.headers, 'content-type')).toLowerCase();
+      const extension = new URL(url, 'http://127.0.0.1').pathname.split('.').at(-1).toLowerCase();
+      const mimePassed = extension === 'css' ? /text\/css/.test(type) : /(?:javascript|ecmascript)/.test(type);
+      const passed = result.status === 200 && mimePassed && !result.error;
+      checks.push({ id: 'asset:' + url, passed, actual: { status: result.status, contentType: type || null, ...(result.error ? { error: result.error } : {}) } });
+      if (!passed) failures.push('README 실행 안내 / ' + url + ' / HTTP ' + result.status + ': 브라우저 자산 응답 또는 MIME 형식이 올바르지 않습니다.');
+    }
+    emit({ passed: failures.length === 0, checks, failures });
+    if (failures.length) process.exitCode = 1;
+  };
+  http.Server.prototype.listen = function (...args) {
+    const server = this;
+    if (!active.has(server)) {
+      active.set(server, { port: args.find((value) => Number.isInteger(value)) || 8000, address: args.find((value) => typeof value === 'string') || '127.0.0.1' });
+      setImmediate(() => verify(server).catch((error) => { emit({ passed: false, checks: [], failures: ['README 실행 안내 QA 오류: ' + String(error.message || error).slice(0, 500)] }); process.exitCode = 1; }));
+    }
+    return server;
+  };
+  http.Server.prototype.address = function () { return active.get(this) || originalAddress.call(this); };
+  http.Server.prototype.close = function (callback) { if (active.has(this)) { callback?.(); return this; } return originalClose.call(this, callback); };
+}
+`;
+
+export async function verifyReadmeLaunch(workspace, { execute, signal } = {}) {
+  if (signal?.aborted) throw signal.reason || new Error('README 실행 안내 QA를 중지했습니다.');
+  const inspected = await inspectReadmeLaunch(workspace);
+  if (!inspected.applicable) return { passed: true, applicable: false, skipped: true, display: '', ownerPaths: [], checks: [], failures: [], reason: inspected.reason };
+  if (typeof execute !== 'function') throw new TypeError('README 실행 안내 검증 실행기가 필요합니다.');
+  const execution = await execute(inspected.launch, { preload: README_LAUNCH_QA_PRELOAD, signal });
+  if (signal?.aborted) throw signal.reason || new Error('README 실행 안내 QA를 중지했습니다.');
+  const text = `${execution?.output || ''}\n${execution?.error || ''}`;
+  const marker = [...text.matchAll(new RegExp(`${README_LAUNCH_RESULT}({[^\\n]*})`, 'g'))].at(-1)?.[1];
+  let evidence;
+  try { evidence = marker ? JSON.parse(marker) : null; } catch { evidence = null; }
+  const failures = Array.isArray(evidence?.failures) ? evidence.failures.filter((item) => typeof item === 'string').slice(0, 16) : [];
+  const checks = Array.isArray(evidence?.checks) ? evidence.checks.filter((item) => item && typeof item.id === 'string' && typeof item.passed === 'boolean').slice(0, 24) : [];
+  if (!evidence || checks.length === 0 || evidence.passed !== true || execution?.code !== 0) {
+    if (!failures.length) failures.push(`README 실행 안내 ${inspected.display}: 실제 HTTP 검사 결과를 받지 못했습니다${Number.isInteger(execution?.code) ? ` (종료 코드 ${execution.code})` : ''}.`);
+  }
+  return { passed: Boolean(evidence?.passed === true && checks.length > 0 && checks.every((check) => check.passed) && failures.length === 0 && execution?.code === 0),
+    applicable: true, skipped: false, display: inspected.display, ownerPaths: inspected.ownerPaths, checks, failures };
+}
+
 export function needsBrowserQa(task, files = '') {
   return /(?:website|web\s*(?:app|page|site)|front[- ]end|dashboard|landing\s*page|\bUI\b|웹\s*(?:사이트|앱|페이지)|프론트엔드|대시보드|랜딩|화면|디자인)/i.test(task)
     || /(?:^|\n).*\.(?:html|jsx|tsx|vue|svelte|astro)(?:\n|$)/i.test(files);

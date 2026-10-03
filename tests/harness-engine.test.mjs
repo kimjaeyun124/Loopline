@@ -809,7 +809,44 @@ test('visual interface tasks receive design guidance while CLI tasks keep their 
   const cli = await runTask('file.txt를 읽고 검증하는 독립형 CLI 유틸리티를 제작합니다.');
   assert.doesNotMatch(cli.plan, /디자인 브리프/);
   assert.doesNotMatch(cli.worker, /웹 UI 작업 기준/);
+  assert.doesNotMatch(cli.worker, /검증 샌드박스 제약/);
   assert.ok(!Object.hasOwn(cli.judge.questions, 'visualDesign'));
+});
+
+test('HTTP website work tells planners, workers and judges to avoid network listeners in sandbox tests', async (t) => {
+  const f = await fixture(t);
+  const captured = { plan: '', worker: '', verificationPlan: '', verificationReview: null };
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (_selection, prompt) => {
+    if (startsWithText(prompt, '목표:')) { captured.plan = prompt; return 'Implement the static HTTP app and test its request handler offline.'; }
+    if (startsWithText(prompt, '검증 방법을 제안하세요.')) {
+      captured.verificationPlan = prompt;
+      return JSON.stringify({ verifyCommand: 'test -f file.txt', reason: 'Check the implemented offline test target.' });
+    }
+    if (isJudgementPrompt(prompt)) {
+      if (prompt.questions.command) captured.verificationReview = prompt;
+      return judgementResponse(prompt);
+    }
+    if (hasText(prompt, '최근 도구 결과:')) {
+      captured.worker = prompt;
+      return JSON.stringify({ operations: [{ type: 'write', path: 'file.txt', content: 'updated\n' }], done: true, summary: 'Updated the server handler.' });
+    }
+    return 'Plan: implement and verify the offline handler.';
+  } });
+  const run = await settled(engine, (await engine.create({
+    ...f.input,
+    task: 'Build a Node.js HTTP website that serves routes and static assets with correct MIME types.',
+    verifyCommand: undefined,
+    rounds: 1,
+  })).id);
+
+  assert.equal(run.status, 'completed', run.summary);
+  assert.match(captured.plan, /네트워크가 차단된 격리 환경/);
+  assert.match(captured.worker, /TCP\/UDP\/Unix-domain socket/);
+  assert.match(captured.worker, /가짜 request\/response/);
+  assert.match(captured.verificationPlan, /localhost fetch/);
+  assert.match(captured.verificationPlan, /가짜 request\/response/);
+  assert.match(captured.verificationReview.state.offlineServerGuidance, /EPERM\/EACCES\/EINVAL/);
+  assert.match(captured.verificationReview.questions.command.criteria.revise, /direct handler test/);
 });
 
 test('worker context replaces an edited file with its latest contents', async (t) => {

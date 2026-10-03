@@ -397,6 +397,46 @@ test('a temporary provider failure switches to the next configured model and com
   assert.ok(run.events.some((event) => event.title.includes('모델 일시 오류') && event.model?.id === 'fixture-model'));
 });
 
+test('a localized API connection failure continues through the saved worker models', async (t) => {
+  const f = await fixture(t), script = modelScript(complete), workerModels = [];
+  const worker = { ...f.input.roles.worker, model: 'worker-connection-primary', fallbacks: [
+    { ...f.input.roles.worker, model: 'worker-connection-backup', label: 'Connection backup' },
+  ] };
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (selection, prompt, ...rest) => {
+    if (hasText(prompt, '최근 도구 결과:')) {
+      workerModels.push(selection.model);
+      if (selection.model === 'worker-connection-primary') {
+        throw new Error('API 서버에 연결하지 못했습니다. 주소와 네트워크 연결을 확인해 주세요.');
+      }
+    }
+    return script(selection, prompt, ...rest);
+  } });
+  const run = await settled(engine, (await engine.create({ ...f.input, roles: { ...f.input.roles, worker } })).id);
+  assert.equal(run.status, 'completed', run.summary);
+  assert.equal(run.stageModels.worker.id, 'worker-connection-backup');
+  assert.deepEqual(workerModels.slice(0, 2), ['worker-connection-primary', 'worker-connection-backup']);
+  assert.ok(run.events.some((event) => event.title.includes('모델 일시 오류') && event.model?.id === 'worker-connection-primary'));
+});
+
+test('an API authentication failure wrapped by the local relay does not switch models', async (t) => {
+  const f = await fixture(t), plannerCalls = [], script = modelScript(complete);
+  const planner = { ...f.input.roles.planner, model: 'auth-primary', fallbacks: [
+    { ...f.input.roles.planner, model: 'auth-backup', label: 'Authentication backup' },
+  ] };
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (selection, prompt, ...rest) => {
+    if (hasText(prompt, '구현 계획과 검증 기준')) {
+      plannerCalls.push(selection.model);
+      if (selection.model === 'auth-primary') throw Object.assign(new Error('API key invalid'), { status: 502, remoteStatus: 401 });
+    }
+    return script(selection, prompt, ...rest);
+  } });
+  const run = await settled(engine, (await engine.create({ ...f.input, roles: { ...f.input.roles, planner } })).id);
+  assert.equal(run.status, 'failed');
+  assert.deepEqual(plannerCalls, ['auth-primary']);
+  assert.equal(run.recoverableFailure, false);
+  assert.equal(run.canResume, false);
+});
+
 test('a Korean Codex request timeout switches to the next saved worker model', async (t) => {
   const f = await fixture(t), script = modelScript(complete), workerModels = [];
   let timedOut = false;
@@ -1165,6 +1205,44 @@ test('startup recovery preserves an explicit user stop', async (t) => {
   assert.equal(stopped.status, 'stopped');
   assert.equal(stopped.canResume, true);
   assert.equal(calls, 2);
+});
+
+test('a failed transient model call can resume from its safe checkpoint with a bounded retry count', async (t) => {
+  const f = await fixture(t); let signalWorkerStarted; let holdWorker = true;
+  const workerStarted = new Promise((resolve) => { signalWorkerStarted = resolve; });
+  const script = modelScript(complete);
+  const invoke = (selection, prompt, instructions, signal, ...rest) => {
+    if (holdWorker && startsWithText(prompt, '기본 CLI 도구')) {
+      signalWorkerStarted();
+      return new Promise((_resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+    }
+    return script(selection, prompt, instructions, ...rest);
+  };
+  const firstEngine = new HarnessEngine({ directory: f.data, verify: pass, invoke });
+  const created = await firstEngine.create(f.input);
+  await workerStarted;
+  await firstEngine.stop(created.id);
+  await firstEngine.runs.get(created.id).execution;
+
+  const recordPath = join(f.data, 'harness', `${created.id}.json`);
+  const saved = JSON.parse(await readFile(recordPath, 'utf8'));
+  saved.status = 'failed';
+  saved.summary = 'API 서버에 연결하지 못했습니다. 주소와 네트워크 연결을 확인해 주세요.';
+  saved.recoverableFailure = true;
+  saved.autoResumeAttempts = 0;
+  await writeFile(recordPath, JSON.stringify(saved));
+
+  holdWorker = false;
+  const resumedEngine = new HarnessEngine({ directory: f.data, verify: pass, invoke });
+  const resumable = await resumedEngine.get(created.id);
+  assert.equal(resumable.canResume, true);
+  await resumedEngine.resume(created.id);
+  await resumedEngine.runs.get(created.id).execution;
+  const completed = await resumedEngine.get(created.id);
+  assert.equal(completed.status, 'completed', completed.summary);
+  assert.equal(completed.applied, true);
+  assert.equal(completed.autoResumeAttempts, 1);
+  assert.ok(completed.events.some((event) => event.title.includes('Loop 이어하기')));
 });
 
 test('startup recovery reconnects saved MCP tools and respects safety and restart limits', async (t) => {

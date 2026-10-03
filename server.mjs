@@ -1978,6 +1978,7 @@ async function invokeHarnessModel(selection, prompt, instructions, signal, onSig
     if (signal.aborted) throw signal.reason;
     if (failure || !done || !output.trim()) throw Object.assign(new Error(failure || '모델의 완료 응답을 받지 못했습니다.'), {
       quotaExhausted: quotaFailure,
+      ...(Number.isInteger(response.statusCode) ? { status: response.statusCode } : {}),
       ...(Number.isInteger(remoteStatus) ? { remoteStatus } : {}),
     });
     return output;

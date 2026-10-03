@@ -42,9 +42,12 @@ function quotaExhausted(error) {
 function recoverableModelFailure(error) {
   if (quotaExhausted(error)) return true;
   if (error?.invalidJudgeOutput) return false;
-  if ([408, 425, 500, 502, 503, 504].includes(error?.remoteStatus) || [408, 425, 500, 502, 503, 504].includes(error?.status)) return true;
+  if ([401, 403].includes(error?.remoteStatus)) return false;
+  if ([408, 425, 500, 502, 503, 504].includes(error?.remoteStatus)) return true;
+  if (Number.isInteger(error?.remoteStatus) && error.remoteStatus >= 400 && error.remoteStatus < 500) return false;
+  if ([408, 425, 500, 502, 503, 504].includes(error?.status)) return true;
   if (['ECONNRESET', 'ETIMEDOUT', 'EAI_AGAIN', 'ECONNREFUSED', 'ENETUNREACH', 'UND_ERR_CONNECT_TIMEOUT'].includes(error?.code)) return true;
-  return /(?:fetch failed|network error|timeout|timed?\s*out|시간.{0,12}초과|일시적인 서버 오류)/i.test(String(error?.message || ''));
+  return /(?:fetch failed|network error|timeout|timed?\s*out|시간.{0,12}초과|일시적인 서버 오류|API 서버에 연결하지 못했|네트워크 연결을 확인해 주세요)/i.test(String(error?.message || ''));
 }
 
 function isVisualInterfaceTask(task, files = '') {
@@ -574,7 +577,13 @@ export class HarnessEngine {
   publicRun(run) {
     const { instructions, fingerprint, baseline, graphCheckpoint, qualityTriedWorkerModels, modelRoutingContexts, ...visible } = run;
     visible.autoResumeAttempts = Number.isInteger(run.autoResumeAttempts) ? run.autoResumeAttempts : 0;
-    visible.canResume = ['interrupted', 'stopped'].includes(run.status)
+    const failure = new Error(String(run.summary || ''));
+    const resumableTransientFailure = run.status === 'failed'
+      && run.mcpSideEffectPossible !== true
+      && !quotaExhausted(failure)
+      && (run.recoverableFailure === true || recoverableModelFailure(failure))
+      && (Number.isInteger(run.autoResumeAttempts) ? run.autoResumeAttempts : 0) < MAX_AUTOMATIC_RECOVERIES;
+    visible.canResume = (['interrupted', 'stopped'].includes(run.status) || resumableTransientFailure)
       && !run.mcpSideEffectPossible
       && Boolean(graphCheckpoint && (graphCheckpoint.activeNode !== 'apply' || !run.applyStarted || run.applied)
         && ['select', 'prepare', 'round', 'apply', 'finish'].includes(graphCheckpoint.activeNode || graphCheckpoint.nextNode));
@@ -707,7 +716,8 @@ export class HarnessEngine {
     if (this.closing) throw fail('앱이 종료 중이라 실행을 이어갈 수 없습니다.', 503);
     const record = await this.record(id);
     const { run } = record;
-    if (!['interrupted', 'stopped'].includes(run.status) || !this.publicRun(run).canResume) {
+    const retryingTransientFailure = run.status === 'failed' && this.publicRun(run).canResume;
+    if ((!['interrupted', 'stopped'].includes(run.status) && !retryingTransientFailure) || !this.publicRun(run).canResume) {
       throw fail('이 실행은 안전하게 이어갈 수 없습니다. 작업 공간과 저장된 패치를 확인한 뒤 새 실행을 시작해 주세요.', 409);
     }
     if (run.source && this.sources.has(run.source)) throw fail('이 프로젝트에서 다른 Loop 실행이 진행 중입니다.', 409);
@@ -715,6 +725,8 @@ export class HarnessEngine {
     record.controller = new AbortController();
     delete run.shutdownRequested;
     delete run.userStopRequested;
+    delete run.recoverableFailure;
+    if (retryingTransientFailure) run.autoResumeAttempts = (Number.isInteger(run.autoResumeAttempts) ? run.autoResumeAttempts : 0) + 1;
     run.status = 'running'; run.finishedAt = null; run.summary = '';
     const checkpoint = run.graphCheckpoint;
     const resumeNode = checkpoint.activeNode || checkpoint.nextNode;
@@ -1219,6 +1231,11 @@ export class HarnessEngine {
       if (run.status === 'running') throw fail('Loop 흐름이 완료 상태를 만들지 않고 끝났습니다.');
     } catch (error) {
       run.status = run.shutdownRequested ? 'interrupted' : signal.aborted ? 'stopped' : 'failed';
+      run.recoverableFailure = run.status === 'failed'
+        && run.mcpSideEffectPossible !== true
+        && !error.mcpDispatched
+        && !quotaExhausted(error)
+        && Boolean(error.transientModelFailure || recoverableModelFailure(error));
       run.summary = run.shutdownRequested
         ? '앱 종료로 실행이 일시 중단되었습니다. 다시 시작하면 안전한 지점부터 자동으로 이어갑니다.'
         : error.message || 'Harness 실행에 실패했습니다.';

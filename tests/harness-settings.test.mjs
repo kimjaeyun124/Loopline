@@ -13,7 +13,7 @@ function setup(t, { storage = new Map(), project = null, models = null, evidence
       fire(name, target = this) { return this.listeners[name]?.({ target, key: 'Escape', stopPropagation() {} }); } });
     return nodes.get(id);
   };
-  let evidenceResponse = evidence, failEvidenceRequest = false, evidenceRequestCount = 0;
+  let evidenceResponse = evidence, failEvidenceRequest = false, evidenceFailureStatus = null, evidenceRequestCount = 0;
   let failStorage = false;
   for (const key of ['document', 'localStorage', 'window', 'fetch']) {
     const original = Object.getOwnPropertyDescriptor(globalThis, key);
@@ -23,6 +23,7 @@ function setup(t, { storage = new Map(), project = null, models = null, evidence
   globalThis.fetch = async () => {
     evidenceRequestCount++;
     if (failEvidenceRequest) throw new Error('offline');
+    if (evidenceFailureStatus !== null) return { ok: false, status: evidenceFailureStatus, json: async () => ({ error: 'request failed' }) };
     const response = typeof evidenceResponse === 'function' ? await evidenceResponse() : evidenceResponse;
     return { ok: true, json: async () => response };
   };
@@ -40,6 +41,7 @@ function setup(t, { storage = new Map(), project = null, models = null, evidence
   return { ui, node, fields: node('#harnessRoles'), storage, saved: () => JSON.parse(storage.get(KEY)),
     toasts, failStorage: (value) => { failStorage = value; },
     setEvidence: (value) => { evidenceResponse = value; }, failEvidence: (value) => { failEvidenceRequest = value; },
+    setEvidenceStatus: (value) => { evidenceFailureStatus = value; },
     evidenceRequestCount: () => evidenceRequestCount };
 }
 
@@ -164,7 +166,48 @@ test('evidence refresh updates diagnostics and model statistics and recovers aft
   assert.equal(button.disabled, false);
   assert.equal(s.node('#harnessEvidenceStatus').textContent, `갱신 실패 · ${refreshedAt} 기준 실측 정보를 표시 중입니다.`);
   assert.match(s.fields.innerHTML, /호출 토큰 400/);
+  assert.equal(s.evidenceRequestCount(), 5, 'network failure should stop after the initial request plus two retries');
   assert.ok(s.toasts.includes('실측 진단 정보를 갱신하지 못했습니다. 잠시 후 다시 시도해 주세요.'));
+});
+
+test('transient evidence failures retry automatically and keep the refresh control locked', async (t) => {
+  const s = setup(t);
+  s.ui.open();
+  await new Promise((resolve) => setImmediate(resolve));
+
+  let attempts = 0;
+  s.setEvidence(async () => {
+    attempts++;
+    if (attempts < 3) throw new Error('temporary network failure');
+    return { models: [{ role: 'worker', provider: 'api', model: 'jev-test', effort: 'high', type: 'web', runs: 1,
+      completionMeasuredRuns: 1, completedRuns: 1, browserQaPassedRuns: 0, browserQaRuns: 0, reportedTokens: 900,
+      missingUsageCalls: 0, sufficientEvidence: false }], evidenceDiagnostics: { invalidRecordReasons: {} } };
+  });
+
+  const refresh = s.node('#harnessEvidenceRefresh').fire('click');
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(s.node('#harnessEvidenceRefresh').disabled, true);
+  assert.match(s.node('#harnessEvidenceStatus').textContent, /^실측 정보 재시도 1\/2 중/);
+  assert.equal(s.evidenceRequestCount(), 2);
+  assert.equal(await refresh, true);
+  assert.equal(s.evidenceRequestCount(), 4, 'two transient failures should be followed by a successful third attempt');
+  assert.equal(s.node('#harnessEvidenceRefresh').disabled, false);
+  assert.match(s.node('#harnessEvidenceStatus').textContent, /^실측 정보를 갱신했습니다 · 마지막 확인 \d{2}:\d{2}$/);
+  assert.match(s.fields.innerHTML, /호출 토큰 900/);
+});
+
+test('non-retryable evidence HTTP errors fail immediately and keep the last confirmed time', async (t) => {
+  const s = setup(t);
+  s.ui.open();
+  await new Promise((resolve) => setImmediate(resolve));
+  const status = s.node('#harnessEvidenceStatus').textContent;
+  const confirmedAt = status.match(/\d{2}:\d{2}$/)?.[0];
+  assert.ok(confirmedAt);
+
+  s.setEvidenceStatus(400);
+  assert.equal(await s.node('#harnessEvidenceRefresh').fire('click'), false);
+  assert.equal(s.evidenceRequestCount(), 2, 'client errors should not be retried');
+  assert.equal(s.node('#harnessEvidenceStatus').textContent, `갱신 실패 · ${confirmedAt} 기준 실측 정보를 표시 중입니다.`);
 });
 
 test('excluded evidence ID copy confirms success and reports clipboard failures', async (t) => {

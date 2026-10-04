@@ -14,6 +14,22 @@ export function taskType(task) {
 const modelKey = (selection, role, type) => JSON.stringify([type, role, selection.provider, selection.model, selection.reasoningEffort || selection.effort || 'default']);
 const sum = (values) => values.reduce((a, b) => a + b, 0);
 const average = (values) => values.length ? Math.round(sum(values) / values.length) : null;
+function validEvidenceRecord(value, filename) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  if (![1, 2].includes(value.version) || value.id !== filename.slice(0, -5) || typeof value.type !== 'string' || !value.type
+    || typeof value.status !== 'string' || typeof value.completed !== 'boolean' || typeof value.verificationPassed !== 'boolean'
+    || typeof value.browserQaRequired !== 'boolean' || typeof value.browserQaPassed !== 'boolean'
+    || !Number.isSafeInteger(value.recoveries) || value.recoveries < 0 || !Array.isArray(value.calls)) return false;
+  if (!value.calls.every((call) => call && typeof call === 'object' && !Array.isArray(call)
+    && typeof call.role === 'string' && call.role.length > 0 && typeof call.provider === 'string' && call.provider.length > 0
+    && typeof call.model === 'string' && call.model.length > 0 && typeof call.status === 'string'
+    && (call.tokens === null || (Number.isSafeInteger(call.tokens) && call.tokens >= 0))
+    && Number.isFinite(call.durationMs) && call.durationMs >= 0)) return false;
+  const intervention = value.humanIntervention;
+  return intervention?.measurement !== 'observed-actions' || (['full-run', 'partial-run'].includes(intervention.coverage)
+    && Number.isSafeInteger(intervention.manualResumes) && intervention.manualResumes >= 0
+    && Number.isSafeInteger(intervention.stopRequests) && intervention.stopRequests >= 0);
+}
 function wilsonLowerBound(successes, runs, z = 1.96) {
   if (!Number.isSafeInteger(successes) || !Number.isSafeInteger(runs) || runs < 1 || successes < 0 || successes > runs) return null;
   const rate = successes / runs, zSquared = z * z;
@@ -75,7 +91,7 @@ export class HarnessEvidence {
       const batch = await Promise.all(selectedFiles.slice(offset, offset + 64).map(async ({ name }) => {
         try {
           const value = JSON.parse(await readFile(join(this.directory, name), 'utf8'));
-          return [1, 2].includes(value.version) && Array.isArray(value.calls) && (!type || value.type === type) ? value : null;
+          return validEvidenceRecord(value, name) && (!type || value.type === type) ? value : null;
         } catch { /* A damaged measurement must not prevent program execution or become routing evidence. */ return null; }
       }));
       records.push(...batch.filter(Boolean).slice(0, MAX_EVIDENCE_RECORDS - records.length));

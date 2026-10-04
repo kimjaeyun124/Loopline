@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, rm, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -154,4 +154,25 @@ test('browser QA and milestone failures count as recovery work without double co
   assert.equal(saved.recoveries, 3);
   const summary = await store.candidate(model, 'worker', 'website');
   assert.equal(summary.runs, 1); assert.equal(summary.meanRunRecoveries, 3);
+});
+
+test('evidence over the retention limit selects the most recently written records and sorts by completion time', async (t) => {
+  const store = await fixture(t);
+  await mkdir(store.directory, { recursive: true });
+  for (let index = 0; index < 2001; index++) {
+    const id = randomUUID();
+    await writeFile(join(store.directory, `${id}.json`), JSON.stringify({ version: 2, id, finishedAt: index, calls: [] }));
+  }
+
+  // The old implementation sliced the directory listing, so its first entry was always discarded.
+  const firstListedName = (await readdir(store.directory)).filter((name) => /^[a-f0-9-]{36}\.json$/.test(name))[0];
+  const previouslyDiscardedId = firstListedName.slice(0, -5);
+  await writeFile(join(store.directory, firstListedName), JSON.stringify({ version: 2, id: previouslyDiscardedId, finishedAt: 3000, calls: [] }));
+  await utimes(join(store.directory, firstListedName), new Date('2099-01-01T00:00:00Z'), new Date('2099-01-01T00:00:00Z'));
+
+  const records = await store.records();
+  assert.equal(records.length, 2000);
+  assert.ok(records.some((record) => record.id === previouslyDiscardedId));
+  assert.equal(records.at(-1).id, previouslyDiscardedId);
+  assert.ok(records.every((record, index) => index === 0 || records[index - 1].finishedAt <= record.finishedAt));
 });

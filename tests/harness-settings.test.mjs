@@ -84,6 +84,27 @@ test('model settings show observed manual resumes and stop requests beside measu
   assert.match(s.fields.innerHTML, /중지 요청 2회/);
 });
 
+test('malformed evidence exclusions are visible only when records are skipped', async (t) => {
+  const s = setup(t, { evidence: { models: [], evidenceDiagnostics: {
+    malformedJsonRecords: 1, unreadableRecords: 1,
+    invalidRecordReasons: { 'invalid-call': 2, 'invalid-human-intervention': 1 },
+  } } });
+  s.ui.open();
+  await new Promise((resolve) => setImmediate(resolve));
+  const notice = s.node('#harnessEvidenceNotice');
+  assert.equal(notice.hidden, false);
+  assert.match(notice.textContent, /실측 기록 5개를 모델 선택 통계에서 제외/);
+  assert.match(notice.textContent, /JSON 오류 1개 · 형식 오류 3개 · 읽기 오류 1개/);
+
+  const healthy = setup(t, { evidence: { models: [], evidenceDiagnostics: {
+    malformedJsonRecords: 0, unreadableRecords: 0, invalidRecordReasons: {},
+  } } });
+  healthy.ui.open();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(healthy.node('#harnessEvidenceNotice').hidden, true);
+  assert.equal(healthy.node('#harnessEvidenceNotice').textContent, '');
+});
+
 test('loop compute priorities are reorderable, persisted, and keep completion locked at the top', (t) => {
   const s = setup(t); s.ui.open();
   assert.match(s.node('#harnessPriorities').innerHTML, /완료 안정성/);

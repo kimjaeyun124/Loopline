@@ -45,6 +45,10 @@ function setup(t, { storage = new Map(), project = null, models = null, evidence
     evidenceRequestCount: () => evidenceRequestCount };
 }
 
+function setWebsiteTask(s) {
+  s.node('#messageInput').value = 'Build a website dashboard architecture with responsive layouts.';
+}
+
 test('role, effort and options save without the completion button', (t) => {
   const s = setup(t); s.ui.open();
   s.node('#harnessRoles').fire('change', { dataset: { harnessRole: 'worker' }, value: 'jev-test' });
@@ -87,6 +91,7 @@ test('model settings show observed manual resumes and stop requests beside measu
     browserQaPassedRuns: 0, browserQaRuns: 0, reportedTokens: 1234, missingUsageCalls: 0, sufficientEvidence: false,
     humanInterventionMeasuredRuns: 2, partiallyMeasuredInterventionRuns: 1, manualResumes: 1, stopRequests: 2 }] };
   const s = setup(t, { storage, models: [model], evidence });
+  setWebsiteTask(s);
   s.ui.open();
   await new Promise((resolve) => setImmediate(resolve));
   assert.match(s.fields.innerHTML, /실행 참여 1회 · 역할 단독 완료 1\/1/);
@@ -135,6 +140,7 @@ test('malformed evidence exclusions are visible only when records are skipped', 
 
 test('evidence refresh updates diagnostics and model statistics and recovers after request failure', async (t) => {
   const s = setup(t, { evidence: { models: [], evidenceDiagnostics: { invalidRecordReasons: { 'invalid-call': 1 } } } });
+  setWebsiteTask(s);
   s.ui.open();
   await new Promise((resolve) => setImmediate(resolve));
   const button = s.node('#harnessEvidenceRefresh');
@@ -172,6 +178,7 @@ test('evidence refresh updates diagnostics and model statistics and recovers aft
 
 test('transient evidence failures retry automatically and keep the refresh control locked', async (t) => {
   const s = setup(t);
+  setWebsiteTask(s);
   s.ui.open();
   await new Promise((resolve) => setImmediate(resolve));
 

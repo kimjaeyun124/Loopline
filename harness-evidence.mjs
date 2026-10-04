@@ -1,8 +1,9 @@
-import { mkdir, readFile, readdir, rename, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, rename, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 
 const MIN_RUNS = 3;
+const MAX_EVIDENCE_RECORDS = 2000;
 const plain = (value) => String(value || '').replace(/[\r\n\0]/g, ' ').slice(0, 160);
 export function taskType(task) {
   if (/(?:\bCLI\b|command.line|명령줄)/i.test(task)) return 'cli';
@@ -57,11 +58,24 @@ export class HarnessEvidence {
   async records() {
     let names;
     try { names = await readdir(this.directory); } catch (error) { if (error.code === 'ENOENT') return []; throw error; }
+    names = names.filter((name) => /^[a-f0-9-]{36}\.json$/.test(name));
+    const files = [];
+    // Limit concurrent metadata reads while finding the most recently written evidence files.
+    for (let offset = 0; offset < names.length; offset += 64) {
+      const batch = await Promise.all(names.slice(offset, offset + 64).map(async (name) => {
+        try { return { name, modifiedAt: (await stat(join(this.directory, name))).mtimeMs }; }
+        catch { return null; }
+      }));
+      files.push(...batch.filter(Boolean));
+    }
+    files.sort((left, right) => right.modifiedAt - left.modifiedAt || right.name.localeCompare(left.name));
     const records = [];
-    for (const name of names.filter((v) => /^[a-f0-9-]{36}\.json$/.test(v)).slice(-2000)) {
+    for (const { name } of files.slice(0, MAX_EVIDENCE_RECORDS)) {
       try { const value = JSON.parse(await readFile(join(this.directory, name), 'utf8')); if ([1, 2].includes(value.version) && Array.isArray(value.calls)) records.push(value); }
       catch { /* A damaged measurement must not prevent program execution or become routing evidence. */ }
     }
+    records.sort((left, right) => (Number.isFinite(left.finishedAt) ? left.finishedAt : 0) - (Number.isFinite(right.finishedAt) ? right.finishedAt : 0)
+      || String(left.id).localeCompare(String(right.id)));
     return records;
   }
   async summary(type) {

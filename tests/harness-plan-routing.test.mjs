@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { HarnessEngine, runCommand } from '../harness-engine.mjs';
+import { HarnessEvidence } from '../harness-evidence.mjs';
 
 const implementationPlan = '보관 파일의 형식을 유지하면서 입력 검증과 저장 후 재조회 동작을 구현하고 검사한다.';
 const pass = async () => ({ code: 0, output: 'PASS: actual fixture check', error: '' });
@@ -64,6 +66,68 @@ test('implementation routing receives the actual plan before work and records mo
   const call = run.events.find((event) => event.title.startsWith('계획별 모델 배정 /'));
   assert.match((await engine.getPromptDetails(run.id, call.id)).input, /보관 파일의 형식/);
   assert.equal(run.modelCalls.filter((entry) => [call.id, run.events.find((event) => event.title === '모델 배정 / Model selection').id].includes(entry.eventId)).reduce((total, entry) => total + entry.tokens, 0), 20);
+});
+
+test('automatic routing consumes measured completion and interaction evidence while preserving completion priority', async (t) => {
+  const f = await fixture(t), evidence = new HarnessEvidence(join(f.data, 'harness'));
+  for (const [model, outcomes] of [['primary', [true, true, false]], ['alternative', [true, true, true]]]) {
+    for (const [index, completed] of outcomes.entries()) {
+      await evidence.record({
+        id: randomUUID(), task: f.input.task, status: completed ? 'completed' : 'failed', applied: completed,
+        createdAt: 100, finishedAt: 1000, round: 1, verificationPassed: completed, qaRequired: false, browserQaPassed: false, events: [],
+        humanActions: { manualResumes: model === 'primary' && index === 2 ? 1 : 0, stopRequests: 0, completeCoverage: true },
+        modelCalls: [{ role: 'worker', provider: 'api', model, effort: 'high', tokens: 100, durationMs: 300, status: 'success' }],
+      });
+    }
+  }
+  const routes = [];
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: script({
+    route(prompt) {
+      if (prompt.questions.worker) {
+        routes.push(prompt);
+        const primary = prompt.state.candidates.worker.find((candidate) => candidate.model === 'primary');
+        const alternative = prompt.state.candidates.worker.find((candidate) => candidate.model === 'alternative');
+        assert.equal(primary.routingEvidence.measuredRuns, 3);
+        assert.equal(primary.routingEvidence.completionRate, 2 / 3);
+        assert.equal(primary.routingEvidence.humanIntervention.observedActionRate, 1 / 3);
+        assert.equal(alternative.routingEvidence.completionRate, 1);
+        assert.equal(alternative.routingEvidence.humanIntervention.observedActionRate, 0);
+        assert.match(prompt.state.measurementPolicy, /완료 안정성이 고정된 첫 기준/);
+        assert.match(prompt.state.measurementPolicy, /인과적 성능이 아니며/);
+      }
+      return answers(prompt, 'keep');
+    },
+  }) });
+  const run = await finish(engine, f.input);
+  assert.ok(routes.length >= 1);
+  assert.equal(run.roles.worker.model, 'alternative', run.events.filter((event) => /모델 배정/.test(event.title)).map((event) => `${event.title}: ${event.detail}`).join('\n'));
+  const assignment = run.events.find((event) => event.title === '모델 배정 결과 / Model assigned' && event.model?.role === 'worker');
+  assert.match(assignment.detail, /관찰 완료율 우선 배정/);
+  assert.match(assignment.detail, /3\/3가 2\/3보다 높아 완료 안정성 우선 규칙/);
+});
+
+test('completion evidence does not replace the default when samples are tied or the default is unmeasured', async (t) => {
+  const cases = [
+    { name: 'equal measured rates', primary: [true, true, true], alternative: [true, true, true] },
+    { name: 'unmeasured default', primary: [], alternative: [true, true, true] },
+    { name: 'insufficient samples', primary: [true, false], alternative: [true, true] },
+  ];
+  for (const scenario of cases) await t.test(scenario.name, async (t) => {
+    const f = await fixture(t), evidence = new HarnessEvidence(join(f.data, 'harness'));
+    for (const [model, outcomes] of [['primary', scenario.primary], ['alternative', scenario.alternative]]) {
+      for (const completed of outcomes) {
+        await evidence.record({
+          id: randomUUID(), task: f.input.task, status: completed ? 'completed' : 'failed', applied: completed,
+          createdAt: 100, finishedAt: 1000, round: 1, verificationPassed: completed, qaRequired: false, browserQaPassed: false, events: [],
+          humanActions: { manualResumes: 0, stopRequests: 0, completeCoverage: true },
+          modelCalls: [{ role: 'worker', provider: 'api', model, effort: 'high', tokens: 100, durationMs: 300, status: 'success' }],
+        });
+      }
+    }
+    const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: script({ route: (prompt) => answers(prompt, 'keep') }) });
+    const run = await finish(engine, f.input);
+    assert.equal(run.roles.worker.model, 'primary');
+  });
 });
 
 test('fixed manual worker choices never perform plan-based reassignment', async (t) => {

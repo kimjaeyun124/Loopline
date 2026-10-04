@@ -19,6 +19,8 @@ test('measurements require three distinct runs and replacement never double coun
   const result = await store.candidate(model, 'worker', 'website');
   assert.equal(result.runs, 3); assert.equal(result.completedRuns, 2); assert.equal(result.completionRate, 2 / 3);
   assert.equal(result.sufficientEvidence, true); assert.equal(result.browserQaPassedRuns, 2);
+  assert.equal(result.observedActionRate, 0);
+  assert.equal(result.humanInterventionSufficientEvidence, true);
 });
 
 test('model effort, task type and role stay separate and missing token usage is never treated as zero', async (t) => {
@@ -67,6 +69,25 @@ test('legacy evidence remains readable and is excluded from intervention coverag
   assert.equal(summary.recordedRuns, 1);
   assert.equal(summary.humanIntervention.measuredRuns, 0);
   assert.equal(summary.models[0].runs, 1);
+});
+
+test('observed interaction rate is available only after three fully measured runs', async (t) => {
+  const store = await fixture(t);
+  await store.record(run());
+  await store.record(run({ humanActions: { manualResumes: 1, stopRequests: 0, completeCoverage: true } }));
+  const third = run({ humanActions: { manualResumes: 0, stopRequests: 1, completeCoverage: false } });
+  await store.record(third);
+  let result = await store.candidate(model, 'worker', 'website');
+  assert.equal(result.fullyMeasuredInterventionRuns, 2);
+  assert.equal(result.partiallyMeasuredInterventionRuns, 1);
+  assert.equal(result.observedActionRate, null);
+  assert.equal(result.humanInterventionSufficientEvidence, false);
+
+  await store.record(run());
+  result = await store.candidate(model, 'worker', 'website');
+  assert.equal(result.fullyMeasuredInterventionRuns, 3);
+  assert.equal(result.observedActionRate, 1 / 3);
+  assert.equal(result.humanInterventionSufficientEvidence, true);
 });
 
 test('browser QA and milestone failures count as recovery work without double counting the same saved run', async (t) => {

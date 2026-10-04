@@ -15,7 +15,7 @@ export async function verifyBrowser({ workspace, runId, round, plan }, userData,
     ? pathToFileURL(join(process.resourcesPath, 'app-server', 'browser-qa.mjs')).href
     : new URL('../browser-qa.mjs', import.meta.url).href);
   plan = validateBrowserPlan(plan);
-  if (!/^[a-f0-9-]{36}$/.test(runId) || !Number.isInteger(round) || round < 1 || round > 10) throw new Error('브라우저 QA 실행 정보가 올바르지 않습니다.');
+  if (!/^[a-f0-9-]{36}$/.test(runId) || !Number.isInteger(round) || round < 1 || round > 20) throw new Error('브라우저 QA 실행 정보가 올바르지 않습니다.');
   const expected = await realpath(join(userData, 'harness', runId, 'workspace'));
   if (await realpath(workspace) !== expected) throw new Error('관리되는 Loop 작업 공간만 검사할 수 있습니다.');
   const entry = await realpath(join(expected, plan.entry));

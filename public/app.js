@@ -8,7 +8,7 @@ import { createModelVisibilityUI } from './model-visibility-ui.js';
 import { createAccountMenuUI } from './account-menu-ui.js';
 import { createUsageActivityUI } from './usage-activity-ui.js';
 import { modelEffortCapability, modelSelectionStrength } from './model-capabilities.mjs';
-import { automaticLoopStartRounds, extendAutomaticLoopRounds, MAX_LOOP_ROUNDS } from './loop-policy.mjs';
+import { automaticLoopStartRounds, extendAutomaticLoopRounds, MAX_AUTO_LOOP_ROUNDS, MAX_LOOP_ROUNDS } from './loop-policy.mjs';
 import { renderMarkdown } from './markdown.js';
 import { createHarnessUI } from './harness-ui.js';
 import { createPromptSkillsUI } from './prompt-skills-ui.js';
@@ -1335,7 +1335,7 @@ function renderModelOptions() {
   const query = elements.modelSearch.value.trim().toLocaleLowerCase();
   const loopMatches = !query || 'loop engineering 루프 반복 실행'.includes(query);
   const loopOption = loopMatches
-    ? `<button class="model-option loop-engineering-option${state.loopEngineeringEnabled ? ' selected' : ''}" type="button" role="option" aria-selected="${state.loopEngineeringEnabled}" data-loop-engineering="true"${state.busy ? ' disabled' : ''}><span><strong>Loop Engineering</strong><small>${harnessUI.enabled() ? '계획·구현·판정 모델로' : '선택한 모델로'} ${state.loopEngineeringRounds ? `최대 ${state.loopEngineeringRounds}회` : '자동 회차 · 최대 10회'}</small></span><span class="model-check" aria-hidden="true">${state.loopEngineeringEnabled ? icon('check') : icon('chevron-right')}</span></button>`
+    ? `<button class="model-option loop-engineering-option${state.loopEngineeringEnabled ? ' selected' : ''}" type="button" role="option" aria-selected="${state.loopEngineeringEnabled}" data-loop-engineering="true"${state.busy ? ' disabled' : ''}><span><strong>Loop Engineering</strong><small>${harnessUI.enabled() ? '계획·구현·판정 모델로' : '선택한 모델로'} ${state.loopEngineeringRounds ? `최대 ${state.loopEngineeringRounds}회` : `자동 회차 · 최대 ${MAX_AUTO_LOOP_ROUNDS}회`}</small></span><span class="model-check" aria-hidden="true">${state.loopEngineeringEnabled ? icon('check') : icon('chevron-right')}</span></button>`
     : '';
   if (selectingProvider) {
     const providers = providerCatalog().filter((item) => item.label.toLocaleLowerCase().includes(query));
@@ -2863,7 +2863,7 @@ async function sendLoopEngineering(value, queuedMessageId = null) {
       render();
 
       if (assistantMessage.error || state.loopStopRequested || signaledComplete) break;
-      if (round === maxRounds && autoRounds && maxRounds < MAX_LOOP_ROUNDS && !signaledComplete && !assistantMessage.error && !state.loopStopRequested) {
+      if (round === maxRounds && autoRounds && maxRounds < MAX_AUTO_LOOP_ROUNDS && !signaledComplete && !assistantMessage.error && !state.loopStopRequested) {
         maxRounds = extendAutomaticLoopRounds(maxRounds);
         requestActivity.detail = `완료 기준에 아직 도달하지 않아 자동 회차를 ${maxRounds}회까지 늘립니다.`;
         saveConversations(); render();

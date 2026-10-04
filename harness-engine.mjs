@@ -3,7 +3,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, readFile, writeFile, rename, realpath, lstat, readdir, copyFile, unlink, access, rm } from 'node:fs/promises';
 import { dirname, join, isAbsolute } from 'node:path';
 import { homedir } from 'node:os';
-import { automaticLoopStartRounds, extendAutomaticLoopRounds, MAX_LOOP_ROUNDS, normalizeLoopPriorities } from './public/loop-policy.mjs';
+import { automaticLoopStartRounds, extendAutomaticLoopRounds, MAX_AUTO_LOOP_ROUNDS, MAX_LOOP_ROUNDS, normalizeLoopPriorities } from './public/loop-policy.mjs';
 import { createHarnessWorkflow } from './harness-graph.mjs';
 import { needsMilestones, validateMilestones, matchesMilestone, milestoneContract, milestoneFiles, refreshMilestones, nextMilestone, milestoneCoverage } from './harness-milestones.mjs';
 import { HarnessEvidence, taskType } from './harness-evidence.mjs';
@@ -664,7 +664,7 @@ export class HarnessEngine {
     const autoRounds = input.rounds === 0;
     const initialRounds = autoRounds ? automaticLoopStartRounds(input.task) : input.rounds;
     const run = { id, status: 'running', stage: 'prepare', round: 0, rounds: initialRounds,
-      autoRounds, roundCeiling: autoRounds ? MAX_LOOP_ROUNDS : initialRounds,
+      autoRounds, roundCeiling: autoRounds ? MAX_AUTO_LOOP_ROUNDS : initialRounds,
       stagnantRounds: 0, lastRoundFingerprint: null, qualityTriedWorkerModels: [], source, task: input.task,
       priorities: normalizeLoopPriorities(input.priorities),
       roles, modelPriority,
@@ -1509,11 +1509,21 @@ export class HarnessEngine {
     const { run } = record;
     if (run.milestones?.length) return;
     let feedback = '';
+    let schemaRepairAttempts = 0;
     const triedPlannerModels = new Set([selectionKey(run.roles.planner)]);
       const verificationContract = `${offlineServerVerificationGuidance(run.task, files)}\n부분 검증 명령은 그 부분의 담당 파일과 기능을 실제로 검사해야 합니다. 화면 부분의 검증에 앞선 저장 모듈 테스트만 반복하지 마세요. UI 계약이나 통합 동작을 검사하는 테스트 파일과 명령을 해당 부분 paths에 포함하세요. 뒤 단계 파일이 아직 없는 시점에도 앞 부분 검사가 실행되어야 합니다. README 등 문서는 관련 구현 부분에 포함하고 별도의 문서 작업으로 최종 기능 QA를 대체하지 마세요.`;
     for (let attempt = 0; attempt < 3; attempt++) {
-      const answer = await this.callValidated(record, 'planner', `큰 프로젝트를 검증 가능한 작은 부분 작업 2~8개로 나누세요. 목표: ${run.task}\n기존 계획: ${plan}\n파일 목록: ${files}\n독립 QA 계약: ${JSON.stringify(run.qaPlan)}\n각 부분 작업은 실제 파일과 동작을 만들고 오프라인에서 단독 검증할 수 있어야 합니다. 뒤 작업에 의존하는 전체 테스트를 앞 단계 검증에 쓰지 말고 해당 부분 테스트를 계획하세요. 파일당 책임과 의존 순서를 명확히 하고 모든 원래 요구사항을 포함하세요. 각 작업의 변경은 판정이 전체 내용을 읽을 수 있도록 60,000자 이내를 목표로 나누세요. paths는 담당 파일 이름 또는 폴더/** 패턴입니다. 임의 전체 경로 **는 금지입니다. 부분 완료로 최종 완료를 대체하지 않으며 마지막에 전체 통합 검증과 브라우저 QA를 수행합니다. JSON만 반환하세요: {"tasks":[{"id":"core","title":"핵심 동작","dependsOn":[],"paths":["src/core.js","tests/core.test.mjs"],"criteria":["핵심 동작을 입력과 출력으로 확인"],"verifyCommand":"node --test tests/core.test.mjs"},{"id":"integration","title":"전체 연결","dependsOn":["core"],"paths":["index.html","tests/integration.test.mjs"],"criteria":["핵심 동작을 화면과 연결해 검사"],"verifyCommand":"node --test tests/integration.test.mjs"}]}\n직전 계획 판정 피드백: ${feedback}${verificationContract}`, '부분 작업 계획 / Milestone plan', { validate: (value) => validateMilestones(typeof value === 'string' ? parseHarnessJson(value) : value) });
-      const tasks = validateMilestones(typeof answer === 'string' ? parseHarnessJson(answer) : answer);
+      let tasks;
+      try {
+        const answer = await this.callValidated(record, 'planner', `큰 프로젝트를 검증 가능한 작은 부분 작업 2~8개로 나누세요. 목표: ${run.task}\n기존 계획: ${plan}\n파일 목록: ${files}\n독립 QA 계약: ${JSON.stringify(run.qaPlan)}\n각 부분 작업은 실제 파일과 동작을 만들고 오프라인에서 단독 검증할 수 있어야 합니다. 뒤 작업에 의존하는 전체 테스트를 앞 단계 검증에 쓰지 말고 해당 부분 테스트를 계획하세요. 파일당 책임과 의존 순서를 명확히 하고 모든 원래 요구사항을 포함하세요. 각 작업의 변경은 판정이 전체 내용을 읽을 수 있도록 60,000자 이내를 목표로 나누세요. paths는 담당 파일 이름 또는 폴더/** 패턴입니다. 임의 전체 경로 **는 금지입니다. 부분 완료로 최종 완료를 대체하지 않으며 마지막에 전체 통합 검증과 브라우저 QA를 수행합니다. JSON만 반환하세요: {"tasks":[{"id":"core","title":"핵심 동작","dependsOn":[],"paths":["src/core.js","tests/core.test.mjs"],"criteria":["핵심 동작을 입력과 출력으로 확인"],"verifyCommand":"node --test tests/core.test.mjs"},{"id":"integration","title":"전체 연결","dependsOn":["core"],"paths":["index.html","tests/integration.test.mjs"],"criteria":["핵심 동작을 화면과 연결해 검사"],"verifyCommand":"node --test tests/integration.test.mjs"}]}\n직전 계획 판정 피드백: ${feedback}${verificationContract}`, '부분 작업 계획 / Milestone plan', { retryInvalid: false, validate: (value) => validateMilestones(typeof value === 'string' ? parseHarnessJson(value) : value) });
+        tasks = validateMilestones(typeof answer === 'string' ? parseHarnessJson(answer) : answer);
+      } catch (error) {
+        if (!error.invalidStructuredOutput || schemaRepairAttempts >= 1 || attempt >= 2) throw error;
+        schemaRepairAttempts++;
+        feedback = `직전 부분 작업 계획이 실행기 검증에서 거부되었습니다: ${String(error.message || '').slice(0, 600)}. 기존 목표와 QA 범위는 유지하면서 각 작업에 8자 이상의 관찰 가능한 criteria와 실제 오프라인 verifyCommand를 넣고, 상대 경로 paths를 사용한 JSON tasks 배열만 반환하세요.`;
+        await this.event(record, '부분 작업 계획 형식 보완 / Repair milestone plan', `검증 오류를 반영해 남은 계획 시도 한 번을 사용합니다. ${feedback}`, 'completed', modelDetails('planner', run.roles.planner));
+        continue;
+      }
       triedPlannerModels.add(selectionKey(run.roles.planner));
       // This gate judges a future verification strategy. Actual files, test results
       // and browser evidence remain required by the later completion gates.
@@ -2074,14 +2084,14 @@ export class HarnessEngine {
     run.stagnantRounds = run.lastRoundFingerprint === fingerprint ? (run.stagnantRounds || 0) + 1 : 0;
     run.lastRoundFingerprint = fingerprint;
 
-    if (run.autoRounds && round === run.rounds && run.rounds < (run.roundCeiling || MAX_LOOP_ROUNDS)) {
+    if (run.autoRounds && round === run.rounds && run.rounds < (run.roundCeiling || MAX_AUTO_LOOP_ROUNDS)) {
       const previousLimit = run.rounds;
-      run.rounds = extendAutomaticLoopRounds(run.rounds, run.roundCeiling || MAX_LOOP_ROUNDS);
+      run.rounds = extendAutomaticLoopRounds(run.rounds, run.roundCeiling || (run.autoRounds ? MAX_AUTO_LOOP_ROUNDS : MAX_LOOP_ROUNDS));
       await this.event(record, '자동 회차 연장 / Automatic round extension', `판정에서 수정이 필요하다고 판단해 ${previousLimit}회에서 ${run.rounds}회까지 연장합니다. 완료 판정을 통과하면 그 전에 종료합니다.`);
     }
 
     let plan = state.plan;
-    const ceiling = Number.isInteger(run.roundCeiling) ? run.roundCeiling : run.rounds;
+    const ceiling = Number.isInteger(run.roundCeiling) ? run.roundCeiling : run.autoRounds ? MAX_AUTO_LOOP_ROUNDS : run.rounds;
     if (run.stagnantRounds >= 2 && run.stagnantRounds % 2 === 0 && round < ceiling) {
       const recovery = await this.recoverStagnation(record, { round, plan, feedback, previousSummary, verification, patch });
       plan = recovery.plan;

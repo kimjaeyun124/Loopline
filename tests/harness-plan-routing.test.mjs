@@ -91,8 +91,10 @@ test('automatic routing consumes measured completion and interaction evidence wh
         assert.equal(primary.measuredEvidence.completionRate, 2 / 3);
         assert.equal(primary.measuredEvidence.humanIntervention.observedActionRate, 1 / 3);
         assert.equal(alternative.measuredEvidence.completionRate, 1);
+        assert.ok(alternative.measuredEvidence.completionConfidenceLowerBound > primary.measuredEvidence.completionConfidenceLowerBound);
         assert.equal(alternative.measuredEvidence.humanIntervention.observedActionRate, 0);
         assert.match(prompt.state.measurementPolicy, /완료 안정성이 고정된 첫 기준/);
+        assert.match(prompt.state.measurementPolicy, /95% Wilson 신뢰구간 하한/);
         assert.match(prompt.state.measurementPolicy, /단일 모델의 인과 성능이 아니며/);
       }
       return answers(prompt, 'keep');
@@ -103,7 +105,58 @@ test('automatic routing consumes measured completion and interaction evidence wh
   assert.equal(run.roles.worker.model, 'alternative', run.events.filter((event) => /모델 배정/.test(event.title)).map((event) => `${event.title}: ${event.detail}`).join('\n'));
   const assignment = run.events.find((event) => event.title === '모델 배정 결과 / Model assigned' && event.model?.role === 'worker');
   assert.match(assignment.detail, /관찰 완료율 우선 배정/);
-  assert.match(assignment.detail, /3\/3가 2\/3보다 높아 완료 안정성 우선 규칙/);
+  assert.match(assignment.detail, /95% 신뢰 하한/);
+});
+
+test('automatic routing trusts a larger-sample completion bound over a higher raw rate', async (t) => {
+  const f = await fixture(t), evidence = new HarnessEvidence(join(f.data, 'harness'));
+  for (const [model, outcomes] of [['primary', [true, true, true]], ['alternative', [...Array(9).fill(true), false]]]) {
+    for (const completed of outcomes) {
+      await evidence.record({
+        id: randomUUID(), task: f.input.task, status: completed ? 'completed' : 'failed', applied: completed,
+        createdAt: 100, finishedAt: 1000, round: 1, verificationPassed: completed, qaRequired: false, browserQaPassed: false, events: [],
+        humanActions: { manualResumes: 0, stopRequests: 0, completeCoverage: true },
+        modelCalls: [{ role: 'worker', provider: 'api', model, effort: 'high', tokens: 100, durationMs: 300, status: 'success' }],
+      });
+    }
+  }
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: script({ route(prompt) {
+    if (prompt.questions.worker) {
+      const primary = prompt.state.candidates.worker.find((candidate) => candidate.model === 'primary');
+      const alternative = prompt.state.candidates.worker.find((candidate) => candidate.model === 'alternative');
+      assert.equal(primary.measuredEvidence.completionRate, 1);
+      assert.equal(alternative.measuredEvidence.completionRate, 0.9);
+      assert.ok(alternative.measuredEvidence.completionConfidenceLowerBound > primary.measuredEvidence.completionConfidenceLowerBound);
+      assert.match(prompt.questions.worker.instructions, /95% Wilson lower bound/);
+    }
+    return answers(prompt, 'keep');
+  } }) });
+
+  const run = await finish(engine, f.input);
+  assert.equal(run.roles.worker.model, 'alternative');
+  const assignment = run.events.find((event) => event.title === '모델 배정 결과 / Model assigned' && event.model?.role === 'worker');
+  assert.match(assignment.detail, /95% 신뢰 하한/);
+  assert.match(assignment.detail, /9\/10 대 3\/3/);
+});
+
+test('fallback order uses confidence bound before raw completion rate', async (t) => {
+  const f = await fixture(t), evidence = new HarnessEvidence(join(f.data, 'harness'));
+  const outcomes = [['primary', Array(10).fill(true)], ['fallback-a', [true, true, true]], ['fallback-b', [...Array(9).fill(true), false]]];
+  for (const [model, results] of outcomes) for (const completed of results) {
+    await evidence.record({
+      id: randomUUID(), task: f.input.task, status: completed ? 'completed' : 'failed', applied: completed,
+      createdAt: 100, finishedAt: 1000, round: 1, verificationPassed: completed, qaRequired: false, browserQaPassed: false, events: [],
+      humanActions: { manualResumes: 0, stopRequests: 0, completeCoverage: true },
+      modelCalls: [{ role: 'worker', provider: 'api', model, effort: 'high', tokens: 100, durationMs: 300, status: 'success' }],
+    });
+  }
+  const worker = f.input.roles.worker;
+  const input = { ...f.input, roles: { ...f.input.roles, worker: { ...worker, fallbacks: outcomes.slice(1).map(([model]) => ({ ...worker, model })) } } };
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: script({ route: (prompt) => answers(prompt, 'keep') }) });
+
+  const run = await finish(engine, input);
+  assert.equal(run.roles.worker.model, 'primary');
+  assert.deepEqual(run.modelPriority.worker.map((model) => model.model), ['fallback-b', 'fallback-a']);
 });
 
 test('tied highest completion selects the first candidate and sorts fallback evidence by completion', async (t) => {
@@ -131,8 +184,8 @@ test('tied highest completion selects the first candidate and sorts fallback evi
   assert.deepEqual(run.modelPriority.worker.map((model) => model.model), ['alternative-b', 'alternative-c', 'primary']);
   const assignment = run.events.find((event) => event.title === '모델 배정 결과 / Model assigned' && event.model?.role === 'worker');
   assert.match(assignment.detail, /관찰 완료율 우선 배정/);
-  assert.match(assignment.detail, /완료율 실측으로 대체 순서를 보정했습니다/);
-  assert.match(assignment.detail, /alternative-b 3\/3 → alternative-c 2\/3 → primary 1\/3/);
+  assert.match(assignment.detail, /완료 신뢰도 실측으로 대체 순서를 보정했습니다/);
+  assert.match(assignment.detail, /alternative-b 3\/3 · 하한 44% → alternative-c 2\/3 · 하한/);
 });
 
 test('routing hides token and browser QA metrics until each has enough complete samples', async (t) => {

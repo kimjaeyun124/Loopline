@@ -23,6 +23,25 @@ test('measurements require three distinct runs and replacement never double coun
   assert.equal(result.humanInterventionSufficientEvidence, true);
 });
 
+test('completion evidence exposes a 95% Wilson lower bound that reflects sample size', async (t) => {
+  const store = await fixture(t);
+  for (const [candidate, outcomes] of [['small-sample', [true, true, true]], ['larger-sample', [...Array(9).fill(true), false]]]) {
+    for (const completed of outcomes) {
+      await store.record(run({
+        status: completed ? 'completed' : 'failed', applied: completed, verificationPassed: completed,
+        modelCalls: [{ role: 'worker', provider: 'openai', model: candidate, effort: 'max', tokens: 100, durationMs: 300, status: 'success' }],
+      }));
+    }
+  }
+
+  const small = await store.candidate({ provider: 'openai', model: 'small-sample', reasoningEffort: 'max' }, 'worker', 'website');
+  const larger = await store.candidate({ provider: 'openai', model: 'larger-sample', reasoningEffort: 'max' }, 'worker', 'website');
+  assert.equal(small.completionRate, 1);
+  assert.equal(larger.completionRate, 0.9);
+  assert.ok(small.completionConfidenceLowerBound > 0.43 && small.completionConfidenceLowerBound < 0.45);
+  assert.ok(larger.completionConfidenceLowerBound > small.completionConfidenceLowerBound);
+});
+
 test('role-level outcomes exclude fallback runs while retaining direct per-model call measurements', async (t) => {
   const store = await fixture(t);
   await store.record(run({

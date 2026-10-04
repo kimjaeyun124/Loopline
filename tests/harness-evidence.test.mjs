@@ -23,6 +23,43 @@ test('measurements require three distinct runs and replacement never double coun
   assert.equal(result.humanInterventionSufficientEvidence, true);
 });
 
+test('role-level outcomes exclude fallback runs while retaining direct per-model call measurements', async (t) => {
+  const store = await fixture(t);
+  await store.record(run({
+    modelCalls: [
+      { role: 'worker', ...model, effort: 'max', tokens: 40, durationMs: 100, status: 'failed', failureKind: 'transport' },
+      { role: 'worker', provider: 'openai', model: 'fallback-model', effort: 'max', tokens: 60, durationMs: 200, status: 'success' },
+    ],
+    humanActions: { manualResumes: 1, stopRequests: 0, completeCoverage: true },
+  }));
+  for (const completed of [true, true, false]) {
+    await store.record(run({
+      status: completed ? 'completed' : 'failed', applied: completed,
+      verificationPassed: completed, browserQaPassed: completed,
+      modelCalls: [{ role: 'worker', provider: 'openai', model: 'fallback-model', effort: 'max', tokens: 60, durationMs: 200, status: 'success' }],
+    }));
+  }
+
+  const primary = await store.candidate(model, 'worker', 'website');
+  assert.equal(primary.runs, 1);
+  assert.equal(primary.completionMeasuredRuns, 0);
+  assert.equal(primary.completionRate, null);
+  assert.equal(primary.sufficientEvidence, false);
+  assert.equal(primary.meanModelTimeMs, 100);
+  assert.equal(primary.meanReportedTokens, 40);
+  assert.equal(primary.humanInterventionMeasuredRuns, 0);
+
+  const fallback = await store.candidate({ provider: 'openai', model: 'fallback-model', reasoningEffort: 'max' }, 'worker', 'website');
+  assert.equal(fallback.runs, 4);
+  assert.equal(fallback.completionMeasuredRuns, 3);
+  assert.equal(fallback.completedRuns, 2);
+  assert.equal(fallback.completionRate, 2 / 3);
+  assert.equal(fallback.verificationMeasuredRuns, 3);
+  assert.equal(fallback.browserQaRuns, 3);
+  assert.equal(fallback.browserQaPassedRuns, 2);
+  assert.equal(fallback.humanInterventionMeasuredRuns, 3);
+});
+
 test('model effort, task type and role stay separate and missing token usage is never treated as zero', async (t) => {
   const store = await fixture(t);
   await store.record(run({ modelCalls: [{ role: 'worker', ...model, effort: 'max', tokens: null, durationMs: 10, status: 'success' }] }));

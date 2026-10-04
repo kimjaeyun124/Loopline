@@ -72,12 +72,13 @@ test('Loop role model choices show and search by model strengths', (t) => {
 test('model settings show observed manual resumes and stop requests beside measured performance', async (t) => {
   const model = { provider: 'api', id: 'writer', label: 'Writer', source: 'QA', connected: true, reasoningEfforts: ['max'] };
   const storage = new Map([[KEY, JSON.stringify({ roles: { worker: { model: 'writer', effort: 'max' } } })]]);
-  const evidence = { models: [{ role: 'worker', provider: 'api', model: 'writer', effort: 'max', type: 'web', runs: 1, completedRuns: 1,
+  const evidence = { models: [{ role: 'worker', provider: 'api', model: 'writer', effort: 'max', type: 'web', runs: 1, completionMeasuredRuns: 1, completedRuns: 1,
     browserQaPassedRuns: 0, browserQaRuns: 0, reportedTokens: 1234, missingUsageCalls: 0, sufficientEvidence: false,
     humanInterventionMeasuredRuns: 2, partiallyMeasuredInterventionRuns: 1, manualResumes: 1, stopRequests: 2 }] };
   const s = setup(t, { storage, models: [model], evidence });
   s.ui.open();
   await new Promise((resolve) => setImmediate(resolve));
+  assert.match(s.fields.innerHTML, /실행 참여 1회 · 역할 단독 완료 1\/1/);
   assert.match(s.fields.innerHTML, /개입 계측 2개 실행 \(일부 기록\)/);
   assert.match(s.fields.innerHTML, /수동 재개 1회/);
   assert.match(s.fields.innerHTML, /중지 요청 2회/);

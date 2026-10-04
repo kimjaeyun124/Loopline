@@ -93,7 +93,7 @@ test('automatic routing consumes measured completion and interaction evidence wh
         assert.equal(alternative.measuredEvidence.completionRate, 1);
         assert.equal(alternative.measuredEvidence.humanIntervention.observedActionRate, 0);
         assert.match(prompt.state.measurementPolicy, /완료 안정성이 고정된 첫 기준/);
-        assert.match(prompt.state.measurementPolicy, /인과적 성능이 아니며/);
+        assert.match(prompt.state.measurementPolicy, /단일 모델의 인과 성능이 아니며/);
       }
       return answers(prompt, 'keep');
     },
@@ -158,10 +158,45 @@ test('routing hides token and browser QA metrics until each has enough complete 
     assert.equal(primary.measuredEvidence.browserQaPassRate, null);
     assert.equal(primary.measuredEvidence.browserQaSufficientEvidence, false);
     assert.match(prompt.state.measurementPolicy, /사용량이 모두 보고된 실행 3회 이상/);
-    assert.match(prompt.state.measurementPolicy, /실제 QA 실행 3회 이상/);
+    assert.match(prompt.state.measurementPolicy, /실행한 실제 QA 3회 이상/);
     return answers(prompt, 'keep');
   } }) });
   const run = await finish(engine, f.input);
+  assert.equal(run.roles.worker.model, 'primary');
+});
+
+test('routing does not use completed runs that switched models within the same role', async (t) => {
+  const f = await fixture(t), evidence = new HarnessEvidence(join(f.data, 'harness'));
+  for (let index = 0; index < 3; index++) {
+    await evidence.record({
+      id: randomUUID(), task: f.input.task, status: 'completed', applied: true,
+      createdAt: 100, finishedAt: 1000, round: 1, verificationPassed: true,
+      qaRequired: false, browserQaPassed: false, events: [],
+      humanActions: { manualResumes: 1, stopRequests: 0, completeCoverage: true },
+      modelCalls: [
+        { role: 'worker', provider: 'api', model: 'primary', effort: 'high', tokens: 100, durationMs: 300, status: 'failed', failureKind: 'transport' },
+        { role: 'worker', provider: 'api', model: 'alternative', effort: 'high', tokens: 50, durationMs: 200, status: 'success' },
+      ],
+    });
+  }
+  let observations = 0;
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: script({ route(prompt) {
+    if (prompt.questions.worker) {
+      observations++;
+      for (const model of prompt.state.candidates.worker) {
+        assert.equal(model.measuredEvidence.observedRuns, 3);
+        assert.equal(model.measuredEvidence.measuredRuns, 0);
+        assert.equal(model.measuredEvidence.completionRate, null);
+        assert.equal(model.measuredEvidence.completionSufficientEvidence, false);
+        assert.equal(model.measuredEvidence.speedSufficientEvidence, true);
+        assert.equal(model.measuredEvidence.durationRuns, 3);
+      }
+      assert.match(prompt.state.measurementPolicy, /같은 역할에서 대체·전환된 실행은/);
+    }
+    return answers(prompt, 'keep');
+  } }) });
+  const run = await finish(engine, f.input);
+  assert.ok(observations > 0);
   assert.equal(run.roles.worker.model, 'primary');
 });
 

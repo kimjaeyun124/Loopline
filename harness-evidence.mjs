@@ -78,15 +78,25 @@ export class HarnessEvidence {
         const key = modelKey(call, call.role, run.type);
         if (!grouped.has(key)) grouped.set(key, []); grouped.get(key).push(call);
       }
+      // Whole-run outcomes cannot be credited to every candidate used during
+      // fallback. Only attribute them when a role used one model configuration.
+      const isolatedRoleKeys = new Set();
+      const roleKeys = new Map();
+      for (const call of run.calls) {
+        if (!roleKeys.has(call.role)) roleKeys.set(call.role, new Set());
+        roleKeys.get(call.role).add(modelKey(call, call.role, run.type));
+      }
+      for (const keys of roleKeys.values()) if (keys.size === 1) isolatedRoleKeys.add(keys.values().next().value);
       for (const [key, calls] of grouped) {
         if (!groups.has(key)) groups.set(key, { type: run.type, role: calls[0].role, provider: calls[0].provider, model: calls[0].model, effort: calls[0].effort,
-          runs: 0, completedRuns: 0, verifiedRuns: 0, browserQaRuns: 0, browserQaPassedRuns: 0, calls: 0, successfulCalls: 0, missingUsageCalls: 0, reportedTokens: 0, providerFailures: 0, formatFailures: 0,
+          runs: 0, completionMeasuredRuns: 0, completedRuns: 0, verificationMeasuredRuns: 0, verifiedRuns: 0, browserQaRuns: 0, browserQaPassedRuns: 0, calls: 0, successfulCalls: 0, missingUsageCalls: 0, reportedTokens: 0, providerFailures: 0, formatFailures: 0,
           humanInterventionMeasuredRuns: 0, partiallyMeasuredInterventionRuns: 0, fullyMeasuredInterventionRuns: 0, fullyMeasuredRunsWithObservedActions: 0,
           runsWithObservedActions: 0, runsWithManualResume: 0, manualResumes: 0, runsWithStopRequest: 0, stopRequests: 0,
           durations: [], tokenSamples: [], recoverySamples: [] });
         const group = groups.get(key);
+        const outcomeAttributed = isolatedRoleKeys.has(key);
         const intervention = run.humanIntervention?.measurement === 'observed-actions' ? run.humanIntervention : null;
-        if (intervention) {
+        if (intervention && outcomeAttributed) {
           const hasObservedActions = intervention.manualResumes > 0 || intervention.stopRequests > 0;
           group.humanInterventionMeasuredRuns++;
           group.partiallyMeasuredInterventionRuns += Number(intervention.coverage !== 'full-run');
@@ -100,8 +110,16 @@ export class HarnessEvidence {
         }
         // A user-stopped run remains useful for interaction counts, but not for completion or cost comparisons.
         if (['stopped', 'interrupted'].includes(run.status)) continue;
-        group.runs++; group.completedRuns += Number(run.completed); group.verifiedRuns += Number(run.verificationPassed);
-        group.browserQaRuns += Number(run.browserQaRequired); group.browserQaPassedRuns += Number(run.browserQaRequired && run.browserQaPassed);
+        group.runs++;
+        if (outcomeAttributed) {
+          group.completionMeasuredRuns++;
+          group.completedRuns += Number(run.completed);
+          group.verificationMeasuredRuns++;
+          group.verifiedRuns += Number(run.verificationPassed);
+          group.browserQaRuns += Number(run.browserQaRequired);
+          group.browserQaPassedRuns += Number(run.browserQaRequired && run.browserQaPassed);
+          group.recoverySamples.push(run.recoveries);
+        }
         group.calls += calls.length; group.successfulCalls += calls.filter((c) => c.status === 'success').length;
         group.providerFailures += calls.filter((c) => ['quota', 'transport', 'authentication'].includes(c.failureKind)).length;
         group.formatFailures += calls.filter((c) => c.failureKind === 'format').length;
@@ -109,18 +127,17 @@ export class HarnessEvidence {
         group.reportedTokens += sum(calls.map((c) => c.tokens || 0));
         group.durations.push(sum(calls.map((c) => c.durationMs)));
         if (calls.every((c) => c.tokens !== null)) group.tokenSamples.push(sum(calls.map((c) => c.tokens)));
-        group.recoverySamples.push(run.recoveries);
       }
     }
     const performanceRecords = records.filter((run) => !['stopped', 'interrupted'].includes(run.status));
     return { minimumRuns: MIN_RUNS, recordedRuns: performanceRecords.length, humanIntervention,
-      attribution: '혼합 모델 실행의 관찰값입니다. 단독 모델의 인과적 성능으로 해석하지 않습니다. 사람 개입은 앱 내 수동 재개·중지 동작만 측정하며 실제 사람 투입 시간과 앱 밖의 수정은 포함하지 않습니다.', models: [...groups.entries()].map(([key, group]) => {
+      attribution: '모델 호출·토큰·시간은 해당 호출에 직접 귀속합니다. 완료·검증·QA·개입·복구는 같은 역할에서 단일 모델 설정만 사용한 실행만 집계합니다. 같은 역할에서 대체·전환된 실행은 해당 지표에서 제외합니다. 나머지 완료율도 협업 실행의 관찰값이지 모델 하나의 인과 성능은 아닙니다. 사람 개입은 앱 내 수동 재개·중지 동작만 측정하며 실제 사람 투입 시간과 앱 밖의 수정은 포함하지 않습니다.', models: [...groups.entries()].map(([key, group]) => {
       const { durations, tokenSamples, recoverySamples, ...metrics } = group;
       const observedActionRate = group.fullyMeasuredInterventionRuns >= MIN_RUNS
         ? group.fullyMeasuredRunsWithObservedActions / group.fullyMeasuredInterventionRuns : null;
-      return { key, ...metrics, sufficientEvidence: group.runs >= MIN_RUNS,
-        completionRate: group.runs ? group.completedRuns / group.runs : null, browserQaPassRate: group.browserQaRuns ? group.browserQaPassedRuns / group.browserQaRuns : null,
-        verificationPassRate: group.runs ? group.verifiedRuns / group.runs : null,
+      return { key, ...metrics, durationRuns: durations.length, sufficientEvidence: group.completionMeasuredRuns >= MIN_RUNS,
+        completionRate: group.completionMeasuredRuns ? group.completedRuns / group.completionMeasuredRuns : null, browserQaPassRate: group.browserQaRuns ? group.browserQaPassedRuns / group.browserQaRuns : null,
+        verificationPassRate: group.verificationMeasuredRuns ? group.verifiedRuns / group.verificationMeasuredRuns : null,
         observedActionRate, humanInterventionSufficientEvidence: observedActionRate !== null,
         meanModelTimeMs: average(durations), meanReportedTokens: average(tokenSamples), fullyReportedRuns: tokenSamples.length, meanRunRecoveries: average(recoverySamples) };
     }) };
@@ -128,6 +145,6 @@ export class HarnessEvidence {
   async candidate(selection, role, task, snapshot) {
     const key = modelKey(selection, role, taskType(task));
     const summary = snapshot || await this.summary(taskType(task));
-    return summary.models.find((item) => item.key === key) || { runs: 0, sufficientEvidence: false, minimumRuns: MIN_RUNS, completionRate: null, meanModelTimeMs: null, meanReportedTokens: null };
+    return summary.models.find((item) => item.key === key) || { runs: 0, completionMeasuredRuns: 0, durationRuns: 0, sufficientEvidence: false, minimumRuns: MIN_RUNS, completionRate: null, meanModelTimeMs: null, meanReportedTokens: null };
   }
 }

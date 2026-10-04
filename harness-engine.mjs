@@ -127,24 +127,32 @@ function modelDetails(role, selection) {
 
 function routingEvidenceSummary(evidence = {}, minimumRuns = 3) {
   const sufficient = evidence.sufficientEvidence === true;
+  const completionMeasuredRuns = Number.isSafeInteger(evidence.completionMeasuredRuns) ? evidence.completionMeasuredRuns : 0;
+  const verificationMeasuredRuns = Number.isSafeInteger(evidence.verificationMeasuredRuns) ? evidence.verificationMeasuredRuns : 0;
+  const durationRuns = Number.isSafeInteger(evidence.durationRuns) ? evidence.durationRuns : 0;
   const fullyReportedRuns = Number.isSafeInteger(evidence.fullyReportedRuns) ? evidence.fullyReportedRuns : 0;
   const browserQaRuns = Number.isSafeInteger(evidence.browserQaRuns) ? evidence.browserQaRuns : 0;
+  const verificationSufficient = verificationMeasuredRuns >= minimumRuns;
+  const speedSufficient = durationRuns >= minimumRuns;
   const tokenUsageSufficient = fullyReportedRuns >= minimumRuns;
   const browserQaSufficient = browserQaRuns >= minimumRuns;
   const interventionSufficient = evidence.humanInterventionSufficientEvidence === true
     && Number.isFinite(evidence.observedActionRate);
   return {
-    measuredRuns: Number.isSafeInteger(evidence.runs) ? evidence.runs : 0,
+    measuredRuns: completionMeasuredRuns,
+    observedRuns: Number.isSafeInteger(evidence.runs) ? evidence.runs : 0,
     sufficientEvidence: sufficient,
     completionSufficientEvidence: sufficient,
     completionRate: sufficient && Number.isFinite(evidence.completionRate) ? evidence.completionRate : null,
-    verificationSufficientEvidence: sufficient,
-    verificationPassRate: sufficient && Number.isFinite(evidence.verificationPassRate) ? evidence.verificationPassRate : null,
+    verificationMeasuredRuns,
+    verificationSufficientEvidence: verificationSufficient,
+    verificationPassRate: verificationSufficient && Number.isFinite(evidence.verificationPassRate) ? evidence.verificationPassRate : null,
     browserQaRuns,
     browserQaSufficientEvidence: browserQaSufficient,
     browserQaPassRate: browserQaSufficient && Number.isFinite(evidence.browserQaPassRate) ? evidence.browserQaPassRate : null,
-    speedSufficientEvidence: sufficient,
-    meanModelTimeMs: sufficient && Number.isFinite(evidence.meanModelTimeMs) ? evidence.meanModelTimeMs : null,
+    durationRuns,
+    speedSufficientEvidence: speedSufficient,
+    meanModelTimeMs: speedSufficient && Number.isFinite(evidence.meanModelTimeMs) ? evidence.meanModelTimeMs : null,
     fullyReportedRuns,
     tokenUsageSufficientEvidence: tokenUsageSufficient,
     meanReportedTokens: tokenUsageSufficient && Number.isFinite(evidence.meanReportedTokens) ? evidence.meanReportedTokens : null,
@@ -1231,10 +1239,10 @@ export class HarnessEngine {
     const state = {
       task: run.task,
       ...(context ? { planContext: context } : {}),
-      measurementPolicy: `후보별 실측은 같은 작업 유형·역할·Effort에서 계측된 실행만 비교합니다. 완료 안정성이 고정된 첫 기준이며 그다음 사용자 우선순위를 정확히 적용합니다. 완료율과 속도는 후보 실행 ${measurements.minimumRuns}회 이상, 토큰 평균은 사용량이 모두 보고된 실행 ${measurements.minimumRuns}회 이상, 브라우저 QA 비율은 실제 QA 실행 ${measurements.minimumRuns}회 이상일 때만 선택 근거로 공개합니다. 엔진은 선택 모델보다 완료율이 높은 후보가 충분한 표본으로 확인되면 이를 우선 배정합니다. 최고 완료율 동률은 기존 후보 순서의 첫 모델을 택하고, 대체 순서는 충분한 표본끼리 정렬하며 미계측 후보는 기존 위치를 유지합니다. 사람 개입률은 양쪽 후보 모두 완전 계측 ${measurements.minimumRuns}회 이상일 때만, 완료율과 사용자 우선순위가 구분하지 못한 최종 동률에서만 참고합니다. 혼합 모델 실행의 관찰값은 특정 모델의 인과적 성능이 아니며 실제 사람 투입 시간도 아닙니다. 사용량 미제공은 0토큰이 아닙니다.`,
+      measurementPolicy: `후보별 실측은 같은 작업 유형·역할·Effort에서 계측된 실행만 비교합니다. 완료 안정성이 고정된 첫 기준이며 그다음 사용자 우선순위를 정확히 적용합니다. 완료율·검증률 표본은 같은 역할에서 한 모델 설정만 호출된 실행 ${measurements.minimumRuns}회 이상, 속도는 모델 호출 실행 ${measurements.minimumRuns}회 이상, 토큰 평균은 사용량이 모두 보고된 실행 ${measurements.minimumRuns}회 이상, 브라우저 QA 비율은 해당 역할을 단일 모델 설정으로 실행한 실제 QA ${measurements.minimumRuns}회 이상일 때만 선택 근거로 공개합니다. 같은 역할에서 대체·전환된 실행은 그 역할의 완료율·검증률·QA·개입·복구 통계에서 제외합니다. 모델 호출·시간·토큰·호출 실패는 실제 호출한 모델에 직접 기록합니다. 엔진은 선택 모델보다 완료율이 높은 후보가 충분한 표본으로 확인되면 이를 우선 배정합니다. 최고 완료율 동률은 기존 후보 순서의 첫 모델을 택하고, 대체 순서는 충분한 표본끼리 정렬하며 미계측 후보는 기존 위치를 유지합니다. 사람 개입률은 양쪽 후보 모두 완전 계측 ${measurements.minimumRuns}회 이상일 때만, 완료율과 사용자 우선순위가 구분하지 못한 최종 동률에서만 참고합니다. 역할별 완료율은 여러 역할이 협업한 작업의 관찰값이지 단일 모델의 인과 성능이 아니며, 실제 사람 투입 시간도 아닙니다. 사용량 미제공은 0토큰이 아닙니다.`,
       policy: '완료 안정성이 항상 최우선이며 사용자가 바꿀 수 없습니다. 그다음 사용자가 저장한 우선순위를 따릅니다. 개입률은 이 기준들을 덮어쓰지 않는 최종 동률 보조값입니다. 자동 역할만 변경하고 후보에 없는 모델을 만들지 않습니다. 현재 계획과 부분 작업에 맞춰 주 모델과 대체 순서를 정합니다. 공급자 설명은 실측 성능 점수가 아닙니다. 모델 선택 판단은 파일을 수정하거나 검증을 생략할 권한이 아닙니다.',
       priorities: [{ rank: 1, id: 'completion', label: '완료 안정성 · 고정 최우선' }, ...run.priorities.map((id, index) => ({ rank: index + 2, id }))],
-      evidence: `각 후보의 measuredEvidence는 동일 작업 유형·역할·Effort의 기록입니다. 완료 표본 기준 충족 후보 ${sufficientPerformanceCandidates}개, 개입률 동률 기준 충족 후보 ${sufficientInterventionCandidates}개입니다. 표본이 부족한 속도·토큰·개입 값은 비어 있으며 추정하지 않습니다.`,
+      evidence: `각 후보의 measuredEvidence는 동일 작업 유형·역할·Effort의 기록입니다. 완료 표본 기준 충족 후보 ${sufficientPerformanceCandidates}개, 개입률 동률 기준 충족 후보 ${sufficientInterventionCandidates}개입니다. 표본이 부족한 완료·속도·토큰·개입 값은 비어 있으며 추정하지 않습니다.`,
       candidates: Object.fromEntries(Object.keys(questions).map((role) => [role, candidates[role].map((model, index) => {
         const evidence = measuredCandidates[role][index];
         return {
@@ -1248,8 +1256,8 @@ export class HarnessEngine {
           remainingPercent: Number.isFinite(run.modelBudgets[selectionKey(model)]?.remainingPercent) ? run.modelBudgets[selectionKey(model)].remainingPercent : Number.isFinite(model.remainingPercent) ? model.remainingPercent : null,
           remainingTokens: Number.isSafeInteger(run.modelBudgets[selectionKey(model)]?.remainingTokens) ? run.modelBudgets[selectionKey(model)].remainingTokens : Number.isSafeInteger(model.remainingTokens) ? model.remainingTokens : null,
           source: model.source || '', measuredEvidence: routingEvidenceSummary(evidence, measurements.minimumRuns),
-          qualityBenchmark: evidence.sufficientEvidence ? 'observed mixed-run completion and verification; browser QA has a separate sample flag' : 'insufficient samples',
-          speedBenchmark: evidence.sufficientEvidence && Number.isFinite(evidence.meanModelTimeMs) ? evidence.meanModelTimeMs : 'insufficient samples',
+          qualityBenchmark: evidence.sufficientEvidence ? 'observed role-isolated completion; cross-role outcomes are not causal; browser QA has a separate sample flag' : 'insufficient role-isolated samples',
+          speedBenchmark: evidence.speedSufficientEvidence && Number.isFinite(evidence.meanModelTimeMs) ? evidence.meanModelTimeMs : 'insufficient duration samples',
           tokenEfficiencyBenchmark: Number.isSafeInteger(evidence.fullyReportedRuns) && evidence.fullyReportedRuns >= measurements.minimumRuns && Number.isFinite(evidence.meanReportedTokens) ? evidence.meanReportedTokens : 'insufficient usage samples',
         };
       })])),
@@ -1284,7 +1292,7 @@ export class HarnessEngine {
           && evidenceLeader.evidence.completionRate > priorEvidence.completionRate) {
           selected = evidenceLeader.candidate;
           ranked = [evidenceLeader.candidate, ...(ranked || candidates[role]).filter((candidate) => candidate !== evidenceLeader.candidate)];
-          completionEvidenceOverride = `관찰 완료율 ${evidenceLeader.evidence.completedRuns}/${evidenceLeader.evidence.runs}가 ${priorEvidence.completedRuns}/${priorEvidence.runs}보다 높아 완료 안정성 우선 규칙을 적용했습니다.`;
+          completionEvidenceOverride = `역할 내 단일 모델 실행 완료율 ${evidenceLeader.evidence.completedRuns}/${evidenceLeader.evidence.completionMeasuredRuns}가 ${priorEvidence.completedRuns}/${priorEvidence.completionMeasuredRuns}보다 높아 완료 안정성 우선 규칙을 적용했습니다.`;
         }
         const priorRanked = ranked || candidates[role];
         const ordered = rankMeasuredFallbacks(selected || priorSelection, priorRanked, candidates[role], measuredCandidates[role]);
@@ -1293,7 +1301,7 @@ export class HarnessEngine {
           ? `완료율 실측으로 대체 순서를 보정했습니다 (${ordered.slice(1).map((model) => {
             const index = candidates[role].findIndex((candidate) => selectionKey(candidate) === selectionKey(model));
             const evidence = measuredCandidates[role][index];
-            return evidence?.sufficientEvidence ? `${model.label || model.model} ${evidence.completedRuns}/${evidence.runs}` : `${model.label || model.model} 미측정`;
+            return evidence?.sufficientEvidence ? `${model.label || model.model} ${evidence.completedRuns}/${evidence.completionMeasuredRuns}` : `${model.label || model.model} 미측정`;
           }).join(' → ')}).`
           : '';
         return { role, answer, selected, ranked: ordered, completionEvidenceOverride, completionFallbackNote };

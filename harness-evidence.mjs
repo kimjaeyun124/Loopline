@@ -17,7 +17,7 @@ const average = (values) => values.length ? Math.round(sum(values) / values.leng
 export class HarnessEvidence {
   constructor(directory) { this.directory = join(directory, 'evidence'); }
   async record(run) {
-    if (!/^[a-f0-9-]{36}$/.test(run.id) || ['interrupted', 'stopped'].includes(run.status)) return;
+    if (!/^[a-f0-9-]{36}$/.test(run.id) || run.status === 'interrupted') return;
     const calls = (run.modelCalls || []).map((call) => ({
       role: plain(call.role), provider: plain(call.provider), model: plain(call.model), effort: plain(call.effort || 'default'),
       round: call.round || 0, durationMs: call.durationMs || 0, tokens: Number.isSafeInteger(call.tokens) ? call.tokens : null,
@@ -28,14 +28,21 @@ export class HarnessEvidence {
       browserQaFailures: (run.qaHistory || []).filter((qa) => qa.passed === false).length,
       milestoneFailures: run.events.filter((event) => event.title.startsWith('부분 작업 수정 / Milestone failed')).length,
     };
-    const result = { version: 1, id: run.id, type: taskType(run.task), finishedAt: run.finishedAt, status: run.status,
+    const actions = run.humanActions && typeof run.humanActions === 'object' ? run.humanActions : null;
+    const result = { version: 2, id: run.id, type: taskType(run.task), finishedAt: run.finishedAt, status: run.status,
       completed: run.status === 'completed' && run.applied === true,
       durationMs: Math.max(0, run.finishedAt - run.createdAt), rounds: run.round,
       verificationPassed: run.verificationPassed === true,
       browserQaRequired: run.qaRequired === true, browserQaPassed: run.browserQaPassed === true,
       recoveries: sum(Object.values(recoveryBreakdown)), recoveryBreakdown,
       autoResumeAttempts: run.autoResumeAttempts || 0,
-      humanIntervention: 'not-measured', calls,
+      humanIntervention: actions ? {
+        measurement: 'observed-actions',
+        coverage: actions.completeCoverage === true ? 'full-run' : 'partial-run',
+        manualResumes: Number.isSafeInteger(actions.manualResumes) ? Math.max(0, actions.manualResumes) : 0,
+        stopRequests: Number.isSafeInteger(actions.stopRequests) ? Math.max(0, actions.stopRequests) : 0,
+      } : null,
+      calls,
     };
     await mkdir(this.directory, { recursive: true, mode: 0o700 });
     const file = join(this.directory, `${run.id}.json`), temporary = `${file}.${randomUUID()}.tmp`;
@@ -46,7 +53,7 @@ export class HarnessEvidence {
     try { names = await readdir(this.directory); } catch (error) { if (error.code === 'ENOENT') return []; throw error; }
     const records = [];
     for (const name of names.filter((v) => /^[a-f0-9-]{36}\.json$/.test(v)).slice(-2000)) {
-      try { const value = JSON.parse(await readFile(join(this.directory, name), 'utf8')); if (value.version === 1 && Array.isArray(value.calls)) records.push(value); }
+      try { const value = JSON.parse(await readFile(join(this.directory, name), 'utf8')); if ([1, 2].includes(value.version) && Array.isArray(value.calls)) records.push(value); }
       catch { /* A damaged measurement must not prevent program execution or become routing evidence. */ }
     }
     return records;
@@ -54,6 +61,17 @@ export class HarnessEvidence {
   async summary(type) {
     const records = (await this.records()).filter((r) => !type || r.type === type);
     const groups = new Map();
+    const measuredInterventions = records.filter((run) => run.humanIntervention?.measurement === 'observed-actions');
+    const humanIntervention = {
+      measuredRuns: measuredInterventions.length,
+      partiallyMeasuredRuns: measuredInterventions.filter((run) => run.humanIntervention.coverage !== 'full-run').length,
+      runsWithManualResume: measuredInterventions.filter((run) => run.humanIntervention.manualResumes > 0).length,
+      manualResumes: sum(measuredInterventions.map((run) => run.humanIntervention.manualResumes)),
+      runsWithStopRequest: measuredInterventions.filter((run) => run.humanIntervention.stopRequests > 0).length,
+      stopRequests: sum(measuredInterventions.map((run) => run.humanIntervention.stopRequests)),
+      runsWithObservedActions: measuredInterventions.filter((run) => run.humanIntervention.manualResumes > 0 || run.humanIntervention.stopRequests > 0).length,
+      personTimeMinutes: null,
+    };
     for (const run of records) {
       const grouped = new Map();
       for (const call of run.calls) {
@@ -62,8 +80,21 @@ export class HarnessEvidence {
       }
       for (const [key, calls] of grouped) {
         if (!groups.has(key)) groups.set(key, { type: run.type, role: calls[0].role, provider: calls[0].provider, model: calls[0].model, effort: calls[0].effort,
-          runs: 0, completedRuns: 0, verifiedRuns: 0, browserQaRuns: 0, browserQaPassedRuns: 0, calls: 0, successfulCalls: 0, missingUsageCalls: 0, reportedTokens: 0, providerFailures: 0, formatFailures: 0, durations: [], tokenSamples: [], recoverySamples: [] });
+          runs: 0, completedRuns: 0, verifiedRuns: 0, browserQaRuns: 0, browserQaPassedRuns: 0, calls: 0, successfulCalls: 0, missingUsageCalls: 0, reportedTokens: 0, providerFailures: 0, formatFailures: 0,
+          humanInterventionMeasuredRuns: 0, partiallyMeasuredInterventionRuns: 0, runsWithManualResume: 0, manualResumes: 0, runsWithStopRequest: 0, stopRequests: 0,
+          durations: [], tokenSamples: [], recoverySamples: [] });
         const group = groups.get(key);
+        const intervention = run.humanIntervention?.measurement === 'observed-actions' ? run.humanIntervention : null;
+        if (intervention) {
+          group.humanInterventionMeasuredRuns++;
+          group.partiallyMeasuredInterventionRuns += Number(intervention.coverage !== 'full-run');
+          group.runsWithManualResume += Number(intervention.manualResumes > 0);
+          group.manualResumes += intervention.manualResumes;
+          group.runsWithStopRequest += Number(intervention.stopRequests > 0);
+          group.stopRequests += intervention.stopRequests;
+        }
+        // A user-stopped run remains useful for interaction counts, but not for completion or cost comparisons.
+        if (['stopped', 'interrupted'].includes(run.status)) continue;
         group.runs++; group.completedRuns += Number(run.completed); group.verifiedRuns += Number(run.verificationPassed);
         group.browserQaRuns += Number(run.browserQaRequired); group.browserQaPassedRuns += Number(run.browserQaRequired && run.browserQaPassed);
         group.calls += calls.length; group.successfulCalls += calls.filter((c) => c.status === 'success').length;
@@ -76,10 +107,12 @@ export class HarnessEvidence {
         group.recoverySamples.push(run.recoveries);
       }
     }
-    return { minimumRuns: MIN_RUNS, recordedRuns: records.length, attribution: '혼합 모델 실행의 관찰값입니다. 단독 모델의 인과적 성능으로 해석하지 않습니다. 사용자 공수는 별도 계측 전까지 확인 불가입니다.', models: [...groups.entries()].map(([key, group]) => {
+    const performanceRecords = records.filter((run) => !['stopped', 'interrupted'].includes(run.status));
+    return { minimumRuns: MIN_RUNS, recordedRuns: performanceRecords.length, humanIntervention,
+      attribution: '혼합 모델 실행의 관찰값입니다. 단독 모델의 인과적 성능으로 해석하지 않습니다. 사람 개입은 앱 내 수동 재개·중지 동작만 측정하며 실제 사람 투입 시간과 앱 밖의 수정은 포함하지 않습니다.', models: [...groups.entries()].map(([key, group]) => {
       const { durations, tokenSamples, recoverySamples, ...metrics } = group;
       return { key, ...metrics, sufficientEvidence: group.runs >= MIN_RUNS,
-        completionRate: group.completedRuns / group.runs, browserQaPassRate: group.browserQaRuns ? group.browserQaPassedRuns / group.browserQaRuns : null,
+        completionRate: group.runs ? group.completedRuns / group.runs : null, browserQaPassRate: group.browserQaRuns ? group.browserQaPassedRuns / group.browserQaRuns : null,
         meanModelTimeMs: average(durations), meanReportedTokens: average(tokenSamples), fullyReportedRuns: tokenSamples.length, meanRunRecoveries: average(recoverySamples) };
     }) };
   }

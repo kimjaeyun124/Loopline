@@ -39,6 +39,21 @@ function selectionFingerprint(selection) {
   return createHash('sha256').update(selectionKey(selection)).digest('hex');
 }
 
+function humanActionLedger(run) {
+  if (!run.humanActions || typeof run.humanActions !== 'object') {
+    run.humanActions = { manualResumes: 0, stopRequests: 0, completeCoverage: false };
+  }
+  const actions = run.humanActions;
+  for (const key of ['manualResumes', 'stopRequests']) {
+    if (!Number.isSafeInteger(actions[key]) || actions[key] < 0) {
+      actions[key] = 0;
+      actions.completeCoverage = false;
+    }
+  }
+  if (typeof actions.completeCoverage !== 'boolean') actions.completeCoverage = false;
+  return actions;
+}
+
 function quotaExhausted(error) {
   if (error?.quotaExhausted === true || error?.remoteStatus === 429 || error?.status === 429) return true;
   return /(?:http\s*429|quota.{0,40}(?:exhaust|limit|reach)|(?:usage|rate)\s*limit|사용\s*한도|요청\s*제한|토큰.{0,12}소진)/i.test(String(error?.message || ''));
@@ -580,6 +595,7 @@ export class HarnessEngine {
       priorities: normalizeLoopPriorities(input.priorities),
       roles, modelPriority,
       modelBudgets: {}, modelUsage: {}, modelCalls: [],
+      humanActions: { manualResumes: 0, stopRequests: 0, completeCoverage: true },
       stageModels: Object.fromEntries(['planner', 'worker', 'judge'].map((role) => {
         const selection = roles[role];
         return [role, { ...modelDetails(role, selection), reasoningEffort: selection.reasoningEffort || '' }];
@@ -725,7 +741,7 @@ export class HarnessEngine {
         run.autoResumePaused = false;
         await this.persist(record);
         try {
-          await this.resume(id);
+          await this.resume(id, { source: 'automatic' });
           recovered.push(id);
         } catch (error) {
           if (run.status === 'running') {
@@ -740,7 +756,7 @@ export class HarnessEngine {
     }
     return recovered;
   }
-  async resume(id) {
+  async resume(id, { source = 'manual' } = {}) {
     if (this.closing) throw fail('앱이 종료 중이라 실행을 이어갈 수 없습니다.', 503);
     const record = await this.record(id);
     const { run } = record;
@@ -750,6 +766,9 @@ export class HarnessEngine {
     }
     if (run.source && this.sources.has(run.source)) throw fail('이 프로젝트에서 다른 Loop 실행이 진행 중입니다.', 409);
     if (run.source) this.sources.add(run.source);
+    const automatic = source === 'automatic';
+    const humanActions = humanActionLedger(run);
+    if (!automatic) humanActions.manualResumes++;
     record.controller = new AbortController();
     delete run.shutdownRequested;
     delete run.userStopRequested;
@@ -759,13 +778,14 @@ export class HarnessEngine {
     const checkpoint = run.graphCheckpoint;
     const resumeNode = checkpoint.activeNode || checkpoint.nextNode;
     checkpoint.nextNode = resumeNode; checkpoint.activeNode = null;
-    await this.event(record, 'Loop 이어하기 / Resume workflow', `LangGraph가 저장된 ${resumeNode} 단계부터 실행을 이어갑니다.`, 'completed');
+    await this.event(record, 'Loop 이어하기 / Resume workflow', `LangGraph가 저장된 ${resumeNode} 단계부터 ${automatic ? '자동으로' : '사용자 요청으로'} 실행을 이어갑니다.`, 'completed');
     record.execution = this.execute(record).catch(() => {});
     return this.publicRun(run);
   }
   async stop(id) {
     const record = await this.record(id);
     if (!TERMINAL.has(record.run.status)) {
+      if (record.run.userStopRequested !== true) humanActionLedger(record.run).stopRequests++;
       record.run.userStopRequested = true;
       record.controller.abort(new Error('사용자가 실행을 중지했습니다.'));
       record.run.status = 'stopping'; await this.persist(record);

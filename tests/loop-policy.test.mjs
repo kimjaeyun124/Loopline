@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { automaticLoopStartRounds, classifyLoopTask, DEFAULT_LOOP_PRIORITIES, extendAutomaticLoopRounds, MAX_AUTO_LOOP_ROUNDS, MAX_LOOP_ROUNDS, normalizeLoopPriorities, recommendLoopEffort, selectAutomaticLoopModel } from '../public/loop-policy.mjs';
+import { automaticLoopStartRounds, classifyEvidenceTaskType, classifyLoopTask, DEFAULT_LOOP_PRIORITIES, extendAutomaticLoopRounds, MAX_AUTO_LOOP_ROUNDS, MAX_LOOP_ROUNDS, normalizeLoopPriorities, rankLoopModelCandidates, recommendLoopEffort, selectAutomaticLoopModel } from '../public/loop-policy.mjs';
 
 test('loop complexity keeps small requests light and raises effort for broad engineering changes', () => {
   assert.equal(classifyLoopTask('Export a small constant and test its value.'), 'simple');
@@ -81,4 +81,47 @@ test('automatic roles prefer the measured mix and skip known exhausted accounts'
   assert.equal(selectAutomaticLoopModel('worker', [{ ...models[1] }], key, options), null);
   models[2].connected = false;
   assert.equal(selectAutomaticLoopModel('planner', models, key, options).id, 'gpt-6-luna');
+});
+
+test('evidence task classification shares the task categories used for measured model comparisons', () => {
+  assert.equal(classifyEvidenceTaskType('Build a website dashboard'), 'web');
+  assert.equal(classifyEvidenceTaskType('명령줄 CLI 도구를 만들어줘'), 'cli');
+  assert.equal(classifyEvidenceTaskType('Implement a backend API'), 'backend');
+  assert.equal(classifyEvidenceTaskType('Explain a short concept'), 'general');
+});
+
+test('model comparison always prioritizes completion reliability before user-selected dimensions', () => {
+  const candidates = [
+    { model: { id: 'fast', connected: true }, evidence: { sufficientEvidence: true, completionConfidenceLowerBound: 0.51, completedRuns: 7, completionMeasuredRuns: 10, fullyReportedRuns: 10, meanReportedTokens: 100, durationRuns: 10, meanModelTimeMs: 300 } },
+    { model: { id: 'reliable', connected: true }, evidence: { sufficientEvidence: true, completionConfidenceLowerBound: 0.68, completedRuns: 9, completionMeasuredRuns: 10, fullyReportedRuns: 10, meanReportedTokens: 900, durationRuns: 10, meanModelTimeMs: 900 } },
+  ];
+
+  assert.equal(rankLoopModelCandidates(candidates, ['tokenEfficiency', 'speed']).recommended.model.id, 'reliable');
+});
+
+test('measured comparison follows configured priorities only when each metric has enough samples', () => {
+  const candidates = [
+    { model: { id: 'quality', connected: true }, evidence: { sufficientEvidence: true, completionConfidenceLowerBound: 0.6, completedRuns: 8, completionMeasuredRuns: 10, verificationMeasuredRuns: 10, verificationPassRate: 0.9, fullyReportedRuns: 10, meanReportedTokens: 900, durationRuns: 10, meanModelTimeMs: 800 } },
+    { model: { id: 'efficient', connected: true }, evidence: { sufficientEvidence: true, completionConfidenceLowerBound: 0.6, completedRuns: 8, completionMeasuredRuns: 10, verificationMeasuredRuns: 10, verificationPassRate: 0.8, fullyReportedRuns: 10, meanReportedTokens: 300, durationRuns: 10, meanModelTimeMs: 400 } },
+  ];
+
+  assert.equal(rankLoopModelCandidates(candidates).recommended.model.id, 'quality');
+  assert.equal(rankLoopModelCandidates(candidates, ['tokenEfficiency', 'quality']).recommended.model.id, 'efficient');
+  assert.deepEqual(rankLoopModelCandidates(candidates).comparableMetrics, ['검증 통과율', '평균 토큰', '평균 모델 시간']);
+});
+
+test('insufficient or missing evidence is not converted to zero or ranked as a measured winner', () => {
+  const candidates = [
+    { model: { id: 'first', connected: true }, evidence: { sufficientEvidence: true, completionConfidenceLowerBound: 0.6, completedRuns: 8, completionMeasuredRuns: 10, fullyReportedRuns: 2, meanReportedTokens: 100 } },
+    { model: { id: 'second', connected: true }, evidence: { sufficientEvidence: true, completionConfidenceLowerBound: 0.6, completedRuns: 8, completionMeasuredRuns: 10, fullyReportedRuns: 2, meanReportedTokens: 1000 } },
+    { model: { id: 'unknown', connected: true }, evidence: null },
+    { model: { id: 'exhausted', connected: true, remainingPercent: 0 }, evidence: { sufficientEvidence: true, completionConfidenceLowerBound: 0.99, completionMeasuredRuns: 10, completedRuns: 10 } },
+  ];
+  const result = rankLoopModelCandidates(candidates, ['tokenEfficiency']);
+
+  assert.equal(result.mode, 'measured');
+  assert.equal(result.recommended.model.id, 'first');
+  assert.deepEqual(result.comparableMetrics, []);
+  assert.equal(result.available.some((item) => item.model.id === 'exhausted'), false);
+  assert.equal(rankLoopModelCandidates([{ model: { id: 'unknown', connected: true }, evidence: null }]).mode, 'provisional');
 });

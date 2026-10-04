@@ -4,7 +4,7 @@ import { createHarnessUI } from '../public/harness-ui.js';
 
 const KEY = 'loopline.harness.v1';
 // Minimal event surface: exercise the real settings handlers without a browser dependency.
-function setup(t, { storage = new Map(), project = null, models = null } = {}) {
+function setup(t, { storage = new Map(), project = null, models = null, evidence = { models: [] } } = {}) {
   const nodes = new Map();
   const node = (id) => {
     if (!nodes.has(id)) nodes.set(id, { value: '', checked: false, hidden: true, textContent: '', dataset: {},
@@ -13,11 +13,12 @@ function setup(t, { storage = new Map(), project = null, models = null } = {}) {
     return nodes.get(id);
   };
   let failStorage = false;
-  for (const key of ['document', 'localStorage', 'window']) {
+  for (const key of ['document', 'localStorage', 'window', 'fetch']) {
     const original = Object.getOwnPropertyDescriptor(globalThis, key);
     t.after(() => original ? Object.defineProperty(globalThis, key, original) : delete globalThis[key]);
   }
   globalThis.document = { querySelector: node };
+  globalThis.fetch = async () => ({ ok: true, json: async () => evidence });
   node('#harnessRoles').querySelector = (selector) => {
     const role = selector.match(/data-fallback-select="([a-z]+)"/)?.[1];
     return role ? node(`#fallbackSelect-${role}`) : null;
@@ -66,6 +67,20 @@ test('Loop role model choices show and search by model strengths', (t) => {
   s.node('#harnessModelSearch').value = '빠르고 효율적';
   s.node('#harnessModelSearch').fire('input');
   assert.match(s.fields.innerHTML, /value="gpt-6-luna"/);
+});
+
+test('model settings show observed manual resumes and stop requests beside measured performance', async (t) => {
+  const model = { provider: 'api', id: 'writer', label: 'Writer', source: 'QA', connected: true, reasoningEfforts: ['max'] };
+  const storage = new Map([[KEY, JSON.stringify({ roles: { worker: { model: 'writer', effort: 'max' } } })]]);
+  const evidence = { models: [{ role: 'worker', provider: 'api', model: 'writer', effort: 'max', type: 'web', runs: 1, completedRuns: 1,
+    browserQaPassedRuns: 0, browserQaRuns: 0, reportedTokens: 1234, missingUsageCalls: 0, sufficientEvidence: false,
+    humanInterventionMeasuredRuns: 2, partiallyMeasuredInterventionRuns: 1, manualResumes: 1, stopRequests: 2 }] };
+  const s = setup(t, { storage, models: [model], evidence });
+  s.ui.open();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.match(s.fields.innerHTML, /개입 계측 2개 실행 \(일부 기록\)/);
+  assert.match(s.fields.innerHTML, /수동 재개 1회/);
+  assert.match(s.fields.innerHTML, /중지 요청 2회/);
 });
 
 test('loop compute priorities are reorderable, persisted, and keep completion locked at the top', (t) => {

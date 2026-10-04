@@ -1273,6 +1273,7 @@ test('startup recovery automatically retries a saved transient failure', async (
   assert.equal(recovered.status, 'completed', recovered.summary);
   assert.equal(recovered.applied, true);
   assert.equal(recovered.autoResumeAttempts, 1);
+  assert.equal(recovered.humanActions.manualResumes, 0);
   assert.ok(recovered.events.some((event) => event.title.includes('Loop 이어하기')));
   assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'updated 1\n');
 });
@@ -1292,6 +1293,7 @@ test('startup recovery preserves an explicit user stop', async (t) => {
   const created = await engine.create(f.input);
   await workerStarted;
   await engine.stop(created.id);
+  await engine.stop(created.id);
   await engine.runs.get(created.id).execution;
 
   const restarted = new HarnessEngine({ directory: f.data, invoke: () => assert.fail('Explicitly stopped run must not restart') });
@@ -1299,6 +1301,7 @@ test('startup recovery preserves an explicit user stop', async (t) => {
   const stopped = await restarted.get(created.id);
   assert.equal(stopped.status, 'stopped');
   assert.equal(stopped.canResume, true);
+  assert.equal(stopped.humanActions.stopRequests, 1);
   assert.equal(calls, 2);
 });
 
@@ -1337,6 +1340,8 @@ test('a failed transient model call can resume from its safe checkpoint with a b
   assert.equal(completed.status, 'completed', completed.summary);
   assert.equal(completed.applied, true);
   assert.equal(completed.autoResumeAttempts, 1);
+  assert.equal(completed.humanActions.manualResumes, 1);
+  assert.equal(completed.humanActions.stopRequests, 1);
   assert.ok(completed.events.some((event) => event.title.includes('Loop 이어하기')));
 });
 

@@ -1,13 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { HarnessEvidence, taskType } from '../harness-evidence.mjs';
 
 const model = { provider: 'openai', model: 'test-model', reasoningEffort: 'max' };
-const run = (overrides = {}) => ({ id: randomUUID(), task: 'A website dashboard', status: 'completed', applied: true, createdAt: 100, finishedAt: 1000, round: 1, verificationPassed: true, qaRequired: true, browserQaPassed: true, events: [], modelCalls: [{ role: 'worker', ...model, effort: 'max', tokens: 100, durationMs: 300, status: 'success' }], ...overrides });
+const run = (overrides = {}) => ({ id: randomUUID(), task: 'A website dashboard', status: 'completed', applied: true, createdAt: 100, finishedAt: 1000, round: 1, verificationPassed: true, qaRequired: true, browserQaPassed: true, events: [], humanActions: { manualResumes: 0, stopRequests: 0, completeCoverage: true }, modelCalls: [{ role: 'worker', ...model, effort: 'max', tokens: 100, durationMs: 300, status: 'success' }], ...overrides });
 async function fixture(t) { const directory = await mkdtemp(join(tmpdir(), 'loopline-evidence-')); t.after(() => rm(directory, { recursive: true, force: true })); return new HarnessEvidence(directory); }
 
 test('measurements require three distinct runs and replacement never double counts a resumed run', async (t) => {
@@ -32,17 +32,41 @@ test('model effort, task type and role stay separate and missing token usage is 
   assert.equal(taskType('a command line CLI'), 'cli');
 });
 
-test('stored evidence contains no task text, file paths or model prompt and does not invent human labor', async (t) => {
+test('stored evidence contains no task text, file paths or model prompt and does not invent person time', async (t) => {
   const store = await fixture(t), value = run({ task: 'website with private-project-secret', source: '/private/work', modelCalls: [{ role: 'worker', ...model, prompt: 'private-key-secret', effort: 'max', tokens: 50, durationMs: 10, status: 'success' }] });
   await store.record(value);
   const saved = await readFile(join(store.directory, `${value.id}.json`), 'utf8');
   assert.ok(!saved.includes('private-project-secret')); assert.ok(!saved.includes('/private/work')); assert.ok(!saved.includes('private-key-secret'));
-  assert.equal(JSON.parse(saved).humanIntervention, 'not-measured');
+  assert.deepEqual(JSON.parse(saved).humanIntervention, { measurement: 'observed-actions', coverage: 'full-run', manualResumes: 0, stopRequests: 0 });
+  assert.equal((await store.summary()).humanIntervention.personTimeMinutes, null);
 });
 
 test('user stop and shutdown interruption do not enter final completion performance statistics', async (t) => {
-  const store = await fixture(t); await store.record(run({ status: 'stopped' })); await store.record(run({ status: 'interrupted' }));
-  assert.equal((await store.summary()).recordedRuns, 0);
+  const store = await fixture(t);
+  await store.record(run({ status: 'stopped', humanActions: { manualResumes: 1, stopRequests: 1, completeCoverage: true } }));
+  await store.record(run({ status: 'interrupted' }));
+  const summary = await store.summary();
+  assert.equal(summary.recordedRuns, 0);
+  assert.equal(summary.humanIntervention.measuredRuns, 1);
+  assert.equal(summary.humanIntervention.manualResumes, 1);
+  assert.equal(summary.humanIntervention.stopRequests, 1);
+  const modelResult = await store.candidate(model, 'worker', 'website');
+  assert.equal(modelResult.runs, 0);
+  assert.equal(modelResult.completionRate, null);
+  assert.equal(modelResult.manualResumes, 1);
+  assert.equal(modelResult.stopRequests, 1);
+});
+
+test('legacy evidence remains readable and is excluded from intervention coverage', async (t) => {
+  const store = await fixture(t), id = randomUUID();
+  await mkdir(store.directory, { recursive: true });
+  await writeFile(join(store.directory, `${id}.json`), JSON.stringify({ version: 1, id, type: 'web', status: 'completed', completed: true,
+    verificationPassed: true, browserQaRequired: false, browserQaPassed: false, recoveries: 0, calls: [{ role: 'worker', provider: model.provider, model: model.model, effort: 'max',
+      tokens: 100, durationMs: 300, status: 'success', failureKind: '' }], humanIntervention: 'not-measured' }));
+  const summary = await store.summary();
+  assert.equal(summary.recordedRuns, 1);
+  assert.equal(summary.humanIntervention.measuredRuns, 0);
+  assert.equal(summary.models[0].runs, 1);
 });
 
 test('browser QA and milestone failures count as recovery work without double counting the same saved run', async (t) => {

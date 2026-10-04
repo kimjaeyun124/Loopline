@@ -65,7 +65,7 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
       return safeIds.length ? [[EVIDENCE_REASON_LABELS.get(reason) || '기타 형식 오류', safeIds]] : [];
     });
     evidenceDetails.hidden = total === 0 || exampleGroups.length === 0;
-    evidenceIds.innerHTML = exampleGroups.map(([label, ids]) => `<li><span>${escape(label)} · 예시 ID</span><code>${ids.map(escape).join('<br>')}</code></li>`).join('');
+    evidenceIds.innerHTML = exampleGroups.map(([label, ids]) => `<li><span>${escape(label)} · 예시 ID</span><div class="harness-evidence-id-list">${ids.map((id) => `<span class="harness-evidence-id"><code>${escape(id)}</code><button type="button" class="harness-evidence-copy" data-copy-excluded-id="${escape(id)}" aria-label="${escape(id)} 복사">복사</button></span>`).join('')}</div></li>`).join('');
   }
   const save = () => {
     try {
@@ -234,6 +234,21 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
     const role = event.target.dataset.fallbackDetails;
     if (role) event.target.open ? expandedFallbacks.add(role) : expandedFallbacks.delete(role);
   }, true);
+  evidenceDetails.addEventListener('click', async (event) => {
+    const button = event.target.closest('[data-copy-excluded-id]');
+    if (!button) return;
+    const id = button.dataset.copyExcludedId;
+    if (typeof id !== 'string' || !/^[a-f0-9-]{36}$/.test(id)) return;
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error('클립보드를 사용할 수 없습니다.');
+      await navigator.clipboard.writeText(id);
+      button.textContent = '복사됨';
+      toast('제외된 기록 ID를 복사했습니다.');
+      setTimeout(() => { if (button.isConnected) button.textContent = '복사'; }, 1400);
+    } catch {
+      toast('클립보드에 복사하지 못했습니다.');
+    }
+  });
   priorityFields.addEventListener('click', (event) => {
     const button = event.target.closest('[data-priority-move]');
     if (!button) return;

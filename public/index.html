@@ -207,8 +207,9 @@
           <div id="harnessPriorities" aria-label="개인 연산 우선순위"></div>
           <small>결과 품질이나 추론량을 앞에 두면 모델이 지원하는 높은 추론 강도를 사용합니다. 토큰과 속도 우선으로 바꾸면 불필요하게 높은 강도를 피합니다. 자동 모델 비교는 실행 초기에 판정 모델을 추가 호출해 토큰과 시간이 더 들 수 있습니다.</small>
         </section>
-        <p class="harness-intro">자동 역할은 판정 모델이 작업·후보 정보·잔여 한도·위 우선순위를 보고 주 모델과 대체 순서를 함께 판단합니다. 직접 지정한 역할은 유지합니다. 작업 유형·역할·Effort별 자동 완료·QA·복구·시간·토큰을 기록하고 선택 근거로 전달합니다. 표본이 3회 미만이면 성능 우위로 단정하지 않습니다.</p>
+        <p class="harness-intro">자동 역할은 실제 요청에 맞춰 판정 모델이 후보와 실측 기록을 비교합니다. 아래 표에서는 역할별 강점과 완료·검증·QA·복구·시간·토큰 기록을 확인할 수 있습니다. 표본이 부족하거나 작업 종류가 다르면 성능 우위를 단정하지 않습니다. 비교 표에서 모델을 직접 선택하면 해당 역할은 실행 중 자동 재배정되지 않습니다.</p>
         <div class="harness-evidence-toolbar"><span id="harnessEvidenceStatus" role="status" aria-live="polite"></span><button type="button" id="harnessEvidenceRefresh" class="text-button">실측 정보 새로고침</button></div>
+        <label class="harness-evidence-scope"><span>모델 비교 작업 유형</span><select id="harnessEvidenceType" aria-label="모델 비교 작업 유형"><option value="auto">현재 입력에서 자동 감지</option><option value="web">웹·화면</option><option value="cli">명령줄 도구</option><option value="backend">API·서버</option><option value="general">일반 작업</option></select><small id="harnessEvidenceScope" role="status" aria-live="polite"></small></label>
         <p class="harness-evidence-notice" id="harnessEvidenceNotice" role="status" aria-live="polite" hidden></p>
         <details class="harness-evidence-details" id="harnessEvidenceDetails" hidden>
           <summary>문제 기록 ID 보기</summary>

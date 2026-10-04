@@ -1,17 +1,13 @@
 import { mkdir, readFile, readdir, rename, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { classifyEvidenceTaskType } from './public/loop-policy.mjs';
 
 const MIN_RUNS = 3;
 const MAX_EVIDENCE_RECORDS = 2000;
 const MAX_EXCLUDED_RECORD_IDS_PER_REASON = 3;
 const plain = (value) => String(value || '').replace(/[\r\n\0]/g, ' ').slice(0, 160);
-export function taskType(task) {
-  if (/(?:\bCLI\b|command.line|명령줄)/i.test(task)) return 'cli';
-  if (/(?:website|web\s*(?:app|page|site)|dashboard|front.end|\bUI\b|웹|화면|디자인)/i.test(task)) return 'web';
-  if (/(?:API|backend|server|서버|백엔드)/i.test(task)) return 'backend';
-  return 'general';
-}
+export const taskType = classifyEvidenceTaskType;
 const modelKey = (selection, role, type) => JSON.stringify([type, role, selection.provider, selection.model, selection.reasoningEffort || selection.effort || 'default']);
 const sum = (values) => values.reduce((a, b) => a + b, 0);
 const average = (values) => values.length ? Math.round(sum(values) / values.length) : null;

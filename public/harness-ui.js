@@ -1,5 +1,5 @@
 import { modelEffortCapability, modelSelectionStrength } from './model-capabilities.mjs';
-import { DEFAULT_LOOP_PRIORITIES, LOOP_PRIORITY_DIMENSIONS, MAX_AUTO_LOOP_ROUNDS, normalizeLoopPriorities, recommendLoopEffort, selectAutomaticLoopModel } from './loop-policy.mjs';
+import { classifyEvidenceTaskType, DEFAULT_LOOP_PRIORITIES, LOOP_PRIORITY_DIMENSIONS, MAX_AUTO_LOOP_ROUNDS, normalizeLoopPriorities, rankLoopModelCandidates, recommendLoopEffort, selectAutomaticLoopModel } from './loop-policy.mjs';
 
 const KEY = 'loopline.harness.v1';
 const DONE = new Set(['completed', 'reviewed', 'failed', 'stopped', 'limit', 'blocked', 'interrupted']);
@@ -39,9 +39,12 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
   const evidenceNotice = document.querySelector('#harnessEvidenceNotice');
   const evidenceDetails = document.querySelector('#harnessEvidenceDetails');
   const evidenceIds = document.querySelector('#harnessEvidenceIds');
+  const evidenceTypeSelect = document.querySelector('#harnessEvidenceType');
+  const evidenceScope = document.querySelector('#harnessEvidenceScope');
   const search = document.querySelector('#harnessModelSearch');
   const expandedFallbacks = new Set();
   let measuredModels = [];
+  let minimumEvidenceRuns = 3;
   let hasLoadedEvidence = false;
   let lastEvidenceRefreshAt = '';
   let evidenceRefreshInProgress = false;
@@ -92,6 +95,131 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
     ? (model.supportedReasoningEfforts || []).map((item) => item.reasoningEffort)
     : model?.provider === 'anthropic' ? modelEffortCapability('anthropic', model.id)?.reasoningEfforts || [] : model?.reasoningEfforts || [];
   const modelByKey = (key) => connected().find((model) => modelKey(model) === key) || null;
+  function currentTaskText() {
+    const draft = document.querySelector('#messageInput')?.value.trim();
+    if (draft) return draft;
+    const conversation = state.conversations.find((item) => item.id === state.activeId);
+    const latestUserMessage = [...(conversation?.messages || [])].reverse().find((message) => message?.role === 'user' && typeof message.content === 'string');
+    return latestUserMessage?.content || '';
+  }
+  function comparisonTaskType() {
+    return evidenceTypeSelect.value === 'auto' ? classifyEvidenceTaskType(currentTaskText()) : evidenceTypeSelect.value;
+  }
+  function comparisonEffort(role, model, task) {
+    const supported = efforts(model);
+    const selected = config.roles[role].effort;
+    return selected && supported.includes(selected)
+      ? selected
+      : recommendLoopEffort(role, supported, task, config.priorities) || 'default';
+  }
+  function formatPercent(value) { return Number.isFinite(value) ? `${Math.round(value * 100)}%` : '미측정'; }
+  function formatRate(passed, total, minimumRuns) {
+    if (!total) return '미측정';
+    return `${passed}/${total} (${Math.round((passed / total) * 100)}%)${total < minimumRuns ? ` · 표본 ${total}/${minimumRuns}` : ''}`;
+  }
+  function formatTime(milliseconds) {
+    if (!Number.isFinite(milliseconds)) return '미측정';
+    return milliseconds < 1000 ? `${Math.round(milliseconds)}ms` : `${(milliseconds / 1000).toFixed(1)}초`;
+  }
+  function renderModelComparison(role, task, taskType) {
+    const available = connected().filter((model) => role === 'judge' || !model.decisionOnly);
+    const candidates = available.map((model) => {
+      const effort = comparisonEffort(role, model, task);
+      const evidence = measuredModels.find((item) => item.type === taskType && item.role === role
+        && item.provider === model.provider && item.model === model.id && item.effort === effort) || null;
+      return { model, effort, evidence };
+    });
+    const ranking = rankLoopModelCandidates(candidates, config.priorities, {
+      minimumRuns: minimumEvidenceRuns,
+      taskType,
+    });
+    const baseline = config.roles[role].model
+      ? available.find((model) => modelKey(model) === config.roles[role].model) || null
+      : selectAutomaticLoopModel(role, available, modelKey, {
+        currentModelKey: currentKey(), workerModelKey: config.roles.worker.model,
+      });
+    const recommendation = ranking.recommended || ranking.available.find((item) => item.model === baseline) || ranking.available[0] || null;
+    const measured = ranking.measured;
+    const comparisonMetrics = ranking.comparableMetrics.length
+      ? `완료 안정성 후 ${ranking.comparableMetrics.join(' → ')}`
+      : '완료 안정성 외에는 공통 표본 기준을 갖춘 추가 실측 지표가 없음';
+    const explanation = ranking.mode === 'measured'
+        ? `동일 ${taskType} 작업·역할·Effort의 완료 실측을 우선 비교했습니다. 완료 신뢰 하한 ${formatPercent(recommendation?.evidence?.completionConfidenceLowerBound)} · ${recommendation?.evidence?.completedRuns || 0}/${recommendation?.evidence?.completionMeasuredRuns || 0}회. 다음 비교 기준: ${comparisonMetrics}. 표본 부족 후보 ${Math.max(0, ranking.available.length - measured.length)}개는 우열을 매기지 않았습니다.`
+      : ranking.mode === 'single-measured'
+        ? `${recommendation.model.label}만 완료 실측 ${recommendation.evidence.completionMeasuredRuns}회 기준을 채웠습니다. 다른 후보는 비교 표본이 부족해 최고 성능으로 확정할 수 없습니다.`
+        : `동일 ${taskType} 작업·역할·Effort에서 완료 실측 ${ranking.minimumRuns}회 기준을 채운 모델이 없습니다. ${recommendation ? `${recommendation.model.label}을 임시 기본 후보로 표시합니다.` : '사용 가능한 모델이 없습니다.'}`;
+    evidenceScope.textContent = evidenceTypeSelect.value === 'auto'
+      ? `현재 입력 기준: ${taskType} · Effort는 이 작업과 개인 우선순위에 맞춰 비교합니다.`
+      : `선택한 유형: ${taskType} · Effort는 이 작업과 개인 우선순위에 맞춰 비교합니다.`;
+
+    const rankedKeys = new Map(measured.map((item, index) => [modelKey(item.model), index]));
+    const ordered = [...candidates].sort((left, right) => {
+      const leftRank = rankedKeys.get(modelKey(left.model));
+      const rightRank = rankedKeys.get(modelKey(right.model));
+      if (leftRank !== undefined && rightRank !== undefined) return leftRank - rightRank;
+      if (leftRank !== undefined) return -1;
+      if (rightRank !== undefined) return 1;
+      return available.indexOf(left.model) - available.indexOf(right.model);
+    });
+    const reference = ranking.recommended;
+    const comparableTokens = candidates.filter((item) => Number.isFinite(item.evidence?.meanReportedTokens)
+      && item.evidence.fullyReportedRuns >= minimumEvidenceRuns);
+    const lowestTokenCandidate = comparableTokens.reduce((best, item) => !best || item.evidence.meanReportedTokens < best.evidence.meanReportedTokens ? item : best, null);
+    const comparableTimes = candidates.filter((item) => Number.isFinite(item.evidence?.meanModelTimeMs)
+      && item.evidence.durationRuns >= minimumEvidenceRuns);
+    const fastestCandidate = comparableTimes.reduce((best, item) => !best || item.evidence.meanModelTimeMs < best.evidence.meanModelTimeMs ? item : best, null);
+    const rows = ordered.map((item) => {
+      const { model: candidate, evidence } = item;
+      const selected = config.roles[role].model === modelKey(candidate);
+      const automaticBase = !config.roles[role].model && candidate === baseline;
+      const isRecommended = candidate === recommendation?.model;
+      const strength = modelSelectionStrength(candidate) || '공급자 강점 설명 없음';
+      const supported = efforts(candidate);
+      const completion = evidence?.completionMeasuredRuns
+        ? `${evidence.completedRuns}/${evidence.completionMeasuredRuns} (${formatPercent(evidence.completionRate)}) · 신뢰 하한 ${formatPercent(evidence.completionConfidenceLowerBound)}${evidence.sufficientEvidence ? '' : ` · 표본 ${evidence.completionMeasuredRuns}/${minimumEvidenceRuns}`}`
+        : '완료 실측 없음';
+      const verification = formatRate(evidence?.verifiedRuns || 0, evidence?.verificationMeasuredRuns || 0, minimumEvidenceRuns);
+      const browserQa = formatRate(evidence?.browserQaPassedRuns || 0, evidence?.browserQaRuns || 0, minimumEvidenceRuns);
+      const time = evidence?.meanModelTimeMs == null ? '미측정' : `${formatTime(evidence.meanModelTimeMs)} · 표본 ${evidence.durationRuns}/${minimumEvidenceRuns}${evidence.durationRuns < minimumEvidenceRuns ? ' · 비교 보류' : ''}`;
+      const tokens = evidence?.meanReportedTokens == null ? '미측정' : `${Math.round(evidence.meanReportedTokens).toLocaleString()} · 표본 ${evidence.fullyReportedRuns}/${minimumEvidenceRuns}${evidence.fullyReportedRuns < minimumEvidenceRuns ? ' · 비교 보류' : ''}`;
+      const recoveries = evidence?.meanRunRecoveries == null ? '미측정' : `${evidence.meanRunRecoveries.toFixed(1)}회 · ${evidence.completionMeasuredRuns}회`;
+      const interventions = evidence?.humanInterventionMeasuredRuns
+        ? `재개 ${evidence.manualResumes}회 · 중지 ${evidence.stopRequests}회 · 완전 계측 ${evidence.fullyMeasuredInterventionRuns}회${Number.isFinite(evidence.observedActionRate) ? ` · 개입 발생 ${formatPercent(evidence.observedActionRate)}` : ' · 비교 표본 부족'}`
+        : '미측정';
+      const caveats = [];
+      const referenceEvidence = reference?.evidence;
+      if (Number.isFinite(candidate.remainingPercent) && candidate.remainingPercent <= 0) caveats.push('잔여 한도 없음 · 선택 불가');
+      if (evidence?.providerFailures) caveats.push(`연결 오류 ${evidence.providerFailures}회`);
+      if (evidence?.formatFailures) caveats.push(`응답 형식 오류 ${evidence.formatFailures}회`);
+      if (candidate !== reference?.model && evidence?.sufficientEvidence && referenceEvidence?.sufficientEvidence
+        && evidence.completionConfidenceLowerBound < referenceEvidence.completionConfidenceLowerBound) caveats.push('추천 후보보다 완료 신뢰 하한이 낮음');
+      if (candidate !== reference?.model && Number.isFinite(evidence?.verificationPassRate) && Number.isFinite(referenceEvidence?.verificationPassRate)
+        && evidence.verificationMeasuredRuns >= minimumEvidenceRuns && referenceEvidence.verificationMeasuredRuns >= minimumEvidenceRuns
+        && evidence.verificationPassRate < referenceEvidence.verificationPassRate) caveats.push('추천 후보보다 검증 통과율이 낮음');
+      if (candidate !== reference?.model && Number.isFinite(evidence?.browserQaPassRate) && Number.isFinite(referenceEvidence?.browserQaPassRate)
+        && evidence.browserQaRuns >= minimumEvidenceRuns && referenceEvidence.browserQaRuns >= minimumEvidenceRuns
+        && evidence.browserQaPassRate < referenceEvidence.browserQaPassRate) caveats.push('추천 후보보다 브라우저 QA 통과율이 낮음');
+      if (candidate !== reference?.model && Number.isFinite(evidence?.meanRunRecoveries) && Number.isFinite(referenceEvidence?.meanRunRecoveries)
+        && evidence.completionMeasuredRuns >= minimumEvidenceRuns && referenceEvidence.completionMeasuredRuns >= minimumEvidenceRuns
+        && evidence.meanRunRecoveries > referenceEvidence.meanRunRecoveries) caveats.push('추천 후보보다 평균 복구 횟수가 많음');
+      if (evidence?.fullyReportedRuns >= minimumEvidenceRuns && lowestTokenCandidate?.model !== candidate
+        && evidence.meanReportedTokens > lowestTokenCandidate?.evidence?.meanReportedTokens) caveats.push(`토큰 최저 후보 ${lowestTokenCandidate.model.label}보다 평균 사용량이 많음`);
+      if (evidence?.durationRuns >= minimumEvidenceRuns && fastestCandidate?.model !== candidate
+        && evidence.meanModelTimeMs > fastestCandidate?.evidence?.meanModelTimeMs) caveats.push(`가장 빠른 후보 ${fastestCandidate.model.label}보다 평균 응답 시간이 김`);
+      if (!evidence?.sufficientEvidence) caveats.push(`완료 표본 ${evidence?.completionMeasuredRuns || 0}/${minimumEvidenceRuns} · 성능상 약점 미확인`);
+      const caveatText = caveats.length ? caveats.join(' · ') : evidence?.sufficientEvidence ? '확인된 주요 주의점 없음' : '성능 기록 부족 · 우열을 판단할 수 없음';
+      const description = typeof candidate.description === 'string' ? candidate.description.slice(0, 220) : '';
+      return `<article class="harness-model-candidate${isRecommended ? ' recommended' : ''}">
+        <div class="harness-model-candidate-head"><div><strong>${escape(candidate.label)}</strong><span>${escape(candidate.source || candidate.provider)} · Effort ${escape(item.effort)}</span></div><div class="harness-model-badges">${isRecommended ? '<span class="recommendation-badge">추천</span>' : ''}${selected ? '<span class="recommendation-badge selected">직접 지정</span>' : automaticBase ? '<span class="recommendation-badge muted">자동 기본</span>' : ''}</div></div>
+        <p class="harness-model-strength"><strong>강점</strong> ${escape(strength)}${supported.length ? ` · 지원 Effort ${escape(supported.join(', '))}` : ''}${description ? `<span>${escape(description)}</span>` : ''}</p>
+        <dl class="harness-model-metrics"><div><dt>완료 안정성</dt><dd>${escape(completion)}</dd></div><div><dt>검증</dt><dd>${escape(verification)}</dd></div><div><dt>브라우저 QA</dt><dd>${escape(browserQa)}</dd></div><div><dt>모델 응답 시간</dt><dd>${escape(time)}</dd></div><div><dt>사용 토큰</dt><dd>${escape(tokens)}${evidence?.missingUsageCalls ? ` · 사용량 누락 ${evidence.missingUsageCalls}호출` : ''}</dd></div><div><dt>복구 횟수</dt><dd>${escape(recoveries)}</dd></div><div><dt>앱 내 수동 개입</dt><dd>${escape(interventions)}</dd></div></dl>
+        <p class="harness-model-caveat"><strong>주의점</strong> ${escape(caveatText)}</p>
+        <button type="button" class="text-button harness-model-select" data-model-compare-select="${role}" data-key="${escape(modelKey(candidate))}"${selected || (Number.isFinite(candidate.remainingPercent) && candidate.remainingPercent <= 0) ? ' disabled' : ''}>${selected ? '현재 직접 지정됨' : Number.isFinite(candidate.remainingPercent) && candidate.remainingPercent <= 0 ? '현재 한도 소진됨' : '이 모델로 직접 지정'}</button>
+      </article>`;
+    }).join('');
+    return `<div class="harness-recommendation"><strong>${recommendation ? `추천 기준 모델 · ${escape(recommendation.model.label || recommendation.model.id)}` : '사용 가능한 모델 없음'}</strong><p>${escape(explanation)}</p><small>추론 성능 자체는 공통 과제 벤치마크가 없어 점수화하지 않습니다. 강점과 지원 Effort는 연결에서 받은 모델 설명이며 실측 성능과 구분합니다. 개입 통계는 앱 안에서 측정한 재개·중지뿐이며 실제 사람 투입 시간은 측정하지 않습니다.</small></div>
+      <details class="harness-model-comparison"><summary>모델별 강점과 실측 비교 보기 · ${available.length}개</summary><div class="harness-model-candidate-list">${rows || '<p class="settings-footnote">이 역할에 사용할 수 있는 연결 모델이 없습니다.</p>'}</div></details>`;
+  }
   const choose = (role) => {
     const models = connected().filter((model) => role === 'judge' || !model.decisionOnly);
     if (config.roles[role].model) return models.find((model) => modelKey(model) === config.roles[role].model);
@@ -162,6 +290,8 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
       || '<option disabled>검색 결과 없음</option>';
   }
   function renderRoles() {
+    const task = currentTaskText();
+    const taskType = comparisonTaskType();
     fields.innerHTML = ROLES.map(([role, title]) => {
       const model = choose(role), supported = efforts(model);
       const unavailableEffort = config.roles[role].effort && !supported.includes(config.roles[role].effort);
@@ -191,7 +321,8 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
           ${unavailableEffort ? `<option selected value="${escape(config.roles[role].effort)}">${escape(config.roles[role].effort)} · 지원 확인 필요</option>` : ''}
           ${supported.map((value) => `<option value="${escape(value)}"${config.roles[role].effort === value ? ' selected' : ''}>${escape(value)}</option>`).join('')}</select></label>
         <div class="harness-role-summary"><strong>${!config.roles[role].model ? '기본 후보 · ' : ''}${model ? escape(model.label) : '사용 가능한 모델 없음'}</strong><span>${model ? escape(budgetLabel(model)) : '연결과 잔여 한도를 확인하세요.'}</span></div>
-        <div class="harness-measured">${(() => { const item = measuredModels.find((m) => m.role === role && m.provider === model?.provider && m.model === model?.id && m.effort === (config.roles[role].effort || resolveEffort(role, model) || 'default')); if (!item) return '실측 기록 축적 중 · 같은 작업 유형·역할·Effort로 비교'; const completionRuns = item.completionMeasuredRuns ?? 0; const switchedRoles = item.runs > completionRuns; const confidence = item.sufficientEvidence && Number.isFinite(item.completionConfidenceLowerBound) ? ` · 완료 신뢰 하한 ${Math.round(item.completionConfidenceLowerBound * 100)}% (95%)` : ''; return `${item.type} 실행 참여 ${item.runs}회 · 역할 단독 완료 ${item.completedRuns}/${completionRuns}${switchedRoles ? ' (역할 내 모델 전환 실행 제외)' : ''}${confidence} · QA ${item.browserQaPassedRuns}/${item.browserQaRuns} · 호출 토큰 ${item.reportedTokens.toLocaleString()}${item.missingUsageCalls ? ` (사용량 누락 ${item.missingUsageCalls}호출)` : ''}${item.humanInterventionMeasuredRuns ? ` · 개입 계측 ${item.humanInterventionMeasuredRuns}개 실행${item.partiallyMeasuredInterventionRuns ? ' (일부 기록)' : ''} · 수동 재개 ${item.manualResumes}회 · 중지 요청 ${item.stopRequests}회` : ''} · ${item.sufficientEvidence ? '선택 근거 제공' : '표본 축적 중'}`; })()}</div>
+        <div class="harness-measured">${(() => { const item = measuredModels.find((m) => m.type === taskType && m.role === role && m.provider === model?.provider && m.model === model?.id && m.effort === comparisonEffort(role, model, task)); if (!item) return '실측 기록 축적 중 · 같은 작업 유형·역할·Effort로 비교'; const completionRuns = item.completionMeasuredRuns ?? 0; const switchedRoles = item.runs > completionRuns; const confidence = item.sufficientEvidence && Number.isFinite(item.completionConfidenceLowerBound) ? ` · 완료 신뢰 하한 ${Math.round(item.completionConfidenceLowerBound * 100)}% (95%)` : ''; return `${item.type} 실행 참여 ${item.runs}회 · 역할 단독 완료 ${item.completedRuns}/${completionRuns}${switchedRoles ? ' (역할 내 모델 전환 실행 제외)' : ''}${confidence} · QA ${item.browserQaPassedRuns}/${item.browserQaRuns} · 호출 토큰 ${item.reportedTokens.toLocaleString()}${item.missingUsageCalls ? ` (사용량 누락 ${item.missingUsageCalls}호출)` : ''}${item.humanInterventionMeasuredRuns ? ` · 개입 계측 ${item.humanInterventionMeasuredRuns}개 실행${item.partiallyMeasuredInterventionRuns ? ' (일부 기록)' : ''} · 수동 재개 ${item.manualResumes}회 · 중지 요청 ${item.stopRequests}회` : ''} · ${item.sufficientEvidence ? '선택 근거 제공' : '표본 축적 중'}`; })()}</div>
+        ${renderModelComparison(role, task, taskType)}
         <small>${model ? `${escape(modelSelectionStrength(model) || effortLabel)} · ${escape(effortLabel)} · ${escape(roleGuidance[role])}` : '모델을 연결하거나 직접 선택해 주세요.'}</small>
         <div class="harness-agent-tools"><label><input type="checkbox" data-harness-native="${role}"${config.roles[role].nativePlugins ? ' checked' : ''}> 이 Agent의 Plugin·Skill·MCP 사용</label><label><input type="checkbox" data-harness-shared="${role}"${config.roles[role].loopMcp ? ' checked' : ''}> Loopline MCP 사용</label><small>Codex·Claude의 기존 연결을 사용합니다. API 모델은 Loopline MCP를 사용하며 Jev 판정에는 도구를 전달하지 않습니다.</small></div>
         <details class="harness-fallbacks" data-fallback-details="${role}"${expandedFallbacks.has(role) ? ' open' : ''}>
@@ -229,7 +360,7 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
   function open() {
     if (state.busy) return toast('실행이 끝난 뒤 구성을 변경해 주세요.');
     document.querySelector('#harnessAutoApply').checked = config.autoApply;
-    search.value = ''; ensureFallbackPriority(); renderPriorities(); renderRoles(); renderMcpTools(); modal.hidden = false; document.querySelector('#harnessClose').focus();
+    search.value = ''; evidenceTypeSelect.value = 'auto'; ensureFallbackPriority(); renderPriorities(); renderRoles(); renderMcpTools(); modal.hidden = false; document.querySelector('#harnessClose').focus();
     void refreshEvidence();
     if (typeof refreshMcpTools === 'function') void Promise.resolve(refreshMcpTools({ quiet: true })).then(renderMcpTools);
   }
@@ -260,6 +391,7 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
         }
       }
       measuredModels = Array.isArray(evidence.models) ? evidence.models : [];
+      minimumEvidenceRuns = Number.isSafeInteger(evidence.minimumRuns) && evidence.minimumRuns > 0 ? evidence.minimumRuns : 3;
       renderEvidenceDiagnostics(evidence.evidenceDiagnostics);
       renderRoles();
       hasLoadedEvidence = true;
@@ -280,6 +412,7 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
   function close() { modal.hidden = true; document.querySelector('#harnessConfigure').focus(); }
   evidenceRefresh.addEventListener('click', () => refreshEvidence({ notifyFailure: true }));
   search.addEventListener('input', renderRoles);
+  evidenceTypeSelect.addEventListener('change', renderRoles);
   fields.addEventListener('toggle', (event) => {
     const role = event.target.dataset.fallbackDetails;
     if (role) event.target.open ? expandedFallbacks.add(role) : expandedFallbacks.delete(role);
@@ -348,6 +481,16 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
     save(); renderRoles();
   });
   fields.addEventListener('click', (event) => {
+    const modelChoice = event.target.closest('[data-model-compare-select]');
+    if (modelChoice) {
+      const role = modelChoice.dataset.modelCompareSelect;
+      const candidate = modelByKey(modelChoice.dataset.key);
+      if (!config.roles[role] || !candidate || (role !== 'judge' && candidate.decisionOnly)) return;
+      config.roles[role].model = modelKey(candidate);
+      config.roles[role].effort = '';
+      save(); renderRoles();
+      return;
+    }
     const add = event.target.closest('[data-fallback-add]');
     const move = event.target.closest('[data-fallback-move]');
     const remove = event.target.closest('[data-fallback-remove]');

@@ -10,6 +10,13 @@ export const LOOP_PRIORITY_DIMENSIONS = Object.freeze([
 export const DEFAULT_LOOP_PRIORITIES = Object.freeze(LOOP_PRIORITY_DIMENSIONS.map(({ id }) => id));
 const EFFORT_ORDER = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'];
 
+export function classifyEvidenceTaskType(task) {
+  if (/(?:\bCLI\b|command.line|명령줄)/i.test(task)) return 'cli';
+  if (/(?:website|web\s*(?:app|page|site)|dashboard|front.end|\bUI\b|웹|화면|디자인)/i.test(task)) return 'web';
+  if (/(?:API|backend|server|서버|백엔드)/i.test(task)) return 'backend';
+  return 'general';
+}
+
 export function normalizeLoopPriorities(value) {
   const allowed = new Set(DEFAULT_LOOP_PRIORITIES);
   const requested = Array.isArray(value) ? value.filter((id) => allowed.has(id)) : [];
@@ -77,4 +84,68 @@ export function selectAutomaticLoopModel(role, models, getKey, { currentModelKey
       || available[0];
   }
   return worker || available[0];
+}
+
+function hasSamples(item, countField, valueField, minimumRuns) {
+  return Number.isSafeInteger(item?.evidence?.[countField])
+    && item.evidence[countField] >= minimumRuns
+    && Number.isFinite(item.evidence[valueField]);
+}
+
+function comparableMetric(items, minimumRuns, countField, valueField, direction, label) {
+  if (!items.every((item) => hasSamples(item, countField, valueField, minimumRuns))) return null;
+  return { value: (item) => item.evidence[valueField], direction, label };
+}
+
+export function rankLoopModelCandidates(candidates, priorities = DEFAULT_LOOP_PRIORITIES, {
+  minimumRuns = 3,
+  taskType = 'general',
+} = {}) {
+  const available = (Array.isArray(candidates) ? candidates : []).filter((item) => item?.model?.connected
+    && !(Number.isFinite(item.model.remainingPercent) && item.model.remainingPercent <= 0));
+  const measured = available.filter((item) => item.evidence?.sufficientEvidence === true
+    && Number.isFinite(item.evidence.completionConfidenceLowerBound));
+  const metrics = [];
+
+  if (measured.length > 1) {
+    const orderedPriorities = normalizeLoopPriorities(priorities);
+    for (const priority of orderedPriorities) {
+      if (priority === 'quality') {
+        const verification = comparableMetric(measured, minimumRuns, 'verificationMeasuredRuns', 'verificationPassRate', 'desc', '검증 통과율');
+        if (verification) metrics.push(verification);
+        if (taskType === 'web') {
+          const browserQa = comparableMetric(measured, minimumRuns, 'browserQaRuns', 'browserQaPassRate', 'desc', '브라우저 QA');
+          if (browserQa) metrics.push(browserQa);
+        }
+        const recoveries = comparableMetric(measured, minimumRuns, 'completionMeasuredRuns', 'meanRunRecoveries', 'asc', '평균 복구 횟수');
+        if (recoveries) metrics.push(recoveries);
+      } else if (priority === 'tokenEfficiency') {
+        const tokens = comparableMetric(measured, minimumRuns, 'fullyReportedRuns', 'meanReportedTokens', 'asc', '평균 토큰');
+        if (tokens) metrics.push(tokens);
+      } else if (priority === 'speed') {
+        const duration = comparableMetric(measured, minimumRuns, 'durationRuns', 'meanModelTimeMs', 'asc', '평균 모델 시간');
+        if (duration) metrics.push(duration);
+      }
+      // No common, independent reasoning benchmark is collected. Catalog claims
+      // and supported Effort options are shown as capabilities, never scores.
+    }
+  }
+
+  const ranked = [...measured].sort((left, right) => {
+    const completion = right.evidence.completionConfidenceLowerBound - left.evidence.completionConfidenceLowerBound;
+    if (completion) return completion;
+    for (const metric of metrics) {
+      const delta = metric.value(left) - metric.value(right);
+      if (delta) return metric.direction === 'desc' ? -delta : delta;
+    }
+    return available.indexOf(left) - available.indexOf(right);
+  });
+  return {
+    available,
+    measured: ranked,
+    recommended: ranked[0] || null,
+    mode: ranked.length > 1 ? 'measured' : ranked.length === 1 ? 'single-measured' : 'provisional',
+    comparableMetrics: metrics.map(({ label }) => label),
+    minimumRuns,
+  };
 }

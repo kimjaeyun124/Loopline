@@ -81,13 +81,18 @@ export class HarnessEvidence {
       for (const [key, calls] of grouped) {
         if (!groups.has(key)) groups.set(key, { type: run.type, role: calls[0].role, provider: calls[0].provider, model: calls[0].model, effort: calls[0].effort,
           runs: 0, completedRuns: 0, verifiedRuns: 0, browserQaRuns: 0, browserQaPassedRuns: 0, calls: 0, successfulCalls: 0, missingUsageCalls: 0, reportedTokens: 0, providerFailures: 0, formatFailures: 0,
-          humanInterventionMeasuredRuns: 0, partiallyMeasuredInterventionRuns: 0, runsWithManualResume: 0, manualResumes: 0, runsWithStopRequest: 0, stopRequests: 0,
+          humanInterventionMeasuredRuns: 0, partiallyMeasuredInterventionRuns: 0, fullyMeasuredInterventionRuns: 0, fullyMeasuredRunsWithObservedActions: 0,
+          runsWithObservedActions: 0, runsWithManualResume: 0, manualResumes: 0, runsWithStopRequest: 0, stopRequests: 0,
           durations: [], tokenSamples: [], recoverySamples: [] });
         const group = groups.get(key);
         const intervention = run.humanIntervention?.measurement === 'observed-actions' ? run.humanIntervention : null;
         if (intervention) {
+          const hasObservedActions = intervention.manualResumes > 0 || intervention.stopRequests > 0;
           group.humanInterventionMeasuredRuns++;
           group.partiallyMeasuredInterventionRuns += Number(intervention.coverage !== 'full-run');
+          group.fullyMeasuredInterventionRuns += Number(intervention.coverage === 'full-run');
+          group.fullyMeasuredRunsWithObservedActions += Number(intervention.coverage === 'full-run' && hasObservedActions);
+          group.runsWithObservedActions += Number(hasObservedActions);
           group.runsWithManualResume += Number(intervention.manualResumes > 0);
           group.manualResumes += intervention.manualResumes;
           group.runsWithStopRequest += Number(intervention.stopRequests > 0);
@@ -111,8 +116,12 @@ export class HarnessEvidence {
     return { minimumRuns: MIN_RUNS, recordedRuns: performanceRecords.length, humanIntervention,
       attribution: '혼합 모델 실행의 관찰값입니다. 단독 모델의 인과적 성능으로 해석하지 않습니다. 사람 개입은 앱 내 수동 재개·중지 동작만 측정하며 실제 사람 투입 시간과 앱 밖의 수정은 포함하지 않습니다.', models: [...groups.entries()].map(([key, group]) => {
       const { durations, tokenSamples, recoverySamples, ...metrics } = group;
+      const observedActionRate = group.fullyMeasuredInterventionRuns >= MIN_RUNS
+        ? group.fullyMeasuredRunsWithObservedActions / group.fullyMeasuredInterventionRuns : null;
       return { key, ...metrics, sufficientEvidence: group.runs >= MIN_RUNS,
         completionRate: group.runs ? group.completedRuns / group.runs : null, browserQaPassRate: group.browserQaRuns ? group.browserQaPassedRuns / group.browserQaRuns : null,
+        verificationPassRate: group.runs ? group.verifiedRuns / group.runs : null,
+        observedActionRate, humanInterventionSufficientEvidence: observedActionRate !== null,
         meanModelTimeMs: average(durations), meanReportedTokens: average(tokenSamples), fullyReportedRuns: tokenSamples.length, meanRunRecoveries: average(recoverySamples) };
     }) };
   }

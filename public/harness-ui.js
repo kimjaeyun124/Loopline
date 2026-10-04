@@ -6,6 +6,11 @@ const DONE = new Set(['completed', 'reviewed', 'failed', 'stopped', 'limit', 'bl
 const ROLES = [['planner', '계획 / Planning'], ['worker', '구현 / Implementation'], ['judge', '판정 / Review']];
 const MAX_FALLBACKS = 8;
 const MAX_LOOP_MCP_TOOLS = 64;
+const EVIDENCE_REASON_LABELS = new Map([
+  ['invalid-shape', '기록 구조'], ['unsupported-version', '지원 버전'], ['id-mismatch', '파일 ID'],
+  ['invalid-metadata', '실행 정보'], ['invalid-recoveries', '복구 횟수'], ['invalid-calls', '호출 목록'],
+  ['invalid-call', '호출 데이터'], ['invalid-human-intervention', '개입 정보'],
+]);
 const escape = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 export function createHarnessUI({ state, catalog, modelKey, currentKey, getProject, saveProjects, saveConversations, render, toast, instructions, onComplete, getMcpTools = () => [], refreshMcpTools = null }) {
@@ -34,13 +39,21 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
   let measuredModels = [];
   let activeRunId = null, watching = false, starting = false, stopRequested = false;
   function renderEvidenceDiagnostics(diagnostics) {
-    const invalidReasons = diagnostics?.invalidRecordReasons || {};
-    const invalidRecords = Object.values(invalidReasons).reduce((total, count) => total + (Number.isSafeInteger(count) && count > 0 ? count : 0), 0);
+    const invalidReasons = diagnostics?.invalidRecordReasons && typeof diagnostics.invalidRecordReasons === 'object' && !Array.isArray(diagnostics.invalidRecordReasons)
+      ? diagnostics.invalidRecordReasons : {};
+    const reasonCounts = new Map();
+    for (const [reason, count] of Object.entries(invalidReasons)) {
+      if (!Number.isSafeInteger(count) || count <= 0) continue;
+      const label = EVIDENCE_REASON_LABELS.get(reason) || '기타 형식 오류';
+      reasonCounts.set(label, (reasonCounts.get(label) || 0) + count);
+    }
+    const invalidRecords = [...reasonCounts.values()].reduce((total, count) => total + count, 0);
+    const invalidReasonSummary = [...reasonCounts].map(([label, count]) => `${label} ${count}개`).join(', ');
     const malformedJsonRecords = Number.isSafeInteger(diagnostics?.malformedJsonRecords) ? diagnostics.malformedJsonRecords : 0;
     const unreadableRecords = Number.isSafeInteger(diagnostics?.unreadableRecords) ? diagnostics.unreadableRecords : 0;
     const total = invalidRecords + malformedJsonRecords + unreadableRecords;
     evidenceNotice.hidden = total === 0;
-    evidenceNotice.textContent = total === 0 ? '' : `실측 기록 ${total}개를 모델 선택 통계에서 제외했습니다 · JSON 오류 ${malformedJsonRecords}개 · 형식 오류 ${invalidRecords}개 · 읽기 오류 ${unreadableRecords}개`;
+    evidenceNotice.textContent = total === 0 ? '' : `실측 기록 ${total}개를 모델 선택 통계에서 제외했습니다 · JSON 오류 ${malformedJsonRecords}개 · 형식 오류 ${invalidRecords}개${invalidReasonSummary ? ` (${invalidReasonSummary})` : ''} · 읽기 오류 ${unreadableRecords}개`;
   }
   const save = () => {
     try {

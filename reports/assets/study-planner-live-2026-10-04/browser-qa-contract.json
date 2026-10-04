@@ -1,0 +1,1607 @@
+{
+  "entry": "index.html",
+  "checks": [
+    {
+      "id": "first-run-empty-state",
+      "categories": [
+        "empty"
+      ],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "text",
+          "selector": "h1#page-title",
+          "value": "Study Planner"
+        },
+        {
+          "action": "visible",
+          "selector": "form#task-form"
+        },
+        {
+          "action": "text",
+          "selector": "button#add-task[type=\"submit\"]",
+          "value": "Add task"
+        },
+        {
+          "action": "count",
+          "selector": "ul#task-list",
+          "value": 1
+        },
+        {
+          "action": "count",
+          "selector": "ul#task-list > li.task-item",
+          "value": 0
+        },
+        {
+          "action": "text",
+          "selector": "#empty-state",
+          "value": "No study tasks yet. Add your first task to start planning."
+        },
+        {
+          "action": "hidden",
+          "selector": "#no-results-state"
+        },
+        {
+          "action": "text",
+          "selector": "#total-count",
+          "value": "0"
+        },
+        {
+          "action": "text",
+          "selector": "#active-count",
+          "value": "0"
+        },
+        {
+          "action": "text",
+          "selector": "#completed-count",
+          "value": "0"
+        },
+        {
+          "action": "text",
+          "selector": "#completion-percentage",
+          "value": "0%"
+        },
+        {
+          "action": "visible",
+          "selector": "progress#completion-progress[value=\"0\"][max=\"100\"][aria-labelledby=\"completion-label\"]"
+        },
+        {
+          "action": "text",
+          "selector": "#completion-label",
+          "value": "Study completion"
+        },
+        {
+          "action": "text",
+          "selector": "#usage-instructions",
+          "value": "Enter a title, subject, and minutes. Press Enter to add. Use checkboxes to complete or undo, Delete to remove, and filters or search to find tasks. Tasks are saved in this browser."
+        },
+        {
+          "action": "count",
+          "selector": "#status-message[role=\"status\"][aria-live=\"polite\"][aria-atomic=\"true\"]",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "id": "required-fields-validation",
+      "categories": [
+        "input",
+        "empty"
+      ],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-title",
+          "value": "   "
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-subject",
+          "value": "   "
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-minutes",
+          "value": ""
+        },
+        {
+          "action": "click",
+          "selector": "button#add-task[type=\"submit\"]"
+        },
+        {
+          "action": "text",
+          "selector": "#title-error",
+          "value": "Enter a task title."
+        },
+        {
+          "action": "text",
+          "selector": "#subject-error",
+          "value": "Enter a subject."
+        },
+        {
+          "action": "text",
+          "selector": "#minutes-error",
+          "value": "Enter a positive whole number of minutes."
+        },
+        {
+          "action": "focused",
+          "selector": "input#task-title"
+        },
+        {
+          "action": "count",
+          "selector": "input#task-title[aria-invalid=\"true\"][aria-describedby~=\"title-error\"]",
+          "value": 1
+        },
+        {
+          "action": "count",
+          "selector": "input#task-subject[aria-invalid=\"true\"][aria-describedby~=\"subject-error\"]",
+          "value": 1
+        },
+        {
+          "action": "count",
+          "selector": "input#task-minutes[aria-invalid=\"true\"][aria-describedby~=\"minutes-error\"]",
+          "value": 1
+        },
+        {
+          "action": "count",
+          "selector": "ul#task-list > li.task-item",
+          "value": 0
+        },
+        {
+          "action": "visible",
+          "selector": "#empty-state"
+        }
+      ]
+    },
+    {
+      "id": "reject-invalid-minutes",
+      "categories": [
+        "input"
+      ],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-title",
+          "value": "Read chapter 3"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-subject",
+          "value": "History"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-minutes",
+          "value": "0"
+        },
+        {
+          "action": "click",
+          "selector": "button#add-task"
+        },
+        {
+          "action": "text",
+          "selector": "#minutes-error",
+          "value": "Enter a positive whole number of minutes."
+        },
+        {
+          "action": "focused",
+          "selector": "input#task-minutes"
+        },
+        {
+          "action": "count",
+          "selector": "ul#task-list > li.task-item",
+          "value": 0
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-minutes",
+          "value": "-10"
+        },
+        {
+          "action": "click",
+          "selector": "button#add-task"
+        },
+        {
+          "action": "text",
+          "selector": "#minutes-error",
+          "value": "Enter a positive whole number of minutes."
+        },
+        {
+          "action": "count",
+          "selector": "ul#task-list > li.task-item",
+          "value": 0
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-minutes",
+          "value": "1.5"
+        },
+        {
+          "action": "click",
+          "selector": "button#add-task"
+        },
+        {
+          "action": "text",
+          "selector": "#minutes-error",
+          "value": "Enter a positive whole number of minutes."
+        },
+        {
+          "action": "count",
+          "selector": "ul#task-list > li.task-item",
+          "value": 0
+        },
+        {
+          "action": "text",
+          "selector": "#total-count",
+          "value": "0"
+        },
+        {
+          "action": "visible",
+          "selector": "#empty-state"
+        }
+      ]
+    },
+    {
+      "id": "keyboard-enter-adds-one-trimmed-task",
+      "categories": [
+        "input",
+        "keyboard"
+      ],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "text",
+          "selector": "label[for=\"task-title\"]",
+          "value": "Task title"
+        },
+        {
+          "action": "text",
+          "selector": "label[for=\"task-subject\"]",
+          "value": "Subject"
+        },
+        {
+          "action": "text",
+          "selector": "label[for=\"task-minutes\"]",
+          "value": "Estimated minutes"
+        },
+        {
+          "action": "press",
+          "key": "Tab"
+        },
+        {
+          "action": "focus-visible",
+          "selector": "input#task-title"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-title",
+          "value": "  Algebra review  "
+        },
+        {
+          "action": "press",
+          "key": "Tab"
+        },
+        {
+          "action": "focused",
+          "selector": "input#task-subject"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-subject",
+          "value": "  Mathematics  "
+        },
+        {
+          "action": "press",
+          "key": "Tab"
+        },
+        {
+          "action": "focused",
+          "selector": "input#task-minutes"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-minutes",
+          "value": "45"
+        },
+        {
+          "action": "press",
+          "key": "Enter"
+        },
+        {
+          "action": "count",
+          "selector": "ul#task-list > li.task-item",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": "#task-list .task-title",
+          "value": "Algebra review"
+        },
+        {
+          "action": "text",
+          "selector": "#task-list .task-subject",
+          "value": "Mathematics"
+        },
+        {
+          "action": "text",
+          "selector": "#task-list .task-minutes",
+          "value": "45 min"
+        },
+        {
+          "action": "hidden",
+          "selector": "#empty-state"
+        },
+        {
+          "action": "text",
+          "selector": "#status-message[role=\"status\"][aria-live=\"polite\"]",
+          "value": "Task added."
+        },
+        {
+          "action": "count",
+          "selector": "#task-list input.task-toggle[type=\"checkbox\"][aria-label=\"Mark Algebra review complete\"]:not(:checked)",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "id": "keyboard-complete-updates-summary",
+      "categories": [
+        "keyboard"
+      ],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-title",
+          "value": "Practice equations"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-subject",
+          "value": "Mathematics"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-minutes",
+          "value": "25"
+        },
+        {
+          "action": "click",
+          "selector": "button#add-task"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-search[type=\"search\"]",
+          "value": ""
+        },
+        {
+          "action": "press",
+          "key": "Tab"
+        },
+        {
+          "action": "focus-visible",
+          "selector": "#task-list input.task-toggle[type=\"checkbox\"][aria-label=\"Mark Practice equations complete\"]"
+        },
+        {
+          "action": "press",
+          "key": "Space"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list input.task-toggle[type=\"checkbox\"][aria-label=\"Mark Practice equations active\"]:checked",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": "#task-list .task-state",
+          "value": "Completed"
+        },
+        {
+          "action": "text",
+          "selector": "#total-count",
+          "value": "1"
+        },
+        {
+          "action": "text",
+          "selector": "#active-count",
+          "value": "0"
+        },
+        {
+          "action": "text",
+          "selector": "#completed-count",
+          "value": "1"
+        },
+        {
+          "action": "text",
+          "selector": "#completion-percentage",
+          "value": "100%"
+        },
+        {
+          "action": "visible",
+          "selector": "progress#completion-progress[value=\"100\"][max=\"100\"]"
+        },
+        {
+          "action": "text",
+          "selector": "#status-message[role=\"status\"][aria-live=\"polite\"]",
+          "value": "Task completed."
+        },
+        {
+          "action": "focused",
+          "selector": "#task-list input.task-toggle[aria-label=\"Mark Practice equations active\"]"
+        }
+      ]
+    },
+    {
+      "id": "keyboard-undo-persists",
+      "categories": [
+        "keyboard",
+        "save"
+      ],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-title",
+          "value": "Review vocabulary"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-subject",
+          "value": "Language"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-minutes",
+          "value": "20"
+        },
+        {
+          "action": "click",
+          "selector": "button#add-task"
+        },
+        {
+          "action": "click",
+          "selector": "#task-list input.task-toggle[aria-label=\"Mark Review vocabulary complete\"]"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list input.task-toggle:checked",
+          "value": 1
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-search",
+          "value": ""
+        },
+        {
+          "action": "press",
+          "key": "Tab"
+        },
+        {
+          "action": "focus-visible",
+          "selector": "#task-list input.task-toggle[type=\"checkbox\"][aria-label=\"Mark Review vocabulary active\"]"
+        },
+        {
+          "action": "press",
+          "key": "Space"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list input.task-toggle[aria-label=\"Mark Review vocabulary complete\"]:not(:checked)",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": "#task-list .task-state",
+          "value": "Active"
+        },
+        {
+          "action": "text",
+          "selector": "#status-message[role=\"status\"][aria-live=\"polite\"]",
+          "value": "Task marked active."
+        },
+        {
+          "action": "reload"
+        },
+        {
+          "action": "count",
+          "selector": "ul#task-list > li.task-item",
+          "value": 1
+        },
+        {
+          "action": "count",
+          "selector": "#task-list input.task-toggle[aria-label=\"Mark Review vocabulary complete\"]:not(:checked)",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": "#active-count",
+          "value": "1"
+        },
+        {
+          "action": "text",
+          "selector": "#completed-count",
+          "value": "0"
+        },
+        {
+          "action": "text",
+          "selector": "#completion-percentage",
+          "value": "0%"
+        }
+      ]
+    },
+    {
+      "id": "keyboard-delete-last-task-persists",
+      "categories": [
+        "keyboard",
+        "save",
+        "empty"
+      ],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-title",
+          "value": "Sketch a timeline"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-subject",
+          "value": "History"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-minutes",
+          "value": "15"
+        },
+        {
+          "action": "click",
+          "selector": "button#add-task"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-search",
+          "value": ""
+        },
+        {
+          "action": "press",
+          "key": "Tab"
+        },
+        {
+          "action": "focused",
+          "selector": "#task-list input.task-toggle[aria-label=\"Mark Sketch a timeline complete\"]"
+        },
+        {
+          "action": "press",
+          "key": "Tab"
+        },
+        {
+          "action": "focus-visible",
+          "selector": "#task-list button.task-delete[type=\"button\"][aria-label=\"Delete Sketch a timeline\"]"
+        },
+        {
+          "action": "press",
+          "key": "Enter"
+        },
+        {
+          "action": "count",
+          "selector": "ul#task-list > li.task-item",
+          "value": 0
+        },
+        {
+          "action": "visible",
+          "selector": "#empty-state"
+        },
+        {
+          "action": "focused",
+          "selector": "#empty-state[tabindex=\"-1\"]"
+        },
+        {
+          "action": "text",
+          "selector": "#status-message[role=\"status\"][aria-live=\"polite\"]",
+          "value": "Task deleted."
+        },
+        {
+          "action": "text",
+          "selector": "#total-count",
+          "value": "0"
+        },
+        {
+          "action": "reload"
+        },
+        {
+          "action": "count",
+          "selector": "ul#task-list > li.task-item",
+          "value": 0
+        },
+        {
+          "action": "visible",
+          "selector": "#empty-state"
+        },
+        {
+          "action": "text",
+          "selector": "#total-count",
+          "value": "0"
+        },
+        {
+          "action": "text",
+          "selector": "#active-count",
+          "value": "0"
+        },
+        {
+          "action": "text",
+          "selector": "#completed-count",
+          "value": "0"
+        },
+        {
+          "action": "text",
+          "selector": "#completion-percentage",
+          "value": "0%"
+        }
+      ]
+    },
+    {
+      "id": "delete-completed-task-preserves-focus",
+      "categories": [],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-title",
+          "value": "Delete this task"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-subject",
+          "value": "Mathematics"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-minutes",
+          "value": "10"
+        },
+        {
+          "action": "click",
+          "selector": "button#add-task"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-title",
+          "value": "Keep this task"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-subject",
+          "value": "Biology"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-minutes",
+          "value": "20"
+        },
+        {
+          "action": "click",
+          "selector": "button#add-task"
+        },
+        {
+          "action": "click",
+          "selector": "#task-list input.task-toggle[aria-label=\"Mark Delete this task complete\"]"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list input.task-toggle:checked",
+          "value": 1
+        },
+        {
+          "action": "click",
+          "selector": "#task-list button.task-delete[aria-label=\"Delete Delete this task\"]"
+        },
+        {
+          "action": "count",
+          "selector": "ul#task-list > li.task-item",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": "#task-list .task-title",
+          "value": "Keep this task"
+        },
+        {
+          "action": "focused",
+          "selector": "#task-list input.task-toggle[aria-label=\"Mark Keep this task complete\"]"
+        },
+        {
+          "action": "text",
+          "selector": "#total-count",
+          "value": "1"
+        },
+        {
+          "action": "text",
+          "selector": "#active-count",
+          "value": "1"
+        },
+        {
+          "action": "text",
+          "selector": "#completed-count",
+          "value": "0"
+        },
+        {
+          "action": "text",
+          "selector": "#completion-percentage",
+          "value": "0%"
+        },
+        {
+          "action": "hidden",
+          "selector": "#empty-state"
+        },
+        {
+          "action": "text",
+          "selector": "#status-message[role=\"status\"][aria-live=\"polite\"]",
+          "value": "Task deleted."
+        }
+      ]
+    },
+    {
+      "id": "all-active-completed-filters",
+      "categories": [],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-title",
+          "value": "Read biology"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-subject",
+          "value": "Science"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-minutes",
+          "value": "30"
+        },
+        {
+          "action": "click",
+          "selector": "button#add-task"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-title",
+          "value": "Practice algebra"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-subject",
+          "value": "Mathematics"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-minutes",
+          "value": "20"
+        },
+        {
+          "action": "click",
+          "selector": "button#add-task"
+        },
+        {
+          "action": "click",
+          "selector": "#task-list input.task-toggle[aria-label=\"Mark Read biology complete\"]"
+        },
+        {
+          "action": "click",
+          "selector": "button#filter-active"
+        },
+        {
+          "action": "text",
+          "selector": "button#filter-active[aria-pressed=\"true\"]",
+          "value": "Active"
+        },
+        {
+          "action": "count",
+          "selector": "ul#task-list > li.task-item",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": "#task-list .task-title",
+          "value": "Practice algebra"
+        },
+        {
+          "action": "text",
+          "selector": "#total-count",
+          "value": "2"
+        },
+        {
+          "action": "text",
+          "selector": "#completed-count",
+          "value": "1"
+        },
+        {
+          "action": "click",
+          "selector": "button#filter-completed"
+        },
+        {
+          "action": "text",
+          "selector": "button#filter-completed[aria-pressed=\"true\"]",
+          "value": "Completed"
+        },
+        {
+          "action": "count",
+          "selector": "ul#task-list > li.task-item",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": "#task-list .task-title",
+          "value": "Read biology"
+        },
+        {
+          "action": "text",
+          "selector": "#active-count",
+          "value": "1"
+        },
+        {
+          "action": "click",
+          "selector": "button#filter-all"
+        },
+        {
+          "action": "text",
+          "selector": "button#filter-all[aria-pressed=\"true\"]",
+          "value": "All"
+        },
+        {
+          "action": "count",
+          "selector": "ul#task-list > li.task-item",
+          "value": 2
+        }
+      ]
+    },
+    {
+      "id": "case-insensitive-title-subject-search",
+      "categories": [
+        "input"
+      ],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-title",
+          "value": "Algebra practice"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-subject",
+          "value": "Mathematics"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-minutes",
+          "value": "25"
+        },
+        {
+          "action": "click",
+          "selector": "button#add-task"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-title",
+          "value": "Cell division"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-subject",
+          "value": "Biology"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-minutes",
+          "value": "30"
+        },
+        {
+          "action": "click",
+          "selector": "button#add-task"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-search[type=\"search\"]",
+          "value": "aLgEbRa"
+        },
+        {
+          "action": "count",
+          "selector": "ul#task-list > li.task-item",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": "#task-list .task-title",
+          "value": "Algebra practice"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-search",
+          "value": "bIoLoGy"
+        },
+        {
+          "action": "count",
+          "selector": "ul#task-list > li.task-item",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": "#task-list .task-title",
+          "value": "Cell division"
+        },
+        {
+          "action": "focused",
+          "selector": "input#task-search"
+        },
+        {
+          "action": "text",
+          "selector": "#total-count",
+          "value": "2"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-search",
+          "value": ""
+        },
+        {
+          "action": "count",
+          "selector": "ul#task-list > li.task-item",
+          "value": 2
+        },
+        {
+          "action": "hidden",
+          "selector": "#no-results-state"
+        },
+        {
+          "action": "text",
+          "selector": "#status-message[role=\"status\"][aria-live=\"polite\"]",
+          "value": "Showing 2 of 2 tasks."
+        }
+      ]
+    },
+    {
+      "id": "combined-search-filter-empty-results",
+      "categories": [
+        "input",
+        "empty"
+      ],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-title",
+          "value": "Algebra notes"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-subject",
+          "value": "Mathematics"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-minutes",
+          "value": "20"
+        },
+        {
+          "action": "click",
+          "selector": "button#add-task"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-title",
+          "value": "Biology notes"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-subject",
+          "value": "Biology"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-minutes",
+          "value": "25"
+        },
+        {
+          "action": "click",
+          "selector": "button#add-task"
+        },
+        {
+          "action": "click",
+          "selector": "#task-list input.task-toggle[aria-label=\"Mark Algebra notes complete\"]"
+        },
+        {
+          "action": "click",
+          "selector": "button#filter-active"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-search",
+          "value": "aLgEbRa"
+        },
+        {
+          "action": "count",
+          "selector": "ul#task-list > li.task-item",
+          "value": 0
+        },
+        {
+          "action": "text",
+          "selector": "#no-results-state",
+          "value": "No tasks match your search and filter."
+        },
+        {
+          "action": "hidden",
+          "selector": "#empty-state"
+        },
+        {
+          "action": "text",
+          "selector": "#total-count",
+          "value": "2"
+        },
+        {
+          "action": "text",
+          "selector": "#completed-count",
+          "value": "1"
+        },
+        {
+          "action": "text",
+          "selector": "#completion-percentage",
+          "value": "50%"
+        },
+        {
+          "action": "click",
+          "selector": "button#filter-completed"
+        },
+        {
+          "action": "count",
+          "selector": "ul#task-list > li.task-item",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": "#task-list .task-title",
+          "value": "Algebra notes"
+        },
+        {
+          "action": "hidden",
+          "selector": "#no-results-state"
+        },
+        {
+          "action": "value",
+          "selector": "input#task-search",
+          "value": "aLgEbRa"
+        },
+        {
+          "action": "text",
+          "selector": "#status-message[role=\"status\"][aria-live=\"polite\"]",
+          "value": "Showing 1 of 2 tasks."
+        }
+      ]
+    },
+    {
+      "id": "reload-restores-task-fields-and-completion",
+      "categories": [
+        "save"
+      ],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-title",
+          "value": "Read chapter 4"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-subject",
+          "value": "History"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-minutes",
+          "value": "35"
+        },
+        {
+          "action": "click",
+          "selector": "button#add-task"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-title",
+          "value": "Practice scales"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-subject",
+          "value": "Music"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-minutes",
+          "value": "15"
+        },
+        {
+          "action": "click",
+          "selector": "button#add-task"
+        },
+        {
+          "action": "click",
+          "selector": "#task-list input.task-toggle[aria-label=\"Mark Read chapter 4 complete\"]"
+        },
+        {
+          "action": "reload"
+        },
+        {
+          "action": "count",
+          "selector": "ul#task-list > li.task-item",
+          "value": 2
+        },
+        {
+          "action": "count",
+          "selector": "#task-list input.task-toggle[type=\"checkbox\"][aria-label=\"Mark Read chapter 4 active\"]:checked",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": "#task-list > li.task-item:has(input.task-toggle[aria-label=\"Mark Read chapter 4 active\"]) .task-title",
+          "value": "Read chapter 4"
+        },
+        {
+          "action": "text",
+          "selector": "#task-list > li.task-item:has(input.task-toggle[aria-label=\"Mark Read chapter 4 active\"]) .task-subject",
+          "value": "History"
+        },
+        {
+          "action": "text",
+          "selector": "#task-list > li.task-item:has(input.task-toggle[aria-label=\"Mark Read chapter 4 active\"]) .task-minutes",
+          "value": "35 min"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list input.task-toggle[type=\"checkbox\"][aria-label=\"Mark Practice scales complete\"]:not(:checked)",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": "#task-list > li.task-item:has(input.task-toggle[aria-label=\"Mark Practice scales complete\"]) .task-title",
+          "value": "Practice scales"
+        },
+        {
+          "action": "text",
+          "selector": "#task-list > li.task-item:has(input.task-toggle[aria-label=\"Mark Practice scales complete\"]) .task-subject",
+          "value": "Music"
+        },
+        {
+          "action": "text",
+          "selector": "#task-list > li.task-item:has(input.task-toggle[aria-label=\"Mark Practice scales complete\"]) .task-minutes",
+          "value": "15 min"
+        },
+        {
+          "action": "text",
+          "selector": "#total-count",
+          "value": "2"
+        },
+        {
+          "action": "text",
+          "selector": "#active-count",
+          "value": "1"
+        },
+        {
+          "action": "text",
+          "selector": "#completed-count",
+          "value": "1"
+        },
+        {
+          "action": "visible",
+          "selector": "progress#completion-progress[value=\"50\"][max=\"100\"][aria-labelledby=\"completion-label\"]"
+        }
+      ]
+    },
+    {
+      "id": "keyboard-toolbar-focus-and-selection",
+      "categories": [
+        "keyboard",
+        "input"
+      ],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "click",
+          "selector": "button#filter-completed"
+        },
+        {
+          "action": "click",
+          "selector": "input#task-minutes"
+        },
+        {
+          "action": "press",
+          "key": "Tab"
+        },
+        {
+          "action": "focus-visible",
+          "selector": "button#add-task[type=\"submit\"]"
+        },
+        {
+          "action": "press",
+          "key": "Tab"
+        },
+        {
+          "action": "focus-visible",
+          "selector": "button#filter-all"
+        },
+        {
+          "action": "press",
+          "key": "Enter"
+        },
+        {
+          "action": "visible",
+          "selector": "button#filter-all[aria-pressed=\"true\"]"
+        },
+        {
+          "action": "press",
+          "key": "Tab"
+        },
+        {
+          "action": "focus-visible",
+          "selector": "button#filter-active"
+        },
+        {
+          "action": "press",
+          "key": "Space"
+        },
+        {
+          "action": "visible",
+          "selector": "button#filter-active[aria-pressed=\"true\"]"
+        },
+        {
+          "action": "visible",
+          "selector": "button#filter-all[aria-pressed=\"false\"]"
+        },
+        {
+          "action": "press",
+          "key": "Tab"
+        },
+        {
+          "action": "focus-visible",
+          "selector": "button#filter-completed"
+        },
+        {
+          "action": "press",
+          "key": "Enter"
+        },
+        {
+          "action": "visible",
+          "selector": "button#filter-completed[aria-pressed=\"true\"]"
+        },
+        {
+          "action": "visible",
+          "selector": "button#filter-active[aria-pressed=\"false\"]"
+        },
+        {
+          "action": "press",
+          "key": "Tab"
+        },
+        {
+          "action": "focus-visible",
+          "selector": "input#task-search[type=\"search\"]"
+        },
+        {
+          "action": "text",
+          "selector": "label[for=\"task-search\"]",
+          "value": "Search tasks"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-search",
+          "value": "unmatched"
+        },
+        {
+          "action": "count",
+          "selector": "ul#task-list > li.task-item",
+          "value": 0
+        }
+      ]
+    },
+    {
+      "id": "validation-errors-clear-after-correction",
+      "categories": [
+        "input"
+      ],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "click",
+          "selector": "button#add-task"
+        },
+        {
+          "action": "visible",
+          "selector": "#title-error"
+        },
+        {
+          "action": "visible",
+          "selector": "#subject-error"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-title",
+          "value": "Read a poem"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-subject",
+          "value": "Literature"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-minutes",
+          "value": "15"
+        },
+        {
+          "action": "click",
+          "selector": "button#add-task"
+        },
+        {
+          "action": "hidden",
+          "selector": "#title-error"
+        },
+        {
+          "action": "hidden",
+          "selector": "#subject-error"
+        },
+        {
+          "action": "hidden",
+          "selector": "#minutes-error"
+        },
+        {
+          "action": "count",
+          "selector": "form#task-form [aria-invalid=\"true\"]",
+          "value": 0
+        },
+        {
+          "action": "count",
+          "selector": "ul#task-list > li.task-item",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": "#task-list .task-title",
+          "value": "Read a poem"
+        },
+        {
+          "action": "text",
+          "selector": "#task-list .task-subject",
+          "value": "Literature"
+        },
+        {
+          "action": "text",
+          "selector": "#task-list .task-minutes",
+          "value": "15 min"
+        },
+        {
+          "action": "text",
+          "selector": "#status-message[role=\"status\"][aria-live=\"polite\"]",
+          "value": "Task added."
+        },
+        {
+          "action": "hidden",
+          "selector": "#empty-state"
+        },
+        {
+          "action": "text",
+          "selector": "#total-count",
+          "value": "1"
+        }
+      ]
+    },
+    {
+      "id": "html-like-input-remains-literal-after-reload",
+      "categories": [
+        "input",
+        "save"
+      ],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-title",
+          "value": "<em>Read & review</em>"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-subject",
+          "value": "<strong>Math & logic</strong>"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-minutes",
+          "value": "15"
+        },
+        {
+          "action": "click",
+          "selector": "button#add-task"
+        },
+        {
+          "action": "count",
+          "selector": "ul#task-list > li.task-item",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": "#task-list .task-title",
+          "value": "<em>Read & review</em>"
+        },
+        {
+          "action": "text",
+          "selector": "#task-list .task-subject",
+          "value": "<strong>Math & logic</strong>"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list .task-title em, #task-list .task-subject strong",
+          "value": 0
+        },
+        {
+          "action": "reload"
+        },
+        {
+          "action": "count",
+          "selector": "ul#task-list > li.task-item",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": "#task-list .task-title",
+          "value": "<em>Read & review</em>"
+        },
+        {
+          "action": "text",
+          "selector": "#task-list .task-subject",
+          "value": "<strong>Math & logic</strong>"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list .task-title em, #task-list .task-subject strong",
+          "value": 0
+        }
+      ]
+    },
+    {
+      "id": "long-content-remains-visible-and-persisted",
+      "categories": [
+        "input",
+        "save"
+      ],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-title",
+          "value": "AdvancedInterdisciplinaryStudyPlanningForMathematicsPhysicsChemistryBiologyLiteratureHistoryGeographyComputerScienceAndFinalExaminationRevision"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-subject",
+          "value": "MathematicsPhysicsChemistryBiologyLiteratureHistoryGeographyComputerScience"
+        },
+        {
+          "action": "fill",
+          "selector": "input#task-minutes",
+          "value": "125"
+        },
+        {
+          "action": "click",
+          "selector": "button#add-task"
+        },
+        {
+          "action": "count",
+          "selector": "ul#task-list > li.task-item",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": "#task-list .task-title",
+          "value": "AdvancedInterdisciplinaryStudyPlanningForMathematicsPhysicsChemistryBiologyLiteratureHistoryGeographyComputerScienceAndFinalExaminationRevision"
+        },
+        {
+          "action": "text",
+          "selector": "#task-list .task-subject",
+          "value": "MathematicsPhysicsChemistryBiologyLiteratureHistoryGeographyComputerScience"
+        },
+        {
+          "action": "text",
+          "selector": "#task-list .task-minutes",
+          "value": "125 min"
+        },
+        {
+          "action": "visible",
+          "selector": "#task-list input.task-toggle[type=\"checkbox\"][aria-label^=\"Mark \"]"
+        },
+        {
+          "action": "visible",
+          "selector": "#task-list button.task-delete[type=\"button\"][aria-label^=\"Delete \"]"
+        },
+        {
+          "action": "click",
+          "selector": "#task-list input.task-toggle[type=\"checkbox\"][aria-label^=\"Mark \"]"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list input.task-toggle:checked",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": "#task-list .task-state",
+          "value": "Completed"
+        },
+        {
+          "action": "text",
+          "selector": "#completion-percentage",
+          "value": "100%"
+        },
+        {
+          "action": "reload"
+        },
+        {
+          "action": "count",
+          "selector": "ul#task-list > li.task-item",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": "#task-list .task-title",
+          "value": "AdvancedInterdisciplinaryStudyPlanningForMathematicsPhysicsChemistryBiologyLiteratureHistoryGeographyComputerScienceAndFinalExaminationRevision"
+        },
+        {
+          "action": "text",
+          "selector": "#task-list .task-subject",
+          "value": "MathematicsPhysicsChemistryBiologyLiteratureHistoryGeographyComputerScience"
+        },
+        {
+          "action": "count",
+          "selector": "#task-list input.task-toggle[type=\"checkbox\"]:checked",
+          "value": 1
+        },
+        {
+          "action": "visible",
+          "selector": "#task-list button.task-delete[type=\"button\"][aria-label^=\"Delete \"]"
+        }
+      ]
+    }
+  ],
+  "notApplicable": {}
+}

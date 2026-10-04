@@ -1,0 +1,158 @@
+{
+  "measurementWindowKst": "2026-10-04 23:54:09–2026-10-05 01:37:17",
+  "sourceCommit": "337bd91477b14a28bf34acd41951093fae00e410",
+  "package": "release/mac-arm64/Loopline.app",
+  "task": "Study Planner web application",
+  "promptFile": "prompt.txt",
+  "promptSha256": "c031acb8707ce576f92f42dbb2153a5ec360241a86b0d52a5c801de3e5ef231b",
+  "preexistingBrowserQaContractFile": "browser-qa-contract.json",
+  "preexistingBrowserQaContractSha256": "2bc7f6d851e99c078afce87a81715d9fca38fad6dd2c1c164a4d06276f1a8f58",
+  "preexistingBrowserQaChecks": 16,
+  "viewports": [
+    { "width": 1440, "height": 900 },
+    { "width": 390, "height": 844 }
+  ],
+  "settings": {
+    "autoRounds": true,
+    "roundCeiling": 20,
+    "autoVerification": true,
+    "autoApply": true,
+    "qaRequired": true,
+    "mcpTools": []
+  },
+  "comparators": {
+    "single": {
+      "runId": "1d0c9166-76d0-4571-9fbd-c59e8eea5f8f",
+      "configuredModel": "GPT-6-Astra Max",
+      "fallbacks": false,
+      "actualStatus": "failed"
+    },
+    "loop": {
+      "runId": "1b60ab84-f2f0-4670-b6d4-6e910541e6ce",
+      "automaticModelSelection": true,
+      "actualModels": [
+        "Jev latest",
+        "Gemini 3 Flash Preview",
+        "GPT-6-Luna Max",
+        "GPT-6-Sol Max",
+        "GPT-6-Astra Max"
+      ],
+      "actualStatus": "limit"
+    }
+  },
+  "definitions": {
+    "completion": "Completed, auto-applied, automated verification passed, browser QA passed, and all milestones completed.",
+    "tokens": "Sum provider-reported per-call usage. All calls in both runs had reported token counts.",
+    "runtime": "Run finishedAt - createdAt; excludes post-run independent QA and report writing.",
+    "humanIntervention": "Manual stops and manual resumes recorded after run creation. Post-run QA is reported separately.",
+    "completionRate": "Observed completed runs divided by runs started; n=1 per configuration and not a population estimate."
+  },
+  "results": {
+    "single": {
+      "createdAtUtc": "2026-10-04T14:54:09.439Z",
+      "finishedAtUtc": "2026-10-04T15:20:38.643Z",
+      "elapsedMs": 1589204,
+      "tokens": 231123,
+      "calls": 7,
+      "failedCalls": 2,
+      "milestonesCompleted": 0,
+      "milestonesTotal": 0,
+      "automatedBrowserQaRuns": 0,
+      "manualResumes": 0,
+      "stopRequests": 0,
+      "completion": false,
+      "reason": "Planning ended before milestone creation: required observable completion criteria were missing.",
+      "tokenUsageByRole": {
+        "planner/GPT-6-Astra Max": { "calls": 5, "tokens": 171182, "failedCalls": 2 },
+        "judge/GPT-6-Astra Max": { "calls": 2, "tokens": 59941, "failedCalls": 0 }
+      }
+    },
+    "loop": {
+      "createdAtUtc": "2026-10-04T15:23:18.554Z",
+      "finishedAtUtc": "2026-10-04T16:37:17.055Z",
+      "elapsedMs": 4438501,
+      "tokens": 2646326,
+      "calls": 93,
+      "failedCalls": 3,
+      "roundsUsed": 20,
+      "roundCeiling": 20,
+      "milestonesCompleted": 2,
+      "milestonesTotal": 4,
+      "milestoneAttempts": {
+        "core-logic": 3,
+        "ui-structure": 5,
+        "styling-responsive": 12,
+        "final-integration-qa": 0
+      },
+      "automatedBrowserQaRuns": 0,
+      "manualResumes": 0,
+      "stopRequests": 0,
+      "completion": false,
+      "reason": "Reached the 20-round ceiling with styling-responsive and final-integration-qa incomplete.",
+      "tokenUsageByRole": {
+        "planner/GPT-6-Luna Max": { "calls": 3, "tokens": 75826, "failedCalls": 1 },
+        "planner/Gemini 3 Flash Preview": { "calls": 4, "tokens": 29003, "failedCalls": 1 },
+        "planner/GPT-6-Sol Max": { "calls": 1, "tokens": 36186, "failedCalls": 0 },
+        "planner/GPT-6-Astra Max": { "calls": 2, "tokens": 70729, "failedCalls": 1 },
+        "worker/GPT-6-Luna Max": { "calls": 38, "tokens": 1168320, "failedCalls": 0 },
+        "judge/GPT-6-Sol Max": { "calls": 41, "tokens": 1244804, "failedCalls": 0 },
+        "judge/Jev latest": { "calls": 4, "tokens": 21458, "failedCalls": 0 }
+      }
+    }
+  },
+  "postRunVerification": {
+    "loopWorkspace": {
+      "command": "node --test test/*.test.js",
+      "status": "PASS",
+      "passed": 13,
+      "failed": 0,
+      "durationMs": 72.612709,
+      "scope": "Partial Loop workspace only; not evidence of automatic final completion."
+    },
+    "applicationRegression": {
+      "command": "node --test tests/*.test.mjs",
+      "status": "PASS",
+      "passed": 302,
+      "failed": 0,
+      "durationMs": 107493.217334
+    },
+    "manualBrowserSmoke": {
+      "status": "PARTIAL",
+      "method": "Visible Codex in-app browser UI actions against the preserved Loop workspace served on localhost after the run.",
+      "passedBehaviors": [
+        "Initial empty state and zero summaries displayed.",
+        "Title, subject, and minutes could be submitted with Enter; task count and status updated.",
+        "Completing a task updated state and progress to 100%.",
+        "Active filter hid the completed task and Completed filter showed it.",
+        "Undo restored the active state and 0% progress.",
+        "Title and subject search each found the task.",
+        "Reload preserved the task in local storage.",
+        "Delete restored the empty state and focused the title field.",
+        "Empty submission announced title and minutes errors and focused the title field."
+      ],
+      "criteriaMismatch": "A blank subject was accepted. The frozen common browser contract expects subject validation, so that contract criterion is not met by this partial output.",
+      "viewportEvidence": "Narrow in-app browser rendering was visually inspected and showed no visible horizontal overflow. Exact 1440x900 and 390x844 viewport measurements were not performed.",
+      "frozen16CheckContractExecuted": false,
+      "qaHistoryEntries": 0
+    }
+  },
+  "setupAttemptsExcludedFromComparatorRows": [
+    {
+      "runId": "fa1ba5b1-871d-4c45-bede-cfc0d55c01d4",
+      "reason": "Raw Node server did not include the desktop browser QA bridge; cancelled before implementation.",
+      "tokens": 44938,
+      "calls": 3
+    },
+    {
+      "runId": "21611066-043a-4e7a-b797-50355c840185",
+      "reason": "A stale in-memory engine retained the old 10-round ceiling; cancelled after detection.",
+      "tokens": 68973,
+      "calls": 4
+    }
+  ],
+  "cost": {
+    "status": "NOT_AVAILABLE",
+    "reason": "No reliable per-run monetary billing data was exposed; token counts were not converted to dollars."
+  },
+  "security": "Credential values are not stored in this evidence file."
+}

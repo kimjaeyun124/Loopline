@@ -1,0 +1,137 @@
+{
+  "measurementWindowKst": "2026-10-04 23:54:09–2026-10-05 01:37:17",
+  "sourceCommit": "337bd91477b14a28bf34acd41951093fae00e410",
+  "promptSha256": "c031acb8707ce576f92f42dbb2153a5ec360241a86b0d52a5c801de3e5ef231b",
+  "preexistingBrowserQaContractSha256": "2bc7f6d851e99c078afce87a81715d9fca38fad6dd2c1c164a4d06276f1a8f58",
+  "completionDefinition": "Completed, auto-applied, automated verification passed, browser QA passed, and all milestones completed.",
+  "runs": [
+    {
+      "label": "GPT-6-Astra Max 단독",
+      "runId": "1d0c9166-76d0-4571-9fbd-c59e8eea5f8f",
+      "status": "failed",
+      "startUtc": "2026-10-04T14:54:09.439Z",
+      "finishUtc": "2026-10-04T15:20:38.643Z",
+      "elapsedMs": 1589204,
+      "tokens": 231123,
+      "calls": 7,
+      "failedModelCalls": 2,
+      "roundsUsed": 0,
+      "milestonesCompleted": 0,
+      "milestonesTotal": 0,
+      "qaHistoryEntries": 0,
+      "manualResumes": 0,
+      "stopRequests": 0,
+      "completion": false,
+      "failure": "The planner repeatedly omitted observable completion criteria; the run stopped before creating milestones.",
+      "models": [
+        { "role": "planner", "model": "GPT-6-Astra Max", "calls": 5, "tokens": 171182, "failedCalls": 2 },
+        { "role": "judge", "model": "GPT-6-Astra Max", "calls": 2, "tokens": 59941, "failedCalls": 0 }
+      ]
+    },
+    {
+      "label": "자동 모델 선택 Loop",
+      "runId": "1b60ab84-f2f0-4670-b6d4-6e910541e6ce",
+      "status": "limit",
+      "startUtc": "2026-10-04T15:23:18.554Z",
+      "finishUtc": "2026-10-04T16:37:17.055Z",
+      "elapsedMs": 4438501,
+      "tokens": 2646326,
+      "calls": 93,
+      "failedModelCalls": 3,
+      "roundsUsed": 20,
+      "roundCeiling": 20,
+      "milestonesCompleted": 2,
+      "milestonesTotal": 4,
+      "milestones": [
+        { "id": "core-logic", "status": "completed", "attempts": 3 },
+        { "id": "ui-structure", "status": "completed", "attempts": 5 },
+        { "id": "styling-responsive", "status": "pending", "attempts": 12 },
+        { "id": "final-integration-qa", "status": "pending", "attempts": 0 }
+      ],
+      "qaHistoryEntries": 0,
+      "manualResumes": 0,
+      "stopRequests": 0,
+      "completion": false,
+      "failure": "The style milestone kept requesting real desktop and mobile browser evidence, but no milestone browser QA ran before the 20-round ceiling.",
+      "models": [
+        { "role": "planner", "model": "GPT-6-Luna Max", "calls": 3, "tokens": 75826, "failedCalls": 1 },
+        { "role": "planner", "model": "Gemini 3 Flash Preview", "calls": 4, "tokens": 29003, "failedCalls": 1 },
+        { "role": "planner", "model": "GPT-6-Sol Max", "calls": 1, "tokens": 36186, "failedCalls": 0 },
+        { "role": "planner", "model": "GPT-6-Astra Max", "calls": 2, "tokens": 70729, "failedCalls": 1 },
+        { "role": "worker", "model": "GPT-6-Luna Max", "calls": 38, "tokens": 1168320, "failedCalls": 0 },
+        { "role": "judge", "model": "GPT-6-Sol Max", "calls": 41, "tokens": 1244804, "failedCalls": 0 },
+        { "role": "judge", "model": "Jev latest", "calls": 4, "tokens": 21458, "failedCalls": 0 }
+      ]
+    }
+  ],
+  "comparison": {
+    "completionRateSingle": { "completed": 0, "started": 1 },
+    "completionRateLoop": { "completed": 0, "started": 1 },
+    "loopToSingleRuntimeRatio": 2.793,
+    "loopToSingleTokenRatio": 11.449,
+    "loopToSingleCallRatio": 13.286,
+    "loopAdditionalRuntimeMs": 2849297,
+    "loopAdditionalTokens": 2415203,
+    "nPerConfiguration": 1,
+    "generalization": "A single run per configuration cannot estimate population-level success probability."
+  },
+  "qa": {
+    "frozenCommonContract": {
+      "checks": 16,
+      "viewports": [
+        { "width": 1440, "height": 900 },
+        { "width": 390, "height": 844 }
+      ],
+      "executedByHarness": false,
+      "singleHistoryEntries": 0,
+      "loopHistoryEntries": 0
+    },
+    "loopWorkspaceInternalTests": {
+      "command": "node --test test/*.test.js",
+      "status": "PASS",
+      "passed": 13,
+      "failed": 0,
+      "durationMs": 72.612709,
+      "postRun": true,
+      "scope": "Saved partial Loop workspace only."
+    },
+    "applicationRegressionTests": {
+      "command": "node --test tests/*.test.mjs",
+      "status": "PASS",
+      "passed": 302,
+      "failed": 0,
+      "durationMs": 107493.217334
+    },
+    "visibleManualBrowserSmoke": {
+      "status": "PARTIAL",
+      "environment": "Packaged Loopline app backend plus temporary local static preview of the saved Loop workspace.",
+      "passed": [
+        "Initial empty state and zero counts",
+        "Enter key adds a task",
+        "Task and summary counts update",
+        "Completion checkbox and 100% progress update",
+        "Active and Completed filters select the correct row set",
+        "Undo restores active state and 0% progress",
+        "Title search and subject search find the task",
+        "Reload restores the task from local storage",
+        "Delete restores empty state and moves focus to the title input",
+        "Empty submission announces title and minutes validation errors and focuses title"
+      ],
+      "mismatch": "Blank subject is accepted, while the frozen common browser contract expects it to be rejected.",
+      "narrowViewObservation": "No horizontal overflow was visible in the narrow in-app browser panel; its CSS viewport was not instrumented, so this is not an exact 390x844 result.",
+      "testDataRemoved": true,
+      "visiblePreviewUrl": "http://127.0.0.1:41901/"
+    }
+  },
+  "setupOverheadExcludedFromRows": {
+    "runs": 2,
+    "calls": 7,
+    "tokens": 113911,
+    "combinedWithComparatorTokens": 2991360,
+    "notes": [
+      "Raw Node server attempt had no desktop browser QA bridge and was cancelled before implementation.",
+      "Second attempt inherited a stale 10-round engine ceiling and was cancelled after detection."
+    ]
+  },
+  "financialCost": "Unavailable; no per-run billing amounts were exposed and no dollar estimate is inferred."
+}

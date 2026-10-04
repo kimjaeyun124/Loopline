@@ -13,6 +13,12 @@ export function taskType(task) {
 const modelKey = (selection, role, type) => JSON.stringify([type, role, selection.provider, selection.model, selection.reasoningEffort || selection.effort || 'default']);
 const sum = (values) => values.reduce((a, b) => a + b, 0);
 const average = (values) => values.length ? Math.round(sum(values) / values.length) : null;
+function wilsonLowerBound(successes, runs, z = 1.96) {
+  if (!Number.isSafeInteger(successes) || !Number.isSafeInteger(runs) || runs < 1 || successes < 0 || successes > runs) return null;
+  const rate = successes / runs, zSquared = z * z;
+  const margin = z * Math.sqrt((rate * (1 - rate) + zSquared / (4 * runs)) / runs);
+  return (rate + zSquared / (2 * runs) - margin) / (1 + zSquared / runs);
+}
 
 export class HarnessEvidence {
   constructor(directory) { this.directory = join(directory, 'evidence'); }
@@ -137,6 +143,7 @@ export class HarnessEvidence {
         ? group.fullyMeasuredRunsWithObservedActions / group.fullyMeasuredInterventionRuns : null;
       return { key, ...metrics, durationRuns: durations.length, sufficientEvidence: group.completionMeasuredRuns >= MIN_RUNS,
         completionRate: group.completionMeasuredRuns ? group.completedRuns / group.completionMeasuredRuns : null, browserQaPassRate: group.browserQaRuns ? group.browserQaPassedRuns / group.browserQaRuns : null,
+        completionConfidenceLowerBound: wilsonLowerBound(group.completedRuns, group.completionMeasuredRuns),
         verificationPassRate: group.verificationMeasuredRuns ? group.verifiedRuns / group.verificationMeasuredRuns : null,
         observedActionRate, humanInterventionSufficientEvidence: observedActionRate !== null,
         meanModelTimeMs: average(durations), meanReportedTokens: average(tokenSamples), fullyReportedRuns: tokenSamples.length, meanRunRecoveries: average(recoverySamples) };

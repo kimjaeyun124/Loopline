@@ -1219,6 +1219,64 @@ test('LangGraph automatically resumes the saved stage after engine restart', asy
   assert.ok(completed.events.some((event) => event.title.includes('LangGraph 단계 저장')));
 });
 
+test('transient model failures retry automatically from the active workflow checkpoint', async (t) => {
+  const f = await fixture(t), script = modelScript(complete);
+  let failOnce = true;
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (selection, prompt, ...rest) => {
+    if (failOnce && hasText(prompt, '구현 계획과 검증 기준')) {
+      failOnce = false;
+      throw Object.assign(new Error('Temporary HTTP 503'), { remoteStatus: 503 });
+    }
+    return script(selection, prompt, ...rest);
+  } });
+
+  const run = await settled(engine, (await engine.create(f.input)).id);
+  assert.equal(run.status, 'completed', run.summary);
+  assert.equal(run.applied, true);
+  assert.equal(run.autoResumeAttempts, 1);
+  assert.ok(run.events.some((event) => event.title.startsWith('자동 오류 복구')));
+  assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'updated 1\n');
+});
+
+test('startup recovery automatically retries a saved transient failure', async (t) => {
+  const f = await fixture(t);
+  let markWorkerStarted, holdWorker = true;
+  const workerStarted = new Promise((resolve) => { markWorkerStarted = resolve; });
+  const script = modelScript(complete);
+  const invoke = (selection, prompt, instructions, signal, ...rest) => {
+    if (holdWorker && startsWithText(prompt, '기본 CLI 도구')) {
+      markWorkerStarted();
+      return new Promise((_resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+    }
+    return script(selection, prompt, instructions, signal, ...rest);
+  };
+  const firstEngine = new HarnessEngine({ directory: f.data, verify: pass, invoke });
+  const created = await firstEngine.create(f.input);
+  await workerStarted;
+  await firstEngine.shutdown();
+
+  const recordPath = join(f.data, 'harness', `${created.id}.json`);
+  const saved = JSON.parse(await readFile(recordPath, 'utf8'));
+  saved.status = 'failed';
+  saved.summary = 'Temporary HTTP 503';
+  saved.recoverableFailure = true;
+  saved.autoResumeAttempts = 0;
+  delete saved.shutdownRequested;
+  await writeFile(recordPath, JSON.stringify(saved));
+
+  holdWorker = false;
+  const restoredEngine = new HarnessEngine({ directory: f.data, verify: pass, invoke });
+  assert.deepEqual(await restoredEngine.recoverInterruptedRuns(), [created.id]);
+  await restoredEngine.runs.get(created.id).execution;
+
+  const recovered = await restoredEngine.get(created.id);
+  assert.equal(recovered.status, 'completed', recovered.summary);
+  assert.equal(recovered.applied, true);
+  assert.equal(recovered.autoResumeAttempts, 1);
+  assert.ok(recovered.events.some((event) => event.title.includes('Loop 이어하기')));
+  assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'updated 1\n');
+});
+
 test('startup recovery preserves an explicit user stop', async (t) => {
   const f = await fixture(t); let markWorkerStarted; let calls = 0;
   const workerStarted = new Promise((resolve) => { markWorkerStarted = resolve; });

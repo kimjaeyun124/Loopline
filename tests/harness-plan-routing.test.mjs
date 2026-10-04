@@ -106,6 +106,35 @@ test('automatic routing consumes measured completion and interaction evidence wh
   assert.match(assignment.detail, /3\/3가 2\/3보다 높아 완료 안정성 우선 규칙/);
 });
 
+test('tied highest completion selects the first candidate and sorts fallback evidence by completion', async (t) => {
+  const f = await fixture(t), evidence = new HarnessEvidence(join(f.data, 'harness'));
+  const outcomes = [
+    ['primary', [true, false, false]],
+    ['alternative-a', [true, true, true]],
+    ['alternative-b', [true, true, true]],
+    ['alternative-c', [true, true, false]],
+  ];
+  for (const [model, runs] of outcomes) for (const completed of runs) {
+    await evidence.record({
+      id: randomUUID(), task: f.input.task, status: completed ? 'completed' : 'failed', applied: completed,
+      createdAt: 100, finishedAt: 1000, round: 1, verificationPassed: completed,
+      qaRequired: false, browserQaPassed: false, events: [],
+      humanActions: { manualResumes: 0, stopRequests: 0, completeCoverage: true },
+      modelCalls: [{ role: 'worker', provider: 'api', model, effort: 'high', tokens: 100, durationMs: 300, status: 'success' }],
+    });
+  }
+  const worker = f.input.roles.worker;
+  const input = { ...f.input, roles: { ...f.input.roles, worker: { ...worker, fallbacks: outcomes.slice(1).map(([model]) => ({ ...worker, model })) } } };
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: script({ route: (prompt) => answers(prompt, 'keep') }) });
+  const run = await finish(engine, input);
+  assert.equal(run.roles.worker.model, 'alternative-a');
+  assert.deepEqual(run.modelPriority.worker.map((model) => model.model), ['alternative-b', 'alternative-c', 'primary']);
+  const assignment = run.events.find((event) => event.title === '모델 배정 결과 / Model assigned' && event.model?.role === 'worker');
+  assert.match(assignment.detail, /관찰 완료율 우선 배정/);
+  assert.match(assignment.detail, /완료율 실측으로 대체 순서를 보정했습니다/);
+  assert.match(assignment.detail, /alternative-b 3\/3 → alternative-c 2\/3 → primary 1\/3/);
+});
+
 test('routing hides token and browser QA metrics until each has enough complete samples', async (t) => {
   const f = await fixture(t), evidence = new HarnessEvidence(join(f.data, 'harness'));
   for (let index = 0; index < 3; index++) {

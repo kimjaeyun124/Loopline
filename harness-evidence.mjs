@@ -70,9 +70,15 @@ export class HarnessEvidence {
     }
     files.sort((left, right) => right.modifiedAt - left.modifiedAt || right.name.localeCompare(left.name));
     const records = [];
-    for (const { name } of files.slice(0, MAX_EVIDENCE_RECORDS)) {
-      try { const value = JSON.parse(await readFile(join(this.directory, name), 'utf8')); if ([1, 2].includes(value.version) && Array.isArray(value.calls)) records.push(value); }
-      catch { /* A damaged measurement must not prevent program execution or become routing evidence. */ }
+    const selectedFiles = files.slice(0, MAX_EVIDENCE_RECORDS);
+    for (let offset = 0; offset < selectedFiles.length; offset += 64) {
+      const batch = await Promise.all(selectedFiles.slice(offset, offset + 64).map(async ({ name }) => {
+        try {
+          const value = JSON.parse(await readFile(join(this.directory, name), 'utf8'));
+          return [1, 2].includes(value.version) && Array.isArray(value.calls) ? value : null;
+        } catch { /* A damaged measurement must not prevent program execution or become routing evidence. */ return null; }
+      }));
+      records.push(...batch.filter(Boolean));
     }
     records.sort((left, right) => (Number.isFinite(left.finishedAt) ? left.finishedAt : 0) - (Number.isFinite(right.finishedAt) ? right.finishedAt : 0)
       || String(left.id).localeCompare(String(right.id)));

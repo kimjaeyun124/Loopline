@@ -43,6 +43,7 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
   const expandedFallbacks = new Set();
   let measuredModels = [];
   let hasLoadedEvidence = false;
+  let lastEvidenceRefreshAt = '';
   let evidenceRefreshInProgress = false;
   let activeRunId = null, watching = false, starting = false, stopRequested = false;
   function renderEvidenceDiagnostics(diagnostics) {
@@ -236,18 +237,21 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
     if (evidenceRefreshInProgress) return false;
     evidenceRefreshInProgress = true;
     evidenceRefresh.disabled = true;
-    evidenceStatus.textContent = '실측 정보를 불러오는 중…';
+    evidenceStatus.textContent = hasLoadedEvidence
+      ? `실측 정보 갱신 중 · 마지막 확인 ${lastEvidenceRefreshAt}`
+      : '실측 정보를 불러오는 중…';
     try {
       const evidence = await request('/api/harness/evidence');
       measuredModels = Array.isArray(evidence.models) ? evidence.models : [];
       renderEvidenceDiagnostics(evidence.evidenceDiagnostics);
       renderRoles();
       hasLoadedEvidence = true;
-      evidenceStatus.textContent = '실측 정보를 갱신했습니다.';
+      lastEvidenceRefreshAt = new Intl.DateTimeFormat('ko-KR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date());
+      evidenceStatus.textContent = `실측 정보를 갱신했습니다 · 마지막 확인 ${lastEvidenceRefreshAt}`;
       return true;
     } catch {
       evidenceStatus.textContent = hasLoadedEvidence
-        ? '갱신 실패 · 마지막으로 확인한 실측 정보를 표시 중입니다.'
+        ? `갱신 실패 · ${lastEvidenceRefreshAt} 기준 실측 정보를 표시 중입니다.`
         : '실측 정보를 불러오지 못했습니다.';
       if (notifyFailure) toast('실측 진단 정보를 갱신하지 못했습니다. 잠시 후 다시 시도해 주세요.');
       return false;

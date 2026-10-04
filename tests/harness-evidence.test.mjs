@@ -176,3 +176,27 @@ test('evidence over the retention limit selects the most recently written record
   assert.equal(records.at(-1).id, previouslyDiscardedId);
   assert.ok(records.every((record, index) => index === 0 || records[index - 1].finishedAt <= record.finishedAt));
 });
+
+test('task-type summaries retain matching evidence beyond newer records of other types while global summaries stay bounded', async (t) => {
+  const store = await fixture(t);
+  await mkdir(store.directory, { recursive: true });
+  const cliId = randomUUID(), cliPath = join(store.directory, `${cliId}.json`), old = new Date('2020-01-01T00:00:00Z');
+  await writeFile(cliPath, JSON.stringify({ version: 2, id: cliId, type: 'cli', status: 'completed', completed: true,
+    verificationPassed: true, browserQaRequired: false, browserQaPassed: false, recoveries: 0, finishedAt: 100,
+    calls: [{ role: 'worker', provider: model.provider, model: model.model, effort: 'max', tokens: 100, durationMs: 300, status: 'success', failureKind: '' }] }));
+  await utimes(cliPath, old, old);
+
+  const recent = new Date('2025-01-01T00:00:00Z');
+  for (let index = 0; index < 2000; index++) {
+    const id = randomUUID(), path = join(store.directory, `${id}.json`);
+    await writeFile(path, JSON.stringify({ version: 2, id, type: 'web', status: 'completed', completed: true, finishedAt: index + 200, calls: [] }));
+    await utimes(path, recent, recent);
+  }
+
+  const cliSummary = await store.summary('cli');
+  assert.equal(cliSummary.recordedRuns, 1);
+  assert.equal(cliSummary.models[0].runs, 1);
+  const allSummary = await store.summary();
+  assert.equal(allSummary.recordedRuns, 2000);
+  assert.ok(allSummary.models.every((candidate) => candidate.type === 'web'));
+});

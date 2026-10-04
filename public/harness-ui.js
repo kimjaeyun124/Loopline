@@ -34,12 +34,15 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
   const mcpFields = document.querySelector('#harnessMcpTools');
   const priorityFields = document.querySelector('#harnessPriorities');
   const saveStatus = document.querySelector('#harnessSaveStatus');
+  const evidenceStatus = document.querySelector('#harnessEvidenceStatus');
+  const evidenceRefresh = document.querySelector('#harnessEvidenceRefresh');
   const evidenceNotice = document.querySelector('#harnessEvidenceNotice');
   const evidenceDetails = document.querySelector('#harnessEvidenceDetails');
   const evidenceIds = document.querySelector('#harnessEvidenceIds');
   const search = document.querySelector('#harnessModelSearch');
   const expandedFallbacks = new Set();
   let measuredModels = [];
+  let evidenceRefreshInProgress = false;
   let activeRunId = null, watching = false, starting = false, stopRequested = false;
   function renderEvidenceDiagnostics(diagnostics) {
     const invalidReasons = diagnostics?.invalidRecordReasons && typeof diagnostics.invalidRecordReasons === 'object' && !Array.isArray(diagnostics.invalidRecordReasons)
@@ -225,10 +228,32 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
     if (state.busy) return toast('실행이 끝난 뒤 구성을 변경해 주세요.');
     document.querySelector('#harnessAutoApply').checked = config.autoApply;
     search.value = ''; ensureFallbackPriority(); renderPriorities(); renderRoles(); renderMcpTools(); modal.hidden = false; document.querySelector('#harnessClose').focus();
-    void request('/api/harness/evidence').then((evidence) => { measuredModels = evidence.models || []; renderEvidenceDiagnostics(evidence.evidenceDiagnostics); renderRoles(); }).catch(() => {});
+    void refreshEvidence();
     if (typeof refreshMcpTools === 'function') void Promise.resolve(refreshMcpTools({ quiet: true })).then(renderMcpTools);
   }
+  async function refreshEvidence({ notifyFailure = false } = {}) {
+    if (evidenceRefreshInProgress) return false;
+    evidenceRefreshInProgress = true;
+    evidenceRefresh.disabled = true;
+    evidenceStatus.textContent = '실측 정보를 불러오는 중…';
+    try {
+      const evidence = await request('/api/harness/evidence');
+      measuredModels = Array.isArray(evidence.models) ? evidence.models : [];
+      renderEvidenceDiagnostics(evidence.evidenceDiagnostics);
+      renderRoles();
+      evidenceStatus.textContent = '실측 정보를 갱신했습니다.';
+      return true;
+    } catch {
+      evidenceStatus.textContent = '실측 정보를 불러오지 못했습니다.';
+      if (notifyFailure) toast('실측 진단 정보를 갱신하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+      return false;
+    } finally {
+      evidenceRefreshInProgress = false;
+      evidenceRefresh.disabled = false;
+    }
+  }
   function close() { modal.hidden = true; document.querySelector('#harnessConfigure').focus(); }
+  evidenceRefresh.addEventListener('click', () => refreshEvidence({ notifyFailure: true }));
   search.addEventListener('input', renderRoles);
   fields.addEventListener('toggle', (event) => {
     const role = event.target.dataset.fallbackDetails;

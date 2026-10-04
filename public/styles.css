@@ -445,6 +445,10 @@ kbd { margin-left: auto; color: var(--muted); font-family: inherit; font-size: 1
 .loop-engineering-control .text-button { font-size: 11px; padding: 4px; }
 .harness-modal { width: min(640px, 100%); max-height: calc(100vh - 60px); overflow-y: auto; }
 .harness-intro { color: var(--muted); font-size: 12px; line-height: 1.6; margin: 12px 0; }
+.harness-evidence-toolbar { display: flex; min-height: 28px; align-items: center; justify-content: space-between; gap: 10px; margin: 5px 0; }
+.harness-evidence-toolbar span { color: var(--muted); font-size: 10px; }
+.harness-evidence-toolbar button { flex: 0 0 auto; }
+.harness-evidence-toolbar button:disabled { opacity: .6; cursor: wait; }
 .harness-evidence-notice { margin: 10px 0; padding: 9px 11px; border-left: 2px solid var(--danger); border-radius: 0 6px 6px 0; background: var(--soft); color: var(--secondary); font-size: 11px; line-height: 1.5; }
 .harness-evidence-details { margin: -5px 0 10px; padding: 0 11px 8px; color: var(--muted); font-size: 11px; }
 .harness-evidence-details summary { cursor: pointer; }

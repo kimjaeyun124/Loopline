@@ -158,7 +158,8 @@ test('evidence refresh updates diagnostics and model statistics and recovers aft
   s.failEvidence(true);
   assert.equal(await button.fire('click'), false);
   assert.equal(button.disabled, false);
-  assert.equal(s.node('#harnessEvidenceStatus').textContent, '실측 정보를 불러오지 못했습니다.');
+  assert.equal(s.node('#harnessEvidenceStatus').textContent, '갱신 실패 · 마지막으로 확인한 실측 정보를 표시 중입니다.');
+  assert.match(s.fields.innerHTML, /호출 토큰 400/);
   assert.ok(s.toasts.includes('실측 진단 정보를 갱신하지 못했습니다. 잠시 후 다시 시도해 주세요.'));
 });
 

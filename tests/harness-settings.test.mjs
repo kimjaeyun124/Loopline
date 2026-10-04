@@ -6,6 +6,7 @@ const KEY = 'loopline.harness.v1';
 // Minimal event surface: exercise the real settings handlers without a browser dependency.
 function setup(t, { storage = new Map(), project = null, models = null, evidence = { models: [] } } = {}) {
   const nodes = new Map();
+  const toasts = [];
   const node = (id) => {
     if (!nodes.has(id)) nodes.set(id, { value: '', checked: false, hidden: true, textContent: '', dataset: {},
       listeners: {}, focus() {}, addEventListener(name, handler) { this.listeners[name] = handler; },
@@ -29,9 +30,9 @@ function setup(t, { storage = new Map(), project = null, models = null, evidence
   const state = { conversations: [], activeProjectId: 'project' };
   const ui = createHarnessUI({ state, catalog: () => models || [model], modelKey: (item) => item.id, currentKey: () => model.id,
     getProject: () => project, saveProjects() {},
-    saveConversations() {}, render() {}, toast() {}, instructions() {}, onComplete() {} });
+    saveConversations() {}, render() {}, toast: (message) => toasts.push(message), instructions() {}, onComplete() {} });
   return { ui, node, fields: node('#harnessRoles'), storage, saved: () => JSON.parse(storage.get(KEY)),
-    failStorage: (value) => { failStorage = value; } };
+    toasts, failStorage: (value) => { failStorage = value; } };
 }
 
 test('role, effort and options save without the completion button', (t) => {
@@ -108,6 +109,7 @@ test('malformed evidence exclusions are visible only when records are skipped', 
   assert.match(ids.innerHTML, /JSON 오류 · 예시 ID/);
   assert.match(ids.innerHTML, /읽기 오류 · 예시 ID/);
   assert.match(ids.innerHTML, /11111111-1111-4111-8111-111111111111/);
+  assert.match(ids.innerHTML, /data-copy-excluded-id="11111111-1111-4111-8111-111111111111"/);
   assert.match(ids.innerHTML, /기타 형식 오류 · 예시 ID/);
 
   const healthy = setup(t, { evidence: { models: [], evidenceDiagnostics: {
@@ -119,6 +121,31 @@ test('malformed evidence exclusions are visible only when records are skipped', 
   assert.equal(healthy.node('#harnessEvidenceNotice').textContent, '');
   assert.equal(healthy.node('#harnessEvidenceDetails').hidden, true);
   assert.equal(healthy.node('#harnessEvidenceIds').innerHTML, '');
+});
+
+test('excluded evidence ID copy confirms success and reports clipboard failures', async (t) => {
+  const id = '11111111-1111-4111-8111-111111111111';
+  const s = setup(t, { evidence: { models: [], evidenceDiagnostics: {
+    invalidRecordReasons: { 'invalid-call': 1 }, excludedRecordIds: { 'invalid-call': [id] },
+  } } });
+  const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  t.after(() => originalNavigator ? Object.defineProperty(globalThis, 'navigator', originalNavigator) : delete globalThis.navigator);
+  const copied = [];
+  Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { clipboard: { writeText: async (value) => copied.push(value) } } });
+  s.ui.open();
+  await new Promise((resolve) => setImmediate(resolve));
+  const button = { dataset: { copyExcludedId: id }, textContent: '복사', isConnected: true };
+  const click = s.node('#harnessEvidenceDetails').listeners.click;
+  await click({ target: { closest: (selector) => selector === '[data-copy-excluded-id]' ? button : null } });
+  assert.deepEqual(copied, [id]);
+  assert.equal(button.textContent, '복사됨');
+  assert.ok(s.toasts.includes('제외된 기록 ID를 복사했습니다.'));
+
+  Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { clipboard: { writeText: async () => { throw new Error('denied'); } } } });
+  const failedButton = { dataset: { copyExcludedId: id }, textContent: '복사', isConnected: true };
+  await click({ target: { closest: (selector) => selector === '[data-copy-excluded-id]' ? failedButton : null } });
+  assert.equal(failedButton.textContent, '복사');
+  assert.ok(s.toasts.includes('클립보드에 복사하지 못했습니다.'));
 });
 
 test('loop compute priorities are reorderable, persisted, and keep completion locked at the top', (t) => {

@@ -8,6 +8,8 @@ import { HarnessEvidence, taskType } from '../harness-evidence.mjs';
 
 const model = { provider: 'openai', model: 'test-model', reasoningEffort: 'max' };
 const run = (overrides = {}) => ({ id: randomUUID(), task: 'A website dashboard', status: 'completed', applied: true, createdAt: 100, finishedAt: 1000, round: 1, verificationPassed: true, qaRequired: true, browserQaPassed: true, events: [], humanActions: { manualResumes: 0, stopRequests: 0, completeCoverage: true }, modelCalls: [{ role: 'worker', ...model, effort: 'max', tokens: 100, durationMs: 300, status: 'success' }], ...overrides });
+const storedEvidence = (id, type, finishedAt, calls = []) => ({ version: 2, id, type, status: 'completed', completed: true,
+  verificationPassed: true, browserQaRequired: false, browserQaPassed: false, recoveries: 0, finishedAt, calls });
 async function fixture(t) { const directory = await mkdtemp(join(tmpdir(), 'loopline-evidence-')); t.after(() => rm(directory, { recursive: true, force: true })); return new HarnessEvidence(directory); }
 
 test('measurements require three distinct runs and replacement never double counts a resumed run', async (t) => {
@@ -161,13 +163,13 @@ test('evidence over the retention limit selects the most recently written record
   await mkdir(store.directory, { recursive: true });
   for (let index = 0; index < 2001; index++) {
     const id = randomUUID();
-    await writeFile(join(store.directory, `${id}.json`), JSON.stringify({ version: 2, id, finishedAt: index, calls: [] }));
+    await writeFile(join(store.directory, `${id}.json`), JSON.stringify(storedEvidence(id, 'web', index)));
   }
 
   // The old implementation sliced the directory listing, so its first entry was always discarded.
   const firstListedName = (await readdir(store.directory)).filter((name) => /^[a-f0-9-]{36}\.json$/.test(name))[0];
   const previouslyDiscardedId = firstListedName.slice(0, -5);
-  await writeFile(join(store.directory, firstListedName), JSON.stringify({ version: 2, id: previouslyDiscardedId, finishedAt: 3000, calls: [] }));
+  await writeFile(join(store.directory, firstListedName), JSON.stringify(storedEvidence(previouslyDiscardedId, 'web', 3000)));
   await utimes(join(store.directory, firstListedName), new Date('2099-01-01T00:00:00Z'), new Date('2099-01-01T00:00:00Z'));
 
   const records = await store.records();
@@ -189,7 +191,7 @@ test('task-type summaries retain matching evidence beyond newer records of other
   const recent = new Date('2025-01-01T00:00:00Z');
   for (let index = 0; index < 2000; index++) {
     const id = randomUUID(), path = join(store.directory, `${id}.json`);
-    await writeFile(path, JSON.stringify({ version: 2, id, type: 'web', status: 'completed', completed: true, finishedAt: index + 200, calls: [] }));
+    await writeFile(path, JSON.stringify(storedEvidence(id, 'web', index + 200)));
     await utimes(path, recent, recent);
   }
 
@@ -199,4 +201,23 @@ test('task-type summaries retain matching evidence beyond newer records of other
   const allSummary = await store.summary();
   assert.equal(allSummary.recordedRuns, 2000);
   assert.ok(allSummary.models.every((candidate) => candidate.type === 'web'));
+});
+
+test('malformed evidence records are skipped without breaking valid model metrics', async (t) => {
+  const store = await fixture(t), valid = run();
+  await store.record(valid);
+  const invalidRecords = [
+    storedEvidence(randomUUID(), 'web', 2000, [null]),
+    storedEvidence(randomUUID(), 'web', 3000, [{ role: 'worker', provider: 'openai', model: 'poison-model', effort: 'max', tokens: 'not-a-number', durationMs: 300, status: 'success' }]),
+    { ...storedEvidence(randomUUID(), 'web', 4000, [{ role: 'worker', ...model, effort: 'max', tokens: 100, durationMs: 300, status: 'success' }]),
+      humanIntervention: { measurement: 'observed-actions', coverage: 'full-run' } },
+  ];
+  await Promise.all(invalidRecords.map((record) => writeFile(join(store.directory, `${record.id}.json`), JSON.stringify(record))));
+
+  const summary = await store.summary('web');
+  assert.equal(summary.recordedRuns, 1);
+  assert.equal(summary.models.length, 1);
+  assert.equal(summary.models[0].model, model.model);
+  assert.equal(summary.models[0].runs, 1);
+  assert.equal(summary.models[0].meanReportedTokens, 100);
 });

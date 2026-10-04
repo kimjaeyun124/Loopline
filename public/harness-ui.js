@@ -42,6 +42,7 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
   const search = document.querySelector('#harnessModelSearch');
   const expandedFallbacks = new Set();
   let measuredModels = [];
+  let hasLoadedEvidence = false;
   let evidenceRefreshInProgress = false;
   let activeRunId = null, watching = false, starting = false, stopRequested = false;
   function renderEvidenceDiagnostics(diagnostics) {
@@ -241,10 +242,13 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
       measuredModels = Array.isArray(evidence.models) ? evidence.models : [];
       renderEvidenceDiagnostics(evidence.evidenceDiagnostics);
       renderRoles();
+      hasLoadedEvidence = true;
       evidenceStatus.textContent = '실측 정보를 갱신했습니다.';
       return true;
     } catch {
-      evidenceStatus.textContent = '실측 정보를 불러오지 못했습니다.';
+      evidenceStatus.textContent = hasLoadedEvidence
+        ? '갱신 실패 · 마지막으로 확인한 실측 정보를 표시 중입니다.'
+        : '실측 정보를 불러오지 못했습니다.';
       if (notifyFailure) toast('실측 진단 정보를 갱신하지 못했습니다. 잠시 후 다시 시도해 주세요.');
       return false;
     } finally {

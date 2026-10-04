@@ -14,21 +14,25 @@ export function taskType(task) {
 const modelKey = (selection, role, type) => JSON.stringify([type, role, selection.provider, selection.model, selection.reasoningEffort || selection.effort || 'default']);
 const sum = (values) => values.reduce((a, b) => a + b, 0);
 const average = (values) => values.length ? Math.round(sum(values) / values.length) : null;
-function validEvidenceRecord(value, filename) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
-  if (![1, 2].includes(value.version) || value.id !== filename.slice(0, -5) || typeof value.type !== 'string' || !value.type
-    || typeof value.status !== 'string' || typeof value.completed !== 'boolean' || typeof value.verificationPassed !== 'boolean'
-    || typeof value.browserQaRequired !== 'boolean' || typeof value.browserQaPassed !== 'boolean'
-    || !Number.isSafeInteger(value.recoveries) || value.recoveries < 0 || !Array.isArray(value.calls)) return false;
+function evidenceRecordIssue(value, filename) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return 'invalid-shape';
+  if (![1, 2].includes(value.version)) return 'unsupported-version';
+  if (value.id !== filename.slice(0, -5)) return 'id-mismatch';
+  if (typeof value.type !== 'string' || !value.type || typeof value.status !== 'string'
+    || typeof value.completed !== 'boolean' || typeof value.verificationPassed !== 'boolean'
+    || typeof value.browserQaRequired !== 'boolean' || typeof value.browserQaPassed !== 'boolean') return 'invalid-metadata';
+  if (!Number.isSafeInteger(value.recoveries) || value.recoveries < 0) return 'invalid-recoveries';
+  if (!Array.isArray(value.calls)) return 'invalid-calls';
   if (!value.calls.every((call) => call && typeof call === 'object' && !Array.isArray(call)
     && typeof call.role === 'string' && call.role.length > 0 && typeof call.provider === 'string' && call.provider.length > 0
     && typeof call.model === 'string' && call.model.length > 0 && typeof call.status === 'string'
     && (call.tokens === null || (Number.isSafeInteger(call.tokens) && call.tokens >= 0))
-    && Number.isFinite(call.durationMs) && call.durationMs >= 0)) return false;
+    && Number.isFinite(call.durationMs) && call.durationMs >= 0)) return 'invalid-call';
   const intervention = value.humanIntervention;
-  return intervention?.measurement !== 'observed-actions' || (['full-run', 'partial-run'].includes(intervention.coverage)
+  if (intervention?.measurement === 'observed-actions' && !(['full-run', 'partial-run'].includes(intervention.coverage)
     && Number.isSafeInteger(intervention.manualResumes) && intervention.manualResumes >= 0
-    && Number.isSafeInteger(intervention.stopRequests) && intervention.stopRequests >= 0);
+    && Number.isSafeInteger(intervention.stopRequests) && intervention.stopRequests >= 0)) return 'invalid-human-intervention';
+  return null;
 }
 function wilsonLowerBound(successes, runs, z = 1.96) {
   if (!Number.isSafeInteger(successes) || !Number.isSafeInteger(runs) || runs < 1 || successes < 0 || successes > runs) return null;
@@ -71,27 +75,41 @@ export class HarnessEvidence {
     const file = join(this.directory, `${run.id}.json`), temporary = `${file}.${randomUUID()}.tmp`;
     await writeFile(temporary, JSON.stringify(result), { mode: 0o600, flag: 'wx' }); await rename(temporary, file);
   }
-  async records(type) {
+  async recordsWithDiagnostics(type) {
+    const diagnostics = { scannedRecords: 0, acceptedRecords: 0, taskTypeMismatchRecords: 0, malformedJsonRecords: 0, unreadableRecords: 0, invalidRecordReasons: {} };
     let names;
-    try { names = await readdir(this.directory); } catch (error) { if (error.code === 'ENOENT') return []; throw error; }
+    try { names = await readdir(this.directory); } catch (error) { if (error.code === 'ENOENT') return { records: [], diagnostics }; throw error; }
     names = names.filter((name) => /^[a-f0-9-]{36}\.json$/.test(name));
     const files = [];
     // Limit concurrent metadata reads while finding the most recently written evidence files.
     for (let offset = 0; offset < names.length; offset += 64) {
       const batch = await Promise.all(names.slice(offset, offset + 64).map(async (name) => {
         try { return { name, modifiedAt: (await stat(join(this.directory, name))).mtimeMs }; }
-        catch { return null; }
+        catch { diagnostics.unreadableRecords++; return null; }
       }));
       files.push(...batch.filter(Boolean));
     }
     files.sort((left, right) => right.modifiedAt - left.modifiedAt || right.name.localeCompare(left.name));
     const records = [];
     const selectedFiles = type ? files : files.slice(0, MAX_EVIDENCE_RECORDS);
+    diagnostics.scannedRecords = selectedFiles.length;
     for (let offset = 0; offset < selectedFiles.length; offset += 64) {
       const batch = await Promise.all(selectedFiles.slice(offset, offset + 64).map(async ({ name }) => {
         try {
-          const value = JSON.parse(await readFile(join(this.directory, name), 'utf8'));
-          return validEvidenceRecord(value, name) && (!type || value.type === type) ? value : null;
+          let value;
+          try { value = JSON.parse(await readFile(join(this.directory, name), 'utf8')); }
+          catch (error) {
+            if (error instanceof SyntaxError) diagnostics.malformedJsonRecords++;
+            else diagnostics.unreadableRecords++;
+            return null;
+          }
+          const issue = evidenceRecordIssue(value, name);
+          if (issue) {
+            diagnostics.invalidRecordReasons[issue] = (diagnostics.invalidRecordReasons[issue] || 0) + 1;
+            return null;
+          }
+          if (type && value.type !== type) { diagnostics.taskTypeMismatchRecords++; return null; }
+          return value;
         } catch { /* A damaged measurement must not prevent program execution or become routing evidence. */ return null; }
       }));
       records.push(...batch.filter(Boolean).slice(0, MAX_EVIDENCE_RECORDS - records.length));
@@ -99,10 +117,14 @@ export class HarnessEvidence {
     }
     records.sort((left, right) => (Number.isFinite(left.finishedAt) ? left.finishedAt : 0) - (Number.isFinite(right.finishedAt) ? right.finishedAt : 0)
       || String(left.id).localeCompare(String(right.id)));
-    return records;
+    diagnostics.acceptedRecords = records.length;
+    return { records, diagnostics };
+  }
+  async records(type) {
+    return (await this.recordsWithDiagnostics(type)).records;
   }
   async summary(type) {
-    const records = await this.records(type);
+    const { records, diagnostics } = await this.recordsWithDiagnostics(type);
     const groups = new Map();
     const measuredInterventions = records.filter((run) => run.humanIntervention?.measurement === 'observed-actions');
     const humanIntervention = {
@@ -173,7 +195,7 @@ export class HarnessEvidence {
       }
     }
     const performanceRecords = records.filter((run) => !['stopped', 'interrupted'].includes(run.status));
-    return { minimumRuns: MIN_RUNS, recordedRuns: performanceRecords.length, humanIntervention,
+    return { minimumRuns: MIN_RUNS, recordedRuns: performanceRecords.length, humanIntervention, evidenceDiagnostics: diagnostics,
       attribution: '모델 호출·토큰·시간은 해당 호출에 직접 귀속합니다. 완료·검증·QA·개입·복구는 같은 역할에서 단일 모델 설정만 사용한 실행만 집계합니다. 같은 역할에서 대체·전환된 실행은 해당 지표에서 제외합니다. 나머지 완료율도 협업 실행의 관찰값이지 모델 하나의 인과 성능은 아닙니다. 사람 개입은 앱 내 수동 재개·중지 동작만 측정하며 실제 사람 투입 시간과 앱 밖의 수정은 포함하지 않습니다.', models: [...groups.entries()].map(([key, group]) => {
       const { durations, tokenSamples, recoverySamples, ...metrics } = group;
       const observedActionRate = group.fullyMeasuredInterventionRuns >= MIN_RUNS

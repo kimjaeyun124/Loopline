@@ -28,10 +28,20 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
   const mcpFields = document.querySelector('#harnessMcpTools');
   const priorityFields = document.querySelector('#harnessPriorities');
   const saveStatus = document.querySelector('#harnessSaveStatus');
+  const evidenceNotice = document.querySelector('#harnessEvidenceNotice');
   const search = document.querySelector('#harnessModelSearch');
   const expandedFallbacks = new Set();
   let measuredModels = [];
   let activeRunId = null, watching = false, starting = false, stopRequested = false;
+  function renderEvidenceDiagnostics(diagnostics) {
+    const invalidReasons = diagnostics?.invalidRecordReasons || {};
+    const invalidRecords = Object.values(invalidReasons).reduce((total, count) => total + (Number.isSafeInteger(count) && count > 0 ? count : 0), 0);
+    const malformedJsonRecords = Number.isSafeInteger(diagnostics?.malformedJsonRecords) ? diagnostics.malformedJsonRecords : 0;
+    const unreadableRecords = Number.isSafeInteger(diagnostics?.unreadableRecords) ? diagnostics.unreadableRecords : 0;
+    const total = invalidRecords + malformedJsonRecords + unreadableRecords;
+    evidenceNotice.hidden = total === 0;
+    evidenceNotice.textContent = total === 0 ? '' : `실측 기록 ${total}개를 모델 선택 통계에서 제외했습니다 · JSON 오류 ${malformedJsonRecords}개 · 형식 오류 ${invalidRecords}개 · 읽기 오류 ${unreadableRecords}개`;
+  }
   const save = () => {
     try {
       const persisted = { ...config, priorities: normalizeLoopPriorities(config.priorities), roles: Object.fromEntries(ROLES.map(([role]) => [role, {
@@ -190,7 +200,7 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
     if (state.busy) return toast('실행이 끝난 뒤 구성을 변경해 주세요.');
     document.querySelector('#harnessAutoApply').checked = config.autoApply;
     search.value = ''; ensureFallbackPriority(); renderPriorities(); renderRoles(); renderMcpTools(); modal.hidden = false; document.querySelector('#harnessClose').focus();
-    void request('/api/harness/evidence').then((evidence) => { measuredModels = evidence.models || []; renderRoles(); }).catch(() => {});
+    void request('/api/harness/evidence').then((evidence) => { measuredModels = evidence.models || []; renderEvidenceDiagnostics(evidence.evidenceDiagnostics); renderRoles(); }).catch(() => {});
     if (typeof refreshMcpTools === 'function') void Promise.resolve(refreshMcpTools({ quiet: true })).then(renderMcpTools);
   }
   function close() { modal.hidden = true; document.querySelector('#harnessConfigure').focus(); }

@@ -55,6 +55,26 @@ function recoverableModelFailure(error) {
   return /(?:fetch failed|network error|timeout|timed?\s*out|시간.{0,12}초과|일시적인 서버 오류|API 서버에 연결하지 못했|네트워크 연결을 확인해 주세요)/i.test(String(error?.message || ''));
 }
 
+function waitForAutomaticRetry(signal, attempt) {
+  const delay = Math.min(1_000 * (2 ** Math.max(0, attempt - 1)), 4_000);
+  return new Promise((resolve, reject) => {
+    let timer;
+    const finish = () => {
+      clearTimeout(timer);
+      signal.removeEventListener('abort', cancel);
+      resolve();
+    };
+    const cancel = () => {
+      clearTimeout(timer);
+      signal.removeEventListener('abort', cancel);
+      reject(signal.reason || new Error('실행을 중지했습니다.'));
+    };
+    if (signal.aborted) return cancel();
+    signal.addEventListener('abort', cancel, { once: true });
+    timer = setTimeout(finish, delay);
+  });
+}
+
 function isVisualInterfaceTask(task, files = '') {
   const request = String(task || '');
   const inventory = String(files || '');
@@ -656,12 +676,14 @@ export class HarnessEngine {
       const id = file.slice(0, -5);
       try {
         const saved = JSON.parse(await readFile(join(this.directory, file), 'utf8'));
-        if (saved.id !== id || !['running', 'interrupted'].includes(saved.status) || saved.userStopRequested === true) continue;
+        const resumableFailure = saved.status === 'failed' && saved.recoverableFailure === true;
+        if (saved.id !== id || (!['running', 'interrupted'].includes(saved.status) && !resumableFailure) || saved.userStopRequested === true) continue;
         const existing = this.runs.get(id);
-        if (existing && existing.run.status !== 'interrupted') continue;
+        if (existing && !['interrupted', 'failed'].includes(existing.run.status)) continue;
         const record = await this.record(id);
         const { run } = record;
-        if (run.status !== 'interrupted' || run.userStopRequested === true) continue;
+        const failedTransientCall = run.status === 'failed' && this.publicRun(run).canResume;
+        if ((run.status !== 'interrupted' && !failedTransientCall) || run.userStopRequested === true) continue;
         if (!this.publicRun(run).canResume) {
           if (!run.autoResumeBlocked) {
             run.autoResumeBlocked = true;
@@ -693,11 +715,12 @@ export class HarnessEngine {
           if (!run.autoResumePaused) {
             run.autoResumePaused = true;
             await this.event(record, '자동 이어하기 한도 도달 / Automatic resume limit reached',
-              `앱 재시작 후 자동 이어하기 ${MAX_AUTOMATIC_RECOVERIES}회가 모두 사용되었습니다. 추가 모델 호출을 막기 위해 자동 재개를 멈췄습니다. 안전한 실행이면 이어하기 버튼으로 계속할 수 있습니다.`);
+              `자동 복구 ${MAX_AUTOMATIC_RECOVERIES}회가 모두 사용되었습니다. 추가 모델 호출을 막기 위해 자동 재개를 멈췄습니다. 안전한 실행이면 이어하기 버튼으로 계속할 수 있습니다.`);
           }
           continue;
         }
-        run.autoResumeAttempts = attempts + 1;
+        // resume() counts a failed transient call itself; interrupted processes count here.
+        if (run.status !== 'failed') run.autoResumeAttempts = attempts + 1;
         run.autoResumeBlocked = false;
         run.autoResumePaused = false;
         await this.persist(record);
@@ -1216,24 +1239,48 @@ export class HarnessEngine {
     const { run, controller } = record;
     const signal = controller.signal;
     try {
-      const checkpoint = run.graphCheckpoint || { version: 1, threadId: run.id, nextNode: 'select', activeNode: null, state: this.graphState() };
-      const firstNode = checkpoint.activeNode || checkpoint.nextNode || 'select';
+      let checkpoint = run.graphCheckpoint || { version: 1, threadId: run.id, nextNode: 'select', activeNode: null, state: this.graphState() };
+      let firstNode = checkpoint.activeNode || checkpoint.nextNode || 'select';
       if (!['select', 'prepare', 'round', 'apply', 'finish'].includes(firstNode)) throw fail('저장된 Loop 단계가 올바르지 않아 이어서 실행할 수 없습니다.');
       run.workflowEngine = 'langgraph';
       if (!run.graphCheckpoint) await this.graphCheckpoint(record, firstNode, checkpoint.state);
       await this.event(record, 'LangGraph Loop 시작 / Workflow started', `StateGraph · 단계 복구 위치: ${firstNode}`, 'completed');
-      const workflow = await createHarnessWorkflow({
-        select: async () => { run.stage = 'selecting'; await this.selectModels(record); return {}; },
-        prepare: (state) => this.prepareWorkflow(record, state),
-        round: (state) => this.runWorkflowRound(record, state),
-        apply: (state) => this.applyWorkflow(record, state),
-        finish: (state) => this.finishWorkflow(record, state),
-      }, {
-        onNodeStart: (node, state) => this.graphNodeStarted(record, node, state),
-        onCheckpoint: (nextNode, state) => this.graphCheckpoint(record, nextNode, state),
-      });
-      await workflow.invoke({ ...this.graphState(checkpoint.state), nextNode: firstNode }, { configurable: { thread_id: run.id } });
-      if (run.status === 'running') throw fail('Loop 흐름이 완료 상태를 만들지 않고 끝났습니다.');
+      while (true) {
+        checkpoint = run.graphCheckpoint || checkpoint;
+        firstNode = checkpoint.activeNode || checkpoint.nextNode || 'select';
+        if (!['select', 'prepare', 'round', 'apply', 'finish'].includes(firstNode)) throw fail('저장된 Loop 단계가 올바르지 않아 이어서 실행할 수 없습니다.');
+        const workflow = await createHarnessWorkflow({
+          select: async () => { run.stage = 'selecting'; await this.selectModels(record); return {}; },
+          prepare: (state) => this.prepareWorkflow(record, state),
+          round: (state) => this.runWorkflowRound(record, state),
+          apply: (state) => this.applyWorkflow(record, state),
+          finish: (state) => this.finishWorkflow(record, state),
+        }, {
+          onNodeStart: (node, state) => this.graphNodeStarted(record, node, state),
+          onCheckpoint: (nextNode, state) => this.graphCheckpoint(record, nextNode, state),
+        });
+        try {
+          await workflow.invoke({ ...this.graphState(checkpoint.state), nextNode: firstNode }, { configurable: { thread_id: run.id } });
+          if (run.status === 'running') throw fail('Loop 흐름이 완료 상태를 만들지 않고 끝났습니다.');
+          break;
+        } catch (error) {
+          const attempts = Number.isInteger(run.autoResumeAttempts) ? run.autoResumeAttempts : 0;
+          run.recoverableFailure = run.status === 'running'
+            && !this.closing && !run.shutdownRequested && run.userStopRequested !== true
+            && run.mcpSideEffectPossible !== true && !error.mcpDispatched && !quotaExhausted(error)
+            && Boolean(error.transientModelFailure || recoverableModelFailure(error));
+          run.status = 'failed';
+          run.summary = error.message || 'Harness 실행에 실패했습니다.';
+          if (!run.recoverableFailure || attempts >= MAX_AUTOMATIC_RECOVERIES || !this.publicRun(run).canResume) throw error;
+
+          run.autoResumeAttempts = attempts + 1;
+          run.status = 'running'; run.finishedAt = null; run.summary = '';
+          delete run.recoverableFailure;
+          await this.event(record, '자동 오류 복구 / Automatic failure recovery',
+            `일시적인 연결 오류가 발생해 저장된 ${firstNode} 단계부터 자동으로 재시도합니다. 복구 ${run.autoResumeAttempts}/${MAX_AUTOMATIC_RECOVERIES}회 · ${String(error.message || '').slice(0, 500)}`);
+          await waitForAutomaticRetry(signal, run.autoResumeAttempts);
+        }
+      }
     } catch (error) {
       run.status = run.shutdownRequested ? 'interrupted' : signal.aborted ? 'stopped' : 'failed';
       run.recoverableFailure = run.status === 'failed'

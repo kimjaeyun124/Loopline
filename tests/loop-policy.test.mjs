@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { automaticLoopStartRounds, classifyLoopTask, DEFAULT_LOOP_PRIORITIES, extendAutomaticLoopRounds, MAX_LOOP_ROUNDS, normalizeLoopPriorities, recommendLoopEffort, selectAutomaticLoopModel } from '../public/loop-policy.mjs';
+import { automaticLoopStartRounds, classifyLoopTask, DEFAULT_LOOP_PRIORITIES, extendAutomaticLoopRounds, MAX_AUTO_LOOP_ROUNDS, MAX_LOOP_ROUNDS, normalizeLoopPriorities, recommendLoopEffort, selectAutomaticLoopModel } from '../public/loop-policy.mjs';
 
 test('loop complexity keeps small requests light and raises effort for broad engineering changes', () => {
   assert.equal(classifyLoopTask('Export a small constant and test its value.'), 'simple');
@@ -10,11 +10,14 @@ test('loop complexity keeps small requests light and raises effort for broad eng
 
 test('automatic loop starts with task-sized rounds and extends in bounded quality-first steps', () => {
   assert.equal(MAX_LOOP_ROUNDS, 10);
+  assert.equal(MAX_AUTO_LOOP_ROUNDS, 20);
   assert.equal(automaticLoopStartRounds('Export a small constant.'), 4);
   assert.equal(automaticLoopStartRounds('Implement a database migration and concurrency-safe cache.'), 6);
   assert.equal(extendAutomaticLoopRounds(4), 6);
   assert.equal(extendAutomaticLoopRounds(8), 10);
-  assert.equal(extendAutomaticLoopRounds(10), 10);
+  assert.equal(extendAutomaticLoopRounds(10), 12);
+  assert.equal(extendAutomaticLoopRounds(18), 20);
+  assert.equal(extendAutomaticLoopRounds(20), 20);
   assert.equal(extendAutomaticLoopRounds(6, 5), 6);
 });
 

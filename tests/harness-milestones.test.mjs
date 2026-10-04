@@ -58,6 +58,42 @@ test('non-web milestone planning does not fabricate a browser executor or execut
   assert.equal(record.run.milestones.length, 2); assert.ok(record.run.milestones.every(task => task.evidence === null));
 });
 
+test('malformed milestone plans get one bounded repair prompt before the plan review', async (t) => {
+  const engine = new HarnessEngine({ directory: await directory(t), invoke: async () => assert.fail('Use the captured planning fixture') }), record = planningRecord();
+  let calls = 0; const prompts = [], events = [];
+  engine.callValidated = async (_record, role, prompt, title, options) => {
+    assert.equal(role, 'planner'); assert.equal(title, '부분 작업 계획 / Milestone plan'); assert.equal(options.retryInvalid, false);
+    assert.equal(options.validate(plan).length, 2);
+    prompts.push(prompt); calls++;
+    if (calls === 1) throw Object.assign(new Error('부분 작업 계획 오류: 관찰 가능한 완료 기준이 필요합니다.'), { invalidStructuredOutput: true });
+    return plan;
+  };
+  engine.decide = async () => ({ decision: 'complete' });
+  engine.event = async (...args) => events.push(args);
+
+  await engine.prepareMilestones(record, 'future CLI plan', '');
+
+  assert.equal(calls, 2); assert.equal(record.run.milestones.length, 2);
+  assert.match(prompts[1], /직전 부분 작업 계획이 실행기 검증에서 거부/);
+  assert.match(prompts[1], /관찰 가능한 criteria와 실제 오프라인 verifyCommand/);
+  assert.ok(events.some((event) => event[1] === '부분 작업 계획 형식 보완 / Repair milestone plan'));
+});
+
+test('repeated malformed milestone plans stop after the single repair attempt without granting a plan', async (t) => {
+  const engine = new HarnessEngine({ directory: await directory(t), invoke: async () => assert.fail('Use the captured planning fixture') }), record = planningRecord();
+  let calls = 0; const events = [];
+  engine.callValidated = async () => {
+    calls++;
+    throw Object.assign(new Error('부분 작업 계획 오류: 실제 부분 검증 명령이 필요합니다.'), { invalidStructuredOutput: true });
+  };
+  engine.event = async (...args) => events.push(args);
+
+  await assert.rejects(engine.prepareMilestones(record, 'future CLI plan', ''), /실제 부분 검증 명령이 필요합니다/);
+
+  assert.equal(calls, 2); assert.equal(events.length, 1); assert.deepEqual(record.run.milestones, []);
+  assert.equal(record.run.milestoneContract, undefined); assert.notEqual(record.run.applied, true);
+});
+
 test('explicit milestone rejection retains the three-attempt bound and never grants a milestone contract', async (t) => {
   const engine = new HarnessEngine({ directory: await directory(t), invoke: async () => assert.fail('Use the captured planning fixture') }), record = planningRecord();
   let calls = 0, reviews = 0;

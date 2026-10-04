@@ -694,7 +694,7 @@ test('automatic Harness starts from task complexity and extends only when the ju
   const created = await engine.create({ ...f.input, rounds: 0 });
   assert.equal(created.autoRounds, true);
   assert.equal(created.rounds, 4);
-  assert.equal(created.roundCeiling, 10);
+  assert.equal(created.roundCeiling, 20);
   assert.doesNotMatch(JSON.stringify(created), /qualityTriedWorkerModels/);
   const run = await settled(engine, created.id);
   assert.equal(run.status, 'completed', run.summary);

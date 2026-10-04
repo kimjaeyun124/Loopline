@@ -389,7 +389,7 @@ test('native visible focus rejects invisible outlines and permanent shadows whil
   style.outlineWidth = '2px'; style.outlineColor = 'rgb(20, 50, 200)'; style.opacity = '0'; assert.equal(inspect(step).ok, false);
 });
 
-test('native QA catches overflow immediately after a long input even if a later reset removes it', async (t) => {
+test('native QA accepts an extended automatic round and catches overflow immediately after long input', async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'loopline-native-layout-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const runId = randomUUID(), workspace = join(directory, 'harness', runId, 'workspace');
@@ -420,7 +420,7 @@ test('native QA catches overflow immediately after a long input even if a later 
     { id: 'long', categories: ['input'], steps: [{ action: 'reset' }, { action: 'fill', selector: '#input', value: 'Long title' }, { action: 'visible', selector: '#input' }] },
     { id: 'empty', categories: ['empty'], steps: [{ action: 'reset' }, { action: 'visible', selector: '#input' }] },
   ], notApplicable: { save: 'This fixture has no persistence requirement.', keyboard: 'This fixture has no keyboard behavior requirement.' } };
-  const result = await verify({ workspace, runId, round: 1, plan }, directory);
+  const result = await verify({ workspace, runId, round: 20, plan }, directory);
   assert.equal(result.passed, false); assert.equal(windows.length, 2);
   for (const viewport of ['desktop', 'mobile']) {
     assert.equal(result.checks.find(c => c.id === 'long-layout' && c.viewport === viewport).passed, false);

@@ -13,13 +13,19 @@ function setup(t, { storage = new Map(), project = null, models = null, evidence
       fire(name, target = this) { return this.listeners[name]?.({ target, key: 'Escape', stopPropagation() {} }); } });
     return nodes.get(id);
   };
+  let evidenceResponse = evidence, failEvidenceRequest = false, evidenceRequestCount = 0;
   let failStorage = false;
   for (const key of ['document', 'localStorage', 'window', 'fetch']) {
     const original = Object.getOwnPropertyDescriptor(globalThis, key);
     t.after(() => original ? Object.defineProperty(globalThis, key, original) : delete globalThis[key]);
   }
   globalThis.document = { querySelector: node };
-  globalThis.fetch = async () => ({ ok: true, json: async () => evidence });
+  globalThis.fetch = async () => {
+    evidenceRequestCount++;
+    if (failEvidenceRequest) throw new Error('offline');
+    const response = typeof evidenceResponse === 'function' ? await evidenceResponse() : evidenceResponse;
+    return { ok: true, json: async () => response };
+  };
   node('#harnessRoles').querySelector = (selector) => {
     const role = selector.match(/data-fallback-select="([a-z]+)"/)?.[1];
     return role ? node(`#fallbackSelect-${role}`) : null;
@@ -32,7 +38,9 @@ function setup(t, { storage = new Map(), project = null, models = null, evidence
     getProject: () => project, saveProjects() {},
     saveConversations() {}, render() {}, toast: (message) => toasts.push(message), instructions() {}, onComplete() {} });
   return { ui, node, fields: node('#harnessRoles'), storage, saved: () => JSON.parse(storage.get(KEY)),
-    toasts, failStorage: (value) => { failStorage = value; } };
+    toasts, failStorage: (value) => { failStorage = value; },
+    setEvidence: (value) => { evidenceResponse = value; }, failEvidence: (value) => { failEvidenceRequest = value; },
+    evidenceRequestCount: () => evidenceRequestCount };
 }
 
 test('role, effort and options save without the completion button', (t) => {
@@ -121,6 +129,37 @@ test('malformed evidence exclusions are visible only when records are skipped', 
   assert.equal(healthy.node('#harnessEvidenceNotice').textContent, '');
   assert.equal(healthy.node('#harnessEvidenceDetails').hidden, true);
   assert.equal(healthy.node('#harnessEvidenceIds').innerHTML, '');
+});
+
+test('evidence refresh updates diagnostics and model statistics and recovers after request failure', async (t) => {
+  const s = setup(t, { evidence: { models: [], evidenceDiagnostics: { invalidRecordReasons: { 'invalid-call': 1 } } } });
+  s.ui.open();
+  await new Promise((resolve) => setImmediate(resolve));
+  const button = s.node('#harnessEvidenceRefresh');
+  assert.equal(s.node('#harnessEvidenceStatus').textContent, '실측 정보를 갱신했습니다.');
+  assert.equal(s.evidenceRequestCount(), 1);
+
+  let finishRefresh;
+  s.setEvidence(() => new Promise((resolve) => { finishRefresh = resolve; }));
+  const refresh = button.fire('click');
+  assert.equal(button.disabled, true);
+  assert.equal(s.node('#harnessEvidenceStatus').textContent, '실측 정보를 불러오는 중…');
+  assert.equal(await button.fire('click'), false);
+  assert.equal(s.evidenceRequestCount(), 2);
+  finishRefresh({ models: [{ role: 'worker', provider: 'api', model: 'jev-test', effort: 'high', type: 'web', runs: 1,
+    completionMeasuredRuns: 1, completedRuns: 1, browserQaPassedRuns: 0, browserQaRuns: 0, reportedTokens: 400,
+    missingUsageCalls: 0, sufficientEvidence: false }], evidenceDiagnostics: { invalidRecordReasons: {} } });
+  assert.equal(await refresh, true);
+  assert.equal(button.disabled, false);
+  assert.equal(s.node('#harnessEvidenceStatus').textContent, '실측 정보를 갱신했습니다.');
+  assert.equal(s.node('#harnessEvidenceNotice').hidden, true);
+  assert.match(s.fields.innerHTML, /호출 토큰 400/);
+
+  s.failEvidence(true);
+  assert.equal(await button.fire('click'), false);
+  assert.equal(button.disabled, false);
+  assert.equal(s.node('#harnessEvidenceStatus').textContent, '실측 정보를 불러오지 못했습니다.');
+  assert.ok(s.toasts.includes('실측 진단 정보를 갱신하지 못했습니다. 잠시 후 다시 시도해 주세요.'));
 });
 
 test('excluded evidence ID copy confirms success and reports clipboard failures', async (t) => {

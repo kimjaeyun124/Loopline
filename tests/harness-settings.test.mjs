@@ -88,6 +88,12 @@ test('malformed evidence exclusions are visible only when records are skipped', 
   const s = setup(t, { evidence: { models: [], evidenceDiagnostics: {
     malformedJsonRecords: 1, unreadableRecords: 1,
     invalidRecordReasons: { 'invalid-call': 2, 'invalid-human-intervention': 1, 'future-reason': 1 },
+    excludedRecordIds: {
+      'invalid-call': ['11111111-1111-4111-8111-111111111111'],
+      'malformed-json': ['22222222-2222-4222-8222-222222222222'],
+      unreadable: ['33333333-3333-4333-8333-333333333333'],
+      'future-reason': ['44444444-4444-4444-8444-444444444444'],
+    },
   } } });
   s.ui.open();
   await new Promise((resolve) => setImmediate(resolve));
@@ -95,6 +101,14 @@ test('malformed evidence exclusions are visible only when records are skipped', 
   assert.equal(notice.hidden, false);
   assert.match(notice.textContent, /실측 기록 6개를 모델 선택 통계에서 제외/);
   assert.match(notice.textContent, /JSON 오류 1개 · 형식 오류 4개 \(호출 데이터 2개, 개입 정보 1개, 기타 형식 오류 1개\) · 읽기 오류 1개/);
+  const details = s.node('#harnessEvidenceDetails');
+  const ids = s.node('#harnessEvidenceIds');
+  assert.equal(details.hidden, false);
+  assert.match(ids.innerHTML, /호출 데이터 · 예시 ID/);
+  assert.match(ids.innerHTML, /JSON 오류 · 예시 ID/);
+  assert.match(ids.innerHTML, /읽기 오류 · 예시 ID/);
+  assert.match(ids.innerHTML, /11111111-1111-4111-8111-111111111111/);
+  assert.match(ids.innerHTML, /기타 형식 오류 · 예시 ID/);
 
   const healthy = setup(t, { evidence: { models: [], evidenceDiagnostics: {
     malformedJsonRecords: 0, unreadableRecords: 0, invalidRecordReasons: {},
@@ -103,6 +117,8 @@ test('malformed evidence exclusions are visible only when records are skipped', 
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(healthy.node('#harnessEvidenceNotice').hidden, true);
   assert.equal(healthy.node('#harnessEvidenceNotice').textContent, '');
+  assert.equal(healthy.node('#harnessEvidenceDetails').hidden, true);
+  assert.equal(healthy.node('#harnessEvidenceIds').innerHTML, '');
 });
 
 test('loop compute priorities are reorderable, persisted, and keep completion locked at the top', (t) => {

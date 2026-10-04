@@ -214,6 +214,8 @@ test('malformed evidence records are diagnosed and skipped without breaking vali
   const invalidRecords = [
     storedEvidence(randomUUID(), 'web', 2000, [null]),
     storedEvidence(randomUUID(), 'web', 3000, [{ role: 'worker', provider: 'openai', model: 'poison-model', effort: 'max', tokens: 'not-a-number', durationMs: 300, status: 'success' }]),
+    storedEvidence(randomUUID(), 'web', 3500, [null]),
+    storedEvidence(randomUUID(), 'web', 3750, [null]),
     { ...storedEvidence(randomUUID(), 'web', 4000, [{ role: 'worker', ...model, effort: 'max', tokens: 100, durationMs: 300, status: 'success' }]),
       humanIntervention: { measurement: 'observed-actions', coverage: 'full-run' } },
   ];
@@ -228,13 +230,17 @@ test('malformed evidence records are diagnosed and skipped without breaking vali
   assert.equal(summary.models[0].model, model.model);
   assert.equal(summary.models[0].runs, 1);
   assert.equal(summary.models[0].meanReportedTokens, 100);
-  assert.deepEqual(summary.evidenceDiagnostics, {
-    scannedRecords: 6,
-    acceptedRecords: 1,
-    taskTypeMismatchRecords: 0,
-    malformedJsonRecords: 1,
-    unreadableRecords: 1,
-    invalidRecordReasons: { 'invalid-call': 2, 'invalid-human-intervention': 1 },
-  });
+  assert.equal(summary.evidenceDiagnostics.scannedRecords, 8);
+  assert.equal(summary.evidenceDiagnostics.acceptedRecords, 1);
+  assert.equal(summary.evidenceDiagnostics.taskTypeMismatchRecords, 0);
+  assert.equal(summary.evidenceDiagnostics.malformedJsonRecords, 1);
+  assert.equal(summary.evidenceDiagnostics.unreadableRecords, 1);
+  assert.deepEqual(summary.evidenceDiagnostics.invalidRecordReasons, { 'invalid-call': 4, 'invalid-human-intervention': 1 });
+  const excludedIds = summary.evidenceDiagnostics.excludedRecordIds;
+  assert.equal(excludedIds['invalid-call'].length, 3);
+  assert.ok(excludedIds['invalid-call'].every((id) => invalidRecords.slice(0, 4).some((record) => record.id === id)));
+  assert.deepEqual(excludedIds['invalid-human-intervention'], [invalidRecords[4].id]);
+  assert.deepEqual(excludedIds['malformed-json'], [malformedJsonId]);
+  assert.deepEqual(excludedIds.unreadable, [unreadableId]);
   assert.equal((await store.records('web')).length, 1);
 });

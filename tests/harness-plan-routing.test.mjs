@@ -87,11 +87,11 @@ test('automatic routing consumes measured completion and interaction evidence wh
         routes.push(prompt);
         const primary = prompt.state.candidates.worker.find((candidate) => candidate.model === 'primary');
         const alternative = prompt.state.candidates.worker.find((candidate) => candidate.model === 'alternative');
-        assert.equal(primary.routingEvidence.measuredRuns, 3);
-        assert.equal(primary.routingEvidence.completionRate, 2 / 3);
-        assert.equal(primary.routingEvidence.humanIntervention.observedActionRate, 1 / 3);
-        assert.equal(alternative.routingEvidence.completionRate, 1);
-        assert.equal(alternative.routingEvidence.humanIntervention.observedActionRate, 0);
+        assert.equal(primary.measuredEvidence.measuredRuns, 3);
+        assert.equal(primary.measuredEvidence.completionRate, 2 / 3);
+        assert.equal(primary.measuredEvidence.humanIntervention.observedActionRate, 1 / 3);
+        assert.equal(alternative.measuredEvidence.completionRate, 1);
+        assert.equal(alternative.measuredEvidence.humanIntervention.observedActionRate, 0);
         assert.match(prompt.state.measurementPolicy, /완료 안정성이 고정된 첫 기준/);
         assert.match(prompt.state.measurementPolicy, /인과적 성능이 아니며/);
       }
@@ -104,6 +104,36 @@ test('automatic routing consumes measured completion and interaction evidence wh
   const assignment = run.events.find((event) => event.title === '모델 배정 결과 / Model assigned' && event.model?.role === 'worker');
   assert.match(assignment.detail, /관찰 완료율 우선 배정/);
   assert.match(assignment.detail, /3\/3가 2\/3보다 높아 완료 안정성 우선 규칙/);
+});
+
+test('routing hides token and browser QA metrics until each has enough complete samples', async (t) => {
+  const f = await fixture(t), evidence = new HarnessEvidence(join(f.data, 'harness'));
+  for (let index = 0; index < 3; index++) {
+    await evidence.record({
+      id: randomUUID(), task: f.input.task, status: 'completed', applied: true,
+      createdAt: 100, finishedAt: 1000, round: 1, verificationPassed: true,
+      qaRequired: index === 0, browserQaPassed: index === 0, events: [],
+      humanActions: { manualResumes: 0, stopRequests: 0, completeCoverage: true },
+      modelCalls: [{ role: 'worker', provider: 'api', model: 'primary', effort: 'high', tokens: index === 0 ? 100 : null, durationMs: 300, status: 'success' }],
+    });
+  }
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: script({ route(prompt) {
+    const primary = prompt.state.candidates.worker.find((candidate) => candidate.model === 'primary');
+    assert.equal(primary.measuredEvidence.sufficientEvidence, true);
+    assert.equal(primary.measuredEvidence.meanModelTimeMs, 300);
+    assert.equal(primary.measuredEvidence.meanReportedTokens, null);
+    assert.equal(primary.measuredEvidence.fullyReportedRuns, 1);
+    assert.equal(primary.measuredEvidence.tokenUsageSufficientEvidence, false);
+    assert.equal(primary.tokenEfficiencyBenchmark, 'insufficient usage samples');
+    assert.equal(primary.measuredEvidence.browserQaRuns, 1);
+    assert.equal(primary.measuredEvidence.browserQaPassRate, null);
+    assert.equal(primary.measuredEvidence.browserQaSufficientEvidence, false);
+    assert.match(prompt.state.measurementPolicy, /사용량이 모두 보고된 실행 3회 이상/);
+    assert.match(prompt.state.measurementPolicy, /실제 QA 실행 3회 이상/);
+    return answers(prompt, 'keep');
+  } }) });
+  const run = await finish(engine, f.input);
+  assert.equal(run.roles.worker.model, 'primary');
 });
 
 test('completion evidence does not replace the default when samples are tied or the default is unmeasured', async (t) => {

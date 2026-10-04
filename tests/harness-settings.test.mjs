@@ -87,14 +87,14 @@ test('model settings show observed manual resumes and stop requests beside measu
 test('malformed evidence exclusions are visible only when records are skipped', async (t) => {
   const s = setup(t, { evidence: { models: [], evidenceDiagnostics: {
     malformedJsonRecords: 1, unreadableRecords: 1,
-    invalidRecordReasons: { 'invalid-call': 2, 'invalid-human-intervention': 1 },
+    invalidRecordReasons: { 'invalid-call': 2, 'invalid-human-intervention': 1, 'future-reason': 1 },
   } } });
   s.ui.open();
   await new Promise((resolve) => setImmediate(resolve));
   const notice = s.node('#harnessEvidenceNotice');
   assert.equal(notice.hidden, false);
-  assert.match(notice.textContent, /실측 기록 5개를 모델 선택 통계에서 제외/);
-  assert.match(notice.textContent, /JSON 오류 1개 · 형식 오류 3개 · 읽기 오류 1개/);
+  assert.match(notice.textContent, /실측 기록 6개를 모델 선택 통계에서 제외/);
+  assert.match(notice.textContent, /JSON 오류 1개 · 형식 오류 4개 \(호출 데이터 2개, 개입 정보 1개, 기타 형식 오류 1개\) · 읽기 오류 1개/);
 
   const healthy = setup(t, { evidence: { models: [], evidenceDiagnostics: {
     malformedJsonRecords: 0, unreadableRecords: 0, invalidRecordReasons: {},

@@ -55,7 +55,7 @@ export class HarnessEvidence {
     const file = join(this.directory, `${run.id}.json`), temporary = `${file}.${randomUUID()}.tmp`;
     await writeFile(temporary, JSON.stringify(result), { mode: 0o600, flag: 'wx' }); await rename(temporary, file);
   }
-  async records() {
+  async records(type) {
     let names;
     try { names = await readdir(this.directory); } catch (error) { if (error.code === 'ENOENT') return []; throw error; }
     names = names.filter((name) => /^[a-f0-9-]{36}\.json$/.test(name));
@@ -70,22 +70,23 @@ export class HarnessEvidence {
     }
     files.sort((left, right) => right.modifiedAt - left.modifiedAt || right.name.localeCompare(left.name));
     const records = [];
-    const selectedFiles = files.slice(0, MAX_EVIDENCE_RECORDS);
+    const selectedFiles = type ? files : files.slice(0, MAX_EVIDENCE_RECORDS);
     for (let offset = 0; offset < selectedFiles.length; offset += 64) {
       const batch = await Promise.all(selectedFiles.slice(offset, offset + 64).map(async ({ name }) => {
         try {
           const value = JSON.parse(await readFile(join(this.directory, name), 'utf8'));
-          return [1, 2].includes(value.version) && Array.isArray(value.calls) ? value : null;
+          return [1, 2].includes(value.version) && Array.isArray(value.calls) && (!type || value.type === type) ? value : null;
         } catch { /* A damaged measurement must not prevent program execution or become routing evidence. */ return null; }
       }));
-      records.push(...batch.filter(Boolean));
+      records.push(...batch.filter(Boolean).slice(0, MAX_EVIDENCE_RECORDS - records.length));
+      if (records.length >= MAX_EVIDENCE_RECORDS) break;
     }
     records.sort((left, right) => (Number.isFinite(left.finishedAt) ? left.finishedAt : 0) - (Number.isFinite(right.finishedAt) ? right.finishedAt : 0)
       || String(left.id).localeCompare(String(right.id)));
     return records;
   }
   async summary(type) {
-    const records = (await this.records()).filter((r) => !type || r.type === type);
+    const records = await this.records(type);
     const groups = new Map();
     const measuredInterventions = records.filter((run) => run.humanIntervention?.measurement === 'observed-actions');
     const humanIntervention = {

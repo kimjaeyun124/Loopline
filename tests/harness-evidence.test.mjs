@@ -198,12 +198,17 @@ test('task-type summaries retain matching evidence beyond newer records of other
   const cliSummary = await store.summary('cli');
   assert.equal(cliSummary.recordedRuns, 1);
   assert.equal(cliSummary.models[0].runs, 1);
+  assert.equal(cliSummary.evidenceDiagnostics.scannedRecords, 2001);
+  assert.equal(cliSummary.evidenceDiagnostics.acceptedRecords, 1);
+  assert.equal(cliSummary.evidenceDiagnostics.taskTypeMismatchRecords, 2000);
   const allSummary = await store.summary();
   assert.equal(allSummary.recordedRuns, 2000);
   assert.ok(allSummary.models.every((candidate) => candidate.type === 'web'));
+  assert.equal(allSummary.evidenceDiagnostics.scannedRecords, 2000);
+  assert.equal(allSummary.evidenceDiagnostics.acceptedRecords, 2000);
 });
 
-test('malformed evidence records are skipped without breaking valid model metrics', async (t) => {
+test('malformed evidence records are diagnosed and skipped without breaking valid model metrics', async (t) => {
   const store = await fixture(t), valid = run();
   await store.record(valid);
   const invalidRecords = [
@@ -213,6 +218,9 @@ test('malformed evidence records are skipped without breaking valid model metric
       humanIntervention: { measurement: 'observed-actions', coverage: 'full-run' } },
   ];
   await Promise.all(invalidRecords.map((record) => writeFile(join(store.directory, `${record.id}.json`), JSON.stringify(record))));
+  const malformedJsonId = randomUUID(), unreadableId = randomUUID();
+  await writeFile(join(store.directory, `${malformedJsonId}.json`), '{broken json');
+  await mkdir(join(store.directory, `${unreadableId}.json`));
 
   const summary = await store.summary('web');
   assert.equal(summary.recordedRuns, 1);
@@ -220,4 +228,13 @@ test('malformed evidence records are skipped without breaking valid model metric
   assert.equal(summary.models[0].model, model.model);
   assert.equal(summary.models[0].runs, 1);
   assert.equal(summary.models[0].meanReportedTokens, 100);
+  assert.deepEqual(summary.evidenceDiagnostics, {
+    scannedRecords: 6,
+    acceptedRecords: 1,
+    taskTypeMismatchRecords: 0,
+    malformedJsonRecords: 1,
+    unreadableRecords: 1,
+    invalidRecordReasons: { 'invalid-call': 2, 'invalid-human-intervention': 1 },
+  });
+  assert.equal((await store.records('web')).length, 1);
 });

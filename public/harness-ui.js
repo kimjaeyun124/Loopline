@@ -241,7 +241,24 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
       ? `실측 정보 갱신 중 · 마지막 확인 ${lastEvidenceRefreshAt}`
       : '실측 정보를 불러오는 중…';
     try {
-      const evidence = await request('/api/harness/evidence');
+      let evidence;
+      const maxRetries = 2;
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+          evidence = await request('/api/harness/evidence');
+          break;
+        } catch (error) {
+          const status = error?.status;
+          const retryable = !Number.isInteger(status) || status === 408 || status === 425
+            || status === 429 || status >= 500;
+          if (!retryable || attempt === maxRetries) throw error;
+          const retryNumber = attempt + 1;
+          evidenceStatus.textContent = hasLoadedEvidence
+            ? `실측 정보 재시도 ${retryNumber}/${maxRetries} 중 · 마지막 확인 ${lastEvidenceRefreshAt}`
+            : `실측 정보 일시 오류 · 재시도 ${retryNumber}/${maxRetries} 중…`;
+          await new Promise((resolve) => setTimeout(resolve, 250 * (attempt + 1)));
+        }
+      }
       measuredModels = Array.isArray(evidence.models) ? evidence.models : [];
       renderEvidenceDiagnostics(evidence.evidenceDiagnostics);
       renderRoles();

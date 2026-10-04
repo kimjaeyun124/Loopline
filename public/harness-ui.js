@@ -10,6 +10,7 @@ const EVIDENCE_REASON_LABELS = new Map([
   ['invalid-shape', '기록 구조'], ['unsupported-version', '지원 버전'], ['id-mismatch', '파일 ID'],
   ['invalid-metadata', '실행 정보'], ['invalid-recoveries', '복구 횟수'], ['invalid-calls', '호출 목록'],
   ['invalid-call', '호출 데이터'], ['invalid-human-intervention', '개입 정보'],
+  ['malformed-json', 'JSON 오류'], ['unreadable', '읽기 오류'],
 ]);
 const escape = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
@@ -34,6 +35,8 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
   const priorityFields = document.querySelector('#harnessPriorities');
   const saveStatus = document.querySelector('#harnessSaveStatus');
   const evidenceNotice = document.querySelector('#harnessEvidenceNotice');
+  const evidenceDetails = document.querySelector('#harnessEvidenceDetails');
+  const evidenceIds = document.querySelector('#harnessEvidenceIds');
   const search = document.querySelector('#harnessModelSearch');
   const expandedFallbacks = new Set();
   let measuredModels = [];
@@ -54,6 +57,15 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
     const total = invalidRecords + malformedJsonRecords + unreadableRecords;
     evidenceNotice.hidden = total === 0;
     evidenceNotice.textContent = total === 0 ? '' : `실측 기록 ${total}개를 모델 선택 통계에서 제외했습니다 · JSON 오류 ${malformedJsonRecords}개 · 형식 오류 ${invalidRecords}개${invalidReasonSummary ? ` (${invalidReasonSummary})` : ''} · 읽기 오류 ${unreadableRecords}개`;
+    const excludedRecordIds = diagnostics?.excludedRecordIds && typeof diagnostics.excludedRecordIds === 'object' && !Array.isArray(diagnostics.excludedRecordIds)
+      ? diagnostics.excludedRecordIds : {};
+    const exampleGroups = Object.entries(excludedRecordIds).flatMap(([reason, ids]) => {
+      if (!Array.isArray(ids)) return [];
+      const safeIds = ids.filter((id) => typeof id === 'string' && /^[a-f0-9-]{36}$/.test(id)).slice(0, 3);
+      return safeIds.length ? [[EVIDENCE_REASON_LABELS.get(reason) || '기타 형식 오류', safeIds]] : [];
+    });
+    evidenceDetails.hidden = total === 0 || exampleGroups.length === 0;
+    evidenceIds.innerHTML = exampleGroups.map(([label, ids]) => `<li><span>${escape(label)} · 예시 ID</span><code>${ids.map(escape).join('<br>')}</code></li>`).join('');
   }
   const save = () => {
     try {

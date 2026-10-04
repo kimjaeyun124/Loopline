@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 
 const MIN_RUNS = 3;
 const MAX_EVIDENCE_RECORDS = 2000;
+const MAX_EXCLUDED_RECORD_IDS_PER_REASON = 3;
 const plain = (value) => String(value || '').replace(/[\r\n\0]/g, ' ').slice(0, 160);
 export function taskType(task) {
   if (/(?:\bCLI\b|command.line|명령줄)/i.test(task)) return 'cli';
@@ -76,7 +77,11 @@ export class HarnessEvidence {
     await writeFile(temporary, JSON.stringify(result), { mode: 0o600, flag: 'wx' }); await rename(temporary, file);
   }
   async recordsWithDiagnostics(type) {
-    const diagnostics = { scannedRecords: 0, acceptedRecords: 0, taskTypeMismatchRecords: 0, malformedJsonRecords: 0, unreadableRecords: 0, invalidRecordReasons: {} };
+    const diagnostics = { scannedRecords: 0, acceptedRecords: 0, taskTypeMismatchRecords: 0, malformedJsonRecords: 0, unreadableRecords: 0, invalidRecordReasons: {}, excludedRecordIds: {} };
+    const sampleExcludedRecord = (reason, name) => {
+      const ids = diagnostics.excludedRecordIds[reason] || (diagnostics.excludedRecordIds[reason] = []);
+      if (ids.length < MAX_EXCLUDED_RECORD_IDS_PER_REASON) ids.push(name.slice(0, -5));
+    };
     let names;
     try { names = await readdir(this.directory); } catch (error) { if (error.code === 'ENOENT') return { records: [], diagnostics }; throw error; }
     names = names.filter((name) => /^[a-f0-9-]{36}\.json$/.test(name));
@@ -85,7 +90,7 @@ export class HarnessEvidence {
     for (let offset = 0; offset < names.length; offset += 64) {
       const batch = await Promise.all(names.slice(offset, offset + 64).map(async (name) => {
         try { return { name, modifiedAt: (await stat(join(this.directory, name))).mtimeMs }; }
-        catch { diagnostics.unreadableRecords++; return null; }
+        catch { diagnostics.unreadableRecords++; sampleExcludedRecord('unreadable', name); return null; }
       }));
       files.push(...batch.filter(Boolean));
     }
@@ -99,13 +104,14 @@ export class HarnessEvidence {
           let value;
           try { value = JSON.parse(await readFile(join(this.directory, name), 'utf8')); }
           catch (error) {
-            if (error instanceof SyntaxError) diagnostics.malformedJsonRecords++;
-            else diagnostics.unreadableRecords++;
+            if (error instanceof SyntaxError) { diagnostics.malformedJsonRecords++; sampleExcludedRecord('malformed-json', name); }
+            else { diagnostics.unreadableRecords++; sampleExcludedRecord('unreadable', name); }
             return null;
           }
           const issue = evidenceRecordIssue(value, name);
           if (issue) {
             diagnostics.invalidRecordReasons[issue] = (diagnostics.invalidRecordReasons[issue] || 0) + 1;
+            sampleExcludedRecord(issue, name);
             return null;
           }
           if (type && value.type !== type) { diagnostics.taskTypeMismatchRecords++; return null; }

@@ -136,14 +136,16 @@ test('evidence refresh updates diagnostics and model statistics and recovers aft
   s.ui.open();
   await new Promise((resolve) => setImmediate(resolve));
   const button = s.node('#harnessEvidenceRefresh');
-  assert.equal(s.node('#harnessEvidenceStatus').textContent, '실측 정보를 갱신했습니다.');
+  assert.match(s.node('#harnessEvidenceStatus').textContent, /^실측 정보를 갱신했습니다 · 마지막 확인 \d{2}:\d{2}$/);
+  const initialConfirmedAt = s.node('#harnessEvidenceStatus').textContent.match(/\d{2}:\d{2}$/)?.[0];
+  assert.ok(initialConfirmedAt);
   assert.equal(s.evidenceRequestCount(), 1);
 
   let finishRefresh;
   s.setEvidence(() => new Promise((resolve) => { finishRefresh = resolve; }));
   const refresh = button.fire('click');
   assert.equal(button.disabled, true);
-  assert.equal(s.node('#harnessEvidenceStatus').textContent, '실측 정보를 불러오는 중…');
+  assert.equal(s.node('#harnessEvidenceStatus').textContent, `실측 정보 갱신 중 · 마지막 확인 ${initialConfirmedAt}`);
   assert.equal(await button.fire('click'), false);
   assert.equal(s.evidenceRequestCount(), 2);
   finishRefresh({ models: [{ role: 'worker', provider: 'api', model: 'jev-test', effort: 'high', type: 'web', runs: 1,
@@ -151,14 +153,16 @@ test('evidence refresh updates diagnostics and model statistics and recovers aft
     missingUsageCalls: 0, sufficientEvidence: false }], evidenceDiagnostics: { invalidRecordReasons: {} } });
   assert.equal(await refresh, true);
   assert.equal(button.disabled, false);
-  assert.equal(s.node('#harnessEvidenceStatus').textContent, '실측 정보를 갱신했습니다.');
+  assert.match(s.node('#harnessEvidenceStatus').textContent, /^실측 정보를 갱신했습니다 · 마지막 확인 \d{2}:\d{2}$/);
+  const refreshedAt = s.node('#harnessEvidenceStatus').textContent.match(/\d{2}:\d{2}$/)?.[0];
+  assert.ok(refreshedAt);
   assert.equal(s.node('#harnessEvidenceNotice').hidden, true);
   assert.match(s.fields.innerHTML, /호출 토큰 400/);
 
   s.failEvidence(true);
   assert.equal(await button.fire('click'), false);
   assert.equal(button.disabled, false);
-  assert.equal(s.node('#harnessEvidenceStatus').textContent, '갱신 실패 · 마지막으로 확인한 실측 정보를 표시 중입니다.');
+  assert.equal(s.node('#harnessEvidenceStatus').textContent, `갱신 실패 · ${refreshedAt} 기준 실측 정보를 표시 중입니다.`);
   assert.match(s.fields.innerHTML, /호출 토큰 400/);
   assert.ok(s.toasts.includes('실측 진단 정보를 갱신하지 못했습니다. 잠시 후 다시 시도해 주세요.'));
 });

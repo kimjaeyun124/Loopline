@@ -1855,8 +1855,10 @@ export class HarnessEngine {
     const history = createWorkerHistory(), seenReadOperations = new Set();
     let repeatedReads = 0, repeatedReadFeedbackSent = false;
     let lastMalformedFingerprint = '', repeatedMalformedResponses = 0;
+    let lastToolFailureFingerprint = '', repeatedToolFailures = 0;
     const repeatedEditFailures = new Map();
     const triedMalformedModels = new Set([selectionKey(run.roles.worker)]);
+    const triedToolRecoveryModels = new Set([selectionKey(run.roles.worker)]);
     const triedEditRecoveryModels = new Set([selectionKey(run.roles.worker)]);
     const triedReadRecoveryModels = new Set([selectionKey(run.roles.worker)]);
     const visualDesignGuidance = isVisualInterfaceTask(run.task, state.files)
@@ -1886,6 +1888,7 @@ export class HarnessEngine {
         continue;
       }
       triedMalformedModels.add(selectionKey(run.roles.worker));
+      triedToolRecoveryModels.add(selectionKey(run.roles.worker));
       triedEditRecoveryModels.add(selectionKey(run.roles.worker));
       triedReadRecoveryModels.add(selectionKey(run.roles.worker));
       let action;
@@ -1952,6 +1955,7 @@ export class HarnessEngine {
         if (activeMilestone && action.operations.some((op) => ['write', 'edit', 'delete'].includes(op?.type) && !matchesMilestone(op.path, activeMilestone))) throw fail('현재 부분 작업 담당 범위 밖 파일 수정입니다. 현재 작업의 paths 안에서 구현하세요.');
         const results = await applyWorkspaceOperations(run.workspace, action.operations, signal);
         recordWorkerResults(history, step + 1, action.operations, results);
+        lastToolFailureFingerprint = ''; repeatedToolFailures = 0;
         for (const operation of action.operations) {
           if (['write', 'edit', 'delete'].includes(operation?.type) && typeof operation.path === 'string') repeatedEditFailures.delete(operation.path);
         }
@@ -1972,6 +1976,13 @@ export class HarnessEngine {
         }
         await recordWorkerFailure(history, run.workspace, step + 1, toolFeedback, action.operations);
         await this.event(record, '작업 수정 요청 / Tool feedback', toolFeedback);
+        const failureFingerprint = createHash('sha256').update(JSON.stringify({
+          message: String(error?.message || '파일 작업 실패'),
+          operations: Array.isArray(action.operations)
+            ? action.operations.map((operation) => [operation?.type, operation?.path || '.']) : [],
+        })).digest('hex');
+        repeatedToolFailures = failureFingerprint === lastToolFailureFingerprint ? repeatedToolFailures + 1 : 1;
+        lastToolFailureFingerprint = failureFingerprint;
         if (failedEdit?.path) {
           const failures = (repeatedEditFailures.get(failedEdit.path) || 0) + 1;
           repeatedEditFailures.set(failedEdit.path, failures);
@@ -1988,6 +1999,23 @@ export class HarnessEngine {
               'completed', modelDetails('worker', nextWorker));
           } else if (failures >= 3) {
             throw fail(`${failedEdit.path} 파일 편집이 세 번 실패했고 사용할 대체 구현 모델도 없습니다. 작업 공간을 보관했습니다.`);
+          }
+        } else if (repeatedToolFailures >= 2) {
+          const nextWorker = !run.mcpSideEffectPossible && (run.modelPriority.worker || []).find((selection) => {
+            const key = selectionKey(selection);
+            return !triedToolRecoveryModels.has(key) && !knownExhausted(run.modelBudgets[key] || {}, selection);
+          });
+          if (nextWorker) {
+            const key = selectionKey(nextWorker);
+            run.roles.worker = { ...nextWorker };
+            triedToolRecoveryModels.add(key);
+            run.stageModels.worker = { ...modelDetails('worker', nextWorker), reasoningEffort: nextWorker.reasoningEffort || '' };
+            lastToolFailureFingerprint = ''; repeatedToolFailures = 0;
+            await this.event(record, '파일 작업 오류 반복 · 대체 모델 전환 / Repeated tool failure · Worker fallback',
+              `같은 파일 작업 오류가 반복되어 저장된 다음 구현 모델 ${nextWorker.label || nextWorker.model}로 이어갑니다. 최신 작업 공간과 오류 근거를 전달했습니다.`,
+              'completed', modelDetails('worker', nextWorker));
+          } else if (repeatedToolFailures >= 4) {
+            throw fail('같은 파일 작업 오류가 네 번 반복됐고 안전하게 시도할 대체 모델이 없어 중지했습니다. 작업 공간은 보관했습니다.');
           }
         }
       }

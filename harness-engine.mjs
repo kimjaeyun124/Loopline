@@ -1856,6 +1856,7 @@ export class HarnessEngine {
     let repeatedReads = 0, repeatedReadFeedbackSent = false;
     let lastMalformedFingerprint = '', repeatedMalformedResponses = 0;
     const repeatedEditFailures = new Map();
+    const triedMalformedModels = new Set([selectionKey(run.roles.worker)]);
     const triedEditRecoveryModels = new Set([selectionKey(run.roles.worker)]);
     const triedReadRecoveryModels = new Set([selectionKey(run.roles.worker)]);
     const visualDesignGuidance = isVisualInterfaceTask(run.task, state.files)
@@ -1884,6 +1885,7 @@ export class HarnessEngine {
         implementationIssue = '';
         continue;
       }
+      triedMalformedModels.add(selectionKey(run.roles.worker));
       triedEditRecoveryModels.add(selectionKey(run.roles.worker));
       triedReadRecoveryModels.add(selectionKey(run.roles.worker));
       let action;
@@ -1896,7 +1898,21 @@ export class HarnessEngine {
         lastMalformedFingerprint = fingerprint;
         await recordWorkerFailure(history, run.workspace, step + 1, `응답 오류: ${error.message} JSON 객체만 반환하세요.`, []);
         await this.event(record, '응답 형식 재요청 / Retry format', error.message);
-        if (repeatedMalformedResponses >= 2) throw fail('같은 잘못된 응답 형식이 연속으로 반복되어 불필요한 재시도를 막기 위해 중지했습니다. 작업 공간은 보관했습니다.');
+        if (repeatedMalformedResponses >= 2) {
+          const nextWorker = !run.mcpSideEffectPossible && (run.modelPriority.worker || []).find((selection) => {
+            const key = selectionKey(selection);
+            return !triedMalformedModels.has(key) && !knownExhausted(run.modelBudgets[key] || {}, selection);
+          });
+          if (!nextWorker) throw fail('같은 잘못된 응답 형식이 반복됐고 안전하게 시도할 대체 모델이 없어 중지했습니다. 작업 공간은 보관했습니다.');
+          const key = selectionKey(nextWorker);
+          run.roles.worker = { ...nextWorker };
+          triedMalformedModels.add(key);
+          run.stageModels.worker = { ...modelDetails('worker', nextWorker), reasoningEffort: nextWorker.reasoningEffort || '' };
+          lastMalformedFingerprint = ''; repeatedMalformedResponses = 0;
+          await this.event(record, '응답 형식 반복 · 대체 모델 전환 / Repeated invalid format · Worker fallback',
+            `같은 형식 오류가 반복되어 저장된 다음 구현 모델 ${nextWorker.label || nextWorker.model}로 이어갑니다.`, 'completed', modelDetails('worker', nextWorker));
+          continue;
+        }
         continue;
       }
       const completion = action.done === true && typeof action.summary === 'string' && action.summary.trim();

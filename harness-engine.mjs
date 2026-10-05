@@ -1810,7 +1810,7 @@ export class HarnessEngine {
     const tried = new Set(Array.isArray(run.qualityTriedWorkerModels) ? run.qualityTriedWorkerModels : []);
     tried.add(selectionFingerprint(current));
     run.qualityTriedWorkerModels = [...tried];
-    const next = (run.modelPriority.worker || []).find((selection) => !tried.has(selectionFingerprint(selection))
+    const next = !run.mcpSideEffectPossible && (run.modelPriority.worker || []).find((selection) => !tried.has(selectionFingerprint(selection))
       && !knownExhausted(run.modelBudgets[selectionKey(selection)] || {}, selection));
     let modelChanged = false;
     if (next) {
@@ -1823,7 +1823,8 @@ export class HarnessEngine {
       await this.event(record, '품질 정체 후 모델 교체 / Quality escalation', `같은 변경이 반복되어 저장한 구현 우선순위의 다음 미사용 모델로 전환했습니다. 다음 회차에서 재계획을 적용합니다.`, 'completed', modelDetails('worker', next));
       modelChanged = true;
     }
-    await this.event(record, 'Loop 접근 재정비 / Loop strategy reset', `회차 ${round}/${ceiling} · 새 계획 ${replanned ? '수립' : '미수립'} · 구현 모델 ${modelChanged ? '교체' : '추가 대체 모델 없음'}.`, 'completed');
+    const modelRecovery = modelChanged ? '교체' : run.mcpSideEffectPossible ? '외부 MCP 작업 이후 중복 실행 위험으로 유지' : '추가 대체 모델 없음';
+    await this.event(record, 'Loop 접근 재정비 / Loop strategy reset', `회차 ${round}/${ceiling} · 새 계획 ${replanned ? '수립' : '미수립'} · 구현 모델 ${modelRecovery}.`, 'completed');
     return { plan: nextPlan, replanned, modelChanged };
   }
 
@@ -1986,7 +1987,7 @@ export class HarnessEngine {
         if (failedEdit?.path) {
           const failures = (repeatedEditFailures.get(failedEdit.path) || 0) + 1;
           repeatedEditFailures.set(failedEdit.path, failures);
-          const nextWorker = (run.modelPriority.worker || []).find((selection) => {
+          const nextWorker = !run.mcpSideEffectPossible && (run.modelPriority.worker || []).find((selection) => {
             const key = selectionKey(selection);
             return !triedEditRecoveryModels.has(key) && !knownExhausted(run.modelBudgets[key] || {}, selection);
           });

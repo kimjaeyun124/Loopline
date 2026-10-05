@@ -233,6 +233,9 @@ function recordWorkerResults(history, step, operations, results) {
   const resolvedPaths = new Set();
   for (const result of results) {
     if (result.type === 'read') rememberWorkerFile(history, result.path, { step, content: result.content, source: 'read' });
+    if (['write', 'edit'].includes(result.type) && typeof result.content === 'string') {
+      rememberWorkerFile(history, result.path, { step, content: result.content, source: 'updated' });
+    }
     if (result.type === 'list') {
       history.listings.delete(result.path);
       history.listings.set(result.path, { step, entries: result.entries });
@@ -242,7 +245,6 @@ function recordWorkerResults(history, step, operations, results) {
     if (typeof operation.path === 'string') resolvedPaths.add(operation.path);
     if (['write', 'edit', 'delete'].includes(operation.type)) {
       if (operation.type === 'delete') history.files.delete(operation.path);
-      else rememberWorkerFile(history, operation.path, { step, content: operation.content, source: 'updated' });
       history.listings.clear();
     }
     const action = { step, type: operation.type, path: operation.path || '.' };
@@ -581,7 +583,9 @@ export async function applyWorkspaceOperations(root, operations, signal) {
       await mkdir(dirname(path), { recursive: true });
       await writeFile(path, op.content);
     }
-    results.push({ type: op.type, path: op.path, completed: true });
+    const result = { type: op.type, path: op.path, completed: true };
+    if (op.type !== 'delete') result.content = op.content;
+    results.push(result);
   }
   return results;
 }

@@ -119,6 +119,8 @@ export function rankLoopModelCandidates(candidates, priorities = DEFAULT_LOOP_PR
         }
         const recoveries = comparableMetric(measured, minimumRuns, 'completionMeasuredRuns', 'meanRunRecoveries', 'asc', '평균 복구 횟수');
         if (recoveries) metrics.push(recoveries);
+        const callSuccess = comparableMetric(measured, minimumRuns, 'callSuccessMeasuredRuns', 'callSuccessRate', 'desc', '모델 호출 성공률');
+        if (callSuccess) metrics.push(callSuccess);
       } else if (priority === 'tokenEfficiency') {
         const tokens = comparableMetric(measured, minimumRuns, 'fullyReportedRuns', 'meanReportedTokens', 'asc', '평균 토큰');
         if (tokens) metrics.push(tokens);

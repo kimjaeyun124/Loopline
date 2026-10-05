@@ -206,6 +206,7 @@ export class HarnessEvidence {
         completionRate: group.completionMeasuredRuns ? group.completedRuns / group.completionMeasuredRuns : null, browserQaPassRate: group.browserQaRuns ? group.browserQaPassedRuns / group.browserQaRuns : null,
         completionConfidenceLowerBound: wilsonLowerBound(group.completedRuns, group.completionMeasuredRuns),
         verificationPassRate: group.verificationMeasuredRuns ? group.verifiedRuns / group.verificationMeasuredRuns : null,
+        callSuccessMeasuredRuns: group.runs, callSuccessRate: group.calls ? group.successfulCalls / group.calls : null,
         observedActionRate, humanInterventionSufficientEvidence: observedActionRate !== null,
         meanModelTimeMs: average(durations), meanReportedTokens: average(tokenSamples), fullyReportedRuns: tokenSamples.length, meanRunRecoveries: average(recoverySamples) };
     }) };

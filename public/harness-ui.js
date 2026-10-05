@@ -183,6 +183,9 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
       const time = evidence?.meanModelTimeMs == null ? '미측정' : `${formatTime(evidence.meanModelTimeMs)} · 표본 ${evidence.durationRuns}/${minimumEvidenceRuns}${evidence.durationRuns < minimumEvidenceRuns ? ' · 비교 보류' : ''}`;
       const tokens = evidence?.meanReportedTokens == null ? '미측정' : `${Math.round(evidence.meanReportedTokens).toLocaleString()} · 표본 ${evidence.fullyReportedRuns}/${minimumEvidenceRuns}${evidence.fullyReportedRuns < minimumEvidenceRuns ? ' · 비교 보류' : ''}`;
       const recoveries = evidence?.meanRunRecoveries == null ? '미측정' : `${evidence.meanRunRecoveries.toFixed(1)}회 · ${evidence.completionMeasuredRuns}회`;
+      const callSuccess = Number.isFinite(evidence?.callSuccessRate)
+        ? `${evidence.successfulCalls}/${evidence.calls} (${formatPercent(evidence.callSuccessRate)}) · 실행 ${evidence.callSuccessMeasuredRuns}/${minimumEvidenceRuns}${evidence.callSuccessMeasuredRuns < minimumEvidenceRuns ? ' · 비교 보류' : ''}`
+        : '미측정';
       const interventions = evidence?.humanInterventionMeasuredRuns
         ? `재개 ${evidence.manualResumes}회 · 중지 ${evidence.stopRequests}회 · 완전 계측 ${evidence.fullyMeasuredInterventionRuns}회${Number.isFinite(evidence.observedActionRate) ? ` · 개입 발생 ${formatPercent(evidence.observedActionRate)}` : ' · 비교 표본 부족'}`
         : '미측정';
@@ -199,6 +202,9 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
       if (candidate !== reference?.model && Number.isFinite(evidence?.browserQaPassRate) && Number.isFinite(referenceEvidence?.browserQaPassRate)
         && evidence.browserQaRuns >= minimumEvidenceRuns && referenceEvidence.browserQaRuns >= minimumEvidenceRuns
         && evidence.browserQaPassRate < referenceEvidence.browserQaPassRate) caveats.push('추천 후보보다 브라우저 QA 통과율이 낮음');
+      if (candidate !== reference?.model && Number.isFinite(evidence?.callSuccessRate) && Number.isFinite(referenceEvidence?.callSuccessRate)
+        && evidence.callSuccessMeasuredRuns >= minimumEvidenceRuns && referenceEvidence.callSuccessMeasuredRuns >= minimumEvidenceRuns
+        && evidence.callSuccessRate < referenceEvidence.callSuccessRate) caveats.push('추천 후보보다 모델 호출 성공률이 낮음');
       if (candidate !== reference?.model && Number.isFinite(evidence?.meanRunRecoveries) && Number.isFinite(referenceEvidence?.meanRunRecoveries)
         && evidence.completionMeasuredRuns >= minimumEvidenceRuns && referenceEvidence.completionMeasuredRuns >= minimumEvidenceRuns
         && evidence.meanRunRecoveries > referenceEvidence.meanRunRecoveries) caveats.push('추천 후보보다 평균 복구 횟수가 많음');
@@ -212,12 +218,12 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
       return `<article class="harness-model-candidate${isRecommended ? ' recommended' : ''}">
         <div class="harness-model-candidate-head"><div><strong>${escape(candidate.label)}</strong><span>${escape(candidate.source || candidate.provider)} · Effort ${escape(item.effort)}</span></div><div class="harness-model-badges">${isRecommended ? '<span class="recommendation-badge">추천</span>' : ''}${selected ? '<span class="recommendation-badge selected">직접 지정</span>' : automaticBase ? '<span class="recommendation-badge muted">자동 기본</span>' : ''}</div></div>
         <p class="harness-model-strength"><strong>강점</strong> ${escape(strength)}${supported.length ? ` · 지원 Effort ${escape(supported.join(', '))}` : ''}${description ? `<span>${escape(description)}</span>` : ''}</p>
-        <dl class="harness-model-metrics"><div><dt>완료 안정성</dt><dd>${escape(completion)}</dd></div><div><dt>검증</dt><dd>${escape(verification)}</dd></div><div><dt>브라우저 QA</dt><dd>${escape(browserQa)}</dd></div><div><dt>모델 응답 시간</dt><dd>${escape(time)}</dd></div><div><dt>사용 토큰</dt><dd>${escape(tokens)}${evidence?.missingUsageCalls ? ` · 사용량 누락 ${evidence.missingUsageCalls}호출` : ''}</dd></div><div><dt>복구 횟수</dt><dd>${escape(recoveries)}</dd></div><div><dt>앱 내 수동 개입</dt><dd>${escape(interventions)}</dd></div></dl>
+        <dl class="harness-model-metrics"><div><dt>완료 안정성</dt><dd>${escape(completion)}</dd></div><div><dt>검증</dt><dd>${escape(verification)}</dd></div><div><dt>브라우저 QA</dt><dd>${escape(browserQa)}</dd></div><div><dt>모델 호출 성공률</dt><dd>${escape(callSuccess)}</dd></div><div><dt>모델 응답 시간</dt><dd>${escape(time)}</dd></div><div><dt>사용 토큰</dt><dd>${escape(tokens)}${evidence?.missingUsageCalls ? ` · 사용량 누락 ${evidence.missingUsageCalls}호출` : ''}</dd></div><div><dt>복구 횟수</dt><dd>${escape(recoveries)}</dd></div><div><dt>앱 내 수동 개입</dt><dd>${escape(interventions)}</dd></div></dl>
         <p class="harness-model-caveat"><strong>주의점</strong> ${escape(caveatText)}</p>
         <button type="button" class="text-button harness-model-select" data-model-compare-select="${role}" data-key="${escape(modelKey(candidate))}"${selected || (Number.isFinite(candidate.remainingPercent) && candidate.remainingPercent <= 0) ? ' disabled' : ''}>${selected ? '현재 직접 지정됨' : Number.isFinite(candidate.remainingPercent) && candidate.remainingPercent <= 0 ? '현재 한도 소진됨' : '이 모델로 직접 지정'}</button>
       </article>`;
     }).join('');
-    return `<div class="harness-recommendation"><strong>${recommendation ? `추천 기준 모델 · ${escape(recommendation.model.label || recommendation.model.id)}` : '사용 가능한 모델 없음'}</strong><p>${escape(explanation)}</p><small>추론 성능 자체는 공통 과제 벤치마크가 없어 점수화하지 않습니다. 강점과 지원 Effort는 연결에서 받은 모델 설명이며 실측 성능과 구분합니다. 개입 통계는 앱 안에서 측정한 재개·중지뿐이며 실제 사람 투입 시간은 측정하지 않습니다.</small></div>
+    return `<div class="harness-recommendation"><strong>${recommendation ? `추천 기준 모델 · ${escape(recommendation.model.label || recommendation.model.id)}` : '사용 가능한 모델 없음'}</strong><p>${escape(explanation)}</p><small>호출 성공률은 실행 중 기록된 연결·응답 형식 결과이며 추론 품질 점수와 구분합니다. 추론 성능 자체는 공통 과제 벤치마크가 없어 점수화하지 않습니다. 강점과 지원 Effort는 연결에서 받은 모델 설명입니다. 개입 통계는 앱 안에서 측정한 재개·중지뿐이며 실제 사람 투입 시간은 측정하지 않습니다.</small></div>
       <details class="harness-model-comparison"><summary>모델별 강점과 실측 비교 보기 · ${available.length}개</summary><div class="harness-model-candidate-list">${rows || '<p class="settings-footnote">이 역할에 사용할 수 있는 연결 모델이 없습니다.</p>'}</div></details>`;
   }
   const choose = (role) => {

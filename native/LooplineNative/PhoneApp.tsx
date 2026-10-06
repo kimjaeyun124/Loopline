@@ -107,8 +107,13 @@ export default function PhoneApp() {
 
   const chatScrollRef = useRef<ScrollView>(null);
   const streamRef = useRef<{abort: () => void} | null>(null);
-  const runRequestRef = useRef(false);
+  const runRequestSequenceRef = useRef(0);
+  const runRequestsInFlightRef = useRef(new Map<string, number>());
   const statusRequestRef = useRef(0);
+
+  const invalidateRunRefresh = () => {
+    runRequestSequenceRef.current += 1;
+  };
 
   const models = status?.models || [];
   const workingModels = useMemo(() => models.filter(model => !model.decisionOnly), [models]);
@@ -122,22 +127,31 @@ export default function PhoneApp() {
     && (!run || TERMINAL_REMOTE_RUN_STATES.has(run.status));
 
   const refreshRun = useCallback(async (baseUrl: string, runId: string) => {
-    if (runRequestRef.current) return;
-    runRequestRef.current = true;
+    const requestKey = JSON.stringify([baseUrl, runId]);
+    const activeRequestId = runRequestsInFlightRef.current.get(requestKey);
+    if (activeRequestId === runRequestSequenceRef.current) return;
+    const requestId = ++runRequestSequenceRef.current;
+    runRequestsInFlightRef.current.set(requestKey, requestId);
     try {
       const next = await getRemoteRun(baseUrl, runId);
+      if (runRequestSequenceRef.current !== requestId) return;
       setRun(next);
       setRunError('');
     } catch (error) {
+      if (runRequestSequenceRef.current !== requestId) return;
       const message = error instanceof Error ? error.message : 'Loop 상태를 불러오지 못했습니다.';
       if (message.includes('찾을 수 없습니다')) {
+        const savedRunId = await AsyncStorage.getItem(RUN_KEY).catch(() => null);
+        if (runRequestSequenceRef.current !== requestId) return;
         setRun(null);
-        await AsyncStorage.removeItem(RUN_KEY).catch(() => {});
+        if (savedRunId === runId) await AsyncStorage.removeItem(RUN_KEY).catch(() => {});
       } else {
         setRunError(message);
       }
     } finally {
-      runRequestRef.current = false;
+      if (runRequestsInFlightRef.current.get(requestKey) === requestId) {
+        runRequestsInFlightRef.current.delete(requestKey);
+      }
     }
   }, []);
 
@@ -323,15 +337,18 @@ export default function PhoneApp() {
 
   const startLoop = async () => {
     if (!normalizedUrl || !canStartLoop) return;
+    invalidateRunRefresh();
     setRunBusy(true);
     setRunError('');
     try {
       const next = await createRemoteRun(normalizedUrl, {task: taskInput.trim(), roles, rounds});
+      invalidateRunRefresh();
       setRun(next);
       setTaskInput('');
       await AsyncStorage.setItem(RUN_KEY, next.id);
     } catch (error) {
       if (error instanceof RemoteApiError && error.body.run && typeof error.body.run === 'object') {
+        invalidateRunRefresh();
         const activeRun = error.body.run as RemoteRun;
         setRun(activeRun);
         await AsyncStorage.setItem(RUN_KEY, activeRun.id);
@@ -346,23 +363,32 @@ export default function PhoneApp() {
 
   const stopLoop = async () => {
     if (!normalizedUrl || !run || runBusy) return;
+    invalidateRunRefresh();
     setRunBusy(true);
     setRunError('');
-    try { setRun(await stopRemoteRun(normalizedUrl, run.id)); }
-    catch (error) { setRunError(error instanceof Error ? error.message : '중지 요청을 보내지 못했습니다.'); }
+    try {
+      const stoppedRun = await stopRemoteRun(normalizedUrl, run.id);
+      invalidateRunRefresh();
+      setRun(stoppedRun);
+    } catch (error) { setRunError(error instanceof Error ? error.message : '중지 요청을 보내지 못했습니다.'); }
     finally { setRunBusy(false); }
   };
 
   const resumeLoop = async () => {
     if (!normalizedUrl || !run || runBusy) return;
+    invalidateRunRefresh();
     setRunBusy(true);
     setRunError('');
-    try { setRun(await resumeRemoteRun(normalizedUrl, run.id)); }
-    catch (error) { setRunError(error instanceof Error ? error.message : 'Loop를 이어가지 못했습니다.'); }
+    try {
+      const resumedRun = await resumeRemoteRun(normalizedUrl, run.id);
+      invalidateRunRefresh();
+      setRun(resumedRun);
+    } catch (error) { setRunError(error instanceof Error ? error.message : 'Loop를 이어가지 못했습니다.'); }
     finally { setRunBusy(false); }
   };
 
   const clearRun = async () => {
+    invalidateRunRefresh();
     setRun(null);
     setRunError('');
     await AsyncStorage.removeItem(RUN_KEY).catch(() => {});

@@ -91,6 +91,7 @@ export default function PhoneApp() {
   const [status, setStatus] = useState<RemoteStatus | null>(null);
   const [connectionError, setConnectionError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [appIsActive, setAppIsActive] = useState(AppState.currentState === 'active');
   const [chatItems, setChatItems] = useState<ChatItem[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [chatModelKey, setChatModelKey] = useState('');
@@ -225,6 +226,12 @@ export default function PhoneApp() {
   }, [hydrated, refreshStatus, serverUrl]);
 
   useEffect(() => {
+    if (!hydrated || !serverUrl || connection !== 'offline' || refreshing || settingsOpen || !appIsActive) return;
+    const timer = setTimeout(() => void refreshStatus(serverUrl), 30_000);
+    return () => clearTimeout(timer);
+  }, [appIsActive, connection, hydrated, refreshing, refreshStatus, serverUrl, settingsOpen]);
+
+  useEffect(() => {
     if (!hydrated || !normalizedUrl || !run || TERMINAL_REMOTE_RUN_STATES.has(run.status)) return;
     const timer = setTimeout(() => void refreshRun(normalizedUrl, run.id), 1_800);
     return () => clearTimeout(timer);
@@ -232,6 +239,7 @@ export default function PhoneApp() {
 
   useEffect(() => {
     const listener = AppState.addEventListener('change', nextState => {
+      setAppIsActive(nextState === 'active');
       if (nextState === 'active' && serverUrl) void refreshStatus(serverUrl);
     });
     return () => listener.remove();
@@ -388,7 +396,7 @@ export default function PhoneApp() {
         </Pressable>
 
         {connectionError ? (
-          <View style={styles.notice}><Text style={styles.noticeText}>{connectionError}</Text><Pressable onPress={() => setSettingsOpen(true)}><Text style={styles.noticeAction}>설정</Text></Pressable></View>
+          <View style={styles.notice}><Text style={styles.noticeText}>{connectionError}{connection === 'offline' ? '\n앱이 열려 있는 동안 30초마다 자동으로 다시 확인합니다.' : ''}</Text><Pressable onPress={() => setSettingsOpen(true)}><Text style={styles.noticeAction}>설정</Text></Pressable></View>
         ) : null}
 
         <View style={styles.tabs}>

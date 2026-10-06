@@ -108,6 +108,7 @@ export default function PhoneApp() {
   const chatScrollRef = useRef<ScrollView>(null);
   const streamRef = useRef<{abort: () => void} | null>(null);
   const runRequestRef = useRef(false);
+  const statusRequestRef = useRef(0);
 
   const models = status?.models || [];
   const workingModels = useMemo(() => models.filter(model => !model.decisionOnly), [models]);
@@ -141,10 +142,12 @@ export default function PhoneApp() {
   }, []);
 
   const refreshStatus = useCallback(async (value = serverUrl) => {
+    const requestId = ++statusRequestRef.current;
     let baseUrl: string;
     try {
       baseUrl = normalizeTailscaleBaseUrl(value);
     } catch (error) {
+      if (statusRequestRef.current !== requestId) return;
       setConnection('idle');
       setConnectionError(error instanceof Error ? error.message : 'Tailscale 주소를 확인해 주세요.');
       setSettingsOpen(true);
@@ -156,6 +159,7 @@ export default function PhoneApp() {
     setConnectionError('');
     try {
       const result = await getRemoteStatus(baseUrl);
+      if (statusRequestRef.current !== requestId) return;
       setStatus(result);
       if (result.tailscale.online && result.tailscale.serveEnabled && result.backendConnected) {
         setConnection('connected');
@@ -168,13 +172,15 @@ export default function PhoneApp() {
             : 'Mac의 Loopline 서버가 실행 중인지 확인해 주세요.');
       }
       const savedRunId = await AsyncStorage.getItem(RUN_KEY);
+      if (statusRequestRef.current !== requestId) return;
       if (savedRunId) await refreshRun(baseUrl, savedRunId);
     } catch (error) {
+      if (statusRequestRef.current !== requestId) return;
       setStatus(null);
       setConnection('offline');
       setConnectionError(error instanceof Error ? error.message : 'Mac에 연결하지 못했습니다.');
     } finally {
-      setRefreshing(false);
+      if (statusRequestRef.current === requestId) setRefreshing(false);
     }
   }, [refreshRun, serverUrl]);
 

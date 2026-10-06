@@ -10,6 +10,7 @@ export type ModelChoice = {
   connectionId?: string;
   connectionName?: string;
   accountName?: string;
+  decisionOnly?: boolean;
   supportedReasoningEfforts?: string[];
 };
 

@@ -5,7 +5,9 @@
   "scripts": {
     "start": "react-native-macos start",
     "macos": "react-native-macos run-macos",
-    "build:macos": "react-native-macos build-macos --mode Release"
+    "build:macos": "react-native-macos build-macos --mode Release",
+    "ios": "react-native run-ios --scheme LooplineNative",
+    "build:ios": "xcodebuild -workspace ios/LooplineNative.xcworkspace -scheme LooplineNative -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' build"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
@@ -18,6 +20,7 @@
     "@babel/preset-env": "^7.25.3",
     "@babel/runtime": "^7.25.0",
     "@react-native-community/cli": "20.0.0",
+    "@react-native-community/cli-platform-ios": "20.0.0",
     "@react-native/babel-preset": "0.81.2",
     "@react-native/metro-config": "0.81.2",
     "@react-native/typescript-config": "0.81.2",

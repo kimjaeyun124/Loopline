@@ -3,6 +3,7 @@ import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {
   ActivityIndicator,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StatusBar,
@@ -25,6 +26,7 @@ import type {
   ModelChoice,
   StoredPreferences,
 } from './src/types';
+import PhoneApp from './PhoneApp';
 
 const CONVERSATIONS_KEY = 'loopline.native.conversations.v1';
 const PREFERENCES_KEY = 'loopline.native.preferences.v1';
@@ -70,7 +72,7 @@ function shorten(value: string, max = 58): string {
   return compact.length > max ? `${compact.slice(0, max - 1)}…` : compact;
 }
 
-export default function App() {
+function MacApp() {
   const [hydrated, setHydrated] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState('');
@@ -796,6 +798,10 @@ export default function App() {
       </Modal>
     </View>
   );
+}
+
+export default function App() {
+  return Platform.OS === 'ios' ? <PhoneApp /> : <MacApp />;
 }
 
 const COLORS = {

@@ -5,6 +5,7 @@ import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { remoteRequestOriginAllowed } from './remote-control-auth.mjs';
 
 const execFile = promisify(execFileCallback);
 const root = dirname(fileURLToPath(import.meta.url));
@@ -180,17 +181,13 @@ async function authorizedTailscaleRequest(req) {
   const status = await getTailscaleState();
   const login = String(req.headers['tailscale-user-login'] || '').trim().toLowerCase();
   if (!status.online || !login || !allowedLogins(status).includes(login)) return null;
-  const origin = req.headers.origin;
-  if (origin && status.dnsName) {
-    try {
-      if (new URL(origin).origin !== `https://${status.dnsName}`) return null;
-    } catch {
-      return null;
-    }
-  }
-  if (!['GET', 'HEAD'].includes(req.method)) {
-    if (!status.dnsName || origin !== `https://${status.dnsName}` || req.headers['sec-fetch-site'] === 'cross-site') return null;
-  }
+  if (!remoteRequestOriginAllowed({
+    method: req.method,
+    origin: req.headers.origin,
+    dnsName: status.dnsName,
+    client: req.headers['x-loopline-client'],
+    fetchSite: req.headers['sec-fetch-site'],
+  })) return null;
   return { login, status };
 }
 

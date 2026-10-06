@@ -10,9 +10,13 @@ const APP_NAME = 'Loopline';
 const STORAGE_NAME = 'Mosaic Desk';
 const EXTERNAL_AUTH_HOSTS = new Set(['auth.openai.com', 'chatgpt.com']);
 const BACKEND_PORT = process.env.MOSAIC_DESKTOP_PORT || '41743';
+const REMOTE_CONTROL_PORT = '41873';
+const REMOTE_CONTROL_ADMIN_PORT = '41874';
 const desktopDir = dirname(fileURLToPath(import.meta.url));
 let backendProcess = null;
+let remoteControlProcess = null;
 let backendUrl = null;
+let quitting = false;
 let mainWindow = null;
 let chatGptView = null;
 let geminiView = null;
@@ -42,9 +46,10 @@ if (!app.requestSingleInstanceLock()) {
     installApplicationMenu();
     try {
       backendUrl = await startBackend();
+      startRemoteControl();
       await createMainWindow(backendUrl);
     } catch (error) {
-      stopBackend();
+      stopServices();
       await dialog.showMessageBox({
         type: 'error',
         title: `${APP_NAME} 실행 실패`,
@@ -55,7 +60,7 @@ if (!app.requestSingleInstanceLock()) {
     }
   });
 
-  app.on('before-quit', stopBackend);
+  app.on('before-quit', stopServices);
   app.on('window-all-closed', () => app.quit());
 }
 
@@ -63,6 +68,11 @@ function getBackendRoot() {
   return app.isPackaged
     ? join(process.resourcesPath, 'app-server')
     : resolve(desktopDir, '..');
+}
+
+function getRemoteControlEntry() {
+  const root = app.isPackaged ? join(process.resourcesPath, 'app-server') : resolve(desktopDir, '..');
+  return join(root, 'remote-control.mjs');
 }
 
 function getCliPath() {
@@ -170,6 +180,45 @@ function stopBackend() {
   backendProcess = null;
 }
 
+function startRemoteControl() {
+  try {
+    remoteControlProcess = utilityProcess.fork(getRemoteControlEntry(), [], {
+      cwd: getBackendRoot(),
+      env: {
+        ...process.env,
+        REMOTE_CONTROL_PORT,
+        REMOTE_CONTROL_ADMIN_PORT,
+        REMOTE_CONTROL_BACKEND_PORT: BACKEND_PORT,
+        MOSAIC_USER_DATA_DIR: app.getPath('userData'),
+        PATH: getCliPath(),
+      },
+      serviceName: `${APP_NAME} Phone Remote Gateway`,
+      stdio: 'pipe',
+    });
+    remoteControlProcess.stderr?.on('data', (chunk) => console.error('Loopline phone gateway:', chunk.toString().trim()));
+    remoteControlProcess.once('exit', (code) => {
+      if (code && !quitting) console.error(`Loopline phone gateway stopped (${code}).`);
+      remoteControlProcess = null;
+    });
+    remoteControlProcess.once('error', (error) => {
+      console.error('Loopline phone gateway could not start:', error.message);
+      remoteControlProcess = null;
+    });
+  } catch (error) {
+    // Phone remote is optional; local desktop startup must survive a port conflict.
+    console.error('Loopline phone gateway could not start:', error.message);
+  }
+}
+
+function stopServices() {
+  quitting = true;
+  if (remoteControlProcess) {
+    remoteControlProcess.kill();
+    remoteControlProcess = null;
+  }
+  stopBackend();
+}
+
 function installApplicationMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     {
@@ -204,6 +253,19 @@ function installApplicationMenu() {
         { label: 'ChatGPT 열기', accelerator: 'CmdOrCtrl+Shift+G', click: () => requestWebChatScreen('chatgpt', 'open') },
         { label: 'Gemini 열기', accelerator: 'CmdOrCtrl+Shift+M', click: () => requestWebChatScreen('gemini', 'open') },
         { label: 'Loopline 작업 공간으로', click: () => requestWebChatScreen(activeWebService, 'workspace') },
+        { type: 'separator' },
+        { label: '폰 원격 제어 설정', click: () => {
+          if (!remoteControlProcess) {
+            void dialog.showMessageBox(mainWindow, {
+              type: 'warning',
+              title: '원격 제어를 사용할 수 없습니다.',
+              message: '원격 설정 화면을 시작하지 못했습니다.',
+              detail: 'Loopline을 재시작한 뒤 다시 열어 주세요. 포트 41873 또는 41874가 다른 프로그램에서 사용 중인지 확인해 주세요.',
+            });
+            return;
+          }
+          void shell.openExternal(`http://127.0.0.1:${REMOTE_CONTROL_ADMIN_PORT}`).catch(() => {});
+        } },
         { type: 'separator' },
         { label: '뒤로', click: () => activeWebView()?.navigate('back') },
         { label: '앞으로', click: () => activeWebView()?.navigate('forward') },

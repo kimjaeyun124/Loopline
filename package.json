@@ -6,6 +6,7 @@
   "main": "desktop/main.mjs",
   "scripts": {
     "start": "node server.mjs",
+    "remote:control": "node remote-control.mjs",
     "desktop": "electron .",
     "native:start": "npm --prefix native/LooplineNative start",
     "native:macos": "npm --prefix native/LooplineNative run macos",
@@ -40,6 +41,10 @@
       {
         "from": "server.mjs",
         "to": "app-server/server.mjs"
+      },
+      {
+        "from": "remote-control.mjs",
+        "to": "app-server/remote-control.mjs"
       },
       {
         "from": "codex-app-server.mjs",

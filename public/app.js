@@ -2745,10 +2745,11 @@ async function sendLoopEngineering(value, queuedMessageId = null) {
         activityMode: state.provider === 'openai' ? 'native' : 'lifecycle',
         activityExpanded: true,
         activities: [
-          { id: 'request', title: `Loop Engineering · ${round}/${maxRounds}`, detail: '선택한 모델로 이 회차를 진행합니다.', status: 'completed' },
+          { id: 'request', title: `Loop Engineering · ${round}/${maxRounds}`, detail: '모델 요청을 준비하고 있습니다.', status: 'running' },
           { id: 'response', title: '응답 생성 중', detail: '모델의 응답을 기다리고 있습니다.', status: 'running' },
         ],
       };
+      const requestActivity = assistantMessage.activities.find((activity) => activity.id === 'request');
       conversation.messages.push(assistantMessage);
       lastAssistantMessage = assistantMessage;
       conversation.updatedAt = Date.now();
@@ -2805,6 +2806,11 @@ async function sendLoopEngineering(value, queuedMessageId = null) {
           const data = await response.json().catch(() => ({}));
           throw new Error(data.error || `요청에 실패했습니다 (${response.status}).`);
         }
+        requestActivity.status = 'completed';
+        requestActivity.detail = '서버가 요청을 받아 응답 스트림을 시작했습니다.';
+        conversation.updatedAt = Date.now();
+        saveConversations();
+        render();
         await streamResponse(response, assistantMessage, conversation);
       } catch (error) {
         finishAssistantWork(assistantMessage);
@@ -2847,7 +2853,6 @@ async function sendLoopEngineering(value, queuedMessageId = null) {
         updateResponseActivity(assistantMessage, 'stopped', '응답 중지', '사용자가 현재 회차를 중지했습니다.');
         assistantMessage.content ||= 'Loop Engineering을 중지했습니다.';
       }
-      const requestActivity = assistantMessage.activities.find((activity) => activity.id === 'request');
       if (assistantMessage.error) {
         requestActivity.status = 'failed';
         requestActivity.detail = '오류가 발생해 다음 회차를 시작하지 않았습니다.';

@@ -1,0 +1,30 @@
+{
+  "name": "loopline-native",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "start": "react-native-macos start",
+    "macos": "react-native-macos run-macos",
+    "build:macos": "react-native-macos build-macos --mode Release"
+  },
+  "dependencies": {
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "react": "19.1.4",
+    "react-native": "0.81.6",
+    "react-native-macos": "0.81.9"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.25.2",
+    "@babel/preset-env": "^7.25.3",
+    "@babel/runtime": "^7.25.0",
+    "@react-native-community/cli": "20.0.0",
+    "@react-native/babel-preset": "0.81.2",
+    "@react-native/metro-config": "0.81.2",
+    "@react-native/typescript-config": "0.81.2",
+    "@types/react": "^19.1.4",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=20.19.4"
+  }
+}

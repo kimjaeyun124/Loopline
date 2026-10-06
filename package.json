@@ -7,6 +7,9 @@
   "scripts": {
     "start": "node server.mjs",
     "desktop": "electron .",
+    "native:start": "npm --prefix native/LooplineNative start",
+    "native:macos": "npm --prefix native/LooplineNative run macos",
+    "native:build": "npm --prefix native/LooplineNative run build:macos",
     "build:langgraph": "esbuild harness-graph-runtime.mjs --bundle --platform=node --format=esm --outfile=dist/langgraph-runtime.bundle.mjs",
     "build:mcp": "esbuild mcp-runtime-entry.mjs --bundle --platform=node --format=esm --outfile=dist/mcp-runtime.bundle.mjs",
     "desktop:package": "npm run build:langgraph && npm run build:mcp && electron-builder --mac dir --arm64"

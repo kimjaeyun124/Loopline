@@ -1,0 +1,5 @@
+# CocoaPods
+Pods/
+build/
+LooplineNative.xcworkspace/
+.xcode.env.local

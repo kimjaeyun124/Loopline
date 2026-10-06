@@ -120,6 +120,31 @@ open "release/mac-arm64/Loopline.app"
 
 개발 중에는 `npm run desktop`으로 앱 창을 실행할 수 있습니다. 앱은 저장된 대화가 재실행 후에도 유지되도록 전용 로컬 포트 `41743`에서 서버를 시작하고, 창을 닫을 때 함께 종료합니다. 별도 인스턴스를 격리해 실행할 때는 `MOSAIC_DESKTOP_PORT=41744 npm run desktop`처럼 포트를 바꿀 수 있습니다. 포트가 달라지면 브라우저 저장소도 분리됩니다. 이 빌드는 로컬 실행용이며 배포용 Apple 서명·공증은 포함하지 않습니다.
 
+## React Native macOS 앱
+
+`native/LooplineNative`에는 WebView 없이 React Native for macOS로 만든 네이티브 클라이언트가 있습니다. 채팅, 연결된 모델 선택, 응답 스트리밍, Loop 회차 실행·중지, 이 Mac에 저장되는 대화 기록을 제공합니다. 계정 연결은 기존 데스크톱 설정을 사용합니다.
+
+Node.js 20.19.4 이상, Xcode, Ruby/Bundler, CocoaPods가 필요합니다. 처음 설정할 때:
+
+```sh
+cd native/LooplineNative
+npm install
+bundle install
+bundle exec pod install --project-directory=macos
+```
+
+개발 서버와 앱을 각각 실행합니다.
+
+```sh
+# 터미널 1: 기존 Loopline API 서버
+npm start
+
+# 터미널 2: React Native macOS 앱 빌드 및 실행
+npm run native:macos
+```
+
+앱 빌드만 하려면 `npm run native:build`를 사용합니다. 앱은 `http://localhost:4173`의 로컬 서버만 허용하며 LAN이나 원격 서버로 연결하지 않습니다. 대화 기록과 모델 선택은 웹앱과 분리된 이 앱의 로컬 저장소에 보관됩니다. Harness 프로젝트 관리, MCP 설정, ChatGPT·Gemini 웹뷰, 계정 로그인 흐름은 현재 네이티브 앱에 포함되지 않습니다.
+
 ## 웹 개발 서버 실행
 
 1. Node.js 20.3 이상을 준비합니다.

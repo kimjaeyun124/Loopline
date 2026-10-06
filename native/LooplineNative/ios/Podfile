@@ -31,5 +31,24 @@ target 'LooplineNative' do
       :mac_catalyst_enabled => false,
       # :ccache_enabled => true
     )
+
+    # React Native 0.81에 포함된 fmt 11의 FMT_STRING 호출은 Apple Clang 21 consteval 검사에서 컴파일되지 않습니다.
+    # 이전 버전의 컴파일 타임 검사는 유지하고, Clang 21 이상에서만 비활성화합니다.
+    fmt_base_header = File.join(installer.sandbox.root, 'fmt/include/fmt/base.h')
+    if File.file?(fmt_base_header)
+      fmt_base = File.read(fmt_base_header)
+      old_apple_clang_guard = '#elif defined(__apple_build_version__) && __apple_build_version__ < 14000029L'
+      clang_21_guard = '#elif defined(__apple_build_version__) && __apple_build_version__ >= 21000000L'
+
+      if fmt_base.include?(old_apple_clang_guard) && !fmt_base.include?(clang_21_guard)
+        original_mode = File.stat(fmt_base_header).mode & 0o777
+        begin
+          File.chmod(original_mode | 0o200, fmt_base_header)
+          File.write(fmt_base_header, fmt_base.sub(old_apple_clang_guard, clang_21_guard))
+        ensure
+          File.chmod(original_mode, fmt_base_header)
+        end
+      end
+    end
   end
 end

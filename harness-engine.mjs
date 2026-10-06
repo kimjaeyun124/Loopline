@@ -1907,7 +1907,7 @@ export class HarnessEngine {
             const key = selectionKey(selection);
             return !triedMalformedModels.has(key) && !knownExhausted(run.modelBudgets[key] || {}, selection);
           });
-          if (!nextWorker) throw fail('같은 잘못된 응답 형식이 반복됐고 안전하게 시도할 대체 모델이 없어 중지했습니다. 작업 공간은 보관했습니다.');
+          if (!nextWorker) throw fail('응답 형식이 연속으로 반복됐고 안전하게 시도할 대체 모델이 없어 중지했습니다. 작업 공간은 보관했습니다.');
           const key = selectionKey(nextWorker);
           run.roles.worker = { ...nextWorker };
           triedMalformedModels.add(key);
@@ -1982,8 +1982,14 @@ export class HarnessEngine {
           operations: Array.isArray(action.operations)
             ? action.operations.map((operation) => [operation?.type, operation?.path || '.']) : [],
         })).digest('hex');
-        repeatedToolFailures = failureFingerprint === lastToolFailureFingerprint ? repeatedToolFailures + 1 : 1;
-        lastToolFailureFingerprint = failureFingerprint;
+        if (readAction) {
+          // Read-only failures use the repeated-read guidance and recovery path below.
+          // Keep them from consuming the general tool-fallback budget first.
+          lastToolFailureFingerprint = ''; repeatedToolFailures = 0;
+        } else {
+          repeatedToolFailures = failureFingerprint === lastToolFailureFingerprint ? repeatedToolFailures + 1 : 1;
+          lastToolFailureFingerprint = failureFingerprint;
+        }
         if (failedEdit?.path) {
           const failures = (repeatedEditFailures.get(failedEdit.path) || 0) + 1;
           repeatedEditFailures.set(failedEdit.path, failures);
@@ -2001,7 +2007,7 @@ export class HarnessEngine {
           } else if (failures >= 3) {
             throw fail(`${failedEdit.path} 파일 편집이 세 번 실패했고 사용할 대체 구현 모델도 없습니다. 작업 공간을 보관했습니다.`);
           }
-        } else if (repeatedToolFailures >= 2) {
+        } else if (!readAction && repeatedToolFailures >= 2) {
           const nextWorker = !run.mcpSideEffectPossible && (run.modelPriority.worker || []).find((selection) => {
             const key = selectionKey(selection);
             return !triedToolRecoveryModels.has(key) && !knownExhausted(run.modelBudgets[key] || {}, selection);

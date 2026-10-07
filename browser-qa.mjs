@@ -88,6 +88,8 @@ import http from 'node:http';
 const marker = '__LOOPLINE_README_LAUNCH_QA__';
 if (process.env.LOOPLINE_README_QA === '1') {
   const maxResponseBytes = 1_048_576;
+  const maxHeaderCount = 64;
+  const maxHeaderBytes = 65_536;
   const originalListen = http.Server.prototype.listen;
   const originalAddress = http.Server.prototype.address;
   const originalClose = http.Server.prototype.close;
@@ -96,9 +98,45 @@ if (process.env.LOOPLINE_README_QA === '1') {
   const header = (headers, name) => Object.entries(headers).find(([key]) => key.toLowerCase() === name)?.[1] || '';
   const request = (handler, url) => new Promise((resolve) => {
     const result = { url, status: 200, headers: {}, body: '', error: '' };
-    let done = false, bodyBytes = 0;
+    let done = false, bodyBytes = 0, headerBytes = 0;
     const finish = () => { if (!done) { done = true; clearTimeout(timer); resolve(result); } };
     const timer = setTimeout(() => { result.error = '응답 제한 시간 초과'; finish(); }, 1800);
+    const rejectHeaders = () => {
+      result.error = '응답 헤더 제한 초과 (64개 또는 64 KiB)';
+      finish();
+      return false;
+    };
+    const storeHeader = (name, value) => {
+      if (done) return false;
+      const rawName = String(name), rawNameBytes = Buffer.byteLength(rawName);
+      if (!rawNameBytes || rawNameBytes > maxHeaderBytes) return rejectHeaders();
+      const key = rawName.toLowerCase();
+      const nameBytes = Buffer.byteLength(key);
+      if (!nameBytes || nameBytes > maxHeaderBytes) return rejectHeaders();
+      let normalized, valueBytes;
+      if (Array.isArray(value)) {
+        if (value.length > maxHeaderCount) return rejectHeaders();
+        const parts = [];
+        valueBytes = 0;
+        for (const item of value) {
+          const part = String(item), partBytes = Buffer.byteLength(part) + (parts.length ? 2 : 0);
+          valueBytes += partBytes;
+          if (nameBytes + valueBytes > maxHeaderBytes) return rejectHeaders();
+          parts.push(part);
+        }
+        normalized = parts.join(', ');
+      } else {
+        normalized = String(value);
+        valueBytes = Buffer.byteLength(normalized);
+      }
+      const previous = result.headers[key];
+      const previousBytes = previous === undefined ? 0 : nameBytes + Buffer.byteLength(String(previous));
+      const nextBytes = headerBytes - previousBytes + nameBytes + valueBytes;
+      if ((previous === undefined && Object.keys(result.headers).length >= maxHeaderCount) || nextBytes > maxHeaderBytes) return rejectHeaders();
+      result.headers[key] = normalized;
+      headerBytes = nextBytes;
+      return true;
+    };
     const appendBody = (chunk) => {
       if (done || chunk == null) return !done;
       const value = Buffer.isBuffer(chunk) ? null : String(chunk);
@@ -114,11 +152,21 @@ if (process.env.LOOPLINE_README_QA === '1') {
     };
     const response = {
       statusCode: 200, headersSent: false,
-      writeHead(status, headers = {}) { result.status = this.statusCode = status; Object.assign(result.headers, headers); this.headersSent = true; return this; },
-      setHeader(name, value) { result.headers[name] = value; return this; },
+      writeHead(status, headers = {}) {
+        result.status = this.statusCode = status;
+        if (headers && typeof headers === 'object') {
+          for (const name in headers) if (Object.hasOwn(headers, name) && !storeHeader(name, headers[name])) break;
+        }
+        this.headersSent = true;
+        return this;
+      },
+      setHeader(name, value) { storeHeader(name, value); return this; },
       getHeader(name) { return header(result.headers, String(name).toLowerCase()); },
       hasHeader(name) { return Object.keys(result.headers).some((key) => key.toLowerCase() === String(name).toLowerCase()); },
-      removeHeader(name) { for (const key of Object.keys(result.headers)) if (key.toLowerCase() === String(name).toLowerCase()) delete result.headers[key]; },
+      removeHeader(name) {
+        const key = String(name).toLowerCase(), previous = result.headers[key];
+        if (previous !== undefined) { headerBytes -= Buffer.byteLength(key) + Buffer.byteLength(String(previous)); delete result.headers[key]; }
+      },
       write(chunk) { return appendBody(chunk); },
       end(chunk) { appendBody(chunk); result.status = this.statusCode || result.status; finish(); return this; },
       flushHeaders() { this.headersSent = true; },

@@ -173,6 +173,35 @@ test('Harness fails closed when README QA adapters return incomplete or contradi
   });
 });
 
+test('Harness bounds long README QA failure evidence before saving it to run history', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'loopline-readme-bounded-failure-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const longFailure = `README launch failed: ${'x'.repeat(5000)}`;
+  const engine = new HarnessEngine({
+    directory,
+    verifyReadme: async () => ({
+      passed: false, applicable: true, skipped: false,
+      checks: [{ id: 'root', passed: false }], failures: [longFailure],
+    }),
+    invoke: async () => assert.fail('README QA validation must not call a model'),
+  });
+  engine.event = async (record, title, detail, status) => {
+    const event = { title, detail, status }; record.run.events.push(event); return event;
+  };
+  engine.persist = async () => {};
+  const record = { controller: new AbortController(), writes: Promise.resolve(), run: {
+    id: randomUUID(), workspace: directory, runtime: directory, events: [],
+  } };
+
+  const result = await engine.runReadmeLaunchQa(record, 1);
+
+  assert.equal(result.passed, false);
+  assert.equal(result.failures.length, 1);
+  assert.equal(result.failures[0].length, 1000);
+  assert.equal(record.run.readmeQaHistory[0].failures[0].length, 1000);
+  assert.equal(record.run.events.at(-1).status, 'failed');
+});
+
 test('QA key validation reports the exact unsupported key and preserves the executable allowlist', () => {
   assert.deepEqual(BROWSER_QA_EXECUTOR.keys, ['Tab', 'Enter', 'Escape', 'ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Space', 'Backspace']);
   for (const key of ['Shift+Tab', 'Meta+Q', ' ', 'tab']) {
@@ -545,6 +574,35 @@ test('Harness fails closed when browser QA adapters return incomplete or contrad
     assert.equal(record.run.events.at(-1).status, 'failed');
     assert.ok(record.run.events.at(-1).detail.length > 0);
   });
+});
+
+test('Harness bounds long browser QA failure evidence before saving it to run history', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'loopline-browser-bounded-failure-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const longFailure = `browser / mobile viewport: ${'x'.repeat(5000)}`;
+  const engine = new HarnessEngine({
+    directory,
+    verifyBrowser: async () => ({
+      passed: false, checks: [{ id: 'mobile', passed: false }], failures: [longFailure],
+    }),
+    invoke: async () => assert.fail('Browser QA validation must not call a model'),
+  });
+  engine.event = async (record, title, detail, status) => {
+    const event = { title, detail, status }; record.run.events.push(event); return event;
+  };
+  engine.persist = async () => {};
+  const record = { controller: new AbortController(), writes: Promise.resolve(), run: {
+    id: randomUUID(), workspace: directory, events: [], qaPlan: structuredClone(qaPlan),
+    qaPlanHash: createHash('sha256').update(JSON.stringify(qaPlan)).digest('hex'),
+  } };
+
+  const result = await engine.runBrowserQa(record, 1);
+
+  assert.equal(result.passed, false);
+  assert.equal(result.failures.length, 1);
+  assert.equal(result.failures[0].length, 1000);
+  assert.equal(record.run.qaHistory[0].failures[0].length, 1000);
+  assert.equal(record.run.events.at(-1).status, 'failed');
 });
 
 async function fixture(t) {

@@ -2356,19 +2356,41 @@ export class HarnessEngine {
       qa = { passed: false, applicable: true, skipped: false, display: '', checks: [], failures: [String(error.message || error).slice(0, 1000)] };
     }
     aborted(signal);
-    const applicable = qa.applicable === true;
-    const skipped = !applicable || qa.skipped === true;
-    const passed = applicable && !skipped && qa.passed === true;
+    if (!qa || typeof qa !== 'object' || Array.isArray(qa)) {
+      qa = { passed: false, applicable: true, skipped: false, display: '', checks: [], failures: ['README 실행 안내 QA가 올바른 결과 객체를 반환하지 않았습니다.'] };
+    }
+    const checks = Array.isArray(qa.checks) ? qa.checks : [];
+    const rawFailures = Array.isArray(qa.failures) ? qa.failures : [];
+    const failuresAreValid = Array.isArray(qa.failures) && rawFailures.every((failure) => typeof failure === 'string');
+    const failures = rawFailures.filter((failure) => typeof failure === 'string').slice(0, 16);
+    const checksPassed = checks.length > 0 && checks.every((check) => check && typeof check === 'object'
+      && !Array.isArray(check) && typeof check.id === 'string' && check.id.length > 0 && check.passed === true);
+    const explicitNotApplicable = qa.applicable === false && qa.skipped === true && qa.passed === true
+      && typeof qa.reason === 'string' && qa.reason.trim().length > 0
+      && Array.isArray(qa.checks) && checks.length === 0 && failuresAreValid && rawFailures.length === 0;
+    const applicable = !explicitNotApplicable;
+    const skipped = explicitNotApplicable || qa.skipped === true;
+    const passed = applicable && !skipped && qa.applicable === true && qa.passed === true
+      && checksPassed && failuresAreValid && failures.length === 0;
+    if (applicable && !passed && failures.length === 0) {
+      const reason = skipped ? '적용 대상인 README 실행 안내 QA가 실행되지 않았습니다.'
+        : !Array.isArray(qa.checks) || checks.length === 0 ? 'README 실행 안내 QA의 실제 검사 근거가 없습니다.'
+          : !checksPassed ? 'README 실행 안내 QA에 실패했거나 형식이 잘못된 검사가 있습니다.'
+            : !failuresAreValid ? 'README 실행 안내 QA의 실패 목록 형식이 올바르지 않습니다.'
+              : qa.applicable !== true ? 'README 실행 안내 QA의 적용 여부가 명시되지 않았습니다.'
+              : 'README 실행 안내 QA가 통과를 확정하지 않았습니다.';
+      failures.push(reason);
+    }
     run.readmeQaRequired = applicable;
     run.readmeQaPassed = passed;
-    const result = { ...qa, passed, skipped, round };
+    const result = { ...qa, applicable, checks, failures, passed, skipped, round };
     run.readmeQaHistory = [...(run.readmeQaHistory || []), result].slice(-10);
     event.status = !applicable || run.readmeQaPassed ? 'completed' : 'failed';
     event.detail = !applicable
       ? `실행 안내 검사 미적용 · ${qa.reason || '지원되는 로컬 실행 안내가 없습니다.'}\n미적용 검사는 통과로 기록하지 않습니다. 독립 브라우저 QA는 별도로 계속 적용됩니다.`
       : run.readmeQaPassed
         ? `${qa.display} · ${qa.checks.length}개 기본 주소·자산 응답 검사 통과`
-        : (qa.failures || ['README 기본 주소 검증에 실패했습니다.']).join('\n').slice(0, 10_000);
+        : (result.failures.length ? result.failures : ['README 기본 주소 검증에 실패했습니다.']).join('\n').slice(0, 10_000);
     await this.persist(record);
     return result;
   }

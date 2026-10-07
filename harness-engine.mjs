@@ -2353,12 +2353,26 @@ export class HarnessEngine {
     const expectedIdsAreValid = expectedCheckIds.length > 0
       && expectedCheckIds.every((id) => typeof id === 'string' && id.length > 0)
       && new Set(expectedCheckIds).size === expectedCheckIds.length;
-    const resultCheckIds = checks.map((check) => check?.id);
-    const checksPassed = checks.length > 0 && checks.every((check) => check && typeof check === 'object'
-      && !Array.isArray(check) && typeof check.id === 'string' && check.id.length > 0 && check.passed === true);
-    const checksMatchPlan = expectedIdsAreValid && resultCheckIds.length === expectedCheckIds.length
-      && new Set(resultCheckIds).size === expectedCheckIds.length
-      && expectedCheckIds.every((id) => resultCheckIds.includes(id));
+    const viewports = BROWSER_QA_EXECUTOR.viewports.map(({ id }) => id);
+    const expectedCheckPairs = expectedIdsAreValid ? viewports.flatMap((viewport) => [
+      ...expectedCheckIds.flatMap((id) => [[viewport, id], [viewport, `${id}-layout`]]),
+      [viewport, 'layout'],
+    ]) : [];
+    const checksPassed = checks.length > 0 && checks.length <= expectedCheckPairs.length && checks.every((check) => check && typeof check === 'object'
+      && !Array.isArray(check) && typeof check.id === 'string' && check.id.length > 0
+      && viewports.includes(check.viewport) && check.passed === true);
+    let checksMatchPlan = expectedIdsAreValid && checks.length === expectedCheckPairs.length;
+    if (checksMatchPlan) {
+      const counts = (pairs) => pairs.reduce((result, pair) => {
+        const key = JSON.stringify(pair);
+        result.set(key, (result.get(key) || 0) + 1);
+        return result;
+      }, new Map());
+      const expectedCounts = counts(expectedCheckPairs);
+      const resultCounts = counts(checks.map((check) => [check?.viewport, check?.id]));
+      checksMatchPlan = expectedCounts.size === resultCounts.size
+        && [...expectedCounts].every(([key, count]) => resultCounts.get(key) === count);
+    }
     const passed = qa.passed === true && checksPassed && checksMatchPlan && failuresAreValid && failures.length === 0;
     if (!passed && failures.length === 0) {
       const reason = !Array.isArray(qa.checks) || checks.length === 0 ? '독립 브라우저 QA의 실제 검사 근거가 없습니다.'

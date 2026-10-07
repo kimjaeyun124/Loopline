@@ -126,6 +126,29 @@ test('README smoke bounds response header count and total bytes', async (t) => {
   });
 });
 
+test('README smoke rejects invalid response header names and values', async (t) => {
+  const cases = [
+    ['header name', `const headers={"Content-Type":"text/html","Bad Name":"x"};`, /ERR_INVALID_HTTP_TOKEN/],
+    ['header value', String.raw`const headers={"Content-Type":"text/html","X-Injected":"safe\r\nInjected: yes"};`, /ERR_INVALID_CHAR/],
+  ];
+  for (const [label, headerSetup, expectedCode] of cases) await t.test(label, async (t) => {
+    const workspace = await mkdtemp(join(tmpdir(), 'loopline-readme-invalid-headers-'));
+    t.after(() => rm(workspace, { recursive: true, force: true }));
+    await writeFile(join(workspace, 'index.html'), '<!doctype html><html><body>Headers</body></html>');
+    const server = `const http=require("node:http"),fs=require("node:fs");http.createServer((_req,res)=>{${headerSetup}res.writeHead(200,headers);fs.readFile("index.html",(err,body)=>res.end(body))}).listen(8000,"127.0.0.1")`;
+    await writeFile(join(workspace, 'README.md'), documentedNodeServer(server));
+
+    const result = await verifyReadmeLaunch(workspace, {
+      execute: (launch, { preload, signal }) => executeReadmeServer(workspace, launch, preload, signal),
+    });
+
+    assert.equal(result.passed, false);
+    assert.match(result.checks[0].actual.error, /잘못된 응답 헤더/);
+    assert.match(result.checks[0].actual.error, expectedCode);
+    assert.match(result.failures.join('\n'), /잘못된 응답 헤더/);
+  });
+});
+
 test('default Harness README smoke keeps the project command inside the offline execution sandbox', async (t) => {
   if (process.platform !== 'darwin') { t.skip('The project sandbox is available only on macOS.'); return; }
   const directory = await mkdtemp(join(tmpdir(), 'loopline-readme-sandbox-'));

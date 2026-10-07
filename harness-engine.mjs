@@ -1623,7 +1623,7 @@ export class HarnessEngine {
     const canReuseFinalVerification = finalMilestone && Boolean(finalVerificationCommand)
       && finalVerification?.code === 0
       && (integrationRequired
-        ? independentBrowserQa?.passed === true && readmeLaunchQa?.passed === true
+        ? independentBrowserQa?.passed === true && (!run.readmeQaRequired || readmeLaunchQa?.passed === true)
         : finalVerificationCommand === run.verifyCommand || (run.automaticVerification && !run.verifyCommand));
     const verifiedWorkspaceFingerprint = canReuseFinalVerification
       ? await workspacePatchFingerprint(run.workspace, run.baseline, controller.signal) : null;
@@ -1663,7 +1663,7 @@ export class HarnessEngine {
       }
     }
     const passed = workspaceUnchangedSinceVerification && verification.code === 0 && (!integrationRequired || (integrationVerification?.code === 0 && independentBrowserQa?.passed === true
-      && readmeLaunchQa?.passed === true))
+      && (!run.readmeQaRequired || readmeLaunchQa?.passed === true)))
       && verdict.decision === 'complete' && diff.length <= 60_000;
     if (passed) {
       task.status = 'completed';
@@ -1675,9 +1675,10 @@ export class HarnessEngine {
       const invalidated = await refreshMilestones(run.milestones, run.workspace, [...new Set([...inventory, ...changed])]);
       if (invalidated.length) await this.event(record, '부분 완료 재검증 / Revalidate milestones', `다른 작업의 완료 근거에 영향을 준 변경: ${invalidated.join(', ')}`);
     }
-    let feedback = passed ? '' : `${task.title}: ${verdict.feedback}${!workspaceUnchangedSinceVerification ? '\n검증과 판정 사이에 작업 공간이 바뀌었습니다. 현재 파일을 다시 확인하고 같은 검증을 통과시켜야 완료할 수 있습니다.' : ''}\n검증 종료 코드 ${verification.code}: ${String(verification.output || verification.error || '').slice(-4000)}${integrationRequired && integrationVerification?.code !== 0 ? `\n전체 검증 실패: ${String(integrationVerification?.output || integrationVerification?.error || '전체 검증이 실행되지 않았습니다.').slice(-4000)}` : ''}${integrationRequired && independentBrowserQa?.passed !== true ? `\n독립 브라우저 QA 실패: ${(independentBrowserQa?.failures || ['실제 브라우저 QA가 완료되지 않았습니다.']).join('\n')}` : ''}${integrationRequired && readmeLaunchQa?.passed !== true ? `\nREADME 실행 안내 QA 실패: ${(readmeLaunchQa?.failures || [readmeLaunchQa?.reason || 'README의 기본 주소 검증이 완료되지 않았습니다.']).join('\n')}` : ''}${diff.length > 60_000 ? '\n부분 작업 변경량이 60,000자를 넘어 전체 검토가 불가능합니다. 담당 파일의 불필요한 중복과 과도한 변경을 줄이세요.' : ''}`;
+    let feedback = passed ? '' : `${task.title}: ${verdict.feedback}${!workspaceUnchangedSinceVerification ? '\n검증과 판정 사이에 작업 공간이 바뀌었습니다. 현재 파일을 다시 확인하고 같은 검증을 통과시켜야 완료할 수 있습니다.' : ''}\n검증 종료 코드 ${verification.code}: ${String(verification.output || verification.error || '').slice(-4000)}${integrationRequired && integrationVerification?.code !== 0 ? `\n전체 검증 실패: ${String(integrationVerification?.output || integrationVerification?.error || '전체 검증이 실행되지 않았습니다.').slice(-4000)}` : ''}${integrationRequired && independentBrowserQa?.passed !== true ? `\n독립 브라우저 QA 실패: ${(independentBrowserQa?.failures || ['실제 브라우저 QA가 완료되지 않았습니다.']).join('\n')}` : ''}${integrationRequired && run.readmeQaRequired && readmeLaunchQa?.passed !== true ? `\nREADME 실행 안내 QA 실패: ${(readmeLaunchQa?.failures || [readmeLaunchQa?.reason || 'README 기본 주소 검증이 완료되지 않았습니다.']).join('\n')}` : ''}${diff.length > 60_000 ? '\n부분 작업 변경량이 60,000자를 넘어 전체 검토가 불가능합니다. 담당 파일의 불필요한 중복과 과도한 변경을 줄이세요.' : ''}`;
     if (!passed && integrationRequired && (verification.code !== 0
-      || integrationVerification?.code !== 0 || independentBrowserQa?.passed === false || readmeLaunchQa?.passed === false)) {
+      || integrationVerification?.code !== 0 || independentBrowserQa?.passed === false
+      || (run.readmeQaRequired && readmeLaunchQa?.passed === false))) {
       // The final partial check can expose a defect in an already reviewed
       // dependency. Keep file ownership and reopen its owner instead of asking
       // the final worker to edit a file outside its immutable scope repeatedly.
@@ -2355,13 +2356,16 @@ export class HarnessEngine {
       qa = { passed: false, applicable: true, skipped: false, display: '', checks: [], failures: [String(error.message || error).slice(0, 1000)] };
     }
     aborted(signal);
-    run.readmeQaRequired = qa.applicable === true;
-    run.readmeQaPassed = qa.passed === true;
-    const result = { ...qa, round };
+    const applicable = qa.applicable === true;
+    const skipped = !applicable || qa.skipped === true;
+    const passed = applicable && !skipped && qa.passed === true;
+    run.readmeQaRequired = applicable;
+    run.readmeQaPassed = passed;
+    const result = { ...qa, passed, skipped, round };
     run.readmeQaHistory = [...(run.readmeQaHistory || []), result].slice(-10);
-    event.status = run.readmeQaPassed ? 'completed' : 'failed';
-    event.detail = qa.skipped
-      ? `실행 명령 검사 생략 · ${qa.reason}\n독립 브라우저 QA는 별도로 계속 적용됩니다.`
+    event.status = !applicable || run.readmeQaPassed ? 'completed' : 'failed';
+    event.detail = !applicable
+      ? `실행 안내 검사 미적용 · ${qa.reason || '지원되는 로컬 실행 안내가 없습니다.'}\n미적용 검사는 통과로 기록하지 않습니다. 독립 브라우저 QA는 별도로 계속 적용됩니다.`
       : run.readmeQaPassed
         ? `${qa.display} · ${qa.checks.length}개 기본 주소·자산 응답 검사 통과`
         : (qa.failures || ['README 기본 주소 검증에 실패했습니다.']).join('\n').slice(0, 10_000);

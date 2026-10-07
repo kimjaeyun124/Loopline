@@ -15,6 +15,7 @@ const MAX_PATCH = 2_000_000;
 const MAX_WORKER_HISTORY = 32_000;
 const MAX_PROJECT_FILE_LIST = 8_000;
 const MAX_VERIFICATION_EVIDENCE = 18_000;
+const MAX_QA_FAILURE_LENGTH = 1_000;
 const MAX_MODEL_FALLBACKS = 8;
 const MAX_AUTOMATIC_RECOVERIES = 3;
 const MAX_QA_PLANNING_ATTEMPTS = 6;
@@ -25,6 +26,22 @@ const invalidStructuredOutput = (message) => Object.assign(fail(message), { inva
 const invalidJudgeOutput = (message) => Object.assign(invalidStructuredOutput(message), { invalidJudgeOutput: true });
 const verificationPreparationFailure = (message) => Object.assign(fail(message), { verificationPreparationFailed: true });
 const aborted = (signal) => { if (signal?.aborted) throw signal.reason || new Error('실행을 중지했습니다.'); };
+
+function normalizeQaFailures(value, maxCount) {
+  if (!Array.isArray(value)) return { valid: false, failures: [] };
+  const failures = [];
+  let valid = true;
+  for (let index = 0; index < value.length; index++) {
+    if (!(index in value)) continue;
+    const failure = value[index];
+    if (typeof failure !== 'string') {
+      valid = false;
+      continue;
+    }
+    if (failures.length < maxCount) failures.push(failure.slice(0, MAX_QA_FAILURE_LENGTH));
+  }
+  return { valid, failures };
+}
 
 function offlineServerVerificationGuidance(task, files = '') {
   if (!/(?:\b(?:http|https|api|server|route|mime)\b|웹\s?(?:사이트|앱|페이지)|서버|라우트|정적\s*파일)/i.test(`${task}\n${files}`)) return '';
@@ -2329,9 +2346,7 @@ export class HarnessEngine {
       qa = { passed: false, checks: [], failures: ['독립 브라우저 QA가 올바른 결과 객체를 반환하지 않았습니다.'] };
     }
     const checks = Array.isArray(qa.checks) ? qa.checks : [];
-    const rawFailures = Array.isArray(qa.failures) ? qa.failures : [];
-    const failuresAreValid = Array.isArray(qa.failures) && rawFailures.every((failure) => typeof failure === 'string');
-    const failures = rawFailures.filter((failure) => typeof failure === 'string').slice(0, 24);
+    const { valid: failuresAreValid, failures } = normalizeQaFailures(qa.failures, 24);
     const checksPassed = checks.length > 0 && checks.every((check) => check && typeof check === 'object'
       && !Array.isArray(check) && typeof check.id === 'string' && check.id.length > 0 && check.passed === true);
     const passed = qa.passed === true && checksPassed && failuresAreValid && failures.length === 0;
@@ -2377,14 +2392,12 @@ export class HarnessEngine {
       qa = { passed: false, applicable: true, skipped: false, display: '', checks: [], failures: ['README 실행 안내 QA가 올바른 결과 객체를 반환하지 않았습니다.'] };
     }
     const checks = Array.isArray(qa.checks) ? qa.checks : [];
-    const rawFailures = Array.isArray(qa.failures) ? qa.failures : [];
-    const failuresAreValid = Array.isArray(qa.failures) && rawFailures.every((failure) => typeof failure === 'string');
-    const failures = rawFailures.filter((failure) => typeof failure === 'string').slice(0, 16);
+    const { valid: failuresAreValid, failures } = normalizeQaFailures(qa.failures, 16);
     const checksPassed = checks.length > 0 && checks.every((check) => check && typeof check === 'object'
       && !Array.isArray(check) && typeof check.id === 'string' && check.id.length > 0 && check.passed === true);
     const explicitNotApplicable = qa.applicable === false && qa.skipped === true && qa.passed === true
       && typeof qa.reason === 'string' && qa.reason.trim().length > 0
-      && Array.isArray(qa.checks) && checks.length === 0 && failuresAreValid && rawFailures.length === 0;
+      && Array.isArray(qa.checks) && checks.length === 0 && failuresAreValid && qa.failures.length === 0;
     const applicable = !explicitNotApplicable;
     const skipped = explicitNotApplicable || qa.skipped === true;
     const passed = applicable && !skipped && qa.applicable === true && qa.passed === true

@@ -383,6 +383,42 @@ test('automatic CLI verification reuses the final milestone result after selecti
   assert.equal(await readFile(join(source, 'second.txt'), 'utf8'), 'second');
 });
 
+test('automatic CLI verification runs the selected full command when it differs from the final milestone check', async (t) => {
+  const root = await directory(t), source = join(root, 'source'); await mkdir(source);
+  const git = async (...args) => {
+    const result = await runCommand('git', ['-c', 'core.hooksPath=/dev/null', '-c', 'user.name=QA', '-c', 'user.email=qa@localhost', '-c', 'commit.gpgsign=false', ...args], { cwd: source });
+    assert.equal(result.code, 0, result.error);
+  };
+  await git('init'); await writeFile(join(source, 'base.txt'), 'base'); await git('add', '.'); await git('commit', '-m', 'base');
+  const command = 'test -f first.txt && test -f second.txt', commands = [];
+  const engine = new HarnessEngine({ directory: root, verify: async (workspace, verifyCommand) => {
+    commands.push(verifyCommand);
+    if (verifyCommand !== 'test -f first.txt') assert.equal(await readFile(join(workspace, 'second.txt'), 'utf8'), 'second');
+    return { code: 0, output: 'actual CLI verification passed', error: '' };
+  }, invoke: async (_selection, prompt) => {
+    if (typeof prompt === 'object') {
+      return JSON.stringify({ answers: Object.fromEntries(Object.keys(prompt.questions).map(id => [id,
+        { choice: 'pass', reason: 'Actual file and verification evidence passed' }])) });
+    }
+    if (prompt.includes('구현 계획과 검증 기준')) return 'Implement both CLI parts and verify the integrated result.';
+    if (prompt.includes('큰 프로젝트를 검증 가능한 작은 부분 작업')) return JSON.stringify(plan);
+    const task = prompt.includes('"id":"first"') ? 'first' : 'second';
+    return JSON.stringify({ done: true, summary: `${task} CLI output generated`, operations: [{ type: 'write', path: `${task}.txt`, content: task }] });
+  } });
+  engine.configureVerification = async (record) => { record.run.verifyCommand = command; };
+  const model = { provider: 'api', model: 'fixture' };
+  const created = await engine.create({ task: 'large project CLI', workspace: source, rounds: 3,
+    roles: { planner: model, worker: model, judge: model } });
+  await engine.runs.get(created.id).execution;
+  const run = await engine.get(created.id);
+  assert.equal(run.status, 'completed', run.summary); assert.equal(run.applied, true);
+  assert.deepEqual(commands, ['test -f first.txt', 'test -f second.txt', command]);
+  assert.equal(run.events.some(event => event.title === '최종 검증 결과 재사용 / Reuse final verification evidence'), false);
+  assert.equal(run.verificationPassed, true);
+  assert.equal(await readFile(join(source, 'first.txt'), 'utf8'), 'first');
+  assert.equal(await readFile(join(source, 'second.txt'), 'utf8'), 'second');
+});
+
 test('automatic CLI verification reruns the full check when verification setup changes the workspace', async (t) => {
   const root = await directory(t), source = join(root, 'source'); await mkdir(source);
   const git = async (...args) => {

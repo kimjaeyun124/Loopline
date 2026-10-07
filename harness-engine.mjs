@@ -1688,7 +1688,13 @@ export class HarnessEngine {
       }
     }
     await this.event(record, passed ? '부분 작업 완료 / Milestone verified' : '부분 작업 수정 / Milestone failed', `${task.title} · ${task.verifyCommand}\n${passed ? verdict.summary : feedback}`, passed ? 'completed' : 'failed');
-    return { passed, feedback, verification, diff };
+    const integrationEvidence = integrationRequired ? {
+      verifyCommand: run.verifyCommand,
+      verification: integrationVerification,
+      browserQa: independentBrowserQa,
+      readmeLaunchQa,
+    } : null;
+    return { passed, feedback, verification, diff, integrationEvidence };
   }
 
   async continueMilestones(record, state, round, previousSummary, feedback, plan = state.plan) {
@@ -2037,6 +2043,7 @@ export class HarnessEngine {
       await this.event(record, '구현 이어가기 / Continue implementation', feedback, 'completed', modelDetails('worker', run.roles.worker));
     }
     await this.event(record, '회차 변경 요약 / Round summary', previousSummary);
+    let finalMilestoneEvidence = null;
     if (activeMilestone && !implementationIssue) {
       const review = await this.reviewMilestone(record, activeMilestone, previousSummary, state.plan);
       if (!review.passed) {
@@ -2074,12 +2081,23 @@ export class HarnessEngine {
         return this.continueMilestones(record, state, round, previousSummary,
           review.feedback || '다음 미완료 부분 작업만 구현하세요. 완료 근거가 있는 작업을 처음부터 반복하지 마세요.', plan);
       }
+      const evidence = review.integrationEvidence;
+      if (evidence?.verifyCommand === run.verifyCommand && evidence.verification?.code === 0
+        && evidence.browserQa?.passed === true
+        && (!run.readmeQaRequired || evidence.readmeLaunchQa?.passed === true)) {
+        finalMilestoneEvidence = evidence;
+      }
       if (nextMilestone(run.milestones)) return this.continueMilestones(record, state, round, previousSummary, '다음 미완료 부분 작업만 구현하세요. 완료 근거가 있는 작업을 처음부터 반복하지 마세요.');
     }
     if (activeMilestone && implementationIssue) return this.continueMilestones(record, state, round, previousSummary, feedback);
     let preparationIssue = '';
-    let verification = null;
-    if (!implementationIssue && run.automaticVerification && (!run.verifyCommand || reselectVerification)) {
+    const reusableFinalEvidence = finalMilestoneEvidence?.verifyCommand === run.verifyCommand
+      && finalMilestoneEvidence.verification?.code === 0
+      && finalMilestoneEvidence.browserQa?.passed === true
+      && (!run.readmeQaRequired || finalMilestoneEvidence.readmeLaunchQa?.passed === true)
+      ? finalMilestoneEvidence : null;
+    let verification = reusableFinalEvidence?.verification || null;
+    if (!implementationIssue && run.automaticVerification && (!run.verifyCommand || reselectVerification) && !reusableFinalEvidence) {
       try {
         await this.configureVerification(record, state.plan, previousSummary);
         reselectVerification = false;
@@ -2096,16 +2114,23 @@ export class HarnessEngine {
       }
     }
     if (!implementationIssue && !preparationIssue) {
-      run.stage = 'verifying'; await this.event(record, '검증 / Verification', run.verifyCommand, 'running');
-      const verifyEvent = run.events.at(-1);
-      verification = await this.verify(run.workspace, run.verifyCommand, run.runtime, signal);
-      aborted(signal); verifyEvent.status = verification.code === 0 ? 'completed' : 'failed';
-      verifyEvent.detail = `${run.verifyCommand}\n종료 코드: ${verification.code}\n${verification.output}\n${verification.error}`.slice(-12_000);
-      run.verificationPassed = verification.code === 0;
-      reselectVerification = run.automaticVerification && verificationCommandUnavailable(verification);
+      run.stage = 'verifying';
+      if (reusableFinalEvidence) {
+        await this.event(record, '최종 통합 검증 재사용 / Reuse final integration evidence', `${run.verifyCommand}\n마지막 부분 작업에서 통과한 전체 검증, 독립 브라우저 QA${run.readmeQaRequired ? ', README 실행 안내 QA' : ''} 결과를 최종 판정에 전달합니다. 파일 변경은 없고 전체 QA를 반복 실행하지 않았습니다.`, 'completed');
+        run.verificationPassed = true;
+        reselectVerification = false;
+      } else {
+        await this.event(record, '검증 / Verification', run.verifyCommand, 'running');
+        const verifyEvent = run.events.at(-1);
+        verification = await this.verify(run.workspace, run.verifyCommand, run.runtime, signal);
+        aborted(signal); verifyEvent.status = verification.code === 0 ? 'completed' : 'failed';
+        verifyEvent.detail = `${run.verifyCommand}\n종료 코드: ${verification.code}\n${verification.output}\n${verification.error}`.slice(-12_000);
+        run.verificationPassed = verification.code === 0;
+        reselectVerification = run.automaticVerification && verificationCommandUnavailable(verification);
+      }
     }
-    let readmeLaunchQa = null;
-    if (!implementationIssue && !preparationIssue && verification?.code === 0 && run.qaRequired) {
+    let readmeLaunchQa = reusableFinalEvidence?.readmeLaunchQa || null;
+    if (!implementationIssue && !preparationIssue && verification?.code === 0 && run.qaRequired && !reusableFinalEvidence) {
       await this.runBrowserQa(record, round);
       readmeLaunchQa = await this.runReadmeLaunchQa(record, round);
     }

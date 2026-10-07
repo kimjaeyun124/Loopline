@@ -522,9 +522,9 @@ async function relayChat(req, res, context) {
   if (!res.writableEnded) res.end();
 }
 
-function roleSelection(model) {
-  const effort = model.supportedReasoningEfforts.includes('high') ? 'high'
-    : model.supportedReasoningEfforts.includes('medium') ? 'medium' : '';
+function roleSelection(model, requestedEffort = '') {
+  const effort = requestedEffort || (model.supportedReasoningEfforts.includes('high') ? 'high'
+    : model.supportedReasoningEfforts.includes('medium') ? 'medium' : '');
   return {
     provider: model.provider,
     model: model.id,
@@ -548,6 +548,10 @@ async function createRemoteRun(req, res, context) {
   const task = stringValue(input.task, 30_000);
   if (!task) return json(res, 400, { error: '작업 요청을 입력해 주세요.' });
   if (typeof input.roles !== 'object' || !input.roles) return json(res, 400, { error: '계획·구현·판정 모델을 선택해 주세요.' });
+  const roleEfforts = input.roleEfforts === undefined ? {} : input.roleEfforts;
+  if (!roleEfforts || typeof roleEfforts !== 'object' || Array.isArray(roleEfforts)) {
+    return json(res, 400, { error: '역할별 추론 강도 설정을 확인해 주세요.' });
+  }
   const resolved = await requireModels(res);
   if (!resolved) return;
   const selected = {};
@@ -555,7 +559,15 @@ async function createRemoteRun(req, res, context) {
     const model = resolved.models.find(item => item.key === input.roles[role]);
     if (!model) return json(res, 400, `${role} 역할의 모델을 다시 선택해 주세요.`);
     if (role !== 'judge' && model.decisionOnly) return json(res, 400, '판정 전용 모델은 판정 역할에만 사용할 수 있습니다.');
-    selected[role] = roleSelection(model);
+    const rawEffort = roleEfforts[role];
+    if (rawEffort !== undefined && typeof rawEffort !== 'string') {
+      return json(res, 400, '역할별 추론 강도 설정을 확인해 주세요.');
+    }
+    const requestedEffort = stringValue(rawEffort, 24);
+    if (requestedEffort && !model.supportedReasoningEfforts.includes(requestedEffort)) {
+      return json(res, 400, '선택한 모델이 요청한 추론 강도를 지원하지 않습니다. 모델을 새로 고른 뒤 다시 시도해 주세요.');
+    }
+    selected[role] = roleSelection(model, requestedEffort);
   }
   const rounds = input.rounds === 0 ? 0 : Number(input.rounds);
   if (!Number.isInteger(rounds) || rounds < 0 || rounds > 10) return json(res, 400, '회차는 자동 또는 1~10 사이에서 선택해 주세요.');

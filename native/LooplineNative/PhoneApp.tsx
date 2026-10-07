@@ -52,6 +52,7 @@ const COLORS = {
 type ChatItem = {id: string; role: 'user' | 'assistant'; content: string; error?: boolean};
 type RoleName = 'chat' | 'planner' | 'worker' | 'judge';
 type RoleSelection = {planner: string; worker: string; judge: string};
+type RoleEfforts = {planner: string; worker: string; judge: string};
 type ConnectionState = 'idle' | 'connecting' | 'connected' | 'offline';
 
 function makeId(): string {
@@ -100,6 +101,7 @@ export default function PhoneApp() {
   const [chatBusy, setChatBusy] = useState(false);
   const [taskInput, setTaskInput] = useState('');
   const [roles, setRoles] = useState<RoleSelection>({planner: '', worker: '', judge: ''});
+  const [roleEfforts, setRoleEfforts] = useState<RoleEfforts>({planner: '', worker: '', judge: ''});
   const [rounds, setRounds] = useState(3);
   const [run, setRun] = useState<RemoteRun | null>(null);
   const [runBusy, setRunBusy] = useState(false);
@@ -124,6 +126,10 @@ export default function PhoneApp() {
   const workingModels = useMemo(() => models.filter(model => !model.decisionOnly), [models]);
   const currentChatModel = models.find(model => model.key === chatModelKey);
   const roleModel = (role: Exclude<RoleName, 'chat'>) => models.find(model => model.key === roles[role]);
+  const roleEffortOptions = (role: Exclude<RoleName, 'chat'>) => {
+    const selectedModel = roleModel(role);
+    return ['', ...new Set(selectedModel?.supportedReasoningEfforts || [])];
+  };
   const normalizedUrl = useMemo(() => {
     try { return serverUrl ? normalizeTailscaleBaseUrl(serverUrl) : ''; } catch { return ''; }
   }, [serverUrl]);
@@ -212,7 +218,7 @@ export default function PhoneApp() {
       if (cancelled) return;
       if (savedSettings) {
         const parsed = JSON.parse(savedSettings) as {
-          serverUrl?: string; chatModelKey?: string; roles?: RoleSelection; rounds?: number;
+          serverUrl?: string; chatModelKey?: string; roles?: RoleSelection; roleEfforts?: Partial<RoleEfforts>; rounds?: number;
         };
         const savedUrl = typeof parsed.serverUrl === 'string' ? parsed.serverUrl : '';
         setServerUrl(savedUrl);
@@ -220,6 +226,13 @@ export default function PhoneApp() {
         setChatModelKey(typeof parsed.chatModelKey === 'string' ? parsed.chatModelKey : '');
         if (parsed.roles && typeof parsed.roles === 'object') {
           setRoles({planner: parsed.roles.planner || '', worker: parsed.roles.worker || '', judge: parsed.roles.judge || ''});
+        }
+        if (parsed.roleEfforts && typeof parsed.roleEfforts === 'object') {
+          setRoleEfforts({
+            planner: typeof parsed.roleEfforts.planner === 'string' ? parsed.roleEfforts.planner : '',
+            worker: typeof parsed.roleEfforts.worker === 'string' ? parsed.roleEfforts.worker : '',
+            judge: typeof parsed.roleEfforts.judge === 'string' ? parsed.roleEfforts.judge : '',
+          });
         }
         if (ROUND_OPTIONS.includes(parsed.rounds || -1)) setRounds(parsed.rounds || 0);
       }
@@ -237,8 +250,8 @@ export default function PhoneApp() {
 
   useEffect(() => {
     if (!hydrated) return;
-    void AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify({serverUrl, chatModelKey, roles, rounds})).catch(() => {});
-  }, [chatModelKey, hydrated, roles, rounds, serverUrl]);
+    void AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify({serverUrl, chatModelKey, roles, roleEfforts, rounds})).catch(() => {});
+  }, [chatModelKey, hydrated, roleEfforts, roles, rounds, serverUrl]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -292,7 +305,7 @@ export default function PhoneApp() {
       setServerUrl(baseUrl);
       setSettingsValue(baseUrl);
       setSettingsOpen(false);
-      await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify({serverUrl: baseUrl, chatModelKey, roles, rounds}));
+      await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify({serverUrl: baseUrl, chatModelKey, roles, roleEfforts, rounds}));
       await refreshStatus(baseUrl);
     } catch (error) {
       setSettingsError(error instanceof Error ? error.message : '주소를 확인해 주세요.');
@@ -316,6 +329,23 @@ export default function PhoneApp() {
 
   useEffect(() => { applyModelDefaults(models); }, [models]);
 
+  useEffect(() => {
+    if (!models.length) return;
+    setRoleEfforts(current => {
+      let changed = false;
+      const next = {...current};
+      for (const role of ['planner', 'worker', 'judge'] as const) {
+        const selectedModel = models.find(model => model.key === roles[role]);
+        const selectedEffort = current[role];
+        if (selectedEffort && selectedModel && !selectedModel.supportedReasoningEfforts?.includes(selectedEffort)) {
+          next[role] = '';
+          changed = true;
+        }
+      }
+      return changed ? next : current;
+    });
+  }, [models, roles]);
+
   const openRolePicker = (role: RoleName) => {
     setModelSearch('');
     setModelProviderFilter('');
@@ -331,7 +361,14 @@ export default function PhoneApp() {
   const chooseModel = (key: string) => {
     if (!rolePicker) return;
     if (rolePicker === 'chat') setChatModelKey(key);
-    else setRoles(current => ({...current, [rolePicker]: key}));
+    else {
+      const role = rolePicker;
+      const nextModel = models.find(model => model.key === key);
+      setRoles(current => ({...current, [role]: key}));
+      setRoleEfforts(current => !current[role] || nextModel?.supportedReasoningEfforts?.includes(current[role])
+        ? current
+        : {...current, [role]: ''});
+    }
     closeRolePicker();
   };
 
@@ -413,7 +450,7 @@ export default function PhoneApp() {
     setRunBusy(true);
     setRunError('');
     try {
-      const next = await createRemoteRun(normalizedUrl, {task: taskInput.trim(), roles, rounds});
+      const next = await createRemoteRun(normalizedUrl, {task: taskInput.trim(), roles, roleEfforts, rounds});
       invalidateRunRefresh();
       setRun(next);
       setTaskInput('');
@@ -555,6 +592,40 @@ export default function PhoneApp() {
                     </Pressable>
                   );
                 })}
+
+                <Text style={styles.fieldLabel}>역할별 추론 강도</Text>
+                <View style={styles.roleEffortList}>
+                  {(['planner', 'worker', 'judge'] as const).map(role => {
+                    const selectedModel = roleModel(role);
+                    const supportedEfforts = selectedModel?.supportedReasoningEfforts || [];
+                    const options = roleEffortOptions(role);
+                    return (
+                      <View key={role} style={styles.roleEffortRow}>
+                        <View style={styles.roleEffortHeading}>
+                          <Text style={styles.roleEffortName}>{roleName(role)}</Text>
+                          {!supportedEfforts.length ? <Text style={styles.roleEffortHint}>{selectedModel ? '자동 선택만 제공' : '모델 선택 후 설정 가능'}</Text> : null}
+                        </View>
+                        <View style={styles.roleEffortOptions}>
+                          {options.map(effort => {
+                            const selected = roleEfforts[role] === effort;
+                            return (
+                              <Pressable
+                                key={effort || 'auto'}
+                                accessibilityRole="radio"
+                                accessibilityLabel={`${roleName(role)} 추론 강도 ${effort || '자동'}`}
+                                accessibilityState={{selected}}
+                                onPress={() => setRoleEfforts(current => ({...current, [role]: effort}))}
+                                style={[styles.roleEffortOption, selected && styles.roleEffortOptionSelected]}>
+                                <Text style={[styles.roleEffortOptionText, selected && styles.roleEffortOptionTextSelected]}>{effort || '자동'}</Text>
+                              </Pressable>
+                            );
+                          })}
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+                <Text style={styles.helperText}>자동은 Loopline 기본 추론 강도를 사용합니다. 각 모델이 지원하는 강도만 선택할 수 있습니다.</Text>
 
                 <Text style={styles.fieldLabel}>회차 한도</Text>
                 <View style={styles.roundOptions}>
@@ -812,6 +883,16 @@ const styles = StyleSheet.create({
   roundOptionSelected: {backgroundColor: '#27384b', borderColor: '#57799f'},
   roundOptionText: {fontSize: 10, color: COLORS.muted, fontWeight: '600'},
   roundOptionTextSelected: {color: '#d5e7ff'},
+  roleEffortList: {gap: 7, marginBottom: 5},
+  roleEffortRow: {padding: 10, borderRadius: 12, backgroundColor: COLORS.surfaceRaised, borderWidth: 1, borderColor: COLORS.border},
+  roleEffortHeading: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 7},
+  roleEffortName: {fontSize: 9, color: '#c9cdd1', fontWeight: '600'},
+  roleEffortHint: {fontSize: 8, color: COLORS.dim},
+  roleEffortOptions: {flexDirection: 'row', flexWrap: 'wrap', gap: 5},
+  roleEffortOption: {minHeight: 28, minWidth: 38, paddingHorizontal: 9, borderRadius: 9, backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border, alignItems: 'center', justifyContent: 'center'},
+  roleEffortOptionSelected: {backgroundColor: '#27384b', borderColor: '#57799f'},
+  roleEffortOptionText: {fontSize: 8, color: COLORS.muted, fontWeight: '600'},
+  roleEffortOptionTextSelected: {color: '#d5e7ff'},
   helperText: {fontSize: 9, color: COLORS.dim, lineHeight: 15, marginTop: 11},
   primaryButton: {height: 47, marginTop: 15, borderRadius: 13, backgroundColor: '#d9e7f7', alignItems: 'center', justifyContent: 'center'},
   primaryButtonText: {fontSize: 12, color: '#17202a', fontWeight: '700'},

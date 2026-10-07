@@ -99,6 +99,7 @@ export function getRemoteStatus(baseUrl: string): Promise<RemoteStatus> {
 export function createRemoteRun(baseUrl: string, input: {
   task: string;
   roles: {planner: string; worker: string; judge: string};
+  roleEfforts?: {planner: string; worker: string; judge: string};
   rounds: number;
 }): Promise<RemoteRun> {
   return remoteJson<RemoteRun>(baseUrl, 'runs', 'POST', input);

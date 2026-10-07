@@ -294,6 +294,52 @@ test('multi-task execution preserves verified parts and applies only after integ
   assert.equal(await readFile(join(source, 'first.txt'), 'utf8'), 'first');
 });
 
+test('matching final CLI milestone verification is reused only when the reviewed workspace stays unchanged', async (t) => {
+  const root = await directory(t), source = join(root, 'source'); await mkdir(source);
+  const git = async (...args) => {
+    const result = await runCommand('git', ['-c', 'core.hooksPath=/dev/null', '-c', 'user.name=QA', '-c', 'user.email=qa@localhost', '-c', 'commit.gpgsign=false', ...args], { cwd: source });
+    assert.equal(result.code, 0, result.error);
+  };
+  await git('init'); await writeFile(join(source, 'base.txt'), 'base'); await git('add', '.'); await git('commit', '-m', 'base');
+  const command = 'test -f first.txt && test -f second.txt', commands = []; let workerCalls = 0, finalMilestoneReviews = 0;
+  const engine = new HarnessEngine({ directory: root, verify: async (workspace, verifyCommand) => {
+    commands.push(verifyCommand); assert.ok([command, 'test -f first.txt'].includes(verifyCommand));
+    assert.equal(await readFile(join(workspace, 'first.txt'), 'utf8'), 'first');
+    if (verifyCommand === command) assert.equal(await readFile(join(workspace, 'second.txt'), 'utf8'), 'second');
+    return { code: 0, output: 'actual CLI integration assertion passed', error: '' };
+  }, invoke: async (_selection, prompt) => {
+    if (typeof prompt === 'object') {
+      if (prompt.state.milestone?.id === 'second' && ++finalMilestoneReviews === 1) {
+        const record = [...engine.runs.values()].at(-1);
+        await writeFile(join(record.run.workspace, 'second.txt'), 'changed during review');
+      }
+      return JSON.stringify({ answers: Object.fromEntries(Object.keys(prompt.questions).map(id => [id, { choice: 'pass', reason: 'Actual file and verification evidence passed' }])) });
+    }
+    if (prompt.includes('구현 계획과 검증 기준')) return 'Implement and verify the CLI result.';
+    if (prompt.includes('큰 프로젝트를 검증 가능한 작은 부분 작업')) {
+      const matchingPlan = structuredClone(plan);
+      matchingPlan.tasks[1].verifyCommand = command;
+      return JSON.stringify(matchingPlan);
+    }
+    workerCalls++;
+    const isFirst = prompt.includes('"id":"first"');
+    const task = isFirst ? 'first' : 'second';
+    return JSON.stringify({ done: true, summary: `${task} CLI output generated`, operations: [{ type: 'write', path: `${task}.txt`, content: task }] });
+  } });
+  const model = { provider: 'api', model: 'fixture' };
+  const created = await engine.create({ task: 'large project CLI', workspace: source, rounds: 3, verifyCommand: command,
+    roles: { planner: model, worker: model, judge: model } });
+  await engine.runs.get(created.id).execution;
+  const run = await engine.get(created.id);
+  assert.equal(run.status, 'completed', run.summary); assert.equal(run.applied, true);
+  assert.equal(run.round, 3); assert.equal(workerCalls, 3); assert.equal(run.milestones[0].attempts, 1); assert.equal(run.milestones[1].attempts, 2);
+  assert.deepEqual(commands, ['test -f first.txt', command, command]);
+  assert.ok(run.events.some(event => event.title === '검증 후 작업 공간 변경 / Workspace changed after verification'));
+  assert.ok(run.events.some(event => event.title === '최종 검증 결과 재사용 / Reuse final verification evidence'));
+  assert.equal(await readFile(join(source, 'first.txt'), 'utf8'), 'first');
+  assert.equal(await readFile(join(source, 'second.txt'), 'utf8'), 'second');
+});
+
 async function webMilestoneFixture(t, { browserFailure = false, fullFailure = false, automaticVerification = false, readmeFailure = false } = {}) {
   const root = await directory(t), source = join(root, 'source'); await mkdir(source);
   const git = async (...args) => {
@@ -373,7 +419,7 @@ test('last web milestone receives full test and browser evidence before approval
   assert.equal(f.reviewEvidence[0].integrationVerification.code, 0); assert.equal(f.reviewEvidence[0].independentBrowserQa.passed, true);
   assert.ok(f.run.milestones.every(task => task.status === 'completed' && task.evidence.reviewed));
   assert.deepEqual(f.run.qaPlan, f.qaPlan); assert.equal(await readFile(join(f.source, 'index.html'), 'utf8'), '<html>fixture UI</html>');
-  assert.ok(f.run.events.some(event => event.title === '최종 통합 검증 재사용 / Reuse final integration evidence'));
+  assert.ok(f.run.events.some(event => event.title === '최종 검증 결과 재사용 / Reuse final verification evidence'));
 });
 
 test('final web milestone chooses the full verification command before browser QA when configuration is automatic', async (t) => {

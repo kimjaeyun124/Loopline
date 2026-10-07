@@ -114,6 +114,31 @@ test('README root routing failures return concrete evidence for a targeted autom
   assert.equal(result.checks[0].actual.status, 403);
 });
 
+test('README smoke rejects malformed raw evidence instead of filtering it into a pass', async (t) => {
+  const workspace = await mkdtemp(join(tmpdir(), 'loopline-readme-malformed-evidence-'));
+  t.after(() => rm(workspace, { recursive: true, force: true }));
+  const server = `const http=require("node:http"),fs=require("node:fs");http.createServer((_req,res)=>fs.readFile("index.html",(err,body)=>{res.writeHead(err?404:200,{"Content-Type":"text/html"}).end(body)})).listen(8000,"127.0.0.1")`;
+  await writeFile(join(workspace, 'README.md'), documentedNodeServer(server));
+  const executeEvidence = async (evidence) => ({ code: 0, output: `__LOOPLINE_README_LAUNCH_QA__${JSON.stringify(evidence)}` });
+  const valid = { passed: true, checks: [{ id: 'root', passed: true }], failures: [] };
+  const accepted = await verifyReadmeLaunch(workspace, { execute: () => executeEvidence(valid) });
+  assert.equal(accepted.passed, true);
+
+  const tooManyChecks = Array.from({ length: 25 }, (_, index) => ({ id: `check-${index}`, passed: true }));
+  const cases = [
+    ['invalid failure item', { ...valid, failures: [{ reason: 'must not be discarded' }] }],
+    ['invalid check item', { ...valid, checks: [...valid.checks, null] }],
+    ['duplicate check ID', { ...valid, checks: [...valid.checks, { id: 'root', passed: true }] }],
+    ['excessive check count', { ...valid, checks: tooManyChecks }],
+    ['missing failures array', { passed: true, checks: valid.checks }],
+  ];
+  for (const [label, evidence] of cases) await t.test(label, async () => {
+    const result = await verifyReadmeLaunch(workspace, { execute: () => executeEvidence(evidence) });
+    assert.equal(result.passed, false, JSON.stringify(result));
+    assert.ok(result.failures.length > 0);
+  });
+});
+
 test('README smoke test skips absent or unsupported instructions without executing shell fragments', async (t) => {
   const workspace = await mkdtemp(join(tmpdir(), 'loopline-readme-unsupported-'));
   t.after(() => rm(workspace, { recursive: true, force: true }));

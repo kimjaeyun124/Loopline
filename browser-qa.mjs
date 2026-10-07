@@ -172,7 +172,8 @@ export async function verifyReadmeLaunch(workspace, { execute, signal } = {}) {
   const execution = await execute(inspected.launch, { preload: README_LAUNCH_QA_PRELOAD, signal });
   if (signal?.aborted) throw signal.reason || new Error('README 실행 안내 QA를 중지했습니다.');
   const text = `${execution?.output || ''}\n${execution?.error || ''}`;
-  const marker = [...text.matchAll(new RegExp(`${README_LAUNCH_RESULT}({[^\\n]*})`, 'g'))].at(-1)?.[1];
+  const markers = [...text.matchAll(new RegExp(`${README_LAUNCH_RESULT}({[^\\n]*})`, 'g'))];
+  const marker = markers.length === 1 ? markers[0][1] : null;
   let evidence;
   try { evidence = marker ? JSON.parse(marker) : null; } catch { evidence = null; }
   const rawFailures = evidence?.failures;
@@ -189,7 +190,8 @@ export async function verifyReadmeLaunch(workspace, { execute, signal } = {}) {
     : [];
   if (!evidence || !checksAreValid || !failuresAreValid || evidence.passed !== true || execution?.code !== 0) {
     if (!failures.length) {
-      const reason = !evidence ? '실제 HTTP 검사 결과를 받지 못했습니다.'
+      const reason = markers.length > 1 ? '검사 결과 표식이 여러 개라 응답이 모호합니다.'
+        : !evidence ? '실제 HTTP 검사 결과를 받지 못했습니다.'
         : !checksAreValid ? '실제 HTTP 검사 목록이 누락됐거나 형식이 올바르지 않습니다.'
           : !failuresAreValid ? '실제 HTTP 실패 목록의 형식이 올바르지 않습니다.'
             : `검사 실행이 통과를 확정하지 않았습니다${Number.isInteger(execution?.code) ? ` (종료 코드 ${execution.code})` : ''}.`;

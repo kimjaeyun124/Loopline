@@ -385,6 +385,12 @@ async function git(cwd, args, signal) {
   return result.output;
 }
 
+async function workspacePatchFingerprint(workspace, baseline, signal) {
+  await git(workspace, ['add', '-A'], signal);
+  const patch = await git(workspace, ['diff', '--cached', '--no-ext-diff', '--binary', baseline, '--'], signal);
+  return createHash('sha256').update(patch).digest('hex');
+}
+
 export function parseHarnessJson(text) {
   const source = String(text).trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
   try { const value = JSON.parse(source); if (value && typeof value === 'object' && !Array.isArray(value)) return value; } catch { /* Reject prose and partial JSON rather than interpreting it as an approval. */ }
@@ -1611,6 +1617,16 @@ export class HarnessEngine {
       }
       run.stage = 'milestone-qa';
     }
+    const finalMilestone = run.milestones.every((other) => other.id === task.id || other.status === 'completed');
+    const finalVerificationCommand = integrationRequired ? run.verifyCommand : task.verifyCommand;
+    const finalVerification = integrationRequired ? integrationVerification : verification;
+    const canReuseFinalVerification = finalMilestone && Boolean(finalVerificationCommand)
+      && finalVerification?.code === 0
+      && (integrationRequired
+        ? independentBrowserQa?.passed === true && readmeLaunchQa?.passed === true
+        : finalVerificationCommand === run.verifyCommand);
+    const verifiedWorkspaceFingerprint = canReuseFinalVerification
+      ? await workspacePatchFingerprint(run.workspace, run.baseline, controller.signal) : null;
     const actualFiles = [];
     for (const path of owned.slice(0, 8)) {
       try {
@@ -1638,7 +1654,15 @@ export class HarnessEngine {
       diff: diff.slice(0, 60_000), diffTruncated: diff.length > 60_000, actualFiles }, {
       milestone: { label: `${task.title} 완료`, question: 'Do the actual changed files and meaningful successful verification satisfy every immutable acceptance criterion of this partial task? The diff and actualFiles previews are scoped to ownedFiles; absence from them is not evidence that another milestone file is missing. Use workspaceInventory for file presence and relatedMilestones for ownership and current review status. A truncated inventory cannot establish file absence. Shared configuration may include tests from another milestone. Inventory and prior review evidence do not replace the current verification, required integration/browser evidence, or applicable README launch smoke evidence. A skipped README smoke test is explicitly marked not applicable and must not be treated as a failure or as a passed execution check. Judge this milestone\'s original criteria without requiring an unrelated milestone to be complete.', pass: 'All criteria are implemented and independently verified.', revise: 'Fix missing behavior or verification for this partial task without weakening its original criteria.' },
     });
-    const passed = verification.code === 0 && (!integrationRequired || (integrationVerification?.code === 0 && independentBrowserQa?.passed === true
+    let workspaceUnchangedSinceVerification = true;
+    if (verifiedWorkspaceFingerprint) {
+      const currentFingerprint = await workspacePatchFingerprint(run.workspace, run.baseline, controller.signal);
+      workspaceUnchangedSinceVerification = currentFingerprint === verifiedWorkspaceFingerprint;
+      if (!workspaceUnchangedSinceVerification) {
+        await this.event(record, '검증 후 작업 공간 변경 / Workspace changed after verification', '판정 중 작업 공간 내용이 바뀌어 기존 검증 결과를 완료 근거로 재사용하지 않습니다. 변경된 상태에서 다시 검증합니다.', 'failed');
+      }
+    }
+    const passed = workspaceUnchangedSinceVerification && verification.code === 0 && (!integrationRequired || (integrationVerification?.code === 0 && independentBrowserQa?.passed === true
       && readmeLaunchQa?.passed === true))
       && verdict.decision === 'complete' && diff.length <= 60_000;
     if (passed) {
@@ -1651,7 +1675,7 @@ export class HarnessEngine {
       const invalidated = await refreshMilestones(run.milestones, run.workspace, [...new Set([...inventory, ...changed])]);
       if (invalidated.length) await this.event(record, '부분 완료 재검증 / Revalidate milestones', `다른 작업의 완료 근거에 영향을 준 변경: ${invalidated.join(', ')}`);
     }
-    let feedback = passed ? '' : `${task.title}: ${verdict.feedback}\n검증 종료 코드 ${verification.code}: ${String(verification.output || verification.error || '').slice(-4000)}${integrationRequired && integrationVerification?.code !== 0 ? `\n전체 검증 실패: ${String(integrationVerification?.output || integrationVerification?.error || '전체 검증이 실행되지 않았습니다.').slice(-4000)}` : ''}${integrationRequired && independentBrowserQa?.passed !== true ? `\n독립 브라우저 QA 실패: ${(independentBrowserQa?.failures || ['실제 브라우저 QA가 완료되지 않았습니다.']).join('\n')}` : ''}${integrationRequired && readmeLaunchQa?.passed !== true ? `\nREADME 실행 안내 QA 실패: ${(readmeLaunchQa?.failures || [readmeLaunchQa?.reason || 'README의 기본 주소 검증이 완료되지 않았습니다.']).join('\n')}` : ''}${diff.length > 60_000 ? '\n부분 작업 변경량이 60,000자를 넘어 전체 검토가 불가능합니다. 담당 파일의 불필요한 중복과 과도한 변경을 줄이세요.' : ''}`;
+    let feedback = passed ? '' : `${task.title}: ${verdict.feedback}${!workspaceUnchangedSinceVerification ? '\n검증과 판정 사이에 작업 공간이 바뀌었습니다. 현재 파일을 다시 확인하고 같은 검증을 통과시켜야 완료할 수 있습니다.' : ''}\n검증 종료 코드 ${verification.code}: ${String(verification.output || verification.error || '').slice(-4000)}${integrationRequired && integrationVerification?.code !== 0 ? `\n전체 검증 실패: ${String(integrationVerification?.output || integrationVerification?.error || '전체 검증이 실행되지 않았습니다.').slice(-4000)}` : ''}${integrationRequired && independentBrowserQa?.passed !== true ? `\n독립 브라우저 QA 실패: ${(independentBrowserQa?.failures || ['실제 브라우저 QA가 완료되지 않았습니다.']).join('\n')}` : ''}${integrationRequired && readmeLaunchQa?.passed !== true ? `\nREADME 실행 안내 QA 실패: ${(readmeLaunchQa?.failures || [readmeLaunchQa?.reason || 'README의 기본 주소 검증이 완료되지 않았습니다.']).join('\n')}` : ''}${diff.length > 60_000 ? '\n부분 작업 변경량이 60,000자를 넘어 전체 검토가 불가능합니다. 담당 파일의 불필요한 중복과 과도한 변경을 줄이세요.' : ''}`;
     if (!passed && integrationRequired && (verification.code !== 0
       || integrationVerification?.code !== 0 || independentBrowserQa?.passed === false || readmeLaunchQa?.passed === false)) {
       // The final partial check can expose a defect in an already reviewed
@@ -1688,13 +1712,15 @@ export class HarnessEngine {
       }
     }
     await this.event(record, passed ? '부분 작업 완료 / Milestone verified' : '부분 작업 수정 / Milestone failed', `${task.title} · ${task.verifyCommand}\n${passed ? verdict.summary : feedback}`, passed ? 'completed' : 'failed');
-    const integrationEvidence = integrationRequired ? {
-      verifyCommand: run.verifyCommand,
-      verification: integrationVerification,
+    const finalVerificationEvidence = verifiedWorkspaceFingerprint && workspaceUnchangedSinceVerification ? {
+      verifyCommand: finalVerificationCommand,
+      verification: finalVerification,
       browserQa: independentBrowserQa,
       readmeLaunchQa,
+      workspaceFingerprint: verifiedWorkspaceFingerprint,
     } : null;
-    return { passed, feedback, verification, diff, integrationEvidence };
+    return { passed, feedback, verification, diff, finalVerificationEvidence,
+      integrationEvidence: integrationRequired ? finalVerificationEvidence : null };
   }
 
   async continueMilestones(record, state, round, previousSummary, feedback, plan = state.plan) {
@@ -2081,9 +2107,10 @@ export class HarnessEngine {
         return this.continueMilestones(record, state, round, previousSummary,
           review.feedback || '다음 미완료 부분 작업만 구현하세요. 완료 근거가 있는 작업을 처음부터 반복하지 마세요.', plan);
       }
-      const evidence = review.integrationEvidence;
+      const evidence = review.finalVerificationEvidence;
       if (evidence?.verifyCommand === run.verifyCommand && evidence.verification?.code === 0
-        && evidence.browserQa?.passed === true
+        && evidence.workspaceFingerprint
+        && (!run.qaRequired || evidence.browserQa?.passed === true)
         && (!run.readmeQaRequired || evidence.readmeLaunchQa?.passed === true)) {
         finalMilestoneEvidence = evidence;
       }
@@ -2093,7 +2120,8 @@ export class HarnessEngine {
     let preparationIssue = '';
     const reusableFinalEvidence = finalMilestoneEvidence?.verifyCommand === run.verifyCommand
       && finalMilestoneEvidence.verification?.code === 0
-      && finalMilestoneEvidence.browserQa?.passed === true
+      && finalMilestoneEvidence.workspaceFingerprint
+      && (!run.qaRequired || finalMilestoneEvidence.browserQa?.passed === true)
       && (!run.readmeQaRequired || finalMilestoneEvidence.readmeLaunchQa?.passed === true)
       ? finalMilestoneEvidence : null;
     let verification = reusableFinalEvidence?.verification || null;
@@ -2116,7 +2144,7 @@ export class HarnessEngine {
     if (!implementationIssue && !preparationIssue) {
       run.stage = 'verifying';
       if (reusableFinalEvidence) {
-        await this.event(record, '최종 통합 검증 재사용 / Reuse final integration evidence', `${run.verifyCommand}\n마지막 부분 작업에서 통과한 전체 검증, 독립 브라우저 QA${run.readmeQaRequired ? ', README 실행 안내 QA' : ''} 결과를 최종 판정에 전달합니다. 파일 변경은 없고 전체 QA를 반복 실행하지 않았습니다.`, 'completed');
+        await this.event(record, '최종 검증 결과 재사용 / Reuse final verification evidence', `${run.verifyCommand}\n마지막 부분 작업에서 통과한 검증${run.qaRequired ? ', 독립 브라우저 QA' : ''}${run.readmeQaRequired ? ', README 실행 안내 QA' : ''} 결과를 최종 판정에 전달합니다. 검증 이후 작업 공간이 그대로인지 확인했습니다.`, 'completed');
         run.verificationPassed = true;
         reselectVerification = false;
       } else {

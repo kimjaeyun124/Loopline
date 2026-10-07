@@ -418,7 +418,7 @@ test('failed README launch smoke automatically returns work to its owning milest
   assert.ok(f.run.milestones.every(task => task.status === 'completed' && task.evidence.reviewed));
 });
 
-async function dependencyOwnerFixture(t, { invalidOwner = false, reviewOnlyFailure = false } = {}) {
+async function dependencyOwnerFixture(t, { invalidOwner = false, reviewOnlyFailure = false, rounds, unrelatedFileChanges = false } = {}) {
   const root = await directory(t), source = join(root, 'source'); await mkdir(source);
   const git = async (...args) => {
     const result = await runCommand('git', ['-c', 'core.hooksPath=/dev/null', '-c', 'user.name=QA', '-c', 'user.email=qa@localhost', '-c', 'commit.gpgsign=false', ...args], { cwd: source });
@@ -441,7 +441,7 @@ assert.equal(child.status,0);assert.match(child.stdout,/core behavior/);assert.m
     { action: 'reset' }, { action: 'visible', selector: '#empty' }, { action: 'fill', selector: '#input', value: 'QA' },
     { action: 'press', key: 'Enter' }, { action: 'reload' }, { action: 'text', selector: '#list', value: 'QA' },
   ] }] });
-  const workerTasks = [], ownerInputs = [], reviewInputs = [], verifyResults = [];
+  const workerTasks = [], ownerInputs = [], reviewInputs = [], verifyResults = [], recoveryPrompts = [];
   let coreWrites = 0, browserCalls = 0;
   const engine = new HarnessEngine({ directory: join(root, 'runs'), verify: async (workspace, command) => {
     const env = { ...process.env }; delete env.NODE_TEST_CONTEXT;
@@ -472,6 +472,7 @@ assert.equal(child.status,0);assert.match(child.stdout,/core behavior/);assert.m
     if (prompt.includes('구현 계획과 검증 기준')) return 'Create core, integrate UI, verify all; repair shared settings in their owner.';
     if (prompt.includes('구현 전에 독립 브라우저 QA 계획')) return qa;
     if (prompt.includes('큰 프로젝트를 검증 가능한 작은 부분 작업')) return tasks;
+    if (prompt.startsWith('Loop가 ')) { recoveryPrompts.push(prompt); return 'Keep the accepted contract; repair the exact repeated UI review failure.'; }
     const isCore = prompt.includes('"id":"core"'); workerTasks.push(isCore ? 'core' : 'ui');
     if (isCore) {
       coreWrites++;
@@ -487,10 +488,21 @@ assert.equal(child.status,0);assert.match(child.stdout,/core behavior/);assert.m
       { type: 'write', path: 'test/ui.test.mjs', content: "import test from 'node:test'; import assert from 'node:assert/strict'; import {readFileSync} from 'node:fs'; test('UI contract',()=>assert.match(readFileSync('index.html','utf8'),/<h1>QA/));\n" },
     ] });
   } });
+  if (unrelatedFileChanges) {
+    const reviewMilestone = engine.reviewMilestone.bind(engine);
+    let revision = 0;
+    engine.reviewMilestone = async (record, task, ...args) => {
+      const result = await reviewMilestone(record, task, ...args);
+      if (task.id === 'ui' && !result.passed) {
+        await writeFile(join(record.run.workspace, 'unrelated-progress.txt'), `revision ${++revision}\n`);
+      }
+      return result;
+    };
+  }
   const model = { provider: 'api', model: 'fixture' }, created = await engine.create({ task: 'large project offline website', workspace: source,
-    rounds: invalidOwner || reviewOnlyFailure ? 3 : 4, verifyCommand: 'node verify-all.mjs', roles: { planner: model, worker: model, judge: model } });
+    rounds: rounds ?? (invalidOwner || reviewOnlyFailure ? 3 : 4), verifyCommand: 'node verify-all.mjs', roles: { planner: model, worker: model, judge: model } });
   await engine.runs.get(created.id).execution;
-  return { source, run: await engine.get(created.id), workerTasks, ownerInputs, reviewInputs, verifyResults, browserCalls, tasks, qa };
+  return { source, run: await engine.get(created.id), workerTasks, ownerInputs, reviewInputs, verifyResults, recoveryPrompts, browserCalls, tasks, qa };
 }
 
 test('actual partial integration failure reopens the shared-file owner and rechecks dependents before automatic application', async (t) => {
@@ -527,5 +539,16 @@ test('a valid negative review with successful actual execution never reassigns a
   assert.equal(f.run.milestones[0].status, 'completed'); assert.equal(f.run.milestones[0].evidenceHistory.length, 0);
   assert.equal(f.run.browserQaPassed, true); assert.equal(f.browserCalls, 2);
   assert.equal(f.run.milestoneContract, milestoneContract(validateMilestones(f.tasks))); assert.deepEqual(f.run.qaPlan, f.qa);
+  await assert.rejects(readFile(join(f.source, 'index.html')));
+});
+
+test('unchanged milestone diff triggers bounded recovery despite unrelated workspace changes', async (t) => {
+  const f = await dependencyOwnerFixture(t, { reviewOnlyFailure: true, rounds: 8, unrelatedFileChanges: true });
+  assert.equal(f.run.status, 'limit', f.run.summary);
+  assert.match(f.run.summary, /부분 작업 UI integration에서 같은 파일 변경이 반복/);
+  assert.equal(f.recoveryPrompts.length, 2);
+  assert.ok(f.run.events.some(event => event.title === '부분 작업 정체 안전 중단 / Milestone stagnation safeguard'));
+  assert.ok(f.run.round < 8, 'Repeated failure should be caught before exhausting the configured rounds.');
+  assert.notEqual(f.run.applied, true);
   await assert.rejects(readFile(join(f.source, 'index.html')));
 });

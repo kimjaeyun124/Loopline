@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
+  Alert,
   ActivityIndicator,
   AppState,
   KeyboardAvoidingView,
@@ -8,6 +9,7 @@ import {
   Platform,
   Pressable,
   SafeAreaView,
+  Share,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -319,6 +321,16 @@ export default function PhoneApp() {
     setRolePicker(null);
   };
 
+  const shareChatResponse = async (content: string) => {
+    const message = content.trim();
+    if (!message) return;
+    try {
+      await Share.share({message}, {dialogTitle: 'Loopline 답변 공유'});
+    } catch {
+      Alert.alert('공유를 열지 못했습니다', '잠시 후 다시 시도해 주세요.');
+    }
+  };
+
   const sendChat = async () => {
     const content = chatInput.trim();
     if (!content || !currentChatModel || !normalizedUrl || chatBusy) return;
@@ -528,7 +540,23 @@ export default function PhoneApp() {
             </View>
             <ScrollView ref={chatScrollRef} style={styles.chatMessages} contentContainerStyle={styles.chatMessageContent} keyboardShouldPersistTaps="handled" onContentSizeChange={() => chatScrollRef.current?.scrollToEnd({animated: true})}>
               {!chatItems.length ? <View style={styles.chatEmpty}><Text style={styles.chatEmptyGlyph}>✳</Text><Text style={styles.chatEmptyTitle}>무엇을 도와드릴까요?</Text><Text style={styles.chatEmptyDescription}>선택한 모델로 Mac을 통해 안전하게 대화합니다.</Text></View> : null}
-              {chatItems.map(item => <View key={item.id} style={[styles.chatBubble, item.role === 'user' ? styles.userBubble : styles.assistantBubble, item.error && styles.errorBubble]}><Text style={styles.chatBubbleText}>{item.content || (chatBusy && item.role === 'assistant' ? '응답을 기다리는 중…' : '')}</Text></View>)}
+              {chatItems.map(item => (
+                <View key={item.id} style={styles.chatMessageRow}>
+                  <View style={[styles.chatBubble, item.role === 'user' ? styles.userBubble : styles.assistantBubble, item.error && styles.errorBubble]}>
+                    <Text style={styles.chatBubbleText}>{item.content || (chatBusy && item.role === 'assistant' ? '응답을 기다리는 중…' : '')}</Text>
+                  </View>
+                  {item.role === 'assistant' && item.content.trim() ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="답변 복사 또는 공유"
+                      accessibilityHint="공유 창에서 복사하거나 다른 앱을 선택할 수 있습니다."
+                      onPress={() => void shareChatResponse(item.content)}
+                      style={styles.chatShareButton}>
+                      <Text style={styles.chatShareButtonText}>↗ 복사·공유</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+              ))}
             </ScrollView>
             <View style={styles.composer}>
               <TextInput
@@ -735,6 +763,7 @@ const styles = StyleSheet.create({
   smallOutlineText: {fontSize: 9, color: COLORS.accent, fontWeight: '600'},
   chatMessages: {flex: 1},
   chatMessageContent: {paddingTop: 14, paddingBottom: 18, gap: 10},
+  chatMessageRow: {width: '100%', gap: 3},
   chatEmpty: {flex: 1, minHeight: 280, alignItems: 'center', justifyContent: 'center'},
   chatEmptyGlyph: {fontSize: 26, color: COLORS.accent},
   chatEmptyTitle: {fontSize: 15, color: COLORS.text, fontWeight: '700', marginTop: 12},
@@ -744,6 +773,8 @@ const styles = StyleSheet.create({
   assistantBubble: {alignSelf: 'flex-start', backgroundColor: COLORS.surfaceRaised, borderBottomLeftRadius: 5},
   errorBubble: {borderWidth: 1, borderColor: '#633a3f'},
   chatBubbleText: {fontSize: 11, color: COLORS.text, lineHeight: 17},
+  chatShareButton: {alignSelf: 'flex-start', minHeight: 28, justifyContent: 'center', paddingHorizontal: 8},
+  chatShareButtonText: {fontSize: 9, color: COLORS.accent, fontWeight: '600'},
   composer: {minHeight: 58, padding: 7, flexDirection: 'row', alignItems: 'flex-end', gap: 7, backgroundColor: COLORS.surfaceRaised, borderWidth: 1, borderColor: COLORS.border, borderRadius: 17},
   composerInput: {flex: 1, maxHeight: 110, minHeight: 38, fontSize: 11, lineHeight: 16, color: COLORS.text, paddingHorizontal: 8, paddingTop: 9, paddingBottom: 8},
   sendButton: {width: 38, height: 38, borderRadius: 13, backgroundColor: '#d9e7f7', alignItems: 'center', justifyContent: 'center'},

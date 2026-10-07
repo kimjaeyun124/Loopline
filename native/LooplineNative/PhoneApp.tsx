@@ -321,14 +321,40 @@ export default function PhoneApp() {
     setRolePicker(null);
   };
 
-  const shareChatResponse = async (content: string) => {
+  const shareText = async (content: string, title: string) => {
     const message = content.trim();
     if (!message) return;
     try {
-      await Share.share({message}, {dialogTitle: 'Loopline 답변 공유'});
+      await Share.share({title, message}, {dialogTitle: title, subject: title});
     } catch {
       Alert.alert('공유를 열지 못했습니다', '잠시 후 다시 시도해 주세요.');
     }
+  };
+
+  const shareChatResponse = (content: string) => shareText(content, 'Loopline 답변 공유');
+
+  const shareRunResult = (value: RemoteRun) => {
+    const stageModels = Object.entries(value.stageModels || {}).flatMap(([stage, model]) => {
+      if (!model) return [];
+      const label = ({planner: '계획', plan: '계획', worker: '구현', implementation: '구현', judge: '판정', review: '판정'} as Record<string, string>)[stage] || stageLabel(stage);
+      const modelName = [model.provider, model.label].filter(Boolean).join(' · ');
+      return [`- ${label}: ${modelName}${model.effort ? ` (${model.effort})` : ''}`];
+    });
+    const eventSummary = value.events.slice(-12).map(event => {
+      const modelName = event.model?.label || event.model?.model;
+      const model = [event.model?.provider, modelName].filter(Boolean).join(' · ');
+      return `- ${event.title || 'Loop 단계'}${model ? ` · ${model}` : ''}`;
+    });
+    const message = [
+      'Loopline 작업 결과',
+      `상태: ${statusLabel(value.status)}`,
+      `작업 목표: ${value.task}`,
+      value.summary ? `결과: ${value.summary}` : '',
+      value.round ? `회차: ${value.round}/${value.rounds || '자동'}` : '',
+      stageModels.length ? `역할별 모델\n${stageModels.join('\n')}` : '',
+      eventSummary.length ? `진행 단계\n${eventSummary.join('\n')}` : '',
+    ].filter(Boolean).join('\n\n');
+    return shareText(message, 'Loopline 작업 결과 공유');
   };
 
   const sendChat = async () => {
@@ -521,7 +547,7 @@ export default function PhoneApp() {
               </View>
             ) : null}
 
-            {run ? <RunCard run={run} busy={runBusy} error={runError} onStop={() => void stopLoop()} onResume={() => void resumeLoop()} onClear={() => void clearRun()} expandedEventId={expandedEventId} onToggleEvent={setExpandedEventId} /> : null}
+            {run ? <RunCard run={run} busy={runBusy} error={runError} onStop={() => void stopLoop()} onResume={() => void resumeLoop()} onClear={() => void clearRun()} onShare={() => void shareRunResult(run)} expandedEventId={expandedEventId} onToggleEvent={setExpandedEventId} /> : null}
 
             {connection !== 'connected' ? (
               <View style={styles.emptyPanel}>
@@ -624,8 +650,8 @@ export default function PhoneApp() {
   );
 }
 
-function RunCard({run, busy, error, onStop, onResume, onClear, expandedEventId, onToggleEvent}: {
-  run: RemoteRun; busy: boolean; error: string; onStop: () => void; onResume: () => void; onClear: () => void;
+function RunCard({run, busy, error, onStop, onResume, onClear, onShare, expandedEventId, onToggleEvent}: {
+  run: RemoteRun; busy: boolean; error: string; onStop: () => void; onResume: () => void; onClear: () => void; onShare: () => void;
   expandedEventId: string; onToggleEvent: (id: string) => void;
 }) {
   const terminal = TERMINAL_REMOTE_RUN_STATES.has(run.status);
@@ -658,6 +684,7 @@ function RunCard({run, busy, error, onStop, onResume, onClear, expandedEventId, 
       })}
       {error ? <Text accessibilityRole="alert" style={styles.errorText}>{error}</Text> : null}
       <View style={styles.runActions}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Loop 결과 복사 또는 공유" accessibilityHint="작업 목표, 결과와 사용 모델을 공유 창에서 복사하거나 다른 앱에 전달합니다." onPress={onShare} style={styles.shareRunAction}><Text style={styles.shareRunActionText}>↗ 결과 공유</Text></Pressable>
         {!terminal ? <Pressable disabled={busy} onPress={onStop} style={styles.stopAction}>{busy ? <ActivityIndicator color={COLORS.red} size="small" /> : <Text style={styles.stopActionText}>작업 중지</Text>}</Pressable> : null}
         {run.canResume ? <Pressable disabled={busy} onPress={onResume} style={styles.resumeAction}>{busy ? <ActivityIndicator color={COLORS.text} size="small" /> : <Text style={styles.resumeActionText}>이어하기</Text>}</Pressable> : null}
         {terminal ? <Pressable onPress={onClear} style={styles.clearAction}><Text style={styles.clearActionText}>기록 닫기</Text></Pressable> : null}
@@ -750,6 +777,8 @@ const styles = StyleSheet.create({
   eventModel: {fontSize: 9, color: COLORS.accent, marginTop: 4},
   eventDetail: {fontSize: 10, color: COLORS.muted, lineHeight: 15, marginTop: 8},
   runActions: {minHeight: 41, flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'flex-end', gap: 8, marginTop: 9},
+  shareRunAction: {height: 33, marginRight: 'auto', paddingHorizontal: 10, borderRadius: 10, borderWidth: 1, borderColor: '#3a5270', backgroundColor: '#202e3e', alignItems: 'center', justifyContent: 'center'},
+  shareRunActionText: {fontSize: 9, color: COLORS.accent, fontWeight: '600'},
   stopAction: {height: 33, paddingHorizontal: 11, borderRadius: 10, backgroundColor: '#372426', alignItems: 'center', justifyContent: 'center'},
   stopActionText: {fontSize: 10, color: COLORS.red, fontWeight: '600'},
   resumeAction: {height: 33, paddingHorizontal: 13, borderRadius: 10, backgroundColor: '#30363d', alignItems: 'center', justifyContent: 'center'},

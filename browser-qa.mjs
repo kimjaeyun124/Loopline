@@ -87,6 +87,7 @@ export const README_LAUNCH_QA_PRELOAD = String.raw`
 import http from 'node:http';
 const marker = '__LOOPLINE_README_LAUNCH_QA__';
 if (process.env.LOOPLINE_README_QA === '1') {
+  const maxResponseBytes = 1_048_576;
   const originalListen = http.Server.prototype.listen;
   const originalAddress = http.Server.prototype.address;
   const originalClose = http.Server.prototype.close;
@@ -95,9 +96,22 @@ if (process.env.LOOPLINE_README_QA === '1') {
   const header = (headers, name) => Object.entries(headers).find(([key]) => key.toLowerCase() === name)?.[1] || '';
   const request = (handler, url) => new Promise((resolve) => {
     const result = { url, status: 200, headers: {}, body: '', error: '' };
-    let done = false;
+    let done = false, bodyBytes = 0;
     const finish = () => { if (!done) { done = true; clearTimeout(timer); resolve(result); } };
     const timer = setTimeout(() => { result.error = '응답 제한 시간 초과'; finish(); }, 1800);
+    const appendBody = (chunk) => {
+      if (done || chunk == null) return !done;
+      const value = Buffer.isBuffer(chunk) ? null : String(chunk);
+      const byteLength = value === null ? chunk.length : Buffer.byteLength(value);
+      if (bodyBytes + byteLength > maxResponseBytes) {
+        result.error = '응답 크기 제한 초과 (1 MiB)';
+        finish();
+        return false;
+      }
+      bodyBytes += byteLength;
+      result.body += value === null ? chunk.toString('utf8') : value;
+      return true;
+    };
     const response = {
       statusCode: 200, headersSent: false,
       writeHead(status, headers = {}) { result.status = this.statusCode = status; Object.assign(result.headers, headers); this.headersSent = true; return this; },
@@ -105,8 +119,8 @@ if (process.env.LOOPLINE_README_QA === '1') {
       getHeader(name) { return header(result.headers, String(name).toLowerCase()); },
       hasHeader(name) { return Object.keys(result.headers).some((key) => key.toLowerCase() === String(name).toLowerCase()); },
       removeHeader(name) { for (const key of Object.keys(result.headers)) if (key.toLowerCase() === String(name).toLowerCase()) delete result.headers[key]; },
-      write(chunk) { result.body += String(chunk ?? ''); return true; },
-      end(chunk) { if (chunk != null) result.body += String(chunk); result.status = this.statusCode || result.status; finish(); return this; },
+      write(chunk) { return appendBody(chunk); },
+      end(chunk) { appendBody(chunk); result.status = this.statusCode || result.status; finish(); return this; },
       flushHeaders() { this.headersSent = true; },
       destroy(error) { if (error) result.error = String(error.message || error); finish(); },
     };

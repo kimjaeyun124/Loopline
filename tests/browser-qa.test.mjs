@@ -550,6 +550,9 @@ test('Harness fails closed when browser QA adapters return incomplete or contrad
     ['missing checks', { passed: true, checks: [], failures: [] }],
     ['contradictory failure list', { passed: true, checks: [{ id: 'empty', passed: true }], failures: ['browser closed unexpectedly'] }],
     ['missing check identity', { passed: true, checks: [{ passed: true }], failures: [] }],
+    ['missing planned check', { passed: true, checks: [{ id: 'empty', passed: true }], failures: [] }],
+    ['duplicate planned check', { passed: true, checks: [{ id: 'empty', passed: true }, { id: 'empty', passed: true }], failures: [] }],
+    ['unexpected check ID', { passed: true, checks: [{ id: 'empty', passed: true }, { id: 'unplanned', passed: true }], failures: [] }],
     ['invalid result value', null],
   ];
 
@@ -573,6 +576,9 @@ test('Harness fails closed when browser QA adapters return incomplete or contrad
     assert.equal(record.run.qaHistory.at(-1).passed, false);
     assert.equal(record.run.events.at(-1).status, 'failed');
     assert.ok(record.run.events.at(-1).detail.length > 0);
+    if (['missing planned check', 'duplicate planned check', 'unexpected check ID'].includes(label)) {
+      assert.match(result.failures.join('\n'), /계획된 검사 ID와 일치하지 않습니다/);
+    }
   });
 });
 
@@ -621,11 +627,12 @@ async function fixture(t) {
 test('independent QA vetoes optimistic review, preserves evidence and forwards failure before applying', async (t) => {
   const f = await fixture(t); let attempts = 0, workerRounds = 0; const prompts = [];
   const engine = new HarnessEngine({ directory: f.directory, verify: async () => ({ code: 0, output: 'PASS' }),
-    verifyBrowser: async () => {
+    verifyBrowser: async ({ plan }) => {
       attempts++;
       await assert.rejects(readFile(join(f.source, 'index.html'))); // No source apply before independent QA.
-      return attempts === 1 ? { passed: false, checks: [{ id: 'empty', passed: false }], failures: ['mobile/empty: hidden attribute ignored'] }
-        : { passed: true, checks: [{ id: 'empty', passed: true }], failures: [] };
+      return attempts === 1
+        ? { passed: false, checks: plan.checks.map(({ id }) => ({ id, passed: false })), failures: ['mobile/empty: hidden attribute ignored'] }
+        : { passed: true, checks: plan.checks.map(({ id }) => ({ id, passed: true })), failures: [] };
     }, invoke: async (_selection, prompt) => {
       if (typeof prompt === 'object') return { answers: Object.fromEntries(Object.keys(prompt.questions).map((id) => [id, { choice: 'pass', reason: 'Actual evidence' }])) };
       if (prompt.includes('구현 계획과 검증 기준')) return '구현과 QA';
@@ -691,7 +698,7 @@ test('QA recovery routes the last existing attempt only for automatic planners, 
     const f = await fixture(t), planners = []; let reviews = 0;
     const base = f.input.roles.planner;
     const engine = new HarnessEngine({ directory: f.directory, verify: async () => ({ code: 0, output: 'PASS' }),
-      verifyBrowser: async () => ({ passed: true, checks: [{ id: 'empty', passed: true }], failures: [] }), invoke: async (selection, prompt) => {
+      verifyBrowser: async ({ plan }) => ({ passed: true, checks: plan.checks.map(({ id }) => ({ id, passed: true })), failures: [] }), invoke: async (selection, prompt) => {
         if (typeof prompt === 'object') {
           const result = { answers: Object.fromEntries(Object.keys(prompt.questions).map(id => [id, { choice: 'pass', reason: 'Fixture evidence' }])) };
           if (prompt.questions.qaContract) {
@@ -763,7 +770,7 @@ test('QA recovery cannot bypass a failed individual category or start implementa
 test('coverage-only unexplained rejection obtains an identical review before speculative QA edits and cannot override failed runtime QA', async (t) => {
   const f = await fixture(t); let plans = 0, browserChecks = 0; const reviews = [];
   const engine = new HarnessEngine({ directory: f.directory, verify: async () => ({ code: 0, output: 'PASS' }),
-    verifyBrowser: async () => { browserChecks++; return { passed: false, checks: [{ id: 'empty', passed: false }], failures: ['Actual empty state missing'] }; },
+    verifyBrowser: async ({ plan }) => { browserChecks++; return { passed: false, checks: plan.checks.map(({ id }) => ({ id, passed: id !== 'empty' })), failures: ['Actual empty state missing'] }; },
     invoke: async (selection, prompt) => {
       if (typeof prompt === 'object') {
         const answers = Object.fromEntries(Object.keys(prompt.questions).map(id => [id, { choice: 'pass', reason: 'Controlled review' }]));
@@ -1044,7 +1051,7 @@ test('unchanged QA patches exhaust format repair without repeating review or sta
 test('fixed QA format repair receives the precise oversized check and succeeds without changing the contract', async (t) => {
   const f = await fixture(t); let plans = 0;
   const engine = new HarnessEngine({ directory: f.directory, verify: async () => ({ code: 0, output: 'PASS' }),
-    verifyBrowser: async () => ({ passed: true, checks: [{ id: 'empty', passed: true }], failures: [] }), invoke: async (_selection, prompt) => {
+    verifyBrowser: async ({ plan }) => ({ passed: true, checks: plan.checks.map(({ id }) => ({ id, passed: true })), failures: [] }), invoke: async (_selection, prompt) => {
       if (typeof prompt === 'object') return { answers: Object.fromEntries(Object.keys(prompt.questions).map(id => [id, { choice: 'pass' }])) };
       if (prompt.includes('구현 계획과 검증 기준')) return 'Plan';
       if (prompt.includes('구현 전에 독립 브라우저 QA 계획')) {
@@ -1063,7 +1070,7 @@ test('malformed QA JSON enters format repair for fixed models or the saved fallb
   for (const automatic of [false, true]) await t.test(automatic ? 'saved fallback' : 'fixed model repair', async (t) => {
     const f = await fixture(t), plans = [];
     const engine = new HarnessEngine({ directory: f.directory, verify: async () => ({ code: 0, output: 'PASS' }),
-      verifyBrowser: async () => ({ passed: true, checks: [{ id: 'empty', passed: true }], failures: [] }), invoke: async (selection, prompt) => {
+      verifyBrowser: async ({ plan }) => ({ passed: true, checks: plan.checks.map(({ id }) => ({ id, passed: true })), failures: [] }), invoke: async (selection, prompt) => {
         if (typeof prompt === 'object') return { answers: Object.fromEntries(Object.keys(prompt.questions).map(id => [id, { choice: 'pass' }])) };
         if (prompt.includes('구현 계획과 검증 기준')) return 'Implement the website';
         if (prompt.includes('구현 전에 독립 브라우저 QA 계획')) {

@@ -677,7 +677,7 @@ export class HarnessEngine {
     const initialRounds = autoRounds ? automaticLoopStartRounds(input.task) : input.rounds;
     const run = { id, status: 'running', stage: 'prepare', round: 0, rounds: initialRounds,
       autoRounds, roundCeiling: autoRounds ? MAX_AUTO_LOOP_ROUNDS : initialRounds,
-      stagnantRounds: 0, lastRoundFingerprint: null, qualityTriedWorkerModels: [], source, task: input.task,
+      stagnantRounds: 0, lastRoundScope: null, lastRoundFingerprint: null, qualityTriedWorkerModels: [], source, task: input.task,
       priorities: normalizeLoopPriorities(input.priorities),
       roles, modelPriority,
       modelBudgets: {}, modelUsage: {}, modelCalls: [],
@@ -702,7 +702,7 @@ export class HarnessEngine {
   }
 
   publicRun(run) {
-    const { instructions, fingerprint, baseline, graphCheckpoint, qualityTriedWorkerModels, modelRoutingContexts, ...visible } = run;
+    const { instructions, fingerprint, baseline, graphCheckpoint, qualityTriedWorkerModels, modelRoutingContexts, lastRoundScope, ...visible } = run;
     visible.autoResumeAttempts = Number.isInteger(run.autoResumeAttempts) ? run.autoResumeAttempts : 0;
     const failure = new Error(String(run.summary || ''));
     const resumableTransientFailure = run.status === 'failed'
@@ -1691,7 +1691,7 @@ export class HarnessEngine {
     return { passed, feedback, verification, diff };
   }
 
-  async continueMilestones(record, state, round, previousSummary, feedback) {
+  async continueMilestones(record, state, round, previousSummary, feedback, plan = state.plan) {
     const { run } = record;
     if (run.autoRounds && round >= run.rounds && run.rounds < run.roundCeiling) {
       const before = run.rounds; run.rounds = extendAutomaticLoopRounds(run.rounds, run.roundCeiling);
@@ -1699,7 +1699,7 @@ export class HarnessEngine {
     }
     run.summary = `부분 작업 ${run.milestones.filter((t) => t.status === 'completed').length}/${run.milestones.length} 검증 완료. 전체 통합 검증은 아직 완료되지 않았습니다.`;
     if (round >= run.rounds) { run.status = 'limit'; run.summary += ' 회차 한도에 도달해 근거와 작업 공간을 보존했습니다.'; }
-    return { completedRounds: round, previousSummary, feedback, decision: 'revise', summary: run.summary, nextNode: run.status === 'limit' ? 'finish' : 'round' };
+    return { completedRounds: round, plan, previousSummary, feedback, decision: 'revise', summary: run.summary, nextNode: run.status === 'limit' ? 'finish' : 'round' };
   }
 
   async prepareBrowserQa(record, implementationPlan) {
@@ -2039,7 +2039,42 @@ export class HarnessEngine {
     await this.event(record, '회차 변경 요약 / Round summary', previousSummary);
     if (activeMilestone && !implementationIssue) {
       const review = await this.reviewMilestone(record, activeMilestone, previousSummary, state.plan);
-      if (!review.passed || nextMilestone(run.milestones)) return this.continueMilestones(record, state, round, previousSummary, review.feedback || '다음 미완료 부분 작업만 구현하세요. 완료 근거가 있는 작업을 처음부터 반복하지 마세요.');
+      if (!review.passed) {
+        const retryMilestone = nextMilestone(run.milestones);
+        let plan = state.plan;
+        if (retryMilestone?.id === activeMilestone.id) {
+          const scope = `milestone:${activeMilestone.id}`;
+          const fingerprint = createHash('sha256').update(review.diff || '').digest('hex');
+          run.stagnantRounds = run.lastRoundScope === scope && run.lastRoundFingerprint === fingerprint
+            ? (run.stagnantRounds || 1) + 1
+            : 1;
+          run.lastRoundScope = scope;
+          run.lastRoundFingerprint = fingerprint;
+
+          const ceiling = Number.isInteger(run.roundCeiling) ? run.roundCeiling : run.rounds;
+          if (run.stagnantRounds >= 2 && run.stagnantRounds % 2 === 0 && round < ceiling) {
+            const recovery = await this.recoverStagnation(record, {
+              round, plan, feedback: review.feedback, previousSummary,
+              verification: review.verification, patch: review.diff || '',
+            });
+            plan = recovery.plan;
+            if (run.stagnantRounds >= 4 && !recovery.modelChanged) {
+              run.status = 'limit';
+              run.summary = `부분 작업 ${activeMilestone.title}에서 같은 파일 변경이 반복되고 재계획 후에도 진행되지 않아 자동 반영을 멈췄습니다. 작업 공간과 패치를 보관했습니다.`;
+              await this.event(record, '부분 작업 정체 안전 중단 / Milestone stagnation safeguard', run.summary, 'failed');
+              return { completedRounds: round, plan, previousSummary, feedback: review.feedback, decision: 'revise', summary: run.summary, nextNode: 'finish' };
+            }
+          }
+        } else {
+          // 통합 QA가 다른 부분 작업을 다시 열었으면 새 담당 작업에서 정체 횟수를 다시 셉니다.
+          run.stagnantRounds = 0;
+          run.lastRoundScope = null;
+          run.lastRoundFingerprint = null;
+        }
+        return this.continueMilestones(record, state, round, previousSummary,
+          review.feedback || '다음 미완료 부분 작업만 구현하세요. 완료 근거가 있는 작업을 처음부터 반복하지 마세요.', plan);
+      }
+      if (nextMilestone(run.milestones)) return this.continueMilestones(record, state, round, previousSummary, '다음 미완료 부분 작업만 구현하세요. 완료 근거가 있는 작업을 처음부터 반복하지 마세요.');
     }
     if (activeMilestone && implementationIssue) return this.continueMilestones(record, state, round, previousSummary, feedback);
     let preparationIssue = '';
@@ -2154,7 +2189,8 @@ export class HarnessEngine {
       feedback += `\n전체 통합 검사 실패를 담당 부분 작업 ${owner.id}에서 수정하세요. 완료 기준과 담당 파일 범위를 유지하세요.`;
     }
     const fingerprint = createHash('sha256').update(patch).digest('hex');
-    run.stagnantRounds = run.lastRoundFingerprint === fingerprint ? (run.stagnantRounds || 0) + 1 : 0;
+    run.stagnantRounds = run.lastRoundScope === 'workspace' && run.lastRoundFingerprint === fingerprint ? (run.stagnantRounds || 0) + 1 : 0;
+    run.lastRoundScope = 'workspace';
     run.lastRoundFingerprint = fingerprint;
 
     if (run.autoRounds && round === run.rounds && run.rounds < (run.roundCeiling || MAX_AUTO_LOOP_ROUNDS)) {

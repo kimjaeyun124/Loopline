@@ -2347,14 +2347,25 @@ export class HarnessEngine {
     }
     const checks = Array.isArray(qa.checks) ? qa.checks : [];
     const { valid: failuresAreValid, failures } = normalizeQaFailures(qa.failures, 24);
+    const expectedCheckIds = Array.isArray(run.qaPlan?.checks)
+      ? run.qaPlan.checks.map((check) => check?.id)
+      : [];
+    const expectedIdsAreValid = expectedCheckIds.length > 0
+      && expectedCheckIds.every((id) => typeof id === 'string' && id.length > 0)
+      && new Set(expectedCheckIds).size === expectedCheckIds.length;
+    const resultCheckIds = checks.map((check) => check?.id);
     const checksPassed = checks.length > 0 && checks.every((check) => check && typeof check === 'object'
       && !Array.isArray(check) && typeof check.id === 'string' && check.id.length > 0 && check.passed === true);
-    const passed = qa.passed === true && checksPassed && failuresAreValid && failures.length === 0;
+    const checksMatchPlan = expectedIdsAreValid && resultCheckIds.length === expectedCheckIds.length
+      && new Set(resultCheckIds).size === expectedCheckIds.length
+      && expectedCheckIds.every((id) => resultCheckIds.includes(id));
+    const passed = qa.passed === true && checksPassed && checksMatchPlan && failuresAreValid && failures.length === 0;
     if (!passed && failures.length === 0) {
       const reason = !Array.isArray(qa.checks) || checks.length === 0 ? '독립 브라우저 QA의 실제 검사 근거가 없습니다.'
         : !checksPassed ? '독립 브라우저 QA에 실패했거나 형식이 잘못된 검사가 있습니다.'
-          : !failuresAreValid ? '독립 브라우저 QA의 실패 목록 형식이 올바르지 않습니다.'
-            : '독립 브라우저 QA가 통과를 확정하지 않았습니다.';
+          : !checksMatchPlan ? '독립 브라우저 QA 결과가 계획된 검사 ID와 일치하지 않습니다.'
+            : !failuresAreValid ? '독립 브라우저 QA의 실패 목록 형식이 올바르지 않습니다.'
+              : '독립 브라우저 QA가 통과를 확정하지 않았습니다.';
       failures.push(reason);
     }
     run.browserQaPassed = passed;

@@ -1,0 +1,188 @@
+{
+  "measuredAt": "2026-10-07T04:09:56.762Z",
+  "benchmarkKind": "local deterministic mock-provider harness latency; not a live-model benchmark",
+  "workload": "The existing two-round file.txt fixture task with automatic verification and apply.",
+  "providerResponseDelayMs": [
+    0,
+    25,
+    100
+  ],
+  "iterationsPerScenario": 5,
+  "tokenFixture": "15 reported tokens per model response; fixed mock usage, not billable usage.",
+  "scenarios": [
+    {
+      "mockDelayPerProviderResponseMs": 0,
+      "iterations": 5,
+      "medianElapsedMs": 1237,
+      "p95ElapsedMs": 1543,
+      "medianProviderCalls": 9,
+      "medianMockWaitMs": 0,
+      "estimatedMedianOrchestrationMs": 1237,
+      "medianReportedTokens": 135,
+      "completedAndApplied": 5,
+      "samples": [
+        {
+          "elapsedMs": 1543,
+          "status": "completed",
+          "applied": true,
+          "verificationPassed": true,
+          "rounds": 2,
+          "providerCalls": 9,
+          "reportedTokens": 135
+        },
+        {
+          "elapsedMs": 1232,
+          "status": "completed",
+          "applied": true,
+          "verificationPassed": true,
+          "rounds": 2,
+          "providerCalls": 9,
+          "reportedTokens": 135
+        },
+        {
+          "elapsedMs": 1228,
+          "status": "completed",
+          "applied": true,
+          "verificationPassed": true,
+          "rounds": 2,
+          "providerCalls": 9,
+          "reportedTokens": 135
+        },
+        {
+          "elapsedMs": 1248,
+          "status": "completed",
+          "applied": true,
+          "verificationPassed": true,
+          "rounds": 2,
+          "providerCalls": 9,
+          "reportedTokens": 135
+        },
+        {
+          "elapsedMs": 1237,
+          "status": "completed",
+          "applied": true,
+          "verificationPassed": true,
+          "rounds": 2,
+          "providerCalls": 9,
+          "reportedTokens": 135
+        }
+      ]
+    },
+    {
+      "mockDelayPerProviderResponseMs": 25,
+      "iterations": 5,
+      "medianElapsedMs": 1464,
+      "p95ElapsedMs": 1553,
+      "medianProviderCalls": 9,
+      "medianMockWaitMs": 225,
+      "estimatedMedianOrchestrationMs": 1239,
+      "medianReportedTokens": 135,
+      "completedAndApplied": 5,
+      "samples": [
+        {
+          "elapsedMs": 1463,
+          "status": "completed",
+          "applied": true,
+          "verificationPassed": true,
+          "rounds": 2,
+          "providerCalls": 9,
+          "reportedTokens": 135
+        },
+        {
+          "elapsedMs": 1553,
+          "status": "completed",
+          "applied": true,
+          "verificationPassed": true,
+          "rounds": 2,
+          "providerCalls": 9,
+          "reportedTokens": 135
+        },
+        {
+          "elapsedMs": 1464,
+          "status": "completed",
+          "applied": true,
+          "verificationPassed": true,
+          "rounds": 2,
+          "providerCalls": 9,
+          "reportedTokens": 135
+        },
+        {
+          "elapsedMs": 1499,
+          "status": "completed",
+          "applied": true,
+          "verificationPassed": true,
+          "rounds": 2,
+          "providerCalls": 9,
+          "reportedTokens": 135
+        },
+        {
+          "elapsedMs": 1445,
+          "status": "completed",
+          "applied": true,
+          "verificationPassed": true,
+          "rounds": 2,
+          "providerCalls": 9,
+          "reportedTokens": 135
+        }
+      ]
+    },
+    {
+      "mockDelayPerProviderResponseMs": 100,
+      "iterations": 5,
+      "medianElapsedMs": 2162,
+      "p95ElapsedMs": 2381,
+      "medianProviderCalls": 9,
+      "medianMockWaitMs": 900,
+      "estimatedMedianOrchestrationMs": 1262,
+      "medianReportedTokens": 135,
+      "completedAndApplied": 5,
+      "samples": [
+        {
+          "elapsedMs": 2176,
+          "status": "completed",
+          "applied": true,
+          "verificationPassed": true,
+          "rounds": 2,
+          "providerCalls": 9,
+          "reportedTokens": 135
+        },
+        {
+          "elapsedMs": 2161,
+          "status": "completed",
+          "applied": true,
+          "verificationPassed": true,
+          "rounds": 2,
+          "providerCalls": 9,
+          "reportedTokens": 135
+        },
+        {
+          "elapsedMs": 2381,
+          "status": "completed",
+          "applied": true,
+          "verificationPassed": true,
+          "rounds": 2,
+          "providerCalls": 9,
+          "reportedTokens": 135
+        },
+        {
+          "elapsedMs": 2148,
+          "status": "completed",
+          "applied": true,
+          "verificationPassed": true,
+          "rounds": 2,
+          "providerCalls": 9,
+          "reportedTokens": 135
+        },
+        {
+          "elapsedMs": 2162,
+          "status": "completed",
+          "applied": true,
+          "verificationPassed": true,
+          "rounds": 2,
+          "providerCalls": 9,
+          "reportedTokens": 135
+        }
+      ]
+    }
+  ]
+}

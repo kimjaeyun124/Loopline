@@ -14,6 +14,14 @@ const EVIDENCE_REASON_LABELS = new Map([
 ]);
 const escape = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
+function failedQaEvidence(qa, checks) {
+  const failedChecks = checks.filter((check) => check?.passed !== true).length;
+  if (failedChecks) return `${failedChecks}/${checks.length}개 검사 실패`;
+  const failures = Array.isArray(qa.failures) ? qa.failures.length : 0;
+  if (failures) return `추가 실패 근거 ${failures}개`;
+  return checks.length ? '통과 근거 불충분' : '검사 근거 없음';
+}
+
 export function formatReadmeQaSummary(run) {
   const history = Array.isArray(run?.readmeQaHistory) ? run.readmeQaHistory : [];
   const qa = history.at(-1);
@@ -28,8 +36,7 @@ export function formatReadmeQaSummary(run) {
     return `\n\nREADME 실행 안내 QA: 통과${round} · ${checks}개 기본 주소·자산 검사`;
   }
   const checks = Array.isArray(qa.checks) ? qa.checks : [];
-  const failed = checks.filter((check) => check?.passed !== true).length;
-  const evidence = checks.length ? ` · ${failed}/${checks.length}개 검사 실패` : '';
+  const evidence = ` · ${failedQaEvidence(qa, checks)}`;
   return `\n\nREADME 실행 안내 QA: 실패${round}${evidence}`;
 }
 
@@ -40,10 +47,9 @@ export function formatBrowserQaSummary(run) {
   const passed = qa.passed === true;
   const round = Number.isSafeInteger(qa.round) && qa.round > 0 ? ` · ${qa.round}회차` : '';
   const checks = Array.isArray(qa.checks) ? qa.checks : [];
-  const failed = checks.filter((check) => check?.passed !== true).length;
   const evidence = passed
     ? ` · ${checks.length}개 검사`
-    : checks.length ? ` · ${failed}/${checks.length}개 검사 실패` : ' · 검사 근거 없음';
+    : ` · ${failedQaEvidence(qa, checks)}`;
   return `\n\n독립 브라우저 QA: ${passed ? '통과' : '실패'}${round}${evidence}`;
 }
 

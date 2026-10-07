@@ -340,6 +340,49 @@ test('matching final CLI milestone verification is reused only when the reviewed
   assert.equal(await readFile(join(source, 'second.txt'), 'utf8'), 'second');
 });
 
+test('automatic CLI verification reuses the final milestone result after selecting the matching full command', async (t) => {
+  const root = await directory(t), source = join(root, 'source'); await mkdir(source);
+  const git = async (...args) => {
+    const result = await runCommand('git', ['-c', 'core.hooksPath=/dev/null', '-c', 'user.name=QA', '-c', 'user.email=qa@localhost', '-c', 'commit.gpgsign=false', ...args], { cwd: source });
+    assert.equal(result.code, 0, result.error);
+  };
+  await git('init'); await writeFile(join(source, 'base.txt'), 'base'); await git('add', '.'); await git('commit', '-m', 'base');
+  const command = 'test -f first.txt && test -f second.txt', commands = []; let workerCalls = 0, configured = 0;
+  const engine = new HarnessEngine({ directory: root, verify: async (workspace, verifyCommand) => {
+    commands.push(verifyCommand);
+    assert.equal(await readFile(join(workspace, 'first.txt'), 'utf8'), 'first');
+    if (verifyCommand === command) assert.equal(await readFile(join(workspace, 'second.txt'), 'utf8'), 'second');
+    return { code: 0, output: 'actual CLI verification passed', error: '' };
+  }, invoke: async (_selection, prompt) => {
+    if (typeof prompt === 'object') {
+      return JSON.stringify({ answers: Object.fromEntries(Object.keys(prompt.questions).map(id => [id,
+        { choice: 'pass', reason: 'Actual file and verification evidence passed' }])) });
+    }
+    if (prompt.includes('구현 계획과 검증 기준')) return 'Implement both CLI parts and verify the integrated result.';
+    if (prompt.includes('큰 프로젝트를 검증 가능한 작은 부분 작업')) {
+      const matchingPlan = structuredClone(plan);
+      matchingPlan.tasks[1].verifyCommand = command;
+      return JSON.stringify(matchingPlan);
+    }
+    workerCalls++;
+    const task = prompt.includes('"id":"first"') ? 'first' : 'second';
+    return JSON.stringify({ done: true, summary: `${task} CLI output generated`, operations: [{ type: 'write', path: `${task}.txt`, content: task }] });
+  } });
+  engine.configureVerification = async (record) => { configured++; record.run.verifyCommand = command; };
+  const model = { provider: 'api', model: 'fixture' };
+  const created = await engine.create({ task: 'large project CLI', workspace: source, rounds: 3,
+    roles: { planner: model, worker: model, judge: model } });
+  await engine.runs.get(created.id).execution;
+  const run = await engine.get(created.id);
+  assert.equal(run.status, 'completed', run.summary); assert.equal(run.applied, true);
+  assert.equal(run.verifyCommand, command); assert.equal(run.verificationPassed, true);
+  assert.equal(configured, 1); assert.equal(workerCalls, 2);
+  assert.deepEqual(commands, ['test -f first.txt', command]);
+  assert.ok(run.events.some(event => event.title === '최종 검증 결과 재사용 / Reuse final verification evidence'));
+  assert.equal(await readFile(join(source, 'first.txt'), 'utf8'), 'first');
+  assert.equal(await readFile(join(source, 'second.txt'), 'utf8'), 'second');
+});
+
 async function webMilestoneFixture(t, { browserFailure = false, fullFailure = false, automaticVerification = false, readmeFailure = false } = {}) {
   const root = await directory(t), source = join(root, 'source'); await mkdir(source);
   const git = async (...args) => {

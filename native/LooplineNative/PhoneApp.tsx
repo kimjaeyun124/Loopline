@@ -106,6 +106,7 @@ export default function PhoneApp() {
   const [runError, setRunError] = useState('');
   const [rolePicker, setRolePicker] = useState<RoleName | null>(null);
   const [modelSearch, setModelSearch] = useState('');
+  const [modelProviderFilter, setModelProviderFilter] = useState('');
   const [expandedEventId, setExpandedEventId] = useState('');
 
   const chatScrollRef = useRef<ScrollView>(null);
@@ -317,12 +318,14 @@ export default function PhoneApp() {
 
   const openRolePicker = (role: RoleName) => {
     setModelSearch('');
+    setModelProviderFilter('');
     setRolePicker(role);
   };
 
   const closeRolePicker = () => {
     setRolePicker(null);
     setModelSearch('');
+    setModelProviderFilter('');
   };
 
   const chooseModel = (key: string) => {
@@ -463,8 +466,12 @@ export default function PhoneApp() {
     await AsyncStorage.removeItem(RUN_KEY).catch(() => {});
   };
 
+  const roleModels = rolePicker === 'judge' ? models : workingModels;
+  const modelProviders = [...new Set(roleModels.map(model => model.providerLabel))].sort((a, b) => a.localeCompare(b));
   const modelSearchQuery = modelSearch.trim().toLowerCase();
-  const visibleModels = (rolePicker === 'judge' ? models : workingModels).filter(model => {
+  const hasModelFilter = Boolean(modelProviderFilter || modelSearchQuery);
+  const visibleModels = roleModels.filter(model => {
+    if (modelProviderFilter && model.providerLabel !== modelProviderFilter) return false;
     if (!modelSearchQuery) return true;
     const searchText = [model.label, model.providerLabel, model.accountName, model.connectionName, model.key]
       .filter(Boolean)
@@ -662,6 +669,29 @@ export default function PhoneApp() {
                 returnKeyType="search"
                 style={[styles.textInput, styles.modelSearchInput]}
               />
+              {modelProviders.length > 1 ? (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={styles.modelProviderFilters}
+                  contentContainerStyle={styles.modelProviderFilterContent}
+                  keyboardShouldPersistTaps="handled">
+                  {['', ...modelProviders].map(provider => {
+                    const selected = modelProviderFilter === provider;
+                    return (
+                      <Pressable
+                        key={provider || 'all'}
+                        accessibilityRole="button"
+                        accessibilityLabel={provider ? `${provider} 제공자 필터` : '모든 제공자 필터'}
+                        accessibilityState={{selected}}
+                        onPress={() => setModelProviderFilter(provider)}
+                        style={[styles.modelProviderChip, selected && styles.modelProviderChipSelected]}>
+                        <Text style={[styles.modelProviderChipText, selected && styles.modelProviderChipTextSelected]}>{provider || '전체'}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+              ) : null}
               <ScrollView style={styles.modelList} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
                 {visibleModels.map(model => (
                   <Pressable key={model.key} onPress={() => chooseModel(model.key)} style={[styles.modelChoice, rolePickerValue === model.key && styles.modelChoiceSelected]}>
@@ -670,7 +700,7 @@ export default function PhoneApp() {
                     {rolePickerValue === model.key ? <Text style={styles.modelCheck}>✓</Text> : null}
                   </Pressable>
                 ))}
-                {!visibleModels.length ? <Text style={styles.noModels}>{modelSearchQuery ? `“${modelSearch.trim()}” 검색 결과가 없습니다.` : '사용 가능한 모델이 없습니다. Mac에서 모델 계정을 연결해 주세요.'}</Text> : null}
+                {!visibleModels.length ? <Text style={styles.noModels}>{hasModelFilter ? '선택한 조건에 맞는 모델이 없습니다.' : '사용 가능한 모델이 없습니다. Mac에서 모델 계정을 연결해 주세요.'}</Text> : null}
               </ScrollView>
             </View>
           </View>
@@ -858,6 +888,12 @@ const styles = StyleSheet.create({
   primaryButtonCompact: {height: 42, minWidth: 91, paddingHorizontal: 14, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#d9e7f7'},
   modelList: {flex: 1},
   modelSearchInput: {marginBottom: 12},
+  modelProviderFilters: {flexGrow: 0, marginBottom: 10},
+  modelProviderFilterContent: {flexDirection: 'row', gap: 7, paddingRight: 4},
+  modelProviderChip: {minHeight: 30, paddingHorizontal: 10, borderRadius: 10, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surfaceRaised, alignItems: 'center', justifyContent: 'center'},
+  modelProviderChipSelected: {backgroundColor: '#27384b', borderColor: '#57799f'},
+  modelProviderChipText: {fontSize: 9, color: COLORS.muted, fontWeight: '600'},
+  modelProviderChipTextSelected: {color: '#d5e7ff'},
   modelChoice: {minHeight: 59, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 9, borderWidth: 1, borderColor: 'transparent', borderRadius: 12, backgroundColor: COLORS.surfaceRaised, marginBottom: 7},
   modelChoiceSelected: {borderColor: '#5d7da2', backgroundColor: '#283747'},
   modelChoiceGlyph: {width: 31, height: 31, borderRadius: 10, backgroundColor: '#34475c', alignItems: 'center', justifyContent: 'center'},

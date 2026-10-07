@@ -98,7 +98,7 @@ if (process.env.LOOPLINE_README_QA === '1') {
   const header = (headers, name) => Object.entries(headers).find(([key]) => key.toLowerCase() === name)?.[1] || '';
   const request = (handler, url) => new Promise((resolve) => {
     const result = { url, status: 200, headers: {}, body: '', error: '' };
-    let done = false, bodyBytes = 0, headerBytes = 0;
+    let done = false, headersSent = false, bodyBytes = 0, headerBytes = 0;
     const finish = () => { if (!done) { done = true; clearTimeout(timer); resolve(result); } };
     const timer = setTimeout(() => { result.error = '응답 제한 시간 초과'; finish(); }, 1800);
     const rejectHeaders = () => {
@@ -117,7 +117,15 @@ if (process.env.LOOPLINE_README_QA === '1') {
         throw invalid;
       }
     };
+    const assertHeadersMutable = () => {
+      if (headersSent) {
+        const error = new Error('응답 헤더 전송 후 변경 시도 (ERR_HTTP_HEADERS_SENT)');
+        error.code = 'ERR_HTTP_HEADERS_SENT';
+        throw error;
+      }
+    };
     const storeHeader = (name, value) => {
+      assertHeadersMutable();
       if (done) return false;
       const rawName = String(name), rawNameBytes = Buffer.byteLength(rawName);
       if (!rawNameBytes || rawNameBytes > maxHeaderBytes) return rejectHeaders();
@@ -164,25 +172,28 @@ if (process.env.LOOPLINE_README_QA === '1') {
       return true;
     };
     const response = {
-      statusCode: 200, headersSent: false,
+      statusCode: 200,
+      get headersSent() { return headersSent; },
       writeHead(status, headers = {}) {
+        assertHeadersMutable();
         result.status = this.statusCode = status;
         if (headers && typeof headers === 'object') {
           for (const name in headers) if (Object.hasOwn(headers, name) && !storeHeader(name, headers[name])) break;
         }
-        this.headersSent = true;
+        headersSent = true;
         return this;
       },
       setHeader(name, value) { storeHeader(name, value); return this; },
       getHeader(name) { return header(result.headers, String(name).toLowerCase()); },
       hasHeader(name) { return Object.keys(result.headers).some((key) => key.toLowerCase() === String(name).toLowerCase()); },
       removeHeader(name) {
+        assertHeadersMutable();
         const key = String(name).toLowerCase(), previous = result.headers[key];
         if (previous !== undefined) { headerBytes -= Buffer.byteLength(key) + Buffer.byteLength(String(previous)); delete result.headers[key]; }
       },
-      write(chunk) { return appendBody(chunk); },
-      end(chunk) { appendBody(chunk); result.status = this.statusCode || result.status; finish(); return this; },
-      flushHeaders() { this.headersSent = true; },
+      write(chunk) { headersSent = true; return appendBody(chunk); },
+      end(chunk) { headersSent = true; appendBody(chunk); result.status = this.statusCode || result.status; finish(); return this; },
+      flushHeaders() { headersSent = true; },
       destroy(error) { if (error) result.error = String(error.message || error); finish(); },
     };
     try {

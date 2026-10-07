@@ -106,7 +106,8 @@ export default function PhoneApp() {
   const [expandedEventId, setExpandedEventId] = useState('');
 
   const chatScrollRef = useRef<ScrollView>(null);
-  const streamRef = useRef<{abort: () => void} | null>(null);
+  const streamRef = useRef<{requestId: number; assistantItemId: string; baseUrl: string; abort: () => void} | null>(null);
+  const chatRequestSequenceRef = useRef(0);
   const runRequestSequenceRef = useRef(0);
   const runRequestsInFlightRef = useRef(new Map<string, number>());
   const statusRequestRef = useRef(0);
@@ -265,10 +266,25 @@ export default function PhoneApp() {
     return () => listener.remove();
   }, [refreshStatus, serverUrl]);
 
+  const cancelChatStream = (emptyResponseMessage: string) => {
+    const activeStream = streamRef.current;
+    if (!activeStream) return;
+    chatRequestSequenceRef.current += 1;
+    streamRef.current = null;
+    activeStream.abort();
+    setChatItems(current => current.map(item => item.id === activeStream.assistantItemId && !item.content
+      ? {...item, content: emptyResponseMessage}
+      : item));
+    setChatBusy(false);
+  };
+
   const saveServer = async () => {
     try {
       const baseUrl = normalizeTailscaleBaseUrl(settingsValue);
       setSettingsError('');
+      if (streamRef.current && streamRef.current.baseUrl !== baseUrl) {
+        cancelChatStream('서버 주소가 변경되어 응답을 중지했습니다.');
+      }
       setServerUrl(baseUrl);
       setSettingsValue(baseUrl);
       setSettingsOpen(false);
@@ -306,6 +322,7 @@ export default function PhoneApp() {
   const sendChat = async () => {
     const content = chatInput.trim();
     if (!content || !currentChatModel || !normalizedUrl || chatBusy) return;
+    const requestId = ++chatRequestSequenceRef.current;
     const userItem: ChatItem = {id: makeId(), role: 'user', content};
     const assistantItem: ChatItem = {id: makeId(), role: 'assistant', content: ''};
     const context = [...chatItems, userItem].slice(-24).map(item => ({role: item.role, content: item.content}));
@@ -313,14 +330,15 @@ export default function PhoneApp() {
     setChatItems(current => [...current, userItem, assistantItem].slice(-60));
     setChatBusy(true);
     const stream = startRemoteChatStream(normalizedUrl, {modelKey: currentChatModel.key, messages: context}, event => {
-      if (event.name === 'delta' && typeof event.data.text === 'string') {
+      if (chatRequestSequenceRef.current === requestId && event.name === 'delta' && typeof event.data.text === 'string') {
         setChatItems(current => current.map(item => item.id === assistantItem.id ? {...item, content: item.content + String(event.data.text)} : item));
       }
     });
-    streamRef.current = {abort: stream.abort};
+    streamRef.current = {requestId, assistantItemId: assistantItem.id, baseUrl: normalizedUrl, abort: stream.abort};
     try {
       await stream.promise;
     } catch (error) {
+      if (chatRequestSequenceRef.current !== requestId) return;
       if (error instanceof Error && error.name === 'AbortError') {
         setChatItems(current => current.map(item => item.id === assistantItem.id
           ? {...item, content: item.content || '응답을 중지했습니다.'} : item));
@@ -330,8 +348,10 @@ export default function PhoneApp() {
           : item));
       }
     } finally {
-      streamRef.current = null;
-      setChatBusy(false);
+      if (chatRequestSequenceRef.current === requestId) {
+        if (streamRef.current?.requestId === requestId) streamRef.current = null;
+        setChatBusy(false);
+      }
     }
   };
 
@@ -521,7 +541,7 @@ export default function PhoneApp() {
                 maxLength={20_000}
                 style={styles.composerInput}
               />
-              <Pressable accessibilityRole="button" accessibilityLabel={chatBusy ? '응답 중지' : '메시지 전송'} disabled={!chatBusy && (!chatInput.trim() || !currentChatModel || connection !== 'connected')} onPress={() => chatBusy ? streamRef.current?.abort() : void sendChat()} style={[styles.sendButton, !chatBusy && (!chatInput.trim() || !currentChatModel || connection !== 'connected') && styles.buttonDisabled]}>
+              <Pressable accessibilityRole="button" accessibilityLabel={chatBusy ? '응답 중지' : '메시지 전송'} disabled={!chatBusy && (!chatInput.trim() || !currentChatModel || connection !== 'connected')} onPress={() => chatBusy ? cancelChatStream('응답을 중지했습니다.') : void sendChat()} style={[styles.sendButton, !chatBusy && (!chatInput.trim() || !currentChatModel || connection !== 'connected') && styles.buttonDisabled]}>
                 <Text style={styles.sendButtonText}>{chatBusy ? '■' : '↑'}</Text>
               </Pressable>
             </View>

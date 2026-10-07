@@ -4,7 +4,7 @@ import { EventEmitter } from 'node:events';
 import { mkdtemp, mkdir, readFile, writeFile, rm, realpath, stat } from 'node:fs/promises';
 import { dirname, extname, join, relative, sep } from 'node:path';
 import { tmpdir } from 'node:os';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
 import { runInNewContext } from 'node:vm';
@@ -514,6 +514,37 @@ test('browser IPC cancellation removes pending work and standalone mode never cl
   await assert.rejects(pending, /USER_STOP/);
   assert.equal(bridge.pending.size, 0); assert.equal(messages.at(-1).action, 'cancel');
   assert.equal((await new BrowserQaBridge(null).verify({ plan: qaPlan })).passed, false);
+});
+
+test('Harness fails closed when browser QA adapters return incomplete or contradictory evidence', async (t) => {
+  const cases = [
+    ['missing checks', { passed: true, checks: [], failures: [] }],
+    ['contradictory failure list', { passed: true, checks: [{ id: 'empty', passed: true }], failures: ['browser closed unexpectedly'] }],
+    ['missing check identity', { passed: true, checks: [{ passed: true }], failures: [] }],
+    ['invalid result value', null],
+  ];
+
+  for (const [label, qaResult] of cases) await t.test(label, async (t) => {
+    const directory = await mkdtemp(join(tmpdir(), 'loopline-browser-invalid-result-'));
+    t.after(() => rm(directory, { recursive: true, force: true }));
+    const engine = new HarnessEngine({ directory, verifyBrowser: async () => qaResult, invoke: async () => assert.fail('Browser QA validation must not call a model') });
+    engine.event = async (record, title, detail, status) => {
+      const event = { title, detail, status }; record.run.events.push(event); return event;
+    };
+    engine.persist = async () => {};
+    const record = { controller: new AbortController(), writes: Promise.resolve(), run: {
+      id: randomUUID(), workspace: directory, events: [], qaPlan: structuredClone(qaPlan),
+      qaPlanHash: createHash('sha256').update(JSON.stringify(qaPlan)).digest('hex'),
+    } };
+
+    const result = await engine.runBrowserQa(record, 1);
+
+    assert.equal(result.passed, false, JSON.stringify(result));
+    assert.equal(record.run.browserQaPassed, false);
+    assert.equal(record.run.qaHistory.at(-1).passed, false);
+    assert.equal(record.run.events.at(-1).status, 'failed');
+    assert.ok(record.run.events.at(-1).detail.length > 0);
+  });
 });
 
 async function fixture(t) {

@@ -141,6 +141,38 @@ test('Harness records a skipped README smoke check as not applicable rather than
   assert.match(record.run.events.at(-1).detail, /미적용.*통과로 기록하지 않습니다/);
 });
 
+test('Harness fails closed when README QA adapters return incomplete or contradictory evidence', async (t) => {
+  const cases = [
+    ['missing checks', { passed: true, applicable: true, skipped: false, checks: [], failures: [] }],
+    ['contradictory failure list', { passed: true, applicable: true, skipped: false, checks: [{ id: 'root', passed: true }], failures: ['server exited unsuccessfully'] }],
+    ['missing applicability flag', { passed: true, skipped: false, checks: [{ id: 'root', passed: true }], failures: [] }],
+    ['invalid skipped result', { passed: true, applicable: false, skipped: true, reason: 'no supported launch instruction', checks: [{ id: 'root', passed: true }], failures: [] }],
+    ['invalid result value', null],
+  ];
+
+  for (const [label, qaResult] of cases) await t.test(label, async (t) => {
+    const directory = await mkdtemp(join(tmpdir(), 'loopline-readme-invalid-result-'));
+    t.after(() => rm(directory, { recursive: true, force: true }));
+    const engine = new HarnessEngine({ directory, verifyReadme: async () => qaResult, invoke: async () => assert.fail('README QA validation must not call a model') });
+    engine.event = async (record, title, detail, status) => {
+      const event = { title, detail, status }; record.run.events.push(event); return event;
+    };
+    engine.persist = async () => {};
+    const record = { controller: new AbortController(), writes: Promise.resolve(), run: {
+      id: randomUUID(), workspace: directory, runtime: directory, events: [],
+    } };
+
+    const result = await engine.runReadmeLaunchQa(record, 1);
+
+    assert.equal(result.passed, false, JSON.stringify(result));
+    assert.equal(result.applicable, true);
+    assert.equal(record.run.readmeQaRequired, true);
+    assert.equal(record.run.readmeQaPassed, false);
+    assert.equal(record.run.events.at(-1).status, 'failed');
+    assert.ok(record.run.events.at(-1).detail.length > 0);
+  });
+});
+
 test('QA key validation reports the exact unsupported key and preserves the executable allowlist', () => {
   assert.deepEqual(BROWSER_QA_EXECUTOR.keys, ['Tab', 'Enter', 'Escape', 'ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Space', 'Backspace']);
   for (const key of ['Shift+Tab', 'Meta+Q', ' ', 'tab']) {

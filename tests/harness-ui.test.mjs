@@ -48,3 +48,14 @@ test('browser QA summary reports failed check count and omits absent legacy meta
   }] }), '\n\n독립 브라우저 QA: 실패 · 4회차 · 2/3개 검사 실패');
   assert.equal(formatBrowserQaSummary({ qaHistory: [{ passed: true, checks: [{ passed: true }] }] }), '\n\n독립 브라우저 QA: 통과 · 1개 검사');
 });
+
+test('browser and README QA distinguish overall failures from individual check failures', () => {
+  assert.equal(formatBrowserQaSummary({ qaHistory: [{
+    round: 2, passed: false, checks: [{ passed: true }, { passed: true }], failures: ['브라우저 실행 종료 코드 오류'],
+  }] }), '\n\n독립 브라우저 QA: 실패 · 2회차 · 추가 실패 근거 1개');
+  assert.equal(formatReadmeQaSummary({ readmeQaHistory: [{
+    applicable: true, skipped: false, round: 3, passed: false, checks: [{ passed: true }], failures: ['서버 종료 코드 오류'],
+  }] }), '\n\nREADME 실행 안내 QA: 실패 · 3회차 · 추가 실패 근거 1개');
+  assert.match(formatBrowserQaSummary({ qaHistory: [{ passed: false, checks: [{ passed: true }] }] }), /통과 근거 불충분/);
+  assert.match(formatBrowserQaSummary({ qaHistory: [{ passed: false, checks: [] }] }), /검사 근거 없음/);
+});

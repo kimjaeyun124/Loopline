@@ -1624,7 +1624,7 @@ export class HarnessEngine {
       && finalVerification?.code === 0
       && (integrationRequired
         ? independentBrowserQa?.passed === true && readmeLaunchQa?.passed === true
-        : finalVerificationCommand === run.verifyCommand);
+        : finalVerificationCommand === run.verifyCommand || (run.automaticVerification && !run.verifyCommand));
     const verifiedWorkspaceFingerprint = canReuseFinalVerification
       ? await workspacePatchFingerprint(run.workspace, run.baseline, controller.signal) : null;
     const actualFiles = [];
@@ -2108,7 +2108,7 @@ export class HarnessEngine {
           review.feedback || '다음 미완료 부분 작업만 구현하세요. 완료 근거가 있는 작업을 처음부터 반복하지 마세요.', plan);
       }
       const evidence = review.finalVerificationEvidence;
-      if (evidence?.verifyCommand === run.verifyCommand && evidence.verification?.code === 0
+      if (evidence?.verification?.code === 0
         && evidence.workspaceFingerprint
         && (!run.qaRequired || evidence.browserQa?.passed === true)
         && (!run.readmeQaRequired || evidence.readmeLaunchQa?.passed === true)) {
@@ -2118,7 +2118,7 @@ export class HarnessEngine {
     }
     if (activeMilestone && implementationIssue) return this.continueMilestones(record, state, round, previousSummary, feedback);
     let preparationIssue = '';
-    const reusableFinalEvidence = finalMilestoneEvidence?.verifyCommand === run.verifyCommand
+    let reusableFinalEvidence = !reselectVerification && finalMilestoneEvidence?.verifyCommand === run.verifyCommand
       && finalMilestoneEvidence.verification?.code === 0
       && finalMilestoneEvidence.workspaceFingerprint
       && (!run.qaRequired || finalMilestoneEvidence.browserQa?.passed === true)
@@ -2139,6 +2139,21 @@ export class HarnessEngine {
         feedback = `자동 검증 준비를 완료하지 못했습니다. 검증 명령을 반복 제안하기 전에 아래 근거 부족을 실제 파일과 assertion으로 보완하세요. 기존 구현을 보존하고 필요한 테스트와 실행 진입점을 확인하세요.\n${preparationIssue}`;
         run.summary = '검증 준비에 필요한 근거를 보완하도록 다음 구현 회차에 전달했습니다. 아직 검증을 실행하지 않았습니다.';
         await this.event(record, '검증 준비 복구 / Verification preparation recovery', feedback, 'completed', modelDetails('worker', run.roles.worker));
+      }
+    }
+    if (!implementationIssue && !preparationIssue && !reusableFinalEvidence
+      && finalMilestoneEvidence?.verifyCommand === run.verifyCommand
+      && finalMilestoneEvidence.verification?.code === 0
+      && finalMilestoneEvidence.workspaceFingerprint
+      && (!run.qaRequired || finalMilestoneEvidence.browserQa?.passed === true)
+      && (!run.readmeQaRequired || finalMilestoneEvidence.readmeLaunchQa?.passed === true)) {
+      const configuredWorkspaceFingerprint = await workspacePatchFingerprint(run.workspace, run.baseline, signal);
+      if (configuredWorkspaceFingerprint === finalMilestoneEvidence.workspaceFingerprint) {
+        reusableFinalEvidence = finalMilestoneEvidence;
+        verification = reusableFinalEvidence.verification;
+      } else {
+        await this.event(record, '최종 검증 결과 재사용 안 함 / Final verification evidence not reused',
+          '자동 검증 명령을 선택하는 동안 작업 공간이 바뀌어 부분 작업의 검증 결과를 재사용하지 않습니다. 현재 파일에서 전체 검증을 실행합니다.', 'failed');
       }
     }
     if (!implementationIssue && !preparationIssue) {

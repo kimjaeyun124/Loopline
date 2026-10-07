@@ -539,6 +539,9 @@ test('last web milestone receives full test and browser evidence before approval
   const f = await webMilestoneFixture(t);
   assert.equal(f.run.status, 'completed', f.run.summary); assert.equal(f.run.applied, true); assert.equal(f.run.round, 2);
   assert.equal(f.workerPrompts.length, 2); assert.equal(f.browserCalls, 1);
+  assert.equal(f.run.readmeQaRequired, false); assert.equal(f.run.readmeQaPassed, false);
+  assert.equal(f.run.readmeQaHistory.at(-1).skipped, true); assert.equal(f.run.readmeQaHistory.at(-1).passed, false);
+  assert.equal(f.run.events.find(event => event.title === 'README 실행 안내 QA / Milestone README launch QA').status, 'completed');
   assert.deepEqual(f.actions, ['node --test tests/store.test.mjs', 'review-store', 'node --test tests/ui.test.mjs', 'node --test', 'browser', 'review-ui']);
   assert.equal(f.reviewEvidence[0].integrationVerification.code, 0); assert.equal(f.reviewEvidence[0].independentBrowserQa.passed, true);
   assert.ok(f.run.milestones.every(task => task.status === 'completed' && task.evidence.reviewed));

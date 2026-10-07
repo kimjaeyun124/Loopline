@@ -119,6 +119,28 @@ test('README smoke test skips absent or unsupported instructions without executi
   assert.equal(injection.applicable, false); assert.equal(executions, 0);
 });
 
+test('Harness records a skipped README smoke check as not applicable rather than passed', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'loopline-readme-skipped-'));
+  const workspace = join(directory, 'workspace'); await mkdir(workspace);
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const engine = new HarnessEngine({ directory, invoke: async () => assert.fail('A skipped smoke check must not call a model') });
+  engine.event = async (record, title, detail, status) => {
+    const event = { title, detail, status }; record.run.events.push(event); return event;
+  };
+  engine.persist = async () => {};
+  const record = { controller: new AbortController(), writes: Promise.resolve(), run: {
+    id: randomUUID(), workspace, runtime: directory, events: [],
+  } };
+
+  const result = await engine.runReadmeLaunchQa(record, 1);
+
+  assert.equal(result.applicable, false); assert.equal(result.skipped, true); assert.equal(result.passed, false);
+  assert.equal(record.run.readmeQaRequired, false); assert.equal(record.run.readmeQaPassed, false);
+  assert.equal(record.run.readmeQaHistory[0].passed, false);
+  assert.equal(record.run.events.at(-1).status, 'completed');
+  assert.match(record.run.events.at(-1).detail, /미적용.*통과로 기록하지 않습니다/);
+});
+
 test('QA key validation reports the exact unsupported key and preserves the executable allowlist', () => {
   assert.deepEqual(BROWSER_QA_EXECUTOR.keys, ['Tab', 'Enter', 'Escape', 'ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Space', 'Backspace']);
   for (const key of ['Shift+Tab', 'Meta+Q', ' ', 'tab']) {

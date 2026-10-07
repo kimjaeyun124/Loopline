@@ -18,6 +18,18 @@ export const qaPlan = { entry: 'index.html', checks: [
   { id: 'input-save', categories: ['input', 'save', 'keyboard'], steps: [{ action: 'fill', selector: '#name', value: 'QA task' }, { action: 'press', key: 'Enter' }, { action: 'text', selector: '#list', value: 'QA task' }, { action: 'reload' }, { action: 'text', selector: '#list', value: 'QA task' }] },
 ] };
 
+function browserQaChecks(plan, passed = () => true) {
+  const checks = [];
+  for (const { id: viewport } of BROWSER_QA_EXECUTOR.viewports) {
+    for (const { id } of plan.checks) {
+      checks.push({ id, viewport, passed: passed(id, viewport) });
+      checks.push({ id: `${id}-layout`, viewport, passed: passed(`${id}-layout`, viewport) });
+    }
+    checks.push({ id: 'layout', viewport, passed: passed('layout', viewport) });
+  }
+  return checks;
+}
+
 test('browser QA detects web work while keeping command line JavaScript outside browser scope', () => {
   assert.equal(needsBrowserQa('Task ledger CLI', 'cli.mjs\ncli.js'), false);
   assert.equal(needsBrowserQa('웹사이트 제작', ''), true);
@@ -546,13 +558,16 @@ test('browser IPC cancellation removes pending work and standalone mode never cl
 });
 
 test('Harness fails closed when browser QA adapters return incomplete or contradictory evidence', async (t) => {
+  const missingCheck = browserQaChecks(qaPlan); missingCheck.pop();
+  const duplicateCheck = browserQaChecks(qaPlan); duplicateCheck[1] = { ...duplicateCheck[1], id: duplicateCheck[0].id };
+  const unexpectedCheck = browserQaChecks(qaPlan); unexpectedCheck[0] = { ...unexpectedCheck[0], id: 'unplanned' };
   const cases = [
     ['missing checks', { passed: true, checks: [], failures: [] }],
     ['contradictory failure list', { passed: true, checks: [{ id: 'empty', passed: true }], failures: ['browser closed unexpectedly'] }],
     ['missing check identity', { passed: true, checks: [{ passed: true }], failures: [] }],
-    ['missing planned check', { passed: true, checks: [{ id: 'empty', passed: true }], failures: [] }],
-    ['duplicate planned check', { passed: true, checks: [{ id: 'empty', passed: true }, { id: 'empty', passed: true }], failures: [] }],
-    ['unexpected check ID', { passed: true, checks: [{ id: 'empty', passed: true }, { id: 'unplanned', passed: true }], failures: [] }],
+    ['missing planned check', { passed: true, checks: missingCheck, failures: [] }],
+    ['duplicate planned check', { passed: true, checks: duplicateCheck, failures: [] }],
+    ['unexpected check ID', { passed: true, checks: unexpectedCheck, failures: [] }],
     ['invalid result value', null],
   ];
 
@@ -631,8 +646,8 @@ test('independent QA vetoes optimistic review, preserves evidence and forwards f
       attempts++;
       await assert.rejects(readFile(join(f.source, 'index.html'))); // No source apply before independent QA.
       return attempts === 1
-        ? { passed: false, checks: plan.checks.map(({ id }) => ({ id, passed: false })), failures: ['mobile/empty: hidden attribute ignored'] }
-        : { passed: true, checks: plan.checks.map(({ id }) => ({ id, passed: true })), failures: [] };
+        ? { passed: false, checks: browserQaChecks(plan, () => false), failures: ['mobile/empty: hidden attribute ignored'] }
+        : { passed: true, checks: browserQaChecks(plan), failures: [] };
     }, invoke: async (_selection, prompt) => {
       if (typeof prompt === 'object') return { answers: Object.fromEntries(Object.keys(prompt.questions).map((id) => [id, { choice: 'pass', reason: 'Actual evidence' }])) };
       if (prompt.includes('구현 계획과 검증 기준')) return '구현과 QA';
@@ -698,7 +713,7 @@ test('QA recovery routes the last existing attempt only for automatic planners, 
     const f = await fixture(t), planners = []; let reviews = 0;
     const base = f.input.roles.planner;
     const engine = new HarnessEngine({ directory: f.directory, verify: async () => ({ code: 0, output: 'PASS' }),
-      verifyBrowser: async ({ plan }) => ({ passed: true, checks: plan.checks.map(({ id }) => ({ id, passed: true })), failures: [] }), invoke: async (selection, prompt) => {
+      verifyBrowser: async ({ plan }) => ({ passed: true, checks: browserQaChecks(plan), failures: [] }), invoke: async (selection, prompt) => {
         if (typeof prompt === 'object') {
           const result = { answers: Object.fromEntries(Object.keys(prompt.questions).map(id => [id, { choice: 'pass', reason: 'Fixture evidence' }])) };
           if (prompt.questions.qaContract) {
@@ -770,7 +785,7 @@ test('QA recovery cannot bypass a failed individual category or start implementa
 test('coverage-only unexplained rejection obtains an identical review before speculative QA edits and cannot override failed runtime QA', async (t) => {
   const f = await fixture(t); let plans = 0, browserChecks = 0; const reviews = [];
   const engine = new HarnessEngine({ directory: f.directory, verify: async () => ({ code: 0, output: 'PASS' }),
-    verifyBrowser: async ({ plan }) => { browserChecks++; return { passed: false, checks: plan.checks.map(({ id }) => ({ id, passed: id !== 'empty' })), failures: ['Actual empty state missing'] }; },
+    verifyBrowser: async ({ plan }) => { browserChecks++; return { passed: false, checks: browserQaChecks(plan, (id) => id !== 'empty'), failures: ['Actual empty state missing'] }; },
     invoke: async (selection, prompt) => {
       if (typeof prompt === 'object') {
         const answers = Object.fromEntries(Object.keys(prompt.questions).map(id => [id, { choice: 'pass', reason: 'Controlled review' }]));
@@ -853,7 +868,7 @@ test('QA delta repair blocks changes to accepted cases and recovers with only th
     verifyBrowser: async (input) => {
       assert.deepEqual(input.plan.checks.slice(0, 2), qaPlan.checks);
       assert.deepEqual(input.plan.checks.at(-1), focusCheck());
-      return { passed: true, checks: input.plan.checks.map(({ id }) => ({ id, passed: true })), failures: [] };
+      return { passed: true, checks: browserQaChecks(input.plan), failures: [] };
     }, invoke: async (_selection, prompt) => {
       if (typeof prompt === 'object') {
         const result = { answers: Object.fromEntries(Object.keys(prompt.questions).map(id => [id, { choice: 'pass', reason: 'Fixture evidence' }])) };
@@ -888,7 +903,7 @@ test('missing coverage can extend a full accepted QA plan before independent exe
     verifyBrowser: async (input) => {
       assert.equal(input.plan.checks.length, 16); assert.deepEqual(input.plan.checks.slice(1), full.checks.slice(1));
       assert.deepEqual(input.plan.checks[0].steps, [...full.checks[0].steps, appended]);
-      return { passed: true, checks: input.plan.checks.map(({ id }) => ({ id, passed: true })), failures: [] };
+      return { passed: true, checks: browserQaChecks(input.plan), failures: [] };
     }, invoke: async (_selection, prompt) => {
       if (typeof prompt === 'object') {
         const result = { answers: Object.fromEntries(Object.keys(prompt.questions).map(id => [id, { choice: 'pass', reason: 'Fixture evidence' }])) };
@@ -914,7 +929,7 @@ test('a rejected individual QA case can be repaired without touching accepted ca
   const f = await fixture(t); let plans = 0, reviews = 0;
   const corrected = { ...qaPlan.checks[0], steps: [...qaPlan.checks[0].steps, { action: 'count', selector: '#list .task', value: 0 }] };
   const engine = new HarnessEngine({ directory: f.directory, verify: async () => ({ code: 0, output: 'PASS' }),
-    verifyBrowser: async (input) => ({ passed: true, checks: input.plan.checks.map(({ id }) => ({ id, passed: true })), failures: [] }), invoke: async (_selection, prompt) => {
+    verifyBrowser: async (input) => ({ passed: true, checks: browserQaChecks(input.plan), failures: [] }), invoke: async (_selection, prompt) => {
       if (typeof prompt === 'object') {
         const result = { answers: Object.fromEntries(Object.keys(prompt.questions).map(id => [id, { choice: 'pass', reason: 'Fixture evidence' }])) };
         if (prompt.questions.qaContract && ++reviews === 1) result.answers.qaCheck_empty = { choice: 'revise', reason: 'Also assert there are zero task rows.' };
@@ -943,7 +958,7 @@ test('new actionable feedback after real QA patches gets a fourth review without
         browserCalls++;
         assert.deepEqual(plan.checks[1], qaPlan.checks[1]);
         assert.deepEqual(plan.checks[0].steps, [...qaPlan.checks[0].steps, ...appends]);
-        return { passed: browserPassed, checks: plan.checks.map(({ id }) => ({ id, passed: browserPassed })), failures: browserPassed ? [] : ['Actual empty state is absent'] };
+        return { passed: browserPassed, checks: browserQaChecks(plan, () => browserPassed), failures: browserPassed ? [] : ['Actual empty state is absent'] };
       }, invoke: async (_selection, prompt) => {
         if (typeof prompt === 'object') {
           const answers = Object.fromEntries(Object.keys(prompt.questions).map(id => [id, { choice: 'pass', reason: 'Controlled evidence' }]));
@@ -1051,7 +1066,7 @@ test('unchanged QA patches exhaust format repair without repeating review or sta
 test('fixed QA format repair receives the precise oversized check and succeeds without changing the contract', async (t) => {
   const f = await fixture(t); let plans = 0;
   const engine = new HarnessEngine({ directory: f.directory, verify: async () => ({ code: 0, output: 'PASS' }),
-    verifyBrowser: async ({ plan }) => ({ passed: true, checks: plan.checks.map(({ id }) => ({ id, passed: true })), failures: [] }), invoke: async (_selection, prompt) => {
+    verifyBrowser: async ({ plan }) => ({ passed: true, checks: browserQaChecks(plan), failures: [] }), invoke: async (_selection, prompt) => {
       if (typeof prompt === 'object') return { answers: Object.fromEntries(Object.keys(prompt.questions).map(id => [id, { choice: 'pass' }])) };
       if (prompt.includes('구현 계획과 검증 기준')) return 'Plan';
       if (prompt.includes('구현 전에 독립 브라우저 QA 계획')) {
@@ -1070,7 +1085,7 @@ test('malformed QA JSON enters format repair for fixed models or the saved fallb
   for (const automatic of [false, true]) await t.test(automatic ? 'saved fallback' : 'fixed model repair', async (t) => {
     const f = await fixture(t), plans = [];
     const engine = new HarnessEngine({ directory: f.directory, verify: async () => ({ code: 0, output: 'PASS' }),
-      verifyBrowser: async ({ plan }) => ({ passed: true, checks: plan.checks.map(({ id }) => ({ id, passed: true })), failures: [] }), invoke: async (selection, prompt) => {
+      verifyBrowser: async ({ plan }) => ({ passed: true, checks: browserQaChecks(plan), failures: [] }), invoke: async (selection, prompt) => {
         if (typeof prompt === 'object') return { answers: Object.fromEntries(Object.keys(prompt.questions).map(id => [id, { choice: 'pass' }])) };
         if (prompt.includes('구현 계획과 검증 기준')) return 'Implement the website';
         if (prompt.includes('구현 전에 독립 브라우저 QA 계획')) {

@@ -139,6 +139,23 @@ test('README smoke rejects malformed raw evidence instead of filtering it into a
   });
 });
 
+test('README smoke rejects ambiguous repeated result markers', async (t) => {
+  const workspace = await mkdtemp(join(tmpdir(), 'loopline-readme-duplicate-marker-'));
+  t.after(() => rm(workspace, { recursive: true, force: true }));
+  const server = `const http=require("node:http"),fs=require("node:fs");http.createServer((_req,res)=>fs.readFile("index.html",(err,body)=>{res.writeHead(err?404:200,{"Content-Type":"text/html"}).end(body)})).listen(8000,"127.0.0.1")`;
+  await writeFile(join(workspace, 'README.md'), documentedNodeServer(server));
+  const marker = '__LOOPLINE_README_LAUNCH_QA__';
+  const actualFailure = { passed: false, checks: [{ id: 'root', passed: false }], failures: ['HTTP 403'] };
+  const laterClaimedPass = { passed: true, checks: [{ id: 'root', passed: true }], failures: [] };
+
+  const result = await verifyReadmeLaunch(workspace, { execute: async () => ({
+    code: 0, output: `${marker}${JSON.stringify(actualFailure)}\n${marker}${JSON.stringify(laterClaimedPass)}`,
+  }) });
+
+  assert.equal(result.passed, false);
+  assert.match(result.failures.join('\n'), /표식이 여러 개라 응답이 모호합니다/);
+});
+
 test('README smoke test skips absent or unsupported instructions without executing shell fragments', async (t) => {
   const workspace = await mkdtemp(join(tmpdir(), 'loopline-readme-unsupported-'));
   t.after(() => rm(workspace, { recursive: true, force: true }));

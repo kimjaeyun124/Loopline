@@ -2152,8 +2152,8 @@ export class HarnessEngine {
         reusableFinalEvidence = finalMilestoneEvidence;
         verification = reusableFinalEvidence.verification;
       } else {
-        await this.event(record, '최종 검증 결과 재사용 안 함 / Final verification evidence not reused',
-          '자동 검증 명령을 선택하는 동안 작업 공간이 바뀌어 부분 작업의 검증 결과를 재사용하지 않습니다. 현재 파일에서 전체 검증을 실행합니다.', 'failed');
+        await this.event(record, '최종 검증 근거 갱신 / Refresh final verification evidence',
+          '자동 검증 명령을 선택하는 동안 작업 공간이 바뀌어 부분 작업의 검증 결과를 재사용하지 않습니다. 현재 파일에서 전체 검증을 다시 실행합니다.', 'completed');
       }
     }
     if (!implementationIssue && !preparationIssue) {

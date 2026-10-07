@@ -86,6 +86,24 @@ test('README Node server files retain a concrete code owner and use the same rou
   assert.deepEqual(result.checks.map(({ id, passed }) => [id, passed]), [['root', true]]);
 });
 
+test('README smoke bounds large HTTP response bodies and reports the size limit', async (t) => {
+  const workspace = await mkdtemp(join(tmpdir(), 'loopline-readme-large-response-'));
+  t.after(() => rm(workspace, { recursive: true, force: true }));
+  await writeFile(join(workspace, 'index.html'), Buffer.concat([
+    Buffer.from('<!doctype html><html><body>'), Buffer.alloc(1_048_577, 0x61), Buffer.from('</body></html>'),
+  ]));
+  const server = `const http=require("node:http"),fs=require("node:fs");http.createServer((_req,res)=>fs.readFile("index.html",(err,body)=>{res.writeHead(err?404:200,{"Content-Type":"text/html"});res.end(body)})).listen(8000,"127.0.0.1")`;
+  await writeFile(join(workspace, 'README.md'), documentedNodeServer(server));
+
+  const result = await verifyReadmeLaunch(workspace, {
+    execute: (launch, { preload, signal }) => executeReadmeServer(workspace, launch, preload, signal),
+  });
+
+  assert.equal(result.passed, false);
+  assert.match(result.checks[0].actual.error, /응답 크기 제한 초과/);
+  assert.match(result.failures.join('\n'), /응답 크기 제한 초과/);
+});
+
 test('default Harness README smoke keeps the project command inside the offline execution sandbox', async (t) => {
   if (process.platform !== 'darwin') { t.skip('The project sandbox is available only on macOS.'); return; }
   const directory = await mkdtemp(join(tmpdir(), 'loopline-readme-sandbox-'));

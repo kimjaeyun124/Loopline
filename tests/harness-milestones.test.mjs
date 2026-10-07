@@ -294,7 +294,7 @@ test('multi-task execution preserves verified parts and applies only after integ
   assert.equal(await readFile(join(source, 'first.txt'), 'utf8'), 'first');
 });
 
-async function webMilestoneFixture(t, { browserFailure = false, fullFailure = false, finalBrowserFailure = false, automaticVerification = false, readmeFailure = false } = {}) {
+async function webMilestoneFixture(t, { browserFailure = false, fullFailure = false, automaticVerification = false, readmeFailure = false } = {}) {
   const root = await directory(t), source = join(root, 'source'); await mkdir(source);
   const git = async (...args) => {
     const result = await runCommand('git', ['-c', 'core.hooksPath=/dev/null', '-c', 'user.name=QA', '-c', 'user.email=qa@localhost', '-c', 'commit.gpgsign=false', ...args], { cwd: source });
@@ -327,7 +327,7 @@ async function webMilestoneFixture(t, { browserFailure = false, fullFailure = fa
     const live = engine.runs.get(input.runId).run;
     assert.deepEqual(input.plan, qaPlan); assert.equal(live.milestones[0].status, 'completed');
     assert.ok(fullCalls > 0, 'Full verification must run before browser QA');
-    const failed = browserFailure && browserCalls === 1 || finalBrowserFailure && browserCalls === 2;
+    const failed = browserFailure && browserCalls === 1;
     return { passed: !failed, checks: [{ id: 'task-flow', passed: !failed }], failures: failed ? ['mobile/task-flow: actual keyboard failure'] : [] };
   }, invoke: async (_selection, prompt) => {
     if (typeof prompt === 'object') {
@@ -359,7 +359,7 @@ async function webMilestoneFixture(t, { browserFailure = false, fullFailure = fa
     configured++; assert.match(implementationPlan, /actual QA/); record.run.verifyCommand = 'node --test';
   };
   const model = { provider: 'api', model: 'fixture' };
-  const created = await engine.create({ task: 'large project website with immutable browser QA', workspace: source, rounds: readmeFailure ? 5 : finalBrowserFailure ? 2 : 3,
+  const created = await engine.create({ task: 'large project website with immutable browser QA', workspace: source, rounds: readmeFailure ? 5 : 3,
     ...(automaticVerification ? {} : { verifyCommand: 'node --test' }), roles: { planner: model, worker: model, judge: model } });
   await engine.runs.get(created.id).execution;
   return { source, engine, run: await engine.get(created.id), actions, workerPrompts, reviewEvidence, browserCalls, configured, qaPlan };
@@ -368,17 +368,18 @@ async function webMilestoneFixture(t, { browserFailure = false, fullFailure = fa
 test('last web milestone receives full test and browser evidence before approval without an extra worker round', async (t) => {
   const f = await webMilestoneFixture(t);
   assert.equal(f.run.status, 'completed', f.run.summary); assert.equal(f.run.applied, true); assert.equal(f.run.round, 2);
-  assert.equal(f.workerPrompts.length, 2); assert.equal(f.browserCalls, 2);
-  assert.deepEqual(f.actions, ['node --test tests/store.test.mjs', 'review-store', 'node --test tests/ui.test.mjs', 'node --test', 'browser', 'review-ui', 'node --test', 'browser']);
+  assert.equal(f.workerPrompts.length, 2); assert.equal(f.browserCalls, 1);
+  assert.deepEqual(f.actions, ['node --test tests/store.test.mjs', 'review-store', 'node --test tests/ui.test.mjs', 'node --test', 'browser', 'review-ui']);
   assert.equal(f.reviewEvidence[0].integrationVerification.code, 0); assert.equal(f.reviewEvidence[0].independentBrowserQa.passed, true);
   assert.ok(f.run.milestones.every(task => task.status === 'completed' && task.evidence.reviewed));
   assert.deepEqual(f.run.qaPlan, f.qaPlan); assert.equal(await readFile(join(f.source, 'index.html'), 'utf8'), '<html>fixture UI</html>');
+  assert.ok(f.run.events.some(event => event.title === '최종 통합 검증 재사용 / Reuse final integration evidence'));
 });
 
 test('final web milestone chooses the full verification command before browser QA when configuration is automatic', async (t) => {
   const f = await webMilestoneFixture(t, { automaticVerification: true });
   assert.equal(f.run.status, 'completed', f.run.summary); assert.equal(f.configured, 1);
-  assert.equal(f.run.verifyCommand, 'node --test'); assert.equal(f.browserCalls, 2); assert.equal(f.run.applied, true);
+  assert.equal(f.run.verifyCommand, 'node --test'); assert.equal(f.browserCalls, 1); assert.equal(f.run.applied, true);
 });
 
 test('failed full tests or partial browser QA preserve the verified core and feed the next UI round', async (t) => {
@@ -390,25 +391,24 @@ test('failed full tests or partial browser QA preserve the verified core and fee
     assert.match(f.workerPrompts[2], failure === 'fullFailure' ? /full integration failed/ : /actual keyboard failure/);
     assert.equal(f.reviewEvidence[0].integrationVerification.code, failure === 'fullFailure' ? 1 : 0);
     assert.equal(f.reviewEvidence[0].independentBrowserQa?.passed, failure === 'fullFailure' ? undefined : false);
-    assert.equal(f.browserCalls, failure === 'fullFailure' ? 2 : 3);
+    assert.equal(f.browserCalls, failure === 'fullFailure' ? 1 : 2);
     assert.equal(f.run.milestones[0].attempts, 1); assert.equal(f.run.milestones[1].attempts, 2);
   });
 });
 
-test('browser QA is executed again after milestone approval and a new failure blocks automatic apply', async (t) => {
-  const f = await webMilestoneFixture(t, { finalBrowserFailure: true });
-  assert.equal(f.run.status, 'limit', f.run.summary); assert.notEqual(f.run.applied, true);
-  assert.equal(f.run.milestones[0].status, 'completed'); assert.equal(f.run.milestones[1].status, 'pending'); assert.equal(f.run.browserQaPassed, false);
-  assert.ok(f.run.events.some(event => event.title === '통합 수정 작업 선택 보완 / Integration owner fallback'));
-  assert.deepEqual(f.run.qaHistory.map(qa => qa.passed), [true, false]);
-  await assert.rejects(readFile(join(f.source, 'index.html')));
+test('final integration verification and browser evidence are reused instead of rerun', async (t) => {
+  const f = await webMilestoneFixture(t);
+  assert.equal(f.run.status, 'completed', f.run.summary); assert.equal(f.run.applied, true);
+  assert.equal(f.actions.filter(action => action === 'node --test').length, 1);
+  assert.equal(f.browserCalls, 1); assert.deepEqual(f.run.qaHistory.map(qa => qa.passed), [true]);
+  assert.ok(f.run.verificationPassed); assert.ok(f.run.browserQaPassed);
 });
 
 test('failed README launch smoke automatically returns work to its owning milestone and completes after repair', async (t) => {
   const f = await webMilestoneFixture(t, { readmeFailure: true });
   assert.equal(f.run.status, 'completed', f.run.summary); assert.equal(f.run.applied, true); assert.equal(f.run.round, 5, JSON.stringify({ workerOwners: f.workerPrompts.map(prompt => prompt.match(/이번 회차는 아래 부분 작업만 구현합니다[^\n]*\n\{"id":"([^"]+)"/)?.[1]), actions: f.actions, milestones: f.run.milestones.map(task => ({ id: task.id, status: task.status })), readmeQaHistory: f.run.readmeQaHistory, events: f.run.events.slice(-12) }));
   assert.deepEqual(f.workerPrompts.map(prompt => /이번 회차는 아래 부분 작업만 구현합니다[^\n]*\n\{"id":"store"/.test(prompt) ? 'store' : /이번 회차는 아래 부분 작업만 구현합니다[^\n]*\n\{"id":"docs"/.test(prompt) ? 'docs' : 'ui'), ['store', 'docs', 'ui', 'docs', 'ui']);
-  assert.ok(f.browserCalls >= 3);
+  assert.equal(f.browserCalls, 2);
   assert.equal(f.run.readmeQaPassed, true); assert.equal(f.run.readmeQaRequired, true);
   assert.equal(f.reviewEvidence.find(item => item.readmeLaunchQa?.passed === false)?.readmeLaunchQa.passed, false);
   assert.equal(f.reviewEvidence.at(-1).readmeLaunchQa.passed, true);

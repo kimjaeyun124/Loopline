@@ -17,6 +17,7 @@ export const BROWSER_QA_EXECUTOR = Object.freeze({
 
 const README_LAUNCH_RESULT = '__LOOPLINE_README_LAUNCH_QA__';
 const README_MAX_BYTES = 160_000;
+const README_MAX_CHECKS = 24;
 const inside = (root, path) => path === root || path.startsWith(root + sep);
 
 function parseSimpleNodeLaunch(command) {
@@ -174,12 +175,29 @@ export async function verifyReadmeLaunch(workspace, { execute, signal } = {}) {
   const marker = [...text.matchAll(new RegExp(`${README_LAUNCH_RESULT}({[^\\n]*})`, 'g'))].at(-1)?.[1];
   let evidence;
   try { evidence = marker ? JSON.parse(marker) : null; } catch { evidence = null; }
-  const failures = Array.isArray(evidence?.failures) ? evidence.failures.filter((item) => typeof item === 'string').slice(0, 16) : [];
-  const checks = Array.isArray(evidence?.checks) ? evidence.checks.filter((item) => item && typeof item.id === 'string' && typeof item.passed === 'boolean').slice(0, 24) : [];
-  if (!evidence || checks.length === 0 || evidence.passed !== true || execution?.code !== 0) {
-    if (!failures.length) failures.push(`README 실행 안내 ${inspected.display}: 실제 HTTP 검사 결과를 받지 못했습니다${Number.isInteger(execution?.code) ? ` (종료 코드 ${execution.code})` : ''}.`);
+  const rawFailures = evidence?.failures;
+  const failuresAreValid = Array.isArray(rawFailures) && rawFailures.every((item) => typeof item === 'string');
+  const failures = Array.isArray(rawFailures) ? rawFailures.filter((item) => typeof item === 'string').slice(0, 16) : [];
+  const rawChecks = evidence?.checks;
+  const checksAreValid = Array.isArray(rawChecks) && rawChecks.length > 0 && rawChecks.length <= README_MAX_CHECKS
+    && rawChecks.every((item) => item && typeof item === 'object' && !Array.isArray(item)
+      && typeof item.id === 'string' && item.id.length > 0 && typeof item.passed === 'boolean')
+    && new Set(rawChecks.map((item) => item.id)).size === rawChecks.length;
+  const checks = Array.isArray(rawChecks)
+    ? rawChecks.filter((item) => item && typeof item === 'object' && !Array.isArray(item)
+      && typeof item.id === 'string' && typeof item.passed === 'boolean').slice(0, README_MAX_CHECKS)
+    : [];
+  if (!evidence || !checksAreValid || !failuresAreValid || evidence.passed !== true || execution?.code !== 0) {
+    if (!failures.length) {
+      const reason = !evidence ? '실제 HTTP 검사 결과를 받지 못했습니다.'
+        : !checksAreValid ? '실제 HTTP 검사 목록이 누락됐거나 형식이 올바르지 않습니다.'
+          : !failuresAreValid ? '실제 HTTP 실패 목록의 형식이 올바르지 않습니다.'
+            : `검사 실행이 통과를 확정하지 않았습니다${Number.isInteger(execution?.code) ? ` (종료 코드 ${execution.code})` : ''}.`;
+      failures.push(`README 실행 안내 ${inspected.display}: ${reason}`);
+    }
   }
-  return { passed: Boolean(evidence?.passed === true && checks.length > 0 && checks.every((check) => check.passed) && failures.length === 0 && execution?.code === 0),
+  return { passed: Boolean(evidence?.passed === true && checksAreValid && failuresAreValid
+    && checks.every((check) => check.passed) && failures.length === 0 && execution?.code === 0),
     applicable: true, skipped: false, display: inspected.display, ownerPaths: inspected.ownerPaths, checks, failures };
 }
 

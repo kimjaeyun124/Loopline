@@ -113,10 +113,42 @@ export default function PhoneApp() {
 
   const chatScrollRef = useRef<ScrollView>(null);
   const streamRef = useRef<{requestId: number; assistantItemId: string; baseUrl: string; abort: () => void} | null>(null);
+  const pendingChatDeltaRef = useRef<{requestId: number; assistantItemId: string; text: string; frameId: number | null} | null>(null);
   const chatRequestSequenceRef = useRef(0);
   const runRequestSequenceRef = useRef(0);
   const runRequestsInFlightRef = useRef(new Map<string, number>());
   const statusRequestRef = useRef(0);
+
+  const flushChatDelta = (requestId: number) => {
+    const pending = pendingChatDeltaRef.current;
+    if (!pending || pending.requestId !== requestId) return;
+    if (pending.frameId !== null) cancelAnimationFrame(pending.frameId);
+    pendingChatDeltaRef.current = null;
+    if (!pending.text) return;
+    setChatItems(current => current.map(item => item.id === pending.assistantItemId
+      ? {...item, content: item.content + pending.text}
+      : item));
+  };
+
+  const queueChatDelta = (requestId: number, assistantItemId: string, text: string) => {
+    let pending = pendingChatDeltaRef.current;
+    if (pending && pending.requestId !== requestId) {
+      flushChatDelta(pending.requestId);
+      pending = null;
+    }
+    if (!pending) {
+      pending = {requestId, assistantItemId, text: '', frameId: null};
+      pendingChatDeltaRef.current = pending;
+    }
+    pending.text += text;
+    if (pending.frameId !== null) return;
+    pending.frameId = requestAnimationFrame(() => {
+      const current = pendingChatDeltaRef.current;
+      if (!current || current.requestId !== requestId) return;
+      current.frameId = null;
+      flushChatDelta(requestId);
+    });
+  };
 
   const invalidateRunRefresh = () => {
     runRequestSequenceRef.current += 1;
@@ -286,6 +318,7 @@ export default function PhoneApp() {
   const cancelChatStream = (emptyResponseMessage: string) => {
     const activeStream = streamRef.current;
     if (!activeStream) return;
+    flushChatDelta(activeStream.requestId);
     chatRequestSequenceRef.current += 1;
     streamRef.current = null;
     activeStream.abort();
@@ -420,7 +453,7 @@ export default function PhoneApp() {
     setChatBusy(true);
     const stream = startRemoteChatStream(normalizedUrl, {modelKey: currentChatModel.key, messages: context}, event => {
       if (chatRequestSequenceRef.current === requestId && event.name === 'delta' && typeof event.data.text === 'string') {
-        setChatItems(current => current.map(item => item.id === assistantItem.id ? {...item, content: item.content + String(event.data.text)} : item));
+        queueChatDelta(requestId, assistantItem.id, String(event.data.text));
       }
     });
     streamRef.current = {requestId, assistantItemId: assistantItem.id, baseUrl: normalizedUrl, abort: stream.abort};
@@ -428,6 +461,7 @@ export default function PhoneApp() {
       await stream.promise;
     } catch (error) {
       if (chatRequestSequenceRef.current !== requestId) return;
+      flushChatDelta(requestId);
       if (error instanceof Error && error.name === 'AbortError') {
         setChatItems(current => current.map(item => item.id === assistantItem.id
           ? {...item, content: item.content || '응답을 중지했습니다.'} : item));
@@ -438,6 +472,7 @@ export default function PhoneApp() {
       }
     } finally {
       if (chatRequestSequenceRef.current === requestId) {
+        flushChatDelta(requestId);
         if (streamRef.current?.requestId === requestId) streamRef.current = null;
         setChatBusy(false);
       }

@@ -105,6 +105,7 @@ export default function PhoneApp() {
   const [runBusy, setRunBusy] = useState(false);
   const [runError, setRunError] = useState('');
   const [rolePicker, setRolePicker] = useState<RoleName | null>(null);
+  const [modelSearch, setModelSearch] = useState('');
   const [expandedEventId, setExpandedEventId] = useState('');
 
   const chatScrollRef = useRef<ScrollView>(null);
@@ -314,11 +315,21 @@ export default function PhoneApp() {
 
   useEffect(() => { applyModelDefaults(models); }, [models]);
 
+  const openRolePicker = (role: RoleName) => {
+    setModelSearch('');
+    setRolePicker(role);
+  };
+
+  const closeRolePicker = () => {
+    setRolePicker(null);
+    setModelSearch('');
+  };
+
   const chooseModel = (key: string) => {
     if (!rolePicker) return;
     if (rolePicker === 'chat') setChatModelKey(key);
     else setRoles(current => ({...current, [rolePicker]: key}));
-    setRolePicker(null);
+    closeRolePicker();
   };
 
   const shareText = async (content: string, title: string) => {
@@ -452,7 +463,15 @@ export default function PhoneApp() {
     await AsyncStorage.removeItem(RUN_KEY).catch(() => {});
   };
 
-  const visibleModels = rolePicker === 'judge' ? models : workingModels;
+  const modelSearchQuery = modelSearch.trim().toLowerCase();
+  const visibleModels = (rolePicker === 'judge' ? models : workingModels).filter(model => {
+    if (!modelSearchQuery) return true;
+    const searchText = [model.label, model.providerLabel, model.accountName, model.connectionName, model.key]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+    return searchText.includes(modelSearchQuery);
+  });
   const rolePickerValue = rolePicker === 'chat' ? chatModelKey : rolePicker ? roles[rolePicker] : '';
   const connectionText = connection === 'connecting' || refreshing ? '연결 확인 중'
     : connection === 'connected' ? 'Mac 연결됨'
@@ -522,7 +541,7 @@ export default function PhoneApp() {
                 {(['planner', 'worker', 'judge'] as const).map(role => {
                   const selected = roleModel(role);
                   return (
-                    <Pressable key={role} accessibilityRole="button" accessibilityLabel={`${roleName(role)} 모델 선택`} onPress={() => setRolePicker(role)} style={styles.roleRow}>
+                    <Pressable key={role} accessibilityRole="button" accessibilityLabel={`${roleName(role)} 모델 선택`} onPress={() => openRolePicker(role)} style={styles.roleRow}>
                       <View style={styles.roleIcon}><Text style={styles.roleIconText}>{role === 'planner' ? '01' : role === 'worker' ? '02' : '03'}</Text></View>
                       <View style={styles.roleTextWrap}><Text style={styles.roleLabel}>{roleName(role)}</Text><Text numberOfLines={1} style={styles.roleModel}>{modelName(selected)}</Text></View>
                       <Text style={styles.roleChevron}>›</Text>
@@ -562,7 +581,7 @@ export default function PhoneApp() {
           <View style={styles.chatScreen}>
             <View style={styles.chatModelRow}>
               <View><Text style={styles.fieldLabel}>응답 모델</Text><Text numberOfLines={1} style={styles.chatModelName}>{modelName(currentChatModel)}</Text></View>
-              <Pressable onPress={() => setRolePicker('chat')} style={styles.smallOutlineButton}><Text style={styles.smallOutlineText}>변경</Text></Pressable>
+              <Pressable onPress={() => openRolePicker('chat')} style={styles.smallOutlineButton}><Text style={styles.smallOutlineText}>변경</Text></Pressable>
             </View>
             <ScrollView ref={chatScrollRef} style={styles.chatMessages} contentContainerStyle={styles.chatMessageContent} keyboardShouldPersistTaps="handled" onContentSizeChange={() => chatScrollRef.current?.scrollToEnd({animated: true})}>
               {!chatItems.length ? <View style={styles.chatEmpty}><Text style={styles.chatEmptyGlyph}>✳</Text><Text style={styles.chatEmptyTitle}>무엇을 도와드릴까요?</Text><Text style={styles.chatEmptyDescription}>선택한 모델로 Mac을 통해 안전하게 대화합니다.</Text></View> : null}
@@ -628,11 +647,22 @@ export default function PhoneApp() {
           </View>
         </Modal>
 
-        <Modal transparent animationType="slide" visible={rolePicker !== null} onRequestClose={() => setRolePicker(null)}>
+        <Modal transparent animationType="slide" visible={rolePicker !== null} onRequestClose={closeRolePicker}>
           <View style={styles.modalBackdrop}>
             <View style={[styles.modalCard, styles.modelModalCard]}>
-              <View style={styles.modalHeading}><View><Text style={styles.eyebrow}>MODEL SELECTION</Text><Text style={styles.modalTitle}>{rolePicker ? roleName(rolePicker) : '모델 선택'}</Text></View><Pressable accessibilityLabel="닫기" onPress={() => setRolePicker(null)}><Text style={styles.closeButton}>×</Text></Pressable></View>
-              <ScrollView style={styles.modelList} keyboardShouldPersistTaps="handled">
+              <View style={styles.modalHeading}><View><Text style={styles.eyebrow}>MODEL SELECTION</Text><Text style={styles.modalTitle}>{rolePicker ? roleName(rolePicker) : '모델 선택'}</Text></View><Pressable accessibilityLabel="닫기" onPress={closeRolePicker}><Text style={styles.closeButton}>×</Text></Pressable></View>
+              <TextInput
+                accessibilityLabel="모델·제공자·계정 검색"
+                value={modelSearch}
+                onChangeText={setModelSearch}
+                placeholder="모델, 제공자 또는 계정 검색"
+                placeholderTextColor={COLORS.dim}
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="search"
+                style={[styles.textInput, styles.modelSearchInput]}
+              />
+              <ScrollView style={styles.modelList} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
                 {visibleModels.map(model => (
                   <Pressable key={model.key} onPress={() => chooseModel(model.key)} style={[styles.modelChoice, rolePickerValue === model.key && styles.modelChoiceSelected]}>
                     <View style={styles.modelChoiceGlyph}><Text style={styles.modelChoiceGlyphText}>{model.providerLabel.slice(0, 1)}</Text></View>
@@ -640,7 +670,7 @@ export default function PhoneApp() {
                     {rolePickerValue === model.key ? <Text style={styles.modelCheck}>✓</Text> : null}
                   </Pressable>
                 ))}
-                {!visibleModels.length ? <Text style={styles.noModels}>사용 가능한 모델이 없습니다. Mac에서 모델 계정을 연결해 주세요.</Text> : null}
+                {!visibleModels.length ? <Text style={styles.noModels}>{modelSearchQuery ? `“${modelSearch.trim()}” 검색 결과가 없습니다.` : '사용 가능한 모델이 없습니다. Mac에서 모델 계정을 연결해 주세요.'}</Text> : null}
               </ScrollView>
             </View>
           </View>
@@ -827,6 +857,7 @@ const styles = StyleSheet.create({
   cancelButtonText: {fontSize: 10, color: COLORS.muted, fontWeight: '600'},
   primaryButtonCompact: {height: 42, minWidth: 91, paddingHorizontal: 14, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#d9e7f7'},
   modelList: {flex: 1},
+  modelSearchInput: {marginBottom: 12},
   modelChoice: {minHeight: 59, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 9, borderWidth: 1, borderColor: 'transparent', borderRadius: 12, backgroundColor: COLORS.surfaceRaised, marginBottom: 7},
   modelChoiceSelected: {borderColor: '#5d7da2', backgroundColor: '#283747'},
   modelChoiceGlyph: {width: 31, height: 31, borderRadius: 10, backgroundColor: '#34475c', alignItems: 'center', justifyContent: 'center'},

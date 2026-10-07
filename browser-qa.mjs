@@ -106,10 +106,23 @@ if (process.env.LOOPLINE_README_QA === '1') {
       finish();
       return false;
     };
+    const validateHeader = (name, value) => {
+      try {
+        http.validateHeaderName(name);
+        http.validateHeaderValue(name, value);
+      } catch (error) {
+        const code = typeof error?.code === 'string' ? error.code : 'ERR_INVALID_HEADER';
+        const invalid = new Error('잘못된 응답 헤더 (' + code + ')');
+        invalid.code = code;
+        throw invalid;
+      }
+    };
     const storeHeader = (name, value) => {
       if (done) return false;
       const rawName = String(name), rawNameBytes = Buffer.byteLength(rawName);
       if (!rawNameBytes || rawNameBytes > maxHeaderBytes) return rejectHeaders();
+      if (Array.isArray(value) && value.length > maxHeaderCount) return rejectHeaders();
+      validateHeader(rawName, value);
       const key = rawName.toLowerCase();
       const nameBytes = Buffer.byteLength(key);
       if (!nameBytes || nameBytes > maxHeaderBytes) return rejectHeaders();

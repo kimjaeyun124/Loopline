@@ -18,15 +18,33 @@ export function formatReadmeQaSummary(run) {
   const history = Array.isArray(run?.readmeQaHistory) ? run.readmeQaHistory : [];
   const qa = history.at(-1);
   if (!qa) return '';
+  const round = Number.isSafeInteger(qa.round) && qa.round > 0 ? ` · ${qa.round}회차` : '';
   if (qa.applicable !== true) {
-    return '\n\nREADME 실행 안내 QA: 미적용 · 적용할 로컬 실행 안내 없음 · 통과로 집계하지 않음';
+    return `\n\nREADME 실행 안내 QA: 미적용${round} · 적용할 로컬 실행 안내 없음 · 통과로 집계하지 않음`;
   }
-  if (qa.skipped === true) return '\n\nREADME 실행 안내 QA: 검사 미완료 · 적용 대상이지만 실행되지 않음';
+  if (qa.skipped === true) return `\n\nREADME 실행 안내 QA: 검사 미완료${round} · 적용 대상이지만 실행되지 않음`;
   if (qa.passed === true) {
     const checks = Array.isArray(qa.checks) ? qa.checks.length : 0;
-    return `\n\nREADME 실행 안내 QA: 통과 · ${checks}개 기본 주소·자산 검사`;
+    return `\n\nREADME 실행 안내 QA: 통과${round} · ${checks}개 기본 주소·자산 검사`;
   }
-  return '\n\nREADME 실행 안내 QA: 실패';
+  const checks = Array.isArray(qa.checks) ? qa.checks : [];
+  const failed = checks.filter((check) => check?.passed !== true).length;
+  const evidence = checks.length ? ` · ${failed}/${checks.length}개 검사 실패` : '';
+  return `\n\nREADME 실행 안내 QA: 실패${round}${evidence}`;
+}
+
+export function formatBrowserQaSummary(run) {
+  const history = Array.isArray(run?.qaHistory) ? run.qaHistory : [];
+  const qa = history.at(-1);
+  if (!qa) return '';
+  const passed = qa.passed === true;
+  const round = Number.isSafeInteger(qa.round) && qa.round > 0 ? ` · ${qa.round}회차` : '';
+  const checks = Array.isArray(qa.checks) ? qa.checks : [];
+  const failed = checks.filter((check) => check?.passed !== true).length;
+  const evidence = passed
+    ? ` · ${checks.length}개 검사`
+    : checks.length ? ` · ${failed}/${checks.length}개 검사 실패` : ' · 검사 근거 없음';
+  return `\n\n독립 브라우저 QA: ${passed ? '통과' : '실패'}${round}${evidence}`;
 }
 
 export function createHarnessUI({ state, catalog, modelKey, currentKey, getProject, saveProjects, saveConversations, render, toast, instructions, onComplete, getMcpTools = () => [], refreshMcpTools = null }) {
@@ -585,7 +603,7 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
     }));
     message.error = ['failed', 'blocked', 'interrupted'].includes(run.status);
     message.content = pending ? `Harness · ${run.round}/${run.rounds}회차${run.autoRounds ? ` · 자동 최대 ${MAX_AUTO_LOOP_ROUNDS}회` : ''} · ${run.status === 'stopping' ? '중지 중' : ({ selecting: '판정 모델이 주·대체 모델 순위 선택', prepare: '작업 공간 준비', configuring: '판정 모델이 실행 환경 구성', planning: '계획 작성', working: '파일 작업', verifying: '프로젝트 검증', 'browser-qa': '독립 브라우저 QA', 'milestone-qa': '부분 작업 검증', judging: '판정', applying: '프로젝트 반영' })[run.stage] || run.stage}`
-      : `${run.summary || '실행을 마쳤습니다.'}${run.applied ? '\n\n프로젝트에 변경을 자동 반영했습니다.' : ''}${run.source ? `\n\n프로젝트: \`${run.source}\`` : ''}${run.workspace && run.status !== 'completed' ? `\n\n작업 공간: \`${run.workspace}\`` : ''}${run.milestones?.length ? `\n\n부분 작업 ${run.milestones.filter((task) => task.status === 'completed').length}/${run.milestones.length} 완료\n${run.milestones.map((task) => `- ${task.status === 'completed' ? '✓' : task.status === 'needs-review' ? '↻' : '○'} ${task.title} · ${task.evidence?.reviewed ? '검증 근거 보존' : '검증 대기'}`).join('\n')}` : ''}${run.qaHistory?.length ? `\n\n독립 브라우저 QA: ${run.browserQaPassed ? '통과' : '실패'} · ${run.qaHistory.at(-1).checks?.length || 0}개 검사\n${(run.qaHistory.at(-1).screenshots || []).map((image) => `[${image.viewport} · ${image.checkId}](${location.origin}/api/harness/runs/${run.id}/qa/${run.qaHistory.at(-1).round}/${image.name})`).join(' · ')}` : ''}${formatReadmeQaSummary(run)}${run.patchAvailable ? `\n\n[변경 패치 내려받기](${location.origin}/api/harness/runs/${run.id}/patch)` : ''}`;
+      : `${run.summary || '실행을 마쳤습니다.'}${run.applied ? '\n\n프로젝트에 변경을 자동 반영했습니다.' : ''}${run.source ? `\n\n프로젝트: \`${run.source}\`` : ''}${run.workspace && run.status !== 'completed' ? `\n\n작업 공간: \`${run.workspace}\`` : ''}${run.milestones?.length ? `\n\n부분 작업 ${run.milestones.filter((task) => task.status === 'completed').length}/${run.milestones.length} 완료\n${run.milestones.map((task) => `- ${task.status === 'completed' ? '✓' : task.status === 'needs-review' ? '↻' : '○'} ${task.title} · ${task.evidence?.reviewed ? '검증 근거 보존' : '검증 대기'}`).join('\n')}` : ''}${formatBrowserQaSummary(run)}${run.qaHistory?.length ? `\n${(run.qaHistory.at(-1).screenshots || []).map((image) => `[${image.viewport} · ${image.checkId}](${location.origin}/api/harness/runs/${run.id}/qa/${run.qaHistory.at(-1).round}/${image.name})`).join(' · ')}` : ''}${formatReadmeQaSummary(run)}${run.patchAvailable ? `\n\n[변경 패치 내려받기](${location.origin}/api/harness/runs/${run.id}/patch)` : ''}`;
     if (run.source) {
       conversation.harnessWorkspace = run.source;
       const project = getProject(conversation.projectId);

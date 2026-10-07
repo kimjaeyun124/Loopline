@@ -788,6 +788,10 @@ function RunCard({run, busy, error, onStop, onResume, onClear, onShare, expanded
   const terminal = TERMINAL_REMOTE_RUN_STATES.has(run.status);
   const statusColor = ['completed', 'reviewed'].includes(run.status) ? COLORS.green
     : ['failed', 'blocked', 'interrupted', 'limit'].includes(run.status) ? COLORS.red : COLORS.accent;
+  const assignedModels = (['planner', 'worker', 'judge'] as const).flatMap(role => {
+    const model = run.stageModels?.[role];
+    return model ? [{role, model}] : [];
+  });
   return (
     <View style={styles.runPanel}>
       <View style={styles.runHeader}>
@@ -796,6 +800,20 @@ function RunCard({run, busy, error, onStop, onResume, onClear, onShare, expanded
       </View>
       <Text selectable style={styles.runTask}>{run.task}</Text>
       {run.summary ? <Text selectable style={styles.runSummary}>{run.summary}</Text> : <Text style={styles.runSummary}>계획부터 구현·검증까지 진행 중입니다.</Text>}
+      {assignedModels.length ? (
+        <View style={styles.runModelSummary}>
+          <View style={styles.runModelSummaryHeading}><Text style={styles.runModelSummaryTitle}>역할별 실제 배정</Text><Text style={styles.runModelSummaryCaption}>실행 설정</Text></View>
+          {assignedModels.map(({role, model}) => (
+            <View key={role} style={styles.runModelRow}>
+              <Text style={styles.runModelRole}>{roleName(role)}</Text>
+              <View style={styles.runModelCopy}>
+                <Text numberOfLines={1} style={styles.runModelName}>{[model.provider, model.label].filter(Boolean).join(' · ') || '모델 정보 없음'}</Text>
+                <Text style={styles.runModelEffort}>추론 강도 · {model.effort || '자동'}</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      ) : null}
       <View style={styles.stepHeading}><Text style={styles.sectionTitle}>작업 단계</Text><Text style={styles.eventCount}>{run.events.length}개 기록</Text></View>
       {!run.events.length ? <Text style={styles.helperText}>첫 단계가 시작되면 사용 모델과 진행 결과가 표시됩니다.</Text> : null}
       {run.events.map((event, index) => {
@@ -913,6 +931,15 @@ const styles = StyleSheet.create({
   runStatusText: {fontSize: 9, fontWeight: '600'},
   runTask: {fontSize: 11, lineHeight: 17, color: '#d4d9de', marginTop: 12},
   runSummary: {fontSize: 10, lineHeight: 16, color: COLORS.muted, marginTop: 6},
+  runModelSummary: {marginTop: 12, padding: 11, borderRadius: 13, backgroundColor: '#15191d', borderWidth: 1, borderColor: COLORS.border, gap: 9},
+  runModelSummaryHeading: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'},
+  runModelSummaryTitle: {fontSize: 9, color: '#c9cdd1', fontWeight: '700'},
+  runModelSummaryCaption: {fontSize: 8, color: COLORS.dim},
+  runModelRow: {flexDirection: 'row', alignItems: 'center', gap: 9},
+  runModelRole: {width: 31, fontSize: 9, color: COLORS.muted, fontWeight: '600'},
+  runModelCopy: {flex: 1, minWidth: 0},
+  runModelName: {fontSize: 9, color: COLORS.text, fontWeight: '600'},
+  runModelEffort: {fontSize: 8, color: COLORS.accent, marginTop: 3},
   stepHeading: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, marginBottom: 4},
   eventCount: {fontSize: 9, color: COLORS.dim},
   eventRow: {flexDirection: 'row', gap: 10, paddingVertical: 11, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#30363b'},

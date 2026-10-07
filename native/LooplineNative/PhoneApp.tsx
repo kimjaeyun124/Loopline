@@ -663,8 +663,8 @@ function RunCard({run, busy, error, onStop, onResume, onClear, onShare, expanded
         <View style={styles.runHeaderCopy}><Text style={styles.eyebrow}>LIVE LOOP</Text><Text numberOfLines={1} style={styles.runTitle}>{stageLabel(run.stage)}{run.round ? ` · ${run.round}/${run.rounds || '자동'}회차` : ''}</Text></View>
         <View style={[styles.runStatusPill, {borderColor: `${statusColor}55`}]}><View style={[styles.runStatusDot, {backgroundColor: statusColor}]} /><Text style={[styles.runStatusText, {color: statusColor}]}>{statusLabel(run.status)}</Text></View>
       </View>
-      <Text style={styles.runTask}>{run.task}</Text>
-      {run.summary ? <Text style={styles.runSummary}>{run.summary}</Text> : <Text style={styles.runSummary}>계획부터 구현·검증까지 진행 중입니다.</Text>}
+      <Text selectable style={styles.runTask}>{run.task}</Text>
+      {run.summary ? <Text selectable style={styles.runSummary}>{run.summary}</Text> : <Text style={styles.runSummary}>계획부터 구현·검증까지 진행 중입니다.</Text>}
       <View style={styles.stepHeading}><Text style={styles.sectionTitle}>작업 단계</Text><Text style={styles.eventCount}>{run.events.length}개 기록</Text></View>
       {!run.events.length ? <Text style={styles.helperText}>첫 단계가 시작되면 사용 모델과 진행 결과가 표시됩니다.</Text> : null}
       {run.events.map((event, index) => {
@@ -672,14 +672,22 @@ function RunCard({run, busy, error, onStop, onResume, onClear, onShare, expanded
         const expanded = expandedEventId === id;
         const eventModel = event.model?.label || event.model?.model;
         return (
-          <Pressable key={id} onPress={() => onToggleEvent(expanded ? '' : id)} style={styles.eventRow}>
+          <View key={id} style={styles.eventRow}>
             <View style={[styles.eventMarker, ['failed', 'error'].includes(event.status || '') && styles.eventMarkerFailed, ['completed', 'done'].includes(event.status || '') && styles.eventMarkerDone]} />
             <View style={styles.eventContent}>
-              <View style={styles.eventTitleRow}><Text style={styles.eventTitle}>{event.title || 'Loop 단계'}</Text><Text style={styles.eventChevron}>{expanded ? '−' : '+'}</Text></View>
-              {eventModel ? <Text style={styles.eventModel}>{[event.model?.provider, eventModel].filter(Boolean).join(' · ')}</Text> : null}
-              {expanded && event.detail ? <Text style={styles.eventDetail}>{event.detail}</Text> : null}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`${event.title || 'Loop 단계'} 세부 정보`}
+                accessibilityState={{expanded}}
+                onPress={() => onToggleEvent(expanded ? '' : id)}
+                style={styles.eventTitleRow}>
+                <Text style={styles.eventTitle}>{event.title || 'Loop 단계'}</Text>
+                <Text style={styles.eventChevron}>{expanded ? '−' : '+'}</Text>
+              </Pressable>
+              {eventModel ? <Text selectable style={styles.eventModel}>{[event.model?.provider, eventModel].filter(Boolean).join(' · ')}</Text> : null}
+              {expanded && event.detail ? <Text selectable style={styles.eventDetail}>{event.detail}</Text> : null}
             </View>
-          </Pressable>
+          </View>
         );
       })}
       {error ? <Text accessibilityRole="alert" style={styles.errorText}>{error}</Text> : null}

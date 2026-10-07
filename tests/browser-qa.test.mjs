@@ -149,6 +149,32 @@ test('README smoke rejects invalid response header names and values', async (t) 
   });
 });
 
+test('README smoke rejects header changes after the response has started', async (t) => {
+  const html = '<!doctype html><html><body>Headers sent</body></html>';
+  const cases = [
+    ['writeHead then setHeader', `res.writeHead(200,{"Content-Type":"text/html"});res.setHeader("X-Late","x");`],
+    ['writeHead twice', `res.writeHead(200,{"Content-Type":"text/html"});res.writeHead(201);`],
+    ['write then setHeader', `res.setHeader("Content-Type","text/html");res.write(${JSON.stringify(html)});res.setHeader("X-Late","x");`],
+    ['flushHeaders then removeHeader', `res.setHeader("Content-Type","text/html");res.flushHeaders();res.removeHeader("Content-Type");`],
+    ['end then setHeader', `res.setHeader("Content-Type","text/html");res.end(${JSON.stringify(html)});res.setHeader("X-Late","x");`],
+  ];
+  for (const [label, responseFlow] of cases) await t.test(label, async (t) => {
+    const workspace = await mkdtemp(join(tmpdir(), 'loopline-readme-sent-headers-'));
+    t.after(() => rm(workspace, { recursive: true, force: true }));
+    await writeFile(join(workspace, 'index.html'), '<!doctype html><html><body>Headers sent</body></html>');
+    const server = `const http=require("node:http"),fs=require("node:fs");http.createServer((_req,res)=>{${responseFlow}fs.readFile("index.html",(err,body)=>res.end(body))}).listen(8000,"127.0.0.1")`;
+    await writeFile(join(workspace, 'README.md'), documentedNodeServer(server));
+
+    const result = await verifyReadmeLaunch(workspace, {
+      execute: (launch, { preload, signal }) => executeReadmeServer(workspace, launch, preload, signal),
+    });
+
+    assert.equal(result.passed, false);
+    assert.match(result.checks[0].actual.error, /ERR_HTTP_HEADERS_SENT/);
+    assert.match(result.failures.join('\n'), /ERR_HTTP_HEADERS_SENT/);
+  });
+});
+
 test('default Harness README smoke keeps the project command inside the offline execution sandbox', async (t) => {
   if (process.platform !== 'darwin') { t.skip('The project sandbox is available only on macOS.'); return; }
   const directory = await mkdtemp(join(tmpdir(), 'loopline-readme-sandbox-'));

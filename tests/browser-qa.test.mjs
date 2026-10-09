@@ -48,6 +48,29 @@ test('QA repair errors identify the invalid case and reject non-object steps as 
   }
 });
 
+test('QA category diagnostics report every missing action and preserve blank-input and keyboard evidence', () => {
+  const plan = structuredClone(qaPlan);
+  plan.checks.push({ id: 'required-title-focus', categories: ['input', 'keyboard'], steps: [
+    { action: 'reset' }, { action: 'click', selector: '#submit' }, { action: 'focused', selector: '#name' },
+  ] });
+  const original = structuredClone(plan);
+  assert.throws(() => validateBrowserPlan(plan), error => {
+    assert.equal(error.invalidStructuredOutput, true);
+    assert.match(error.message, /required-title-focus:/);
+    assert.ok(error.message.includes(BROWSER_QA_EXECUTOR.categoryEvidence.input));
+    assert.ok(error.message.includes(BROWSER_QA_EXECUTOR.categoryEvidence.keyboard));
+    return true;
+  });
+  assert.deepEqual(plan, original, 'diagnostics must not silently repair the plan');
+  const check = plan.checks.at(-1);
+  check.steps.splice(1, 0, { action: 'fill', selector: '#name', value: '' });
+  assert.throws(() => validateBrowserPlan(plan), /키보드 검사/);
+  check.steps[2] = { action: 'press', key: 'Enter' };
+  assert.deepEqual(validateBrowserPlan(plan), plan);
+  check.steps.push({ action: 'press', key: 'Tab' });
+  assert.throws(() => validateBrowserPlan(plan), /키보드 검사/, 'an assertion before the final key press is insufficient');
+});
+
 test('initial and patched QA reject contradictory and malformed exemptions identically', () => {
   for (const notApplicable of [null, [], 'none', { 'malformed-storage': 'Use a Node test for malformed stored JSON.' },
     { input: 'The existing input check must remain required.' }]) {
@@ -865,6 +888,7 @@ test('independent QA vetoes optimistic review, preserves evidence and forwards f
         assert.match(prompt, /categories: \[\]/);
         assert.match(prompt, /새 분류 이름은 허용되지 않습니다/);
         assert.ok(prompt.includes(BROWSER_QA_EXECUTOR.inputEvidence));
+        assert.ok(prompt.includes(JSON.stringify(BROWSER_QA_EXECUTOR.categoryEvidence)));
         return qaPlan;
       }
       assert.ok(prompt.includes(BROWSER_QA_EXECUTOR.inputEvidence));

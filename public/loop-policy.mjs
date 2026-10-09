@@ -58,14 +58,15 @@ export function recommendLoopEffort(role, supportedEfforts, task, priorities = D
   const supported = [...new Set(supportedEfforts)].sort((left, right) => EFFORT_ORDER.indexOf(left) - EFFORT_ORDER.indexOf(right));
   const normalizedPriorities = normalizeLoopPriorities(priorities);
   const qualityPosition = normalizedPriorities.indexOf('quality');
-  const reasoningPosition = normalizedPriorities.indexOf('reasoning');
   const efficiencyPosition = Math.min(normalizedPriorities.indexOf('tokenEfficiency'), normalizedPriorities.indexOf('speed'));
-  const computePosition = Math.min(qualityPosition, reasoningPosition);
-  if (computePosition < efficiencyPosition) {
-    const offset = computePosition === 0 ? 0 : 1;
-    return supported[Math.max(0, supported.length - 1 - offset)];
-  }
+  if (normalizedPriorities[0] === 'reasoning') return supported.at(-1);
   const complex = classifyLoopTask(task) === 'complex';
+  if (qualityPosition < efficiencyPosition) {
+    const preferred = complex
+      ? { planner: ['high', 'xhigh', 'max', 'ultra', 'medium'], worker: ['max', 'xhigh', 'high', 'ultra', 'medium'], judge: ['high', 'xhigh', 'max', 'ultra', 'medium'] }
+      : { planner: ['medium', 'high', 'low'], worker: ['high', 'medium', 'low'], judge: ['high', 'medium', 'low'] };
+    return [...(preferred[role] || preferred.worker), ...supported].find((effort) => supported.includes(effort));
+  }
   const preferences = complex
     ? { planner: ['medium', 'high', 'xhigh', 'max', 'ultra', 'low'], worker: ['high', 'medium', 'xhigh', 'max', 'ultra', 'low'], judge: ['medium', 'low', 'high', 'xhigh', 'max', 'ultra'] }
     : { planner: ['low', 'medium', 'high'], worker: ['medium', 'low', 'high'], judge: ['low', 'medium', 'high'] };

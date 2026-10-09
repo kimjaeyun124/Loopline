@@ -4,7 +4,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, readFile, writeFile, rename, realpath, lstat, readdir, copyFile, unlink, access, rm } from 'node:fs/promises';
 import { dirname, join, isAbsolute } from 'node:path';
 import { homedir } from 'node:os';
-import { automaticLoopStartRounds, extendAutomaticLoopRounds, MAX_AUTO_LOOP_ROUNDS, MAX_LOOP_ROUNDS, normalizeExecutionBudget, normalizeLoopPriorities } from './public/loop-policy.mjs';
+import { automaticLoopStartRounds, extendAutomaticLoopRounds, MAX_AUTO_LOOP_ROUNDS, MAX_LOOP_ROUNDS, normalizeExecutionBudget, normalizeLoopPriorities, recommendLoopEffort } from './public/loop-policy.mjs';
 import { createHarnessWorkflow } from './harness-graph.mjs';
 import { needsMilestones, validateMilestones, matchesMilestone, milestoneContract, milestoneFiles, refreshMilestones, nextMilestone, milestoneCoverage } from './harness-milestones.mjs';
 import { HarnessEvidence, taskType } from './harness-evidence.mjs';
@@ -938,7 +938,12 @@ export class HarnessEngine {
     const seen = new Set();
     let lastFallbackError = null;
     let validationFeedback = '';
-    for (const [priorityIndex, selection] of priority.entries()) {
+    for (const [priorityIndex, candidate] of priority.entries()) {
+      const effortTask = validate === validateProjectSetup ? 'Choose a short project folder name.'
+        : role === 'worker' && run.milestones?.length ? JSON.stringify(nextMilestone(run.milestones) || run.task) : run.task;
+      const selection = candidate.automaticEffort === true && !candidate.decisionOnly
+        ? { ...candidate, reasoningEffort: recommendLoopEffort(role, candidate.supportedReasoningEfforts, effortTask, run.priorities) || candidate.reasoningEffort }
+        : candidate;
       const key = selectionKey(selection);
       if (seen.has(key)) continue;
       seen.add(key);
@@ -1044,6 +1049,7 @@ export class HarnessEngine {
           run.stageModels[role] = { ...modelDetails(role, selection), reasoningEffort: selection.reasoningEffort || '' };
           await this.event(record, '우선순위 모델 전환 / Priority model selected', `${role} 역할이 저장된 순서에 따라 ${model.label}로 전환했습니다. ${budgetDescription(run.modelBudgets[key])}.`, 'completed', model);
         }
+        run.stageModels[role] = { ...modelDetails(role, selection), reasoningEffort: selection.reasoningEffort || '' };
         const usage = run.modelUsage[key];
         const latestBudget = run.modelBudgets[key] || budget;
         event.status = 'completed';

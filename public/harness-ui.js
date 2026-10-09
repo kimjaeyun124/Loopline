@@ -662,6 +662,7 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
         ...(Number.isFinite(model.remainingPercent) ? { remainingPercent: model.remainingPercent } : {}),
       } : {}),
       ...(model.decisionOnly ? { decisionOnly: true } : {}),
+      automaticEffort: !config.roles[role].effort,
       reasoningEffort: primary ? resolveEffort(role, model, task) : resolveFallbackEffort(role, model, task),
       instructions: instructions(model.provider), nativePlugins: config.roles[role].nativePlugins, loopMcp: config.roles[role].loopMcp,
     });

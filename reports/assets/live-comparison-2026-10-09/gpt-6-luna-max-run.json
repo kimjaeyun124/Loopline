@@ -1,0 +1,372 @@
+{
+  "id": "961d29d1-af50-4292-bcc7-4ef62ac09df9",
+  "task": "Focus Board라는 완성된 반응형 학습 작업 관리 웹앱을 현재 프로젝트에 제작해 주세요. 외부 라이브러리와 네트워크 호출 없이 Node.js 20+와 브라우저 표준 API만 사용하세요. 사용자에게 추가 선택이나 승인을 요청하지 말고 실제 테스트·브라우저 QA·자동 반영까지 완료하세요.\n\n기능 요구사항:\n1. 작업 제목(필수, 100자까지 허용), 과목(필수, 30자까지 허용), 학습 시간(1~480 사이의 정수)을 입력하여 작업을 추가합니다. 앞뒤 공백은 제거합니다. 잘못된 입력은 #formError에 표시하고 비어 있는 제목은 #taskTitle로 초점을 돌립니다. 자체 검증 오류를 표시할 수 있도록 form에 novalidate를 사용합니다.\n2. 작업 추가·완료·완료 취소·삭제를 localStorage의 focus-board-v1 키로 저장하고 새로고침 후 그대로 복원합니다. 저장 파일이 잘못된 JSON이거나 내용이 올바르지 않으면 화면을 멈추지 않고 #statusMessage에 안내하고 빈 목록으로 안전하게 시작합니다.\n3. 전체·진행 중·완료 필터와 제목/과목 대소문자 무시 검색을 제공합니다. 검색 또는 필터에 해당하는 항목이 없으면 #emptyState가 보입니다. 입력 문자열은 HTML로 실행되지 않고 문자 그대로 표시됩니다.\n4. #totalCount, #activeCount, #completedCount, #totalMinutes는 현재 필터와 관계없이 저장된 전체 작업의 개수/진행/완료/학습 시간 합계를 표시합니다. 추가·삭제·상태 변경 후 즉시 갱신합니다.\n5. 한국어 기반 UI를 제작합니다. 일관된 시각 계층, 여백, 색상, 상태 배지, 빈 상태 안내를 갖추고 1440×900과 390×844 화면에서 가로 넘침이 없어야 합니다. 긴 작업 제목은 줄바꿈합니다. Tab 이동, Enter 제출, 눈에 보이는 keyboard focus, label 연결, aria-live 오류/상태 안내를 구현합니다.\n\n검증 가능한 DOM 계약(이 ID와 class를 그대로 사용):\n- form 내 입력 순서는 #taskTitle → #taskSubject → #taskMinutes → #addTask 입니다. Enter로 추가됩니다.\n- 입력은 일반 text, minutes는 number. form 오류 #formError는 오류가 없으면 숨깁니다. 상태 안내 #statusMessage는 aria-live 입니다.\n- 목록 #taskList에 표시되는 각 항목은 .task, 제목은 .task-title, 과목 .task-subject, 시간 .task-minutes 입니다. 항목마다 button[data-action=\"toggle\"]과 button[data-action=\"delete\"]를 제공합니다.\n- 필터는 button#filterAll, button#filterActive, button#filterCompleted, 검색은 input#searchInput 입니다.\n- 빈 상태 #emptyState와 요약 #totalCount,#activeCount,#completedCount,#totalMinutes를 제공합니다.\n\n산출물: 프로젝트 루트의 index.html, styles.css, app.mjs, model.mjs, model.test.mjs, server.mjs, package.json, README.md. package.json은 type:module, test:node --test, start:node server.mjs로 구성합니다. server.mjs는 기본 http://127.0.0.1:3000/에서 루트 HTML과 올바른 MIME의 CSS/JS를 제공하고 PORT 환경 변수를 지원합니다. README의 실행 안내는 node server.mjs와 위 기본 주소를 정확히 기술하세요. model.mjs에는 UI와 분리된 실제 상태/검증 함수를 두고 model.test.mjs에는 입력 경계, 추가, 완료 취소, 삭제, 검색, 저장 데이터 검증을 검사하는 의미 있는 테스트를 작성하세요. 소스 파일을 text로 읽는 검사만으로 기능 테스트를 대체하지 마세요.\n\n권장 부분 작업은 최대 3개: 상태 모델과 독립 Node 테스트 → 반응형 화면 및 실제 저장·상호작용 연결 → 서버·실행 안내와 전체 통합 검증. 소유 파일을 중복 배정하지 말고 첫 부분 작업은 미래 파일 없이 독립 검증할 수 있게 구성하세요. 최종 실제 검증 명령은 node --test 입니다. 빈 상태, 입력·저장, 필터·검색, 완료·삭제, 모바일 화면과 keyboard focus를 실제 브라우저로 검사하고 실패하면 근거를 사용해 다음 회차에 수정하세요. 성공 판정은 실제 실행 근거를 충족해야 하며 테스트를 약화하여 통과시키지 마세요.\n",
+  "status": "failed",
+  "stage": "planning",
+  "round": 0,
+  "rounds": 6,
+  "createdAt": 1791527213564,
+  "finishedAt": 1791527442257,
+  "summary": "독립 QA 보완 오류: save: 기존 검사가 있는 기능을 해당 없음으로 바꿀 수 없습니다.",
+  "source": "/Users/dgsw59/Library/Application Support/Mosaic Desk/harness/projects/961d29d1-af50-4292-bcc7-4ef62ac09df9/focus-board-01",
+  "workspace": "/Users/dgsw59/Library/Application Support/Mosaic Desk/harness/961d29d1-af50-4292-bcc7-4ef62ac09df9/workspace",
+  "roles": {
+    "planner": {
+      "provider": "openai",
+      "model": "gpt-6-luna",
+      "label": "GPT-6-Luna",
+      "supportedReasoningEfforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "codexAccountId": "default",
+      "decisionOnly": false,
+      "reasoningEffort": "max",
+      "automatic": false,
+      "nativePlugins": false,
+      "loopMcp": false,
+      "instructions": ""
+    },
+    "worker": {
+      "provider": "openai",
+      "model": "gpt-6-luna",
+      "label": "GPT-6-Luna",
+      "supportedReasoningEfforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "codexAccountId": "default",
+      "decisionOnly": false,
+      "reasoningEffort": "max",
+      "automatic": false,
+      "nativePlugins": false,
+      "loopMcp": false,
+      "instructions": ""
+    },
+    "judge": {
+      "provider": "openai",
+      "model": "gpt-6-luna",
+      "label": "GPT-6-Luna",
+      "supportedReasoningEfforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "codexAccountId": "default",
+      "decisionOnly": false,
+      "reasoningEffort": "max",
+      "automatic": false,
+      "nativePlugins": false,
+      "loopMcp": false,
+      "instructions": ""
+    }
+  },
+  "events": [
+    {
+      "id": "5e0df19e-d731-4a69-989b-bad3e62a8d26",
+      "title": "LangGraph Loop 시작 / Workflow started",
+      "detail": "StateGraph · 단계 복구 위치: select",
+      "status": "completed",
+      "timestamp": 1791527213566
+    },
+    {
+      "id": "83ea7b41-dbcc-4650-82f2-66e26e0731d8",
+      "title": "LangGraph 단계 저장 / Workflow checkpoint",
+      "detail": "다음 단계: prepare · 완료 회차 0/6",
+      "status": "completed",
+      "timestamp": 1791527213579
+    },
+    {
+      "id": "5d7bd832-89ae-42eb-9225-5e665e346697",
+      "title": "계획 / Planning",
+      "detail": "0/6 · 추론 강도 / Effort: max · 잔여 한도 미제공 · 누적 사용 19,912 tokens · 남은 사용 한도 91%",
+      "status": "completed",
+      "timestamp": 1791527213582,
+      "model": {
+        "role": "planner",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-luna",
+        "label": "GPT-6-Luna",
+        "effort": "max"
+      }
+    },
+    {
+      "id": "01a599a3-8773-4012-9078-cf67b4064573",
+      "title": "판정 / Review",
+      "detail": "0/6 · 추론 강도 / Effort: max · 남은 사용 한도 91% · 누적 사용 39,994 tokens · 남은 사용 한도 91%",
+      "status": "completed",
+      "timestamp": 1791527219506,
+      "model": {
+        "role": "judge",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-luna",
+        "label": "GPT-6-Luna",
+        "effort": "max"
+      }
+    },
+    {
+      "id": "5ca8d352-bf45-4b4a-8d1f-6a3950b9075f",
+      "title": "모델 판정 / Live model decision",
+      "detail": "GPT-6-Luna · gpt-6-luna\n폴더 이름 / Folder name: pass · focus-board-01은 Focus Board 작업을 짧고 명확하게 식별하는 이름입니다.",
+      "status": "completed",
+      "timestamp": 1791527225648,
+      "model": {
+        "role": "judge",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-luna",
+        "label": "GPT-6-Luna",
+        "effort": "max"
+      }
+    },
+    {
+      "id": "b03ec05f-8dd7-4f0d-9186-46f8e9748422",
+      "title": "작업 공간 준비 / Workspace ready",
+      "detail": "원본 변경 사항을 별도 작업 공간으로 복사했습니다. 회차별 승인은 요청하지 않습니다.",
+      "status": "completed",
+      "timestamp": 1791527225960
+    },
+    {
+      "id": "0c776d1c-28f9-47bd-b5ae-04a07f1d6c36",
+      "title": "계획 / Planning",
+      "detail": "0/6 · 추론 강도 / Effort: max · 남은 사용 한도 91% · 누적 사용 61,580 tokens · 남은 사용 한도 91%",
+      "status": "completed",
+      "timestamp": 1791527225978,
+      "model": {
+        "role": "planner",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-luna",
+        "label": "GPT-6-Luna",
+        "effort": "max"
+      }
+    },
+    {
+      "id": "e679a114-5683-4a04-adba-2a1d7d4670ac",
+      "title": "구현 계획 / Implementation plan",
+      "detail": "## 요구사항\nNode.js 20+와 브라우저 표준 API만 사용해 Focus Board를 구현합니다. 지정된 8개 파일을 만들고, 입력 검증·localStorage 복원·검색/필터·요약 갱신·완료/삭제와 접근성을 DOM 계약에 맞춥니다. 손상된 저장 데이터는 안내 후 빈 목록으로 시작합니다.\n\n**디자인 브리프:** 학습 흐름이 한눈에 보이도록 차분한 종이색 바탕에 짙은 남색과 청록 포인트를 사용하고, 제목·요약·작업 목록 순으로 위계를 둡니다. 넉넉한 간격과 명확한 상태 배지로 데스크톱에서는 요약과 목록을 함께 보여주고, 모바일에서는 한 열로 전환합니다. 긴 제목은 줄바꿈하며, 키보드 포커스와 오류·상태 안내를 눈에 띄게 표시합니다.\n\n## 완료 기준\n- 지정한 ID·class·입력 순서와 `form novalidate`를 포함합니다. 오류 시 `#formError`에 표시하고 제목 누락 시 `#taskTitle`에 초점을 둡니다.\n- 추가·상태 변경·삭제가 `focus-board-v1`에 저장되고 새로고침 후 복원됩니다. 검색어는 제목·과목에 대소문자 구분 없이 적용되고, 결과가 없으면 `#emptyState`가 보입니다.\n- 전체 작업 기준 요약이 변경 즉시 갱신됩니다. 사용자 입력은 HTML로 실행되지 않습니다.\n- 1440×900 및 390×844 화면에 가로 넘침이 없고, 긴 제목·Tab 이동·Enter 제출·키보드 포커스를 확인할 수 있습니다.\n- README에 `node server.mjs`와 `http://127.0.0.1:3000/` 실행 안내가 있습니다.\n\n## 작업 순서\n1. UI와 분리된 `model.mjs` 상태·검증 로직과 `model.test.mjs` 테스트를 작성합니다.\n2. `index.html`, `styles.css`, `app.mjs`에 반응형 화면과 저장·상호작용을 연결합니다.\n3. `server.mjs`, `package.json`, `README.md`를 구성하고 통합 검증합니다.\n\n## 검증 기준\n`node --test`로 입력 경계, 추가·완료 취소·삭제, 검색, 저장 데이터 검증을 실제 실행해 통과시킵니다. HTTP 테스트는 export한 요청 처리 함수를 가짜 request/response로 호출하며 소켓 바인딩이나 서버 실행을 시도하지 않습니다. README 실행 확인과 실제 브라우저의 빈 상태·저장 복원·필터/검색·상태 변경·모바일 레이아웃·키보드 포커스는 Harness 검증으로 확인합니다. 앱의 영속성은 localStorage이므로 런타임 JSON 파일 갱신은 두지 않습니다. 파일 저장이 추가되는 경우에만 임시 파일 작성 후 원자 교체와 실패 시 기존 파일 보존·임시 파일 정리를 별도로 검증합니다. 이번 응답에서는 도구를 실행하지 않았습니다.",
+      "status": "completed",
+      "timestamp": 1791527246646
+    },
+    {
+      "id": "1ca4b6d2-9d86-4fd3-9d68-a70d289772e1",
+      "title": "독립 QA 계획 / Independent QA plan",
+      "detail": "0/6 · 추론 강도 / Effort: max · 남은 사용 한도 91% · 누적 사용 93,537 tokens · 남은 사용 한도 91%",
+      "status": "completed",
+      "timestamp": 1791527246646,
+      "model": {
+        "role": "planner",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-luna",
+        "label": "GPT-6-Luna",
+        "effort": "max"
+      }
+    },
+    {
+      "id": "15921470-34f4-404e-9b1d-2df225a34da2",
+      "title": "판정 / Review",
+      "detail": "0/6 · 추론 강도 / Effort: max · 남은 사용 한도 91% · 누적 사용 124,216 tokens · 남은 사용 한도 91%",
+      "status": "completed",
+      "timestamp": 1791527346723,
+      "model": {
+        "role": "judge",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-luna",
+        "label": "GPT-6-Luna",
+        "effort": "max"
+      }
+    },
+    {
+      "id": "5510d9fb-9148-452a-88a1-61f822ec266c",
+      "title": "모델 판정 / Live model decision",
+      "detail": "GPT-6-Luna · gpt-6-luna\n독립 QA 기준: revise · 검색 결과가 없을 때의 빈 상태는 확인하지만, 작업 필터 결과가 없을 때의 빈 상태와 작업 추가 후 빈 상태가 사라지는 전환은 확인하지 않습니다. 저장 검증도 추가 후 새로고침만 다루며 완료·완료 취소·삭제 상태의 복원은 빠져 있습니다. 손상된 localStorage 검증을 현재 브라우저 동작으로 수행할 수 없다는 사유는 구체적이고 타당합니다.\nQA 입력 행동: pass · 필수 입력 누락, 학습 시간의 잘못된 값, 최대 길이 초과를 입력해 오류와 작업 미생성을 확인하고, 허용되는 최대 길이·공백 제거·문자 그대로 표시도 확인합니다.\nQA 저장 복원: revise · 작업 추가 후 새로고침하여 복원되는 것은 확인하지만, 완료·완료 취소·삭제가 저장되고 새로고침 후에도 복원되는지는 확인하지 않습니다.\nQA 빈 상태: revise · 초기 빈 목록과 마지막 작업 삭제 후 빈 상태는 확인하지만, 작업을 추가했을 때 빈 상태가 사라지는 전환은 확인하지 않습니다.\nQA 키보드 행동: pass · Enter 입력 후 작업 추가를 확인하고, 실제 Tab 입력 뒤 포커스 이동과 키보드 포커스 표시를 확인합니다.\nQA 검사 empty-state: pass · 초기 빈 상태 표시, 작업이 없는 목록, 오류 숨김을 확인하는 일관된 사례입니다.\nQA 검사 required-title: pass · 제목 없이 제출했을 때 오류 표시, 제목 입력으로의 포커스 이동, 작업 미생성과 빈 상태를 확인합니다.\nQA 검사 required-subject: pass · 과목 없이 제출했을 때 오류가 표시되고 작업이 추가되지 않는지 확인합니다.\nQA 검사 invalid-minute-values: pass · 빈 값, 0, 소수, 허용 범위 초과 값을 제출하고 오류 표시와 작업 미생성을 확인합니다.\nQA 검사 input-length-limits: pass · 제목과 과목의 최대 길이를 각각 초과해 제출하고 오류 표시와 작업 미생성을 확인합니다.\nQA 검사 maximum-length-add: pass · 허용된 최대 제목·과목 길이와 최대 학습 시간을 입력하고 저장된 텍스트 및 학습 시간 합계를 확인합니다.\nQA 검사 trim-and-literal-text: pass · 앞뒤 공백 제거 결과와 입력한 HTML 문자열이 실행되지 않고 문자 그대로 표시되는지 확인합니다.\nQA 검사 save-restores-after-reload: pass · 작업 추가 후 새로고침하고 항목과 전체 요약이 복원되는지 확인하는 유효한 저장 사례입니다.\nQA 검사 keyboard-enter-submit: pass · 실제 Enter 입력 후 작업과 학습 시간 합계가 생성되는지 확인합니다.\nQA 검사 keyboard-tab-focus-visible: pass · 라벨을 통해 첫 입력에 포커스한 뒤 Tab 입력마다 예상 입력과 버튼으로 이동하고, 지정 위치에서 포커스 표시를 확인합니다.\nQA 검사 completion-and-undo: pass · 작업 추가, 완료 처리, 완료 취소에 따라 진행 중·완료 개수가 바뀌는지 확인합니다.\nQA 검사 delete-empty-state: pass · 마지막 작업을 삭제한 뒤 목록이 비고 빈 상태와 전체 요약이 갱신되는지 확인합니다.\nQA 검사 filters-and-global-summary: pass · 진행 중·완료 필터의 결과와 필터와 무관한 전체 요약을 확인하는 일관된 사례입니다.\nQA 검사 search-title-subject-empty: pass · 제목과 과목에서 대소문자를 무시한 검색, 결과가 없을 때의 빈 상태, 전체 요약 유지 여부를 확인합니다.",
+      "status": "completed",
+      "timestamp": 1791527379863,
+      "model": {
+        "role": "judge",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-luna",
+        "label": "GPT-6-Luna",
+        "effort": "max"
+      }
+    },
+    {
+      "id": "bb0c3f95-3342-4cfc-9c57-7bcae923d0f4",
+      "title": "독립 QA 계획 보완 / Refine QA contract",
+      "detail": "Add the missing observable behavior checks before implementation. 검색 결과가 없을 때의 빈 상태는 확인하지만, 작업 필터 결과가 없을 때의 빈 상태와 작업 추가 후 빈 상태가 사라지는 전환은 확인하지 않습니다. 저장 검증도 추가 후 새로고침만 다루며 완료·완료 취소·삭제 상태의 복원은 빠져 있습니다. 손상된 localStorage 검증을 현재 브라우저 동작으로 수행할 수 없다는 사유는 구체적이고 타당합니다.\nAdd a data change, reload, and assertion of the required restored state. 작업 추가 후 새로고침하여 복원되는 것은 확인하지만, 완료·완료 취소·삭제가 저장되고 새로고침 후에도 복원되는지는 확인하지 않습니다.\nAdd observable initial empty and required add/remove transitions, including removal of the last item when requested. 초기 빈 목록과 마지막 작업 삭제 후 빈 상태는 확인하지만, 작업을 추가했을 때 빈 상태가 사라지는 전환은 확인하지 않습니다.",
+      "status": "completed",
+      "timestamp": 1791527379863
+    },
+    {
+      "id": "052dad8d-e6b2-47e1-a7af-5b3633e37713",
+      "title": "독립 QA 계획 / Independent QA plan",
+      "detail": "0/6 · 추론 강도 / Effort: max · 남은 사용 한도 91% · 독립 QA 보완 오류: notApplicable은 허용 분류에 대한 근거 객체여야 합니다.",
+      "status": "failed",
+      "timestamp": 1791527379864,
+      "model": {
+        "role": "planner",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-luna",
+        "label": "GPT-6-Luna",
+        "effort": "max"
+      }
+    },
+    {
+      "id": "458f6ccd-85ad-4f09-9734-5f5190a48df5",
+      "title": "응답 형식 보완 / Repair structured response",
+      "detail": "직전 응답의 형식 오류: 독립 QA 보완 오류: notApplicable은 허용 분류에 대한 근거 객체여야 합니다.. 원래 요청의 필드와 JSON 구조를 정확히 지켜 다시 반환하세요. 설명 문장, 마크다운, 실제 도구 호출을 추가하지 마세요. 원래 목표와 판정 기준을 유지하고 형식만 보완하세요.",
+      "status": "completed",
+      "timestamp": 1791527417976,
+      "model": {
+        "role": "planner",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-luna",
+        "label": "GPT-6-Luna",
+        "effort": "max"
+      }
+    },
+    {
+      "id": "a39de5f4-c2bd-4daa-b167-7d70a1300737",
+      "title": "독립 QA 계획 / Independent QA plan",
+      "detail": "0/6 · 추론 강도 / Effort: max · 남은 사용 한도 91% · 독립 QA 보완 오류: save: 기존 검사가 있는 기능을 해당 없음으로 바꿀 수 없습니다.",
+      "status": "failed",
+      "timestamp": 1791527417977,
+      "model": {
+        "role": "planner",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-luna",
+        "label": "GPT-6-Luna",
+        "effort": "max"
+      }
+    },
+    {
+      "id": "6643e787-1cdc-47e7-8785-41f03e1ba4d2",
+      "title": "모델 사용량·잔여 한도 / Model usage and remaining quota",
+      "detail": "GPT-6-Luna: 176,453 tokens · 7회 호출 · 남은 사용 한도 91%",
+      "status": "completed",
+      "timestamp": 1791527442265
+    },
+    {
+      "id": "3dba7a39-b056-4018-8140-8029325758f5",
+      "title": "실행 종료 / Run finished",
+      "detail": "독립 QA 보완 오류: save: 기존 검사가 있는 기능을 해당 없음으로 바꿀 수 없습니다.",
+      "status": "failed",
+      "timestamp": 1791527442268
+    }
+  ],
+  "modelCalls": [
+    {
+      "eventId": "5d7bd832-89ae-42eb-9225-5e665e346697",
+      "role": "planner",
+      "provider": "openai",
+      "model": "gpt-6-luna",
+      "effort": "max",
+      "round": 0,
+      "tokens": 19912,
+      "status": "success",
+      "durationMs": 5923
+    },
+    {
+      "eventId": "01a599a3-8773-4012-9078-cf67b4064573",
+      "role": "judge",
+      "provider": "openai",
+      "model": "gpt-6-luna",
+      "effort": "max",
+      "round": 0,
+      "tokens": 20082,
+      "status": "success",
+      "durationMs": 6140
+    },
+    {
+      "eventId": "0c776d1c-28f9-47bd-b5ae-04a07f1d6c36",
+      "role": "planner",
+      "provider": "openai",
+      "model": "gpt-6-luna",
+      "effort": "max",
+      "round": 0,
+      "tokens": 21586,
+      "status": "success",
+      "durationMs": 20666
+    },
+    {
+      "eventId": "1ca4b6d2-9d86-4fd3-9d68-a70d289772e1",
+      "role": "planner",
+      "provider": "openai",
+      "model": "gpt-6-luna",
+      "effort": "max",
+      "round": 0,
+      "tokens": 31957,
+      "status": "success",
+      "durationMs": 100073
+    },
+    {
+      "eventId": "15921470-34f4-404e-9b1d-2df225a34da2",
+      "role": "judge",
+      "provider": "openai",
+      "model": "gpt-6-luna",
+      "effort": "max",
+      "round": 0,
+      "tokens": 30679,
+      "status": "success",
+      "durationMs": 33137
+    },
+    {
+      "eventId": "052dad8d-e6b2-47e1-a7af-5b3633e37713",
+      "role": "planner",
+      "provider": "openai",
+      "model": "gpt-6-luna",
+      "effort": "max",
+      "round": 0,
+      "tokens": 26763,
+      "status": "failed",
+      "durationMs": 38106,
+      "failureKind": "format"
+    },
+    {
+      "eventId": "a39de5f4-c2bd-4daa-b167-7d70a1300737",
+      "role": "planner",
+      "provider": "openai",
+      "model": "gpt-6-luna",
+      "effort": "max",
+      "round": 0,
+      "tokens": 25474,
+      "status": "failed",
+      "durationMs": 24269,
+      "failureKind": "format"
+    }
+  ],
+  "modelUsage": {
+    "[\"openai\",\"\",\"gpt-6-luna\",\"default\"]": {
+      "provider": "openai",
+      "model": "gpt-6-luna",
+      "label": "GPT-6-Luna",
+      "totalTokens": 176453,
+      "calls": 7
+    }
+  },
+  "humanActions": {
+    "manualResumes": 0,
+    "stopRequests": 0,
+    "completeCoverage": true
+  },
+  "milestones": [],
+  "qaHistory": [],
+  "autoResumeAttempts": 0,
+  "verifyCommand": ""
+}

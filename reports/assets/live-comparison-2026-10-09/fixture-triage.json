@@ -1,0 +1,14 @@
+{
+  "sourceModified": false,
+  "productionModified": false,
+  "intervention": "저장소 밖 임시 테스트 사본에서 두 mock 응답에 기존 계획의 viewport/check/layout 근거를 채움. 제품 검증 조건은 변경하지 않음.",
+  "exitCode": 0,
+  "error": null,
+  "summary": [
+    "# tests 29",
+    "# pass 29",
+    "# fail 0",
+    "# duration_ms 14262.652583"
+  ],
+  "limitations": "이 결과는 저장소 원본 전체 테스트 통과를 의미하지 않음. 원본 실패를 숨기거나 성공률에 포함하지 않음."
+}

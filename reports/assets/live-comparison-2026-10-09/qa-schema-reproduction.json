@@ -1,0 +1,7 @@
+{
+  "initialAccepted": true,
+  "patchRejected": true,
+  "error": "독립 QA 보완 오류: notApplicable은 허용 분류에 대한 근거 객체여야 합니다.",
+  "unsupportedKey": "malformed-storage",
+  "sourceModified": false
+}

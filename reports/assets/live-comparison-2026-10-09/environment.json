@@ -1,0 +1,47 @@
+{
+  "at": "2026-10-09T06:02:53.035Z",
+  "sourceCommit": "8e66b58",
+  "node": "v26.8.2",
+  "os": "Darwin",
+  "release": "25.6.0",
+  "arch": "arm64",
+  "cpu": "Apple M5",
+  "regression": {
+    "tests": 360,
+    "passed": 351,
+    "failed": 9,
+    "durationMs": 50925.624708,
+    "failedTests": [
+      "✖ last web milestone receives full test and browser evidence before approval without an extra worker round",
+      "✖ final web milestone chooses the full verification command before browser QA when configuration is automatic",
+      "✖ fullFailure",
+      "✖ browserFailure",
+      "✖ failed full tests or partial browser QA preserve the verified core and feed the next UI round",
+      "✖ final integration verification and browser evidence are reused instead of rerun",
+      "✖ failed README launch smoke automatically returns work to its owning milestone and completes after repair",
+      "✖ actual partial integration failure reopens the shared-file owner and rechecks dependents before automatic application",
+      "✖ a valid negative review with successful actual execution never reassigns another milestone"
+    ]
+  },
+  "package": {
+    "command": "npm run desktop:package",
+    "exitCode": 0,
+    "hashes": {
+      "server.mjs": {
+        "source": "7523af9032b69196f3428de06360d908f2133806762e77749591fb120c8b7aa1",
+        "packaged": "7523af9032b69196f3428de06360d908f2133806762e77749591fb120c8b7aa1",
+        "equal": true
+      },
+      "harness-engine.mjs": {
+        "source": "7dbdf2bbd112475a4dc9c1feaffeaaf359aa827edbdc109b1114977001d7a707",
+        "packaged": "7dbdf2bbd112475a4dc9c1feaffeaaf359aa827edbdc109b1114977001d7a707",
+        "equal": true
+      },
+      "browser-qa.mjs": {
+        "source": "3ebdaaad3702cfd03fdb0de8dbaed7959662c648a794e3ca23d07a638f51a62f",
+        "packaged": "3ebdaaad3702cfd03fdb0de8dbaed7959662c648a794e3ca23d07a638f51a62f",
+        "equal": true
+      }
+    }
+  }
+}

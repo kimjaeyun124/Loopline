@@ -1,0 +1,10 @@
+{
+  "passed": false,
+  "checks": [],
+  "failures": [
+    "ENOENT: no such file or directory, realpath '/Users/dgsw59/Documents/Codex/2026-09-26/sj/outputs/mosaic-ai/reports/assets/live-comparison-2026-10-09/qa-user-data/harness/961d29d1-af50-4292-bcc7-4ef62ac09df9/workspace/index.html'"
+  ],
+  "unavailable": true,
+  "expectedCheckCount": 50,
+  "passedCheckCount": 0
+}

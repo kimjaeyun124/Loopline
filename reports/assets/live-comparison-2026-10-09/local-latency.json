@@ -1,0 +1,144 @@
+{
+  "measuredAt": "2026-10-09T06:01:48.512Z",
+  "kind": "로컬 모의 제공자 지연 주입 실험. 실제 모델 품질·토큰·과금 측정과 분리.",
+  "scenarios": [
+    {
+      "mockDelayMs": 0,
+      "iterations": 5,
+      "medianMs": 662,
+      "p95OfFiveSamplesMs": 802,
+      "medianCalls": 9,
+      "estimatedLocalHandlingMs": 662,
+      "completedAppliedVerified": 5,
+      "samples": [
+        {
+          "elapsedMs": 802,
+          "status": "completed",
+          "applied": true,
+          "verificationPassed": true,
+          "calls": 9
+        },
+        {
+          "elapsedMs": 685,
+          "status": "completed",
+          "applied": true,
+          "verificationPassed": true,
+          "calls": 9
+        },
+        {
+          "elapsedMs": 656,
+          "status": "completed",
+          "applied": true,
+          "verificationPassed": true,
+          "calls": 9
+        },
+        {
+          "elapsedMs": 662,
+          "status": "completed",
+          "applied": true,
+          "verificationPassed": true,
+          "calls": 9
+        },
+        {
+          "elapsedMs": 652,
+          "status": "completed",
+          "applied": true,
+          "verificationPassed": true,
+          "calls": 9
+        }
+      ]
+    },
+    {
+      "mockDelayMs": 25,
+      "iterations": 5,
+      "medianMs": 937,
+      "p95OfFiveSamplesMs": 955,
+      "medianCalls": 9,
+      "estimatedLocalHandlingMs": 712,
+      "completedAppliedVerified": 5,
+      "samples": [
+        {
+          "elapsedMs": 937,
+          "status": "completed",
+          "applied": true,
+          "verificationPassed": true,
+          "calls": 9
+        },
+        {
+          "elapsedMs": 887,
+          "status": "completed",
+          "applied": true,
+          "verificationPassed": true,
+          "calls": 9
+        },
+        {
+          "elapsedMs": 890,
+          "status": "completed",
+          "applied": true,
+          "verificationPassed": true,
+          "calls": 9
+        },
+        {
+          "elapsedMs": 948,
+          "status": "completed",
+          "applied": true,
+          "verificationPassed": true,
+          "calls": 9
+        },
+        {
+          "elapsedMs": 955,
+          "status": "completed",
+          "applied": true,
+          "verificationPassed": true,
+          "calls": 9
+        }
+      ]
+    },
+    {
+      "mockDelayMs": 100,
+      "iterations": 5,
+      "medianMs": 1683,
+      "p95OfFiveSamplesMs": 1732,
+      "medianCalls": 9,
+      "estimatedLocalHandlingMs": 783,
+      "completedAppliedVerified": 5,
+      "samples": [
+        {
+          "elapsedMs": 1653,
+          "status": "completed",
+          "applied": true,
+          "verificationPassed": true,
+          "calls": 9
+        },
+        {
+          "elapsedMs": 1683,
+          "status": "completed",
+          "applied": true,
+          "verificationPassed": true,
+          "calls": 9
+        },
+        {
+          "elapsedMs": 1732,
+          "status": "completed",
+          "applied": true,
+          "verificationPassed": true,
+          "calls": 9
+        },
+        {
+          "elapsedMs": 1714,
+          "status": "completed",
+          "applied": true,
+          "verificationPassed": true,
+          "calls": 9
+        },
+        {
+          "elapsedMs": 1674,
+          "status": "completed",
+          "applied": true,
+          "verificationPassed": true,
+          "calls": 9
+        }
+      ]
+    }
+  ]
+}

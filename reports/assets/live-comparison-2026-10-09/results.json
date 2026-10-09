@@ -1,0 +1,2598 @@
+{
+  "measuredAt": "2026-10-09T05:55:50.945Z",
+  "benchmarkKind": "live connected providers through packaged Loopline Electron backend",
+  "protocol": {
+    "frozenAt": "2026-10-09T05:55:35.466Z",
+    "task": "Focus Board responsive web application",
+    "promptSha256": "1010fb02fa1d603729d91f13e9bd9e025316a17437c73e531dd7ef2cbc0f0573",
+    "qaSha256": "049272d78695a0dc6775927e1c243cba82be9d5332f4a9798f9d56cfcd84ec82",
+    "sourceCommit": "8e66b58",
+    "iterationsPerConfiguration": 1,
+    "implementationRounds": 6,
+    "commonBrowserChecks": 12,
+    "viewports": [
+      {
+        "id": "desktop",
+        "width": 1440,
+        "height": 900
+      },
+      {
+        "id": "mobile",
+        "width": 390,
+        "height": 844
+      }
+    ],
+    "commonAssertions": "24 behavior checks + 24 per-scenario layout checks + 2 overall layout checks = 50",
+    "externalQaFeedsBackToRun": false,
+    "manualCodeChangesAllowed": false,
+    "manualResumeAllowed": false,
+    "perRunObservationCeilingMs": 2700000,
+    "comparisonOrder": [
+      "automatic-loop",
+      "gpt-6-luna-max",
+      "gpt-6-sol-max"
+    ],
+    "limitation": "동일 Harness에 역할별 모델 구성을 달리한 비교. 순수 단일 채팅과의 비교가 아님. 각 구성 1회로 장기 성공률을 추정하지 않음."
+  },
+  "trials": [
+    {
+      "configuration": "automatic-loop",
+      "label": "자동 Loop · Jev/Gemini/GPT",
+      "runId": "2a3033bc-fb35-4764-932c-158a89891a85",
+      "startedAt": 1791525350947,
+      "initialRoles": {
+        "planner": {
+          "provider": "api",
+          "model": "models/gemini-3-flash-preview",
+          "label": "models/gemini-3-flash-preview",
+          "supportedReasoningEfforts": [],
+          "connectionId": "f7a0013e-5238-47e3-a222-ad27ee060f6d",
+          "decisionOnly": false,
+          "reasoningEffort": null,
+          "automatic": true,
+          "nativePlugins": false,
+          "loopMcp": false,
+          "instructions": "",
+          "fallbacks": [
+            {
+              "provider": "openai",
+              "model": "gpt-6-astra",
+              "label": "GPT-6-Astra",
+              "supportedReasoningEfforts": [
+                "low",
+                "medium",
+                "high",
+                "xhigh",
+                "max",
+                "ultra"
+              ],
+              "codexAccountId": "default",
+              "decisionOnly": false,
+              "reasoningEffort": "ultra",
+              "automatic": false,
+              "nativePlugins": false,
+              "loopMcp": false,
+              "instructions": "",
+              "fallbacks": []
+            },
+            {
+              "provider": "openai",
+              "model": "gpt-6-sol",
+              "label": "GPT-6-Sol",
+              "supportedReasoningEfforts": [
+                "low",
+                "medium",
+                "high",
+                "xhigh",
+                "max",
+                "ultra"
+              ],
+              "codexAccountId": "default",
+              "decisionOnly": false,
+              "reasoningEffort": "ultra",
+              "automatic": false,
+              "nativePlugins": false,
+              "loopMcp": false,
+              "instructions": "",
+              "fallbacks": []
+            },
+            {
+              "provider": "openai",
+              "model": "gpt-6-luna",
+              "label": "GPT-6-Luna",
+              "supportedReasoningEfforts": [
+                "low",
+                "medium",
+                "high",
+                "xhigh",
+                "max"
+              ],
+              "codexAccountId": "default",
+              "decisionOnly": false,
+              "reasoningEffort": "max",
+              "automatic": false,
+              "nativePlugins": false,
+              "loopMcp": false,
+              "instructions": "",
+              "fallbacks": []
+            }
+          ]
+        },
+        "worker": {
+          "provider": "openai",
+          "model": "gpt-6-sol",
+          "label": "GPT-6-Sol",
+          "supportedReasoningEfforts": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+            "ultra"
+          ],
+          "codexAccountId": "default",
+          "decisionOnly": false,
+          "reasoningEffort": "ultra",
+          "automatic": true,
+          "nativePlugins": false,
+          "loopMcp": false,
+          "instructions": "",
+          "fallbacks": [
+            {
+              "provider": "openai",
+              "model": "gpt-6-astra",
+              "label": "GPT-6-Astra",
+              "supportedReasoningEfforts": [
+                "low",
+                "medium",
+                "high",
+                "xhigh",
+                "max",
+                "ultra"
+              ],
+              "codexAccountId": "default",
+              "decisionOnly": false,
+              "reasoningEffort": "ultra",
+              "automatic": false,
+              "nativePlugins": false,
+              "loopMcp": false,
+              "instructions": "",
+              "fallbacks": []
+            },
+            {
+              "provider": "openai",
+              "model": "gpt-6-luna",
+              "label": "GPT-6-Luna",
+              "supportedReasoningEfforts": [
+                "low",
+                "medium",
+                "high",
+                "xhigh",
+                "max"
+              ],
+              "codexAccountId": "default",
+              "decisionOnly": false,
+              "reasoningEffort": "max",
+              "automatic": false,
+              "nativePlugins": false,
+              "loopMcp": false,
+              "instructions": "",
+              "fallbacks": []
+            },
+            {
+              "provider": "api",
+              "model": "models/gemini-3-flash-preview",
+              "label": "models/gemini-3-flash-preview",
+              "supportedReasoningEfforts": [],
+              "connectionId": "f7a0013e-5238-47e3-a222-ad27ee060f6d",
+              "decisionOnly": false,
+              "reasoningEffort": null,
+              "automatic": false,
+              "nativePlugins": false,
+              "loopMcp": false,
+              "instructions": "",
+              "fallbacks": []
+            }
+          ]
+        },
+        "judge": {
+          "provider": "api",
+          "model": "jev-latest",
+          "label": "jev-latest",
+          "supportedReasoningEfforts": [],
+          "connectionId": "d2af9947-1459-4719-b11b-60d0775a0189",
+          "decisionOnly": true,
+          "reasoningEffort": null,
+          "automatic": true,
+          "nativePlugins": false,
+          "loopMcp": false,
+          "instructions": "",
+          "fallbacks": [
+            {
+              "provider": "openai",
+              "model": "gpt-6-astra",
+              "label": "GPT-6-Astra",
+              "supportedReasoningEfforts": [
+                "low",
+                "medium",
+                "high",
+                "xhigh",
+                "max",
+                "ultra"
+              ],
+              "codexAccountId": "default",
+              "decisionOnly": false,
+              "reasoningEffort": "ultra",
+              "automatic": false,
+              "nativePlugins": false,
+              "loopMcp": false,
+              "instructions": "",
+              "fallbacks": []
+            },
+            {
+              "provider": "openai",
+              "model": "gpt-6-sol",
+              "label": "GPT-6-Sol",
+              "supportedReasoningEfforts": [
+                "low",
+                "medium",
+                "high",
+                "xhigh",
+                "max",
+                "ultra"
+              ],
+              "codexAccountId": "default",
+              "decisionOnly": false,
+              "reasoningEffort": "ultra",
+              "automatic": false,
+              "nativePlugins": false,
+              "loopMcp": false,
+              "instructions": "",
+              "fallbacks": []
+            },
+            {
+              "provider": "openai",
+              "model": "gpt-6-luna",
+              "label": "GPT-6-Luna",
+              "supportedReasoningEfforts": [
+                "low",
+                "medium",
+                "high",
+                "xhigh",
+                "max"
+              ],
+              "codexAccountId": "default",
+              "decisionOnly": false,
+              "reasoningEffort": "max",
+              "automatic": false,
+              "nativePlugins": false,
+              "loopMcp": false,
+              "instructions": "",
+              "fallbacks": []
+            },
+            {
+              "provider": "api",
+              "model": "models/gemini-3-flash-preview",
+              "label": "models/gemini-3-flash-preview",
+              "supportedReasoningEfforts": [],
+              "connectionId": "f7a0013e-5238-47e3-a222-ad27ee060f6d",
+              "decisionOnly": false,
+              "reasoningEffort": null,
+              "automatic": false,
+              "nativePlugins": false,
+              "loopMcp": false,
+              "instructions": "",
+              "fallbacks": []
+            }
+          ]
+        }
+      },
+      "observationStop": false,
+      "progress": [
+        {
+          "at": 1791525351033,
+          "elapsedMs": 86,
+          "status": "running",
+          "stage": "prepare",
+          "round": 0,
+          "calls": 0,
+          "tokens": 0
+        },
+        {
+          "at": 1791525356040,
+          "elapsedMs": 5093,
+          "status": "running",
+          "stage": "configuring",
+          "round": 0,
+          "calls": 1,
+          "tokens": 7359
+        },
+        {
+          "at": 1791525361046,
+          "elapsedMs": 10099,
+          "status": "running",
+          "stage": "planning",
+          "round": 0,
+          "calls": 3,
+          "tokens": 29014
+        },
+        {
+          "at": 1791525371059,
+          "elapsedMs": 20112,
+          "status": "running",
+          "stage": "planning",
+          "round": 0,
+          "calls": 4,
+          "tokens": 50244
+        },
+        {
+          "at": 1791525496164,
+          "elapsedMs": 145217,
+          "status": "running",
+          "stage": "planning",
+          "round": 0,
+          "calls": 5,
+          "tokens": 83919
+        },
+        {
+          "at": 1791525526198,
+          "elapsedMs": 175251,
+          "status": "running",
+          "stage": "planning",
+          "round": 0,
+          "calls": 7,
+          "tokens": 97816
+        },
+        {
+          "at": 1791525626322,
+          "elapsedMs": 275375,
+          "status": "running",
+          "stage": "planning",
+          "round": 0,
+          "calls": 8,
+          "tokens": 125619
+        },
+        {
+          "at": 1791525646351,
+          "elapsedMs": 295404,
+          "status": "running",
+          "stage": "planning",
+          "round": 0,
+          "calls": 9,
+          "tokens": 133170
+        },
+        {
+          "at": 1791525961697,
+          "elapsedMs": 610750,
+          "status": "running",
+          "stage": "planning",
+          "round": 0,
+          "calls": 10,
+          "tokens": 168724
+        },
+        {
+          "at": 1791526056823,
+          "elapsedMs": 705876,
+          "status": "running",
+          "stage": "planning",
+          "round": 0,
+          "calls": 11,
+          "tokens": 203351
+        },
+        {
+          "at": 1791526071846,
+          "elapsedMs": 720899,
+          "status": "running",
+          "stage": "planning",
+          "round": 0,
+          "calls": 12,
+          "tokens": 229800
+        },
+        {
+          "at": 1791526171964,
+          "elapsedMs": 821017,
+          "status": "running",
+          "stage": "planning",
+          "round": 0,
+          "calls": 13,
+          "tokens": 264373
+        },
+        {
+          "at": 1791526191989,
+          "elapsedMs": 841042,
+          "status": "running",
+          "stage": "planning",
+          "round": 0,
+          "calls": 14,
+          "tokens": 291495
+        },
+        {
+          "at": 1791526277114,
+          "elapsedMs": 926167,
+          "status": "running",
+          "stage": "planning",
+          "round": 0,
+          "calls": 15,
+          "tokens": 325967
+        },
+        {
+          "at": 1791526322175,
+          "elapsedMs": 971228,
+          "status": "running",
+          "stage": "planning",
+          "round": 0,
+          "calls": 16,
+          "tokens": 353851
+        },
+        {
+          "at": 1791526352221,
+          "elapsedMs": 1001274,
+          "status": "running",
+          "stage": "selecting",
+          "round": 1,
+          "calls": 17,
+          "tokens": 384401
+        },
+        {
+          "at": 1791526372253,
+          "elapsedMs": 1021306,
+          "status": "running",
+          "stage": "selecting",
+          "round": 1,
+          "calls": 18,
+          "tokens": 416629
+        },
+        {
+          "at": 1791526387272,
+          "elapsedMs": 1036325,
+          "status": "running",
+          "stage": "working",
+          "round": 1,
+          "calls": 19,
+          "tokens": 448443
+        },
+        {
+          "at": 1791526392275,
+          "elapsedMs": 1041328,
+          "status": "running",
+          "stage": "working",
+          "round": 1,
+          "calls": 20,
+          "tokens": 474511
+        },
+        {
+          "at": 1791526607582,
+          "elapsedMs": 1256635,
+          "status": "running",
+          "stage": "milestone-qa",
+          "round": 1,
+          "calls": 21,
+          "tokens": 510470
+        },
+        {
+          "at": 1791526617595,
+          "elapsedMs": 1266648,
+          "status": "running",
+          "stage": "selecting",
+          "round": 2,
+          "calls": 22,
+          "tokens": 538171
+        },
+        {
+          "at": 1791526637620,
+          "elapsedMs": 1286673,
+          "status": "running",
+          "stage": "working",
+          "round": 2,
+          "calls": 23,
+          "tokens": 570207
+        },
+        {
+          "at": 1791526647639,
+          "elapsedMs": 1296692,
+          "status": "running",
+          "stage": "working",
+          "round": 2,
+          "calls": 24,
+          "tokens": 596566
+        },
+        {
+          "at": 1791526827909,
+          "elapsedMs": 1476962,
+          "status": "running",
+          "stage": "working",
+          "round": 2,
+          "calls": 25,
+          "tokens": 636176
+        },
+        {
+          "at": 1791526893004,
+          "elapsedMs": 1542057,
+          "status": "running",
+          "stage": "milestone-qa",
+          "round": 2,
+          "calls": 26,
+          "tokens": 679372
+        },
+        {
+          "at": 1791526913032,
+          "elapsedMs": 1562085,
+          "status": "running",
+          "stage": "selecting",
+          "round": 3,
+          "calls": 27,
+          "tokens": 716427
+        },
+        {
+          "at": 1791526928055,
+          "elapsedMs": 1577108,
+          "status": "running",
+          "stage": "working",
+          "round": 3,
+          "calls": 28,
+          "tokens": 748708
+        },
+        {
+          "at": 1791526943078,
+          "elapsedMs": 1592131,
+          "status": "running",
+          "stage": "working",
+          "round": 3,
+          "calls": 29,
+          "tokens": 775587
+        },
+        {
+          "at": 1791526973125,
+          "elapsedMs": 1622178,
+          "status": "running",
+          "stage": "milestone-qa",
+          "round": 3,
+          "calls": 30,
+          "tokens": 814509
+        },
+        {
+          "at": 1791526993156,
+          "elapsedMs": 1642209,
+          "status": "running",
+          "stage": "selecting",
+          "round": 4,
+          "calls": 31,
+          "tokens": 851686
+        },
+        {
+          "at": 1791527008178,
+          "elapsedMs": 1657231,
+          "status": "running",
+          "stage": "working",
+          "round": 4,
+          "calls": 32,
+          "tokens": 883939
+        },
+        {
+          "at": 1791527028209,
+          "elapsedMs": 1677262,
+          "status": "running",
+          "stage": "working",
+          "round": 4,
+          "calls": 33,
+          "tokens": 911384
+        },
+        {
+          "at": 1791527058260,
+          "elapsedMs": 1707313,
+          "status": "running",
+          "stage": "milestone-qa",
+          "round": 4,
+          "calls": 34,
+          "tokens": 945664
+        },
+        {
+          "at": 1791527078289,
+          "elapsedMs": 1727342,
+          "status": "running",
+          "stage": "planning",
+          "round": 4,
+          "calls": 35,
+          "tokens": 983105
+        },
+        {
+          "at": 1791527108356,
+          "elapsedMs": 1757409,
+          "status": "running",
+          "stage": "selecting",
+          "round": 5,
+          "calls": 36,
+          "tokens": 1009865
+        },
+        {
+          "at": 1791527123385,
+          "elapsedMs": 1772438,
+          "status": "running",
+          "stage": "working",
+          "round": 5,
+          "calls": 37,
+          "tokens": 1041999
+        },
+        {
+          "at": 1791527148437,
+          "elapsedMs": 1797490,
+          "status": "running",
+          "stage": "milestone-qa",
+          "round": 5,
+          "calls": 38,
+          "tokens": 1069252
+        },
+        {
+          "at": 1791527163464,
+          "elapsedMs": 1812517,
+          "status": "running",
+          "stage": "selecting",
+          "round": 6,
+          "calls": 39,
+          "tokens": 1106156
+        },
+        {
+          "at": 1791527178489,
+          "elapsedMs": 1827542,
+          "status": "running",
+          "stage": "working",
+          "round": 6,
+          "calls": 40,
+          "tokens": 1138264
+        },
+        {
+          "at": 1791527198522,
+          "elapsedMs": 1847575,
+          "status": "running",
+          "stage": "milestone-qa",
+          "round": 6,
+          "calls": 41,
+          "tokens": 1165864
+        },
+        {
+          "at": 1791527213545,
+          "elapsedMs": 1862598,
+          "status": "limit",
+          "stage": "finished",
+          "round": 6,
+          "calls": 42,
+          "tokens": 1202807
+        }
+      ],
+      "finishedAt": 1791527213546,
+      "elapsedMs": 1859328,
+      "status": "limit",
+      "stage": "finished",
+      "summary": "부분 작업 1/3 검증 완료. 전체 통합 검증은 아직 완료되지 않았습니다. 회차 한도에 도달해 근거와 작업 공간을 보존했습니다.",
+      "rounds": 6,
+      "applied": false,
+      "verificationPassed": false,
+      "browserQaPassed": false,
+      "readmeQaPassed": false,
+      "readmeQaRequired": false,
+      "reportedTokens": 1202807,
+      "modelUsage": [
+        {
+          "provider": "api",
+          "model": "jev-latest",
+          "label": "jev-latest",
+          "totalTokens": 15404,
+          "calls": 3
+        },
+        {
+          "provider": "openai",
+          "model": "gpt-6-luna",
+          "label": "GPT-6-Luna",
+          "totalTokens": 373520,
+          "calls": 12
+        },
+        {
+          "provider": "api",
+          "model": "models/gemini-3-flash-preview",
+          "label": "models/gemini-3-flash-preview",
+          "totalTokens": 15161,
+          "calls": 2
+        },
+        {
+          "provider": "openai",
+          "model": "gpt-6-astra",
+          "label": "GPT-6-Astra",
+          "totalTokens": 229807,
+          "calls": 7
+        },
+        {
+          "provider": "openai",
+          "model": "gpt-6-sol",
+          "label": "GPT-6-Sol",
+          "totalTokens": 568915,
+          "calls": 18
+        }
+      ],
+      "modelCalls": [
+        {
+          "eventId": "662afc74-36f2-48ea-8c43-0beb136215de",
+          "role": "judge",
+          "provider": "api",
+          "model": "jev-latest",
+          "effort": "default",
+          "round": 0,
+          "tokens": 7359,
+          "status": "success",
+          "durationMs": 467
+        },
+        {
+          "eventId": "30bcfa58-346b-4c09-84e6-89b2b689c0da",
+          "role": "planner",
+          "provider": "openai",
+          "model": "gpt-6-luna",
+          "effort": "max",
+          "round": 0,
+          "tokens": 19897,
+          "status": "success",
+          "durationMs": 5518
+        },
+        {
+          "eventId": "c9d84917-73c9-4d3c-b74d-0d8acccb52e9",
+          "role": "judge",
+          "provider": "api",
+          "model": "jev-latest",
+          "effort": "default",
+          "round": 0,
+          "tokens": 1758,
+          "status": "success",
+          "durationMs": 347
+        },
+        {
+          "eventId": "33fc7818-d57b-4980-a900-a97f7db8deb0",
+          "role": "planner",
+          "provider": "openai",
+          "model": "gpt-6-luna",
+          "effort": "max",
+          "round": 0,
+          "tokens": 21230,
+          "status": "success",
+          "durationMs": 12893
+        },
+        {
+          "eventId": "4c002869-f548-4548-ba1b-a7564eda2cc8",
+          "role": "planner",
+          "provider": "openai",
+          "model": "gpt-6-luna",
+          "effort": "max",
+          "round": 0,
+          "tokens": 33675,
+          "status": "failed",
+          "durationMs": 123388,
+          "failureKind": "format"
+        },
+        {
+          "eventId": "8ecb936a-0d68-44e2-97fb-668bb767c21b",
+          "role": "planner",
+          "provider": "api",
+          "model": "models/gemini-3-flash-preview",
+          "effort": "default",
+          "round": 0,
+          "tokens": 7610,
+          "status": "success",
+          "durationMs": 27583
+        },
+        {
+          "eventId": "473f8ec3-d0f1-4001-b69b-6aae03e08e0b",
+          "role": "judge",
+          "provider": "api",
+          "model": "jev-latest",
+          "effort": "default",
+          "round": 0,
+          "tokens": 6287,
+          "status": "success",
+          "durationMs": 390
+        },
+        {
+          "eventId": "cb6140e9-df35-4aa9-8b65-fda61bed4ba8",
+          "role": "judge",
+          "provider": "openai",
+          "model": "gpt-6-astra",
+          "effort": "ultra",
+          "round": 0,
+          "tokens": 27803,
+          "status": "success",
+          "durationMs": 100819
+        },
+        {
+          "eventId": "0e094692-54a8-4b86-8f6d-21d0f27a6b7c",
+          "role": "planner",
+          "provider": "api",
+          "model": "models/gemini-3-flash-preview",
+          "effort": "default",
+          "round": 0,
+          "tokens": 7551,
+          "status": "failed",
+          "durationMs": 20660,
+          "failureKind": "format"
+        },
+        {
+          "eventId": "2331c21f-7f5e-46c9-8dd2-e65e29263d8d",
+          "role": "planner",
+          "provider": "openai",
+          "model": "gpt-6-astra",
+          "effort": "ultra",
+          "round": 0,
+          "tokens": 35554,
+          "status": "success",
+          "durationMs": 314751
+        },
+        {
+          "eventId": "821c1fdc-345c-4277-82cc-366f54820c34",
+          "role": "judge",
+          "provider": "openai",
+          "model": "gpt-6-astra",
+          "effort": "ultra",
+          "round": 0,
+          "tokens": 34627,
+          "status": "success",
+          "durationMs": 96806
+        },
+        {
+          "eventId": "e2dde412-9a3e-4f68-804e-61a8a7d6e9fa",
+          "role": "planner",
+          "provider": "openai",
+          "model": "gpt-6-sol",
+          "effort": "ultra",
+          "round": 0,
+          "tokens": 26449,
+          "status": "success",
+          "durationMs": 14931
+        },
+        {
+          "eventId": "cd8c911a-09a8-41e2-b0d4-9d75abec954f",
+          "role": "judge",
+          "provider": "openai",
+          "model": "gpt-6-astra",
+          "effort": "ultra",
+          "round": 0,
+          "tokens": 34573,
+          "status": "success",
+          "durationMs": 97715
+        },
+        {
+          "eventId": "c46c7810-c173-4d0f-b813-ba7497b9e6ac",
+          "role": "planner",
+          "provider": "openai",
+          "model": "gpt-6-sol",
+          "effort": "ultra",
+          "round": 0,
+          "tokens": 27122,
+          "status": "success",
+          "durationMs": 22279
+        },
+        {
+          "eventId": "53062eec-7b3d-40d0-8103-beab14399632",
+          "role": "judge",
+          "provider": "openai",
+          "model": "gpt-6-astra",
+          "effort": "ultra",
+          "round": 0,
+          "tokens": 34472,
+          "status": "success",
+          "durationMs": 86012
+        },
+        {
+          "eventId": "c2b0caa4-87b7-41d6-95d9-a7c56eafc32f",
+          "role": "planner",
+          "provider": "openai",
+          "model": "gpt-6-sol",
+          "effort": "ultra",
+          "round": 0,
+          "tokens": 27884,
+          "status": "success",
+          "durationMs": 43013
+        },
+        {
+          "eventId": "e7249601-2f2f-4ad5-8913-cacbb6a65980",
+          "role": "judge",
+          "provider": "openai",
+          "model": "gpt-6-astra",
+          "effort": "ultra",
+          "round": 0,
+          "tokens": 30550,
+          "status": "success",
+          "durationMs": 28189
+        },
+        {
+          "eventId": "51648162-0d34-4bce-8298-6133dbc43fbe",
+          "role": "judge",
+          "provider": "openai",
+          "model": "gpt-6-astra",
+          "effort": "ultra",
+          "round": 1,
+          "tokens": 32228,
+          "status": "failed",
+          "durationMs": 22399,
+          "failureKind": "format"
+        },
+        {
+          "eventId": "4221a0d3-0ce0-4262-ad53-82822af54086",
+          "role": "judge",
+          "provider": "openai",
+          "model": "gpt-6-sol",
+          "effort": "ultra",
+          "round": 1,
+          "tokens": 31814,
+          "status": "success",
+          "durationMs": 13902
+        },
+        {
+          "eventId": "44228f51-9991-41d7-aa08-7b104e6668bd",
+          "role": "worker",
+          "provider": "openai",
+          "model": "gpt-6-luna",
+          "effort": "max",
+          "round": 1,
+          "tokens": 26068,
+          "status": "success",
+          "durationMs": 7703
+        },
+        {
+          "eventId": "eb1c4fbe-ce50-4e3a-8175-b96df477e2ab",
+          "role": "worker",
+          "provider": "openai",
+          "model": "gpt-6-luna",
+          "effort": "max",
+          "round": 1,
+          "tokens": 35959,
+          "status": "success",
+          "durationMs": 213841
+        },
+        {
+          "eventId": "f2746e79-c30c-4b43-b87f-42362855206c",
+          "role": "judge",
+          "provider": "openai",
+          "model": "gpt-6-sol",
+          "effort": "ultra",
+          "round": 1,
+          "tokens": 27701,
+          "status": "success",
+          "durationMs": 11921
+        },
+        {
+          "eventId": "ac7347d6-188b-4d02-a8b4-15c87d63498c",
+          "role": "judge",
+          "provider": "openai",
+          "model": "gpt-6-sol",
+          "effort": "ultra",
+          "round": 2,
+          "tokens": 32036,
+          "status": "success",
+          "durationMs": 17221
+        },
+        {
+          "eventId": "cd2f9472-9dfe-4190-85ef-f688d8575aa7",
+          "role": "worker",
+          "provider": "openai",
+          "model": "gpt-6-luna",
+          "effort": "max",
+          "round": 2,
+          "tokens": 26359,
+          "status": "success",
+          "durationMs": 9527
+        },
+        {
+          "eventId": "12edd43b-33b0-4530-920c-ead1ba38d021",
+          "role": "worker",
+          "provider": "openai",
+          "model": "gpt-6-luna",
+          "effort": "max",
+          "round": 2,
+          "tokens": 39610,
+          "status": "success",
+          "durationMs": 179808
+        },
+        {
+          "eventId": "32d82811-e9d8-4445-ba8f-f1cd4608e34d",
+          "role": "worker",
+          "provider": "openai",
+          "model": "gpt-6-luna",
+          "effort": "max",
+          "round": 2,
+          "tokens": 43196,
+          "status": "success",
+          "durationMs": 65918
+        },
+        {
+          "eventId": "99e828e3-336e-4821-9283-47460ba3f571",
+          "role": "judge",
+          "provider": "openai",
+          "model": "gpt-6-sol",
+          "effort": "ultra",
+          "round": 2,
+          "tokens": 37055,
+          "status": "success",
+          "durationMs": 19754
+        },
+        {
+          "eventId": "eab242ce-0c71-440b-8595-03ceb60ae8c1",
+          "role": "judge",
+          "provider": "openai",
+          "model": "gpt-6-sol",
+          "effort": "ultra",
+          "round": 3,
+          "tokens": 32281,
+          "status": "success",
+          "durationMs": 14533
+        },
+        {
+          "eventId": "a626be2d-0d6f-4048-8a2c-2fef83d1d30e",
+          "role": "worker",
+          "provider": "openai",
+          "model": "gpt-6-luna",
+          "effort": "max",
+          "round": 3,
+          "tokens": 26879,
+          "status": "success",
+          "durationMs": 14008
+        },
+        {
+          "eventId": "d6715be5-af30-45a7-9048-d62458c5c79c",
+          "role": "worker",
+          "provider": "openai",
+          "model": "gpt-6-luna",
+          "effort": "max",
+          "round": 3,
+          "tokens": 38922,
+          "status": "success",
+          "durationMs": 31802
+        },
+        {
+          "eventId": "4020a4eb-e601-475a-952b-a0f9e5fe460c",
+          "role": "judge",
+          "provider": "openai",
+          "model": "gpt-6-sol",
+          "effort": "ultra",
+          "round": 3,
+          "tokens": 37177,
+          "status": "success",
+          "durationMs": 19558
+        },
+        {
+          "eventId": "45c25de3-f5f2-4109-a6df-a31177047c2a",
+          "role": "judge",
+          "provider": "openai",
+          "model": "gpt-6-sol",
+          "effort": "ultra",
+          "round": 4,
+          "tokens": 32253,
+          "status": "success",
+          "durationMs": 17020
+        },
+        {
+          "eventId": "52047f42-1625-4078-94f9-340018d12352",
+          "role": "worker",
+          "provider": "openai",
+          "model": "gpt-6-luna",
+          "effort": "max",
+          "round": 4,
+          "tokens": 27445,
+          "status": "success",
+          "durationMs": 18554
+        },
+        {
+          "eventId": "29e16a46-dd5c-48ea-bd4e-3629a1761517",
+          "role": "worker",
+          "provider": "openai",
+          "model": "gpt-6-luna",
+          "effort": "max",
+          "round": 4,
+          "tokens": 34280,
+          "status": "success",
+          "durationMs": 27698
+        },
+        {
+          "eventId": "9a697f49-ef18-4bec-8abf-11e93ba29791",
+          "role": "judge",
+          "provider": "openai",
+          "model": "gpt-6-sol",
+          "effort": "ultra",
+          "round": 4,
+          "tokens": 37441,
+          "status": "success",
+          "durationMs": 22636
+        },
+        {
+          "eventId": "04a23884-5450-4b18-8a3d-95486ccd9334",
+          "role": "planner",
+          "provider": "openai",
+          "model": "gpt-6-sol",
+          "effort": "ultra",
+          "round": 4,
+          "tokens": 26760,
+          "status": "success",
+          "durationMs": 31718
+        },
+        {
+          "eventId": "310b9e63-f2e4-4fed-8ede-4fd7f7adc0c1",
+          "role": "judge",
+          "provider": "openai",
+          "model": "gpt-6-sol",
+          "effort": "ultra",
+          "round": 5,
+          "tokens": 32134,
+          "status": "success",
+          "durationMs": 13837
+        },
+        {
+          "eventId": "32a2ad25-e2e5-495f-ba95-24f0149265fa",
+          "role": "worker",
+          "provider": "openai",
+          "model": "gpt-6-sol",
+          "effort": "ultra",
+          "round": 5,
+          "tokens": 27253,
+          "status": "success",
+          "durationMs": 22635
+        },
+        {
+          "eventId": "b56b1e36-aad5-498b-9cb5-6c3999bf8930",
+          "role": "judge",
+          "provider": "openai",
+          "model": "gpt-6-sol",
+          "effort": "ultra",
+          "round": 5,
+          "tokens": 36904,
+          "status": "success",
+          "durationMs": 13992
+        },
+        {
+          "eventId": "8ed29664-9f3c-4269-be0f-b059d2e058ac",
+          "role": "judge",
+          "provider": "openai",
+          "model": "gpt-6-sol",
+          "effort": "ultra",
+          "round": 6,
+          "tokens": 32108,
+          "status": "success",
+          "durationMs": 15426
+        },
+        {
+          "eventId": "73b59902-d64f-4bb2-bb16-057f63bbb536",
+          "role": "worker",
+          "provider": "openai",
+          "model": "gpt-6-sol",
+          "effort": "ultra",
+          "round": 6,
+          "tokens": 27600,
+          "status": "success",
+          "durationMs": 22565
+        },
+        {
+          "eventId": "bdbaecb7-64e5-48bf-a66f-3963c9783a12",
+          "role": "judge",
+          "provider": "openai",
+          "model": "gpt-6-sol",
+          "effort": "ultra",
+          "round": 6,
+          "tokens": 36943,
+          "status": "success",
+          "durationMs": 13244
+        }
+      ],
+      "missingUsageCalls": 0,
+      "failedCalls": 3,
+      "humanActions": {
+        "manualResumes": 0,
+        "stopRequests": 0,
+        "completeCoverage": true
+      },
+      "manualCodeEdits": 0,
+      "manualResumes": 0,
+      "autoResumeAttempts": 0,
+      "milestones": [
+        {
+          "id": "model",
+          "title": "상태 모델과 입력·저장 데이터 검증",
+          "status": "completed",
+          "attempts": 1,
+          "evidence": {
+            "reviewed": true,
+            "round": 1,
+            "verifiedAt": 1791526617347,
+            "verifyCommand": "node --test model.test.mjs",
+            "verificationOutput": "✔ 입력 경계값을 정리하고 허용한다 (0.318792ms)\n✔ 필수값, 길이 초과, 정수가 아닌 시간과 범위 밖 시간을 거부한다 (0.071708ms)\n✔ 작업 추가는 공백을 정리하고 기존 목록을 변경하지 않는다 (0.5035ms)\n✔ 완료 처리와 완료 취소가 작업 상태를 전환한다 (0.08675ms)\n✔ 삭제는 지정한 작업만 제거한다 (0.070333ms)\n✔ 검색은 제목과 과목을 대소문자 구분 없이 찾고 상태 필터와 결합한다 (0.393291ms)\n✔ 요약은 필터 결과가 아니라 전체 작업을 기준으로 계산한다 (0.076291ms)\n✔ 저장 데이터 직렬화 후 작업 목록을 정상 복원한다 (0.109833ms)\n✔ 잘못된 JSON과 구조 또는 값이 잘못된 저장 데이터를 거부한다 (0.376333ms)\nℹ tests 9\nℹ suites 0\nℹ pass 9\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 39.390167\n",
+            "reviewSummary": "GPT-6-Sol · gpt-6-sol\n상태 모델과 입력·저장 데이터 검증 완료: pass · model.mjs에 입력 경계 검증, 작업 추가·완료 전환·삭제, 필터·대소문자 무시 검색, 전체 작업 기준 요약, 저장 데이터 파싱·검증이 구현되어 있습니다. model.test.mjs는 이 동작을 함수의 입력·출력으로 독립 검사하며, 제시된 검증 결과에서 9개 테스트가 모두 통과했습니다.",
+            "files": {
+              "model.mjs": "82a3d3c44be202de151c5aeed500f1d46e9fe34f17d0b679b37b260be0ef6ee9",
+              "model.test.mjs": "68f8d64b5c2f37b227567d72dbe891a539c5fea23dc55477681b5daa7633c11c"
+            }
+          }
+        },
+        {
+          "id": "ui",
+          "title": "반응형 화면과 브라우저 상호작용 연결",
+          "status": "pending",
+          "attempts": 5,
+          "evidence": null
+        },
+        {
+          "id": "integration",
+          "title": "정적 서버·실행 안내와 전체 통합 검증",
+          "status": "pending",
+          "attempts": 0,
+          "evidence": null
+        }
+      ],
+      "source": "/Users/dgsw59/Library/Application Support/Mosaic Desk/harness/projects/2a3033bc-fb35-4764-932c-158a89891a85/focus-board-01",
+      "workspace": "/Users/dgsw59/Library/Application Support/Mosaic Desk/harness/2a3033bc-fb35-4764-932c-158a89891a85/workspace",
+      "finalRoles": {
+        "planner": {
+          "provider": "openai",
+          "model": "gpt-6-sol",
+          "label": "GPT-6-Sol",
+          "supportedReasoningEfforts": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+            "ultra"
+          ],
+          "codexAccountId": "default",
+          "decisionOnly": false,
+          "reasoningEffort": "ultra",
+          "automatic": true,
+          "nativePlugins": false,
+          "loopMcp": false,
+          "instructions": ""
+        },
+        "worker": {
+          "provider": "openai",
+          "model": "gpt-6-sol",
+          "label": "GPT-6-Sol",
+          "supportedReasoningEfforts": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+            "ultra"
+          ],
+          "codexAccountId": "default",
+          "decisionOnly": false,
+          "reasoningEffort": "ultra",
+          "automatic": true,
+          "nativePlugins": false,
+          "loopMcp": false,
+          "instructions": ""
+        },
+        "judge": {
+          "provider": "openai",
+          "model": "gpt-6-sol",
+          "label": "GPT-6-Sol",
+          "supportedReasoningEfforts": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+            "ultra"
+          ],
+          "codexAccountId": "default",
+          "decisionOnly": false,
+          "reasoningEffort": "ultra",
+          "automatic": false,
+          "nativePlugins": false,
+          "loopMcp": false,
+          "instructions": ""
+        }
+      },
+      "exportedFiles": [
+        "app.mjs",
+        "app.test.mjs",
+        "index.html",
+        "model.mjs",
+        "model.test.mjs",
+        "styles.css"
+      ],
+      "independentQa": {
+        "passed": true,
+        "checks": [
+          {
+            "id": "empty",
+            "viewport": "desktop",
+            "passed": true
+          },
+          {
+            "id": "empty-layout",
+            "viewport": "desktop",
+            "passed": true,
+            "actual": {
+              "overflow": false,
+              "width": 1440,
+              "body": true
+            }
+          },
+          {
+            "id": "required",
+            "viewport": "desktop",
+            "passed": true
+          },
+          {
+            "id": "required-layout",
+            "viewport": "desktop",
+            "passed": true,
+            "actual": {
+              "overflow": false,
+              "width": 1440,
+              "body": true
+            }
+          },
+          {
+            "id": "add-and-persist",
+            "viewport": "desktop",
+            "passed": true
+          },
+          {
+            "id": "add-and-persist-layout",
+            "viewport": "desktop",
+            "passed": true,
+            "actual": {
+              "overflow": false,
+              "width": 1440,
+              "body": true
+            }
+          },
+          {
+            "id": "invalid-minutes",
+            "viewport": "desktop",
+            "passed": true
+          },
+          {
+            "id": "invalid-minutes-layout",
+            "viewport": "desktop",
+            "passed": true,
+            "actual": {
+              "overflow": false,
+              "width": 1440,
+              "body": true
+            }
+          },
+          {
+            "id": "toggle-and-undo",
+            "viewport": "desktop",
+            "passed": true
+          },
+          {
+            "id": "toggle-and-undo-layout",
+            "viewport": "desktop",
+            "passed": true,
+            "actual": {
+              "overflow": false,
+              "width": 1440,
+              "body": true
+            }
+          },
+          {
+            "id": "filter",
+            "viewport": "desktop",
+            "passed": true
+          },
+          {
+            "id": "filter-layout",
+            "viewport": "desktop",
+            "passed": true,
+            "actual": {
+              "overflow": false,
+              "width": 1440,
+              "body": true
+            }
+          },
+          {
+            "id": "search",
+            "viewport": "desktop",
+            "passed": true
+          },
+          {
+            "id": "search-layout",
+            "viewport": "desktop",
+            "passed": true,
+            "actual": {
+              "overflow": false,
+              "width": 1440,
+              "body": true
+            }
+          },
+          {
+            "id": "delete-last",
+            "viewport": "desktop",
+            "passed": true
+          },
+          {
+            "id": "delete-last-layout",
+            "viewport": "desktop",
+            "passed": true,
+            "actual": {
+              "overflow": false,
+              "width": 1440,
+              "body": true
+            }
+          },
+          {
+            "id": "keyboard-focus",
+            "viewport": "desktop",
+            "passed": true
+          },
+          {
+            "id": "keyboard-focus-layout",
+            "viewport": "desktop",
+            "passed": true,
+            "actual": {
+              "overflow": false,
+              "width": 1440,
+              "body": true
+            }
+          },
+          {
+            "id": "literal-text",
+            "viewport": "desktop",
+            "passed": true
+          },
+          {
+            "id": "literal-text-layout",
+            "viewport": "desktop",
+            "passed": true,
+            "actual": {
+              "overflow": false,
+              "width": 1440,
+              "body": true
+            }
+          },
+          {
+            "id": "long-text",
+            "viewport": "desktop",
+            "passed": true
+          },
+          {
+            "id": "long-text-layout",
+            "viewport": "desktop",
+            "passed": true,
+            "actual": {
+              "overflow": false,
+              "width": 1440,
+              "body": true
+            }
+          },
+          {
+            "id": "completed-persist",
+            "viewport": "desktop",
+            "passed": true
+          },
+          {
+            "id": "completed-persist-layout",
+            "viewport": "desktop",
+            "passed": true,
+            "actual": {
+              "overflow": false,
+              "width": 1440,
+              "body": true
+            }
+          },
+          {
+            "id": "layout",
+            "viewport": "desktop",
+            "passed": true,
+            "actual": {
+              "overflow": false,
+              "width": 1440,
+              "body": true
+            }
+          },
+          {
+            "id": "empty",
+            "viewport": "mobile",
+            "passed": true
+          },
+          {
+            "id": "empty-layout",
+            "viewport": "mobile",
+            "passed": true,
+            "actual": {
+              "overflow": false,
+              "width": 390,
+              "body": true
+            }
+          },
+          {
+            "id": "required",
+            "viewport": "mobile",
+            "passed": true
+          },
+          {
+            "id": "required-layout",
+            "viewport": "mobile",
+            "passed": true,
+            "actual": {
+              "overflow": false,
+              "width": 390,
+              "body": true
+            }
+          },
+          {
+            "id": "add-and-persist",
+            "viewport": "mobile",
+            "passed": true
+          },
+          {
+            "id": "add-and-persist-layout",
+            "viewport": "mobile",
+            "passed": true,
+            "actual": {
+              "overflow": false,
+              "width": 390,
+              "body": true
+            }
+          },
+          {
+            "id": "invalid-minutes",
+            "viewport": "mobile",
+            "passed": true
+          },
+          {
+            "id": "invalid-minutes-layout",
+            "viewport": "mobile",
+            "passed": true,
+            "actual": {
+              "overflow": false,
+              "width": 390,
+              "body": true
+            }
+          },
+          {
+            "id": "toggle-and-undo",
+            "viewport": "mobile",
+            "passed": true
+          },
+          {
+            "id": "toggle-and-undo-layout",
+            "viewport": "mobile",
+            "passed": true,
+            "actual": {
+              "overflow": false,
+              "width": 390,
+              "body": true
+            }
+          },
+          {
+            "id": "filter",
+            "viewport": "mobile",
+            "passed": true
+          },
+          {
+            "id": "filter-layout",
+            "viewport": "mobile",
+            "passed": true,
+            "actual": {
+              "overflow": false,
+              "width": 390,
+              "body": true
+            }
+          },
+          {
+            "id": "search",
+            "viewport": "mobile",
+            "passed": true
+          },
+          {
+            "id": "search-layout",
+            "viewport": "mobile",
+            "passed": true,
+            "actual": {
+              "overflow": false,
+              "width": 390,
+              "body": true
+            }
+          },
+          {
+            "id": "delete-last",
+            "viewport": "mobile",
+            "passed": true
+          },
+          {
+            "id": "delete-last-layout",
+            "viewport": "mobile",
+            "passed": true,
+            "actual": {
+              "overflow": false,
+              "width": 390,
+              "body": true
+            }
+          },
+          {
+            "id": "keyboard-focus",
+            "viewport": "mobile",
+            "passed": true
+          },
+          {
+            "id": "keyboard-focus-layout",
+            "viewport": "mobile",
+            "passed": true,
+            "actual": {
+              "overflow": false,
+              "width": 390,
+              "body": true
+            }
+          },
+          {
+            "id": "literal-text",
+            "viewport": "mobile",
+            "passed": true
+          },
+          {
+            "id": "literal-text-layout",
+            "viewport": "mobile",
+            "passed": true,
+            "actual": {
+              "overflow": false,
+              "width": 390,
+              "body": true
+            }
+          },
+          {
+            "id": "long-text",
+            "viewport": "mobile",
+            "passed": true
+          },
+          {
+            "id": "long-text-layout",
+            "viewport": "mobile",
+            "passed": true,
+            "actual": {
+              "overflow": false,
+              "width": 390,
+              "body": true
+            }
+          },
+          {
+            "id": "completed-persist",
+            "viewport": "mobile",
+            "passed": true
+          },
+          {
+            "id": "completed-persist-layout",
+            "viewport": "mobile",
+            "passed": true,
+            "actual": {
+              "overflow": false,
+              "width": 390,
+              "body": true
+            }
+          },
+          {
+            "id": "layout",
+            "viewport": "mobile",
+            "passed": true,
+            "actual": {
+              "overflow": false,
+              "width": 390,
+              "body": true
+            }
+          }
+        ],
+        "failures": [],
+        "screenshots": [
+          {
+            "checkId": "empty",
+            "viewport": "desktop",
+            "name": "desktop-empty.png"
+          },
+          {
+            "checkId": "required",
+            "viewport": "desktop",
+            "name": "desktop-required.png"
+          },
+          {
+            "checkId": "add-and-persist",
+            "viewport": "desktop",
+            "name": "desktop-add-and-persist.png"
+          },
+          {
+            "checkId": "invalid-minutes",
+            "viewport": "desktop",
+            "name": "desktop-invalid-minutes.png"
+          },
+          {
+            "checkId": "toggle-and-undo",
+            "viewport": "desktop",
+            "name": "desktop-toggle-and-undo.png"
+          },
+          {
+            "checkId": "filter",
+            "viewport": "desktop",
+            "name": "desktop-filter.png"
+          },
+          {
+            "checkId": "search",
+            "viewport": "desktop",
+            "name": "desktop-search.png"
+          },
+          {
+            "checkId": "delete-last",
+            "viewport": "desktop",
+            "name": "desktop-delete-last.png"
+          },
+          {
+            "checkId": "keyboard-focus",
+            "viewport": "desktop",
+            "name": "desktop-keyboard-focus.png"
+          },
+          {
+            "checkId": "literal-text",
+            "viewport": "desktop",
+            "name": "desktop-literal-text.png"
+          },
+          {
+            "checkId": "long-text",
+            "viewport": "desktop",
+            "name": "desktop-long-text.png"
+          },
+          {
+            "checkId": "completed-persist",
+            "viewport": "desktop",
+            "name": "desktop-completed-persist.png"
+          },
+          {
+            "checkId": "empty",
+            "viewport": "mobile",
+            "name": "mobile-empty.png"
+          },
+          {
+            "checkId": "required",
+            "viewport": "mobile",
+            "name": "mobile-required.png"
+          },
+          {
+            "checkId": "add-and-persist",
+            "viewport": "mobile",
+            "name": "mobile-add-and-persist.png"
+          },
+          {
+            "checkId": "invalid-minutes",
+            "viewport": "mobile",
+            "name": "mobile-invalid-minutes.png"
+          },
+          {
+            "checkId": "toggle-and-undo",
+            "viewport": "mobile",
+            "name": "mobile-toggle-and-undo.png"
+          },
+          {
+            "checkId": "filter",
+            "viewport": "mobile",
+            "name": "mobile-filter.png"
+          },
+          {
+            "checkId": "search",
+            "viewport": "mobile",
+            "name": "mobile-search.png"
+          },
+          {
+            "checkId": "delete-last",
+            "viewport": "mobile",
+            "name": "mobile-delete-last.png"
+          },
+          {
+            "checkId": "keyboard-focus",
+            "viewport": "mobile",
+            "name": "mobile-keyboard-focus.png"
+          },
+          {
+            "checkId": "literal-text",
+            "viewport": "mobile",
+            "name": "mobile-literal-text.png"
+          },
+          {
+            "checkId": "long-text",
+            "viewport": "mobile",
+            "name": "mobile-long-text.png"
+          },
+          {
+            "checkId": "completed-persist",
+            "viewport": "mobile",
+            "name": "mobile-completed-persist.png"
+          }
+        ],
+        "outputDirectory": "harness/2a3033bc-fb35-4764-932c-158a89891a85/browser-qa/round-1",
+        "testedAt": 1791528374023,
+        "expectedCheckCount": 50,
+        "passedCheckCount": 50
+      },
+      "browserQaAttempts": 0,
+      "readmeQaAttempts": 0,
+      "globalVerificationAttempts": 0,
+      "internalTests": {
+        "configuration": "automatic-loop",
+        "status": "PASS",
+        "exitCode": 0,
+        "tests": 17,
+        "passed": 17,
+        "failed": 0,
+        "error": null
+      }
+    },
+    {
+      "configuration": "gpt-6-luna-max",
+      "label": "GPT-6-Luna Max 단일 Harness",
+      "runId": "961d29d1-af50-4292-bcc7-4ef62ac09df9",
+      "startedAt": 1791527213553,
+      "initialRoles": {
+        "planner": {
+          "provider": "openai",
+          "model": "gpt-6-luna",
+          "label": "GPT-6-Luna",
+          "supportedReasoningEfforts": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "codexAccountId": "default",
+          "decisionOnly": false,
+          "reasoningEffort": "max",
+          "automatic": false,
+          "nativePlugins": false,
+          "loopMcp": false,
+          "instructions": "",
+          "fallbacks": []
+        },
+        "worker": {
+          "provider": "openai",
+          "model": "gpt-6-luna",
+          "label": "GPT-6-Luna",
+          "supportedReasoningEfforts": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "codexAccountId": "default",
+          "decisionOnly": false,
+          "reasoningEffort": "max",
+          "automatic": false,
+          "nativePlugins": false,
+          "loopMcp": false,
+          "instructions": "",
+          "fallbacks": []
+        },
+        "judge": {
+          "provider": "openai",
+          "model": "gpt-6-luna",
+          "label": "GPT-6-Luna",
+          "supportedReasoningEfforts": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "codexAccountId": "default",
+          "decisionOnly": false,
+          "reasoningEffort": "max",
+          "automatic": false,
+          "nativePlugins": false,
+          "loopMcp": false,
+          "instructions": "",
+          "fallbacks": []
+        }
+      },
+      "observationStop": false,
+      "progress": [
+        {
+          "at": 1791527213577,
+          "elapsedMs": 24,
+          "status": "running",
+          "stage": "prepare",
+          "round": 0,
+          "calls": 0,
+          "tokens": 0
+        },
+        {
+          "at": 1791527218582,
+          "elapsedMs": 5029,
+          "status": "running",
+          "stage": "configuring",
+          "round": 0,
+          "calls": 0,
+          "tokens": 0
+        },
+        {
+          "at": 1791527223587,
+          "elapsedMs": 10034,
+          "status": "running",
+          "stage": "configuring",
+          "round": 0,
+          "calls": 1,
+          "tokens": 19912
+        },
+        {
+          "at": 1791527228592,
+          "elapsedMs": 15039,
+          "status": "running",
+          "stage": "planning",
+          "round": 0,
+          "calls": 2,
+          "tokens": 39994
+        },
+        {
+          "at": 1791527248613,
+          "elapsedMs": 35060,
+          "status": "running",
+          "stage": "planning",
+          "round": 0,
+          "calls": 3,
+          "tokens": 61580
+        },
+        {
+          "at": 1791527348710,
+          "elapsedMs": 135157,
+          "status": "running",
+          "stage": "planning",
+          "round": 0,
+          "calls": 4,
+          "tokens": 93537
+        },
+        {
+          "at": 1791527383749,
+          "elapsedMs": 170196,
+          "status": "running",
+          "stage": "planning",
+          "round": 0,
+          "calls": 5,
+          "tokens": 124216
+        },
+        {
+          "at": 1791527418823,
+          "elapsedMs": 205270,
+          "status": "running",
+          "stage": "planning",
+          "round": 0,
+          "calls": 6,
+          "tokens": 150979
+        },
+        {
+          "at": 1791527443858,
+          "elapsedMs": 230305,
+          "status": "failed",
+          "stage": "planning",
+          "round": 0,
+          "calls": 7,
+          "tokens": 176453
+        }
+      ],
+      "finishedAt": 1791527443863,
+      "elapsedMs": 228693,
+      "status": "failed",
+      "stage": "planning",
+      "summary": "독립 QA 보완 오류: save: 기존 검사가 있는 기능을 해당 없음으로 바꿀 수 없습니다.",
+      "rounds": 0,
+      "applied": false,
+      "verificationPassed": false,
+      "browserQaPassed": false,
+      "readmeQaPassed": false,
+      "readmeQaRequired": false,
+      "reportedTokens": 176453,
+      "modelUsage": [
+        {
+          "provider": "openai",
+          "model": "gpt-6-luna",
+          "label": "GPT-6-Luna",
+          "totalTokens": 176453,
+          "calls": 7
+        }
+      ],
+      "modelCalls": [
+        {
+          "eventId": "5d7bd832-89ae-42eb-9225-5e665e346697",
+          "role": "planner",
+          "provider": "openai",
+          "model": "gpt-6-luna",
+          "effort": "max",
+          "round": 0,
+          "tokens": 19912,
+          "status": "success",
+          "durationMs": 5923
+        },
+        {
+          "eventId": "01a599a3-8773-4012-9078-cf67b4064573",
+          "role": "judge",
+          "provider": "openai",
+          "model": "gpt-6-luna",
+          "effort": "max",
+          "round": 0,
+          "tokens": 20082,
+          "status": "success",
+          "durationMs": 6140
+        },
+        {
+          "eventId": "0c776d1c-28f9-47bd-b5ae-04a07f1d6c36",
+          "role": "planner",
+          "provider": "openai",
+          "model": "gpt-6-luna",
+          "effort": "max",
+          "round": 0,
+          "tokens": 21586,
+          "status": "success",
+          "durationMs": 20666
+        },
+        {
+          "eventId": "1ca4b6d2-9d86-4fd3-9d68-a70d289772e1",
+          "role": "planner",
+          "provider": "openai",
+          "model": "gpt-6-luna",
+          "effort": "max",
+          "round": 0,
+          "tokens": 31957,
+          "status": "success",
+          "durationMs": 100073
+        },
+        {
+          "eventId": "15921470-34f4-404e-9b1d-2df225a34da2",
+          "role": "judge",
+          "provider": "openai",
+          "model": "gpt-6-luna",
+          "effort": "max",
+          "round": 0,
+          "tokens": 30679,
+          "status": "success",
+          "durationMs": 33137
+        },
+        {
+          "eventId": "052dad8d-e6b2-47e1-a7af-5b3633e37713",
+          "role": "planner",
+          "provider": "openai",
+          "model": "gpt-6-luna",
+          "effort": "max",
+          "round": 0,
+          "tokens": 26763,
+          "status": "failed",
+          "durationMs": 38106,
+          "failureKind": "format"
+        },
+        {
+          "eventId": "a39de5f4-c2bd-4daa-b167-7d70a1300737",
+          "role": "planner",
+          "provider": "openai",
+          "model": "gpt-6-luna",
+          "effort": "max",
+          "round": 0,
+          "tokens": 25474,
+          "status": "failed",
+          "durationMs": 24269,
+          "failureKind": "format"
+        }
+      ],
+      "missingUsageCalls": 0,
+      "failedCalls": 2,
+      "humanActions": {
+        "manualResumes": 0,
+        "stopRequests": 0,
+        "completeCoverage": true
+      },
+      "manualCodeEdits": 0,
+      "manualResumes": 0,
+      "autoResumeAttempts": 0,
+      "milestones": [],
+      "source": "/Users/dgsw59/Library/Application Support/Mosaic Desk/harness/projects/961d29d1-af50-4292-bcc7-4ef62ac09df9/focus-board-01",
+      "workspace": "/Users/dgsw59/Library/Application Support/Mosaic Desk/harness/961d29d1-af50-4292-bcc7-4ef62ac09df9/workspace",
+      "finalRoles": {
+        "planner": {
+          "provider": "openai",
+          "model": "gpt-6-luna",
+          "label": "GPT-6-Luna",
+          "supportedReasoningEfforts": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "codexAccountId": "default",
+          "decisionOnly": false,
+          "reasoningEffort": "max",
+          "automatic": false,
+          "nativePlugins": false,
+          "loopMcp": false,
+          "instructions": ""
+        },
+        "worker": {
+          "provider": "openai",
+          "model": "gpt-6-luna",
+          "label": "GPT-6-Luna",
+          "supportedReasoningEfforts": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "codexAccountId": "default",
+          "decisionOnly": false,
+          "reasoningEffort": "max",
+          "automatic": false,
+          "nativePlugins": false,
+          "loopMcp": false,
+          "instructions": ""
+        },
+        "judge": {
+          "provider": "openai",
+          "model": "gpt-6-luna",
+          "label": "GPT-6-Luna",
+          "supportedReasoningEfforts": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "codexAccountId": "default",
+          "decisionOnly": false,
+          "reasoningEffort": "max",
+          "automatic": false,
+          "nativePlugins": false,
+          "loopMcp": false,
+          "instructions": ""
+        }
+      },
+      "exportedFiles": [],
+      "independentQa": {
+        "passed": false,
+        "checks": [],
+        "failures": [
+          "ENOENT: no such file or directory, realpath '/Users/dgsw59/Documents/Codex/2026-09-26/sj/outputs/mosaic-ai/reports/assets/live-comparison-2026-10-09/qa-user-data/harness/961d29d1-af50-4292-bcc7-4ef62ac09df9/workspace/index.html'"
+        ],
+        "unavailable": true,
+        "expectedCheckCount": 50,
+        "passedCheckCount": 0
+      },
+      "browserQaAttempts": 0,
+      "readmeQaAttempts": 0,
+      "globalVerificationAttempts": 0,
+      "internalTests": {
+        "configuration": "gpt-6-luna-max",
+        "status": "NOT_RUN",
+        "reason": "구현 단계 전에 종료되어 테스트 파일이 생성되지 않았습니다."
+      }
+    },
+    {
+      "configuration": "gpt-6-sol-max",
+      "label": "GPT-6-Sol Max 단일 Harness",
+      "runId": "7491c24d-aca6-4faf-b828-6061aa164eb5",
+      "startedAt": 1791527443867,
+      "initialRoles": {
+        "planner": {
+          "provider": "openai",
+          "model": "gpt-6-sol",
+          "label": "GPT-6-Sol",
+          "supportedReasoningEfforts": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+            "ultra"
+          ],
+          "codexAccountId": "default",
+          "decisionOnly": false,
+          "reasoningEffort": "max",
+          "automatic": false,
+          "nativePlugins": false,
+          "loopMcp": false,
+          "instructions": "",
+          "fallbacks": []
+        },
+        "worker": {
+          "provider": "openai",
+          "model": "gpt-6-sol",
+          "label": "GPT-6-Sol",
+          "supportedReasoningEfforts": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+            "ultra"
+          ],
+          "codexAccountId": "default",
+          "decisionOnly": false,
+          "reasoningEffort": "max",
+          "automatic": false,
+          "nativePlugins": false,
+          "loopMcp": false,
+          "instructions": "",
+          "fallbacks": []
+        },
+        "judge": {
+          "provider": "openai",
+          "model": "gpt-6-sol",
+          "label": "GPT-6-Sol",
+          "supportedReasoningEfforts": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+            "ultra"
+          ],
+          "codexAccountId": "default",
+          "decisionOnly": false,
+          "reasoningEffort": "max",
+          "automatic": false,
+          "nativePlugins": false,
+          "loopMcp": false,
+          "instructions": "",
+          "fallbacks": []
+        }
+      },
+      "observationStop": false,
+      "progress": [
+        {
+          "at": 1791527443884,
+          "elapsedMs": 17,
+          "status": "running",
+          "stage": "prepare",
+          "round": 0,
+          "calls": 0,
+          "tokens": 0
+        },
+        {
+          "at": 1791527448889,
+          "elapsedMs": 5022,
+          "status": "running",
+          "stage": "configuring",
+          "round": 0,
+          "calls": 0,
+          "tokens": 0
+        },
+        {
+          "at": 1791527453900,
+          "elapsedMs": 10033,
+          "status": "running",
+          "stage": "configuring",
+          "round": 0,
+          "calls": 1,
+          "tokens": 20024
+        },
+        {
+          "at": 1791527463914,
+          "elapsedMs": 20047,
+          "status": "running",
+          "stage": "planning",
+          "round": 0,
+          "calls": 2,
+          "tokens": 40268
+        },
+        {
+          "at": 1791527503958,
+          "elapsedMs": 60091,
+          "status": "running",
+          "stage": "planning",
+          "round": 0,
+          "calls": 3,
+          "tokens": 62417
+        },
+        {
+          "at": 1791527709252,
+          "elapsedMs": 265385,
+          "status": "running",
+          "stage": "planning",
+          "round": 0,
+          "calls": 4,
+          "tokens": 95791
+        },
+        {
+          "at": 1791527779337,
+          "elapsedMs": 335470,
+          "status": "running",
+          "stage": "planning",
+          "round": 0,
+          "calls": 5,
+          "tokens": 127657
+        },
+        {
+          "at": 1791527844413,
+          "elapsedMs": 400546,
+          "status": "running",
+          "stage": "planning",
+          "round": 0,
+          "calls": 6,
+          "tokens": 154918
+        },
+        {
+          "at": 1791527959546,
+          "elapsedMs": 515679,
+          "status": "running",
+          "stage": "planning",
+          "round": 0,
+          "calls": 7,
+          "tokens": 190250
+        },
+        {
+          "at": 1791528004698,
+          "elapsedMs": 560831,
+          "status": "running",
+          "stage": "planning",
+          "round": 0,
+          "calls": 8,
+          "tokens": 217970
+        },
+        {
+          "at": 1791528064767,
+          "elapsedMs": 620900,
+          "status": "running",
+          "stage": "planning",
+          "round": 0,
+          "calls": 9,
+          "tokens": 251850
+        },
+        {
+          "at": 1791528074780,
+          "elapsedMs": 630913,
+          "status": "running",
+          "stage": "planning",
+          "round": 0,
+          "calls": 10,
+          "tokens": 277596
+        },
+        {
+          "at": 1791528084795,
+          "elapsedMs": 640928,
+          "status": "failed",
+          "stage": "planning",
+          "round": 0,
+          "calls": 11,
+          "tokens": 303379
+        }
+      ],
+      "finishedAt": 1791528084798,
+      "elapsedMs": 639243,
+      "status": "failed",
+      "stage": "planning",
+      "summary": "독립 QA 보완 오류: 실제 보완 내용이 없습니다. 판정에서 누락된 행동 검사를 추가하거나 허용된 실패 검사만 고치세요.",
+      "rounds": 0,
+      "applied": false,
+      "verificationPassed": false,
+      "browserQaPassed": false,
+      "readmeQaPassed": false,
+      "readmeQaRequired": false,
+      "reportedTokens": 303379,
+      "modelUsage": [
+        {
+          "provider": "openai",
+          "model": "gpt-6-sol",
+          "label": "GPT-6-Sol",
+          "totalTokens": 303379,
+          "calls": 11
+        }
+      ],
+      "modelCalls": [
+        {
+          "eventId": "98a0a906-f5a8-4941-af33-93417a5acb7e",
+          "role": "planner",
+          "provider": "openai",
+          "model": "gpt-6-sol",
+          "effort": "max",
+          "round": 0,
+          "tokens": 20024,
+          "status": "success",
+          "durationMs": 7355
+        },
+        {
+          "eventId": "8f06becb-7bb8-4c9d-aae6-1d47ec4bb90a",
+          "role": "judge",
+          "provider": "openai",
+          "model": "gpt-6-sol",
+          "effort": "max",
+          "round": 0,
+          "tokens": 20244,
+          "status": "success",
+          "durationMs": 10866
+        },
+        {
+          "eventId": "d3eecee7-1dcd-470d-be9c-58d887abdc5b",
+          "role": "planner",
+          "provider": "openai",
+          "model": "gpt-6-sol",
+          "effort": "max",
+          "round": 0,
+          "tokens": 22149,
+          "status": "success",
+          "durationMs": 38633
+        },
+        {
+          "eventId": "19553e0e-2324-403a-a554-e5b9b520ca42",
+          "role": "planner",
+          "provider": "openai",
+          "model": "gpt-6-sol",
+          "effort": "max",
+          "round": 0,
+          "tokens": 33374,
+          "status": "success",
+          "durationMs": 206621
+        },
+        {
+          "eventId": "53769bab-3625-4ba6-b3d1-9a0ac5938f96",
+          "role": "judge",
+          "provider": "openai",
+          "model": "gpt-6-sol",
+          "effort": "max",
+          "round": 0,
+          "tokens": 31866,
+          "status": "success",
+          "durationMs": 69279
+        },
+        {
+          "eventId": "ee09777a-8ad1-4663-9b13-d39fe0e28aac",
+          "role": "planner",
+          "provider": "openai",
+          "model": "gpt-6-sol",
+          "effort": "max",
+          "round": 0,
+          "tokens": 27261,
+          "status": "success",
+          "durationMs": 65513
+        },
+        {
+          "eventId": "a5132c38-ed72-4491-aac4-5cf438d75905",
+          "role": "judge",
+          "provider": "openai",
+          "model": "gpt-6-sol",
+          "effort": "max",
+          "round": 0,
+          "tokens": 35332,
+          "status": "success",
+          "durationMs": 114404
+        },
+        {
+          "eventId": "72586f20-c812-4ca5-8ec7-cd9f22e7466f",
+          "role": "planner",
+          "provider": "openai",
+          "model": "gpt-6-sol",
+          "effort": "max",
+          "round": 0,
+          "tokens": 27720,
+          "status": "success",
+          "durationMs": 46005
+        },
+        {
+          "eventId": "54fea5d5-2276-4901-8425-0df148969e0a",
+          "role": "judge",
+          "provider": "openai",
+          "model": "gpt-6-sol",
+          "effort": "max",
+          "round": 0,
+          "tokens": 33880,
+          "status": "success",
+          "durationMs": 57901
+        },
+        {
+          "eventId": "fbde24af-aafa-456e-9f70-155c85ef523d",
+          "role": "planner",
+          "provider": "openai",
+          "model": "gpt-6-sol",
+          "effort": "max",
+          "round": 0,
+          "tokens": 25746,
+          "status": "failed",
+          "durationMs": 11990,
+          "failureKind": "format"
+        },
+        {
+          "eventId": "4a6e77fd-128b-4cf7-b213-e5a61b4655f0",
+          "role": "planner",
+          "provider": "openai",
+          "model": "gpt-6-sol",
+          "effort": "max",
+          "round": 0,
+          "tokens": 25783,
+          "status": "failed",
+          "durationMs": 10283,
+          "failureKind": "format"
+        }
+      ],
+      "missingUsageCalls": 0,
+      "failedCalls": 2,
+      "humanActions": {
+        "manualResumes": 0,
+        "stopRequests": 0,
+        "completeCoverage": true
+      },
+      "manualCodeEdits": 0,
+      "manualResumes": 0,
+      "autoResumeAttempts": 0,
+      "milestones": [],
+      "source": "/Users/dgsw59/Library/Application Support/Mosaic Desk/harness/projects/7491c24d-aca6-4faf-b828-6061aa164eb5/focus-board",
+      "workspace": "/Users/dgsw59/Library/Application Support/Mosaic Desk/harness/7491c24d-aca6-4faf-b828-6061aa164eb5/workspace",
+      "finalRoles": {
+        "planner": {
+          "provider": "openai",
+          "model": "gpt-6-sol",
+          "label": "GPT-6-Sol",
+          "supportedReasoningEfforts": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+            "ultra"
+          ],
+          "codexAccountId": "default",
+          "decisionOnly": false,
+          "reasoningEffort": "max",
+          "automatic": false,
+          "nativePlugins": false,
+          "loopMcp": false,
+          "instructions": ""
+        },
+        "worker": {
+          "provider": "openai",
+          "model": "gpt-6-sol",
+          "label": "GPT-6-Sol",
+          "supportedReasoningEfforts": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+            "ultra"
+          ],
+          "codexAccountId": "default",
+          "decisionOnly": false,
+          "reasoningEffort": "max",
+          "automatic": false,
+          "nativePlugins": false,
+          "loopMcp": false,
+          "instructions": ""
+        },
+        "judge": {
+          "provider": "openai",
+          "model": "gpt-6-sol",
+          "label": "GPT-6-Sol",
+          "supportedReasoningEfforts": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+            "ultra"
+          ],
+          "codexAccountId": "default",
+          "decisionOnly": false,
+          "reasoningEffort": "max",
+          "automatic": false,
+          "nativePlugins": false,
+          "loopMcp": false,
+          "instructions": ""
+        }
+      },
+      "exportedFiles": [],
+      "independentQa": {
+        "passed": false,
+        "checks": [],
+        "failures": [
+          "ENOENT: no such file or directory, realpath '/Users/dgsw59/Documents/Codex/2026-09-26/sj/outputs/mosaic-ai/reports/assets/live-comparison-2026-10-09/qa-user-data/harness/7491c24d-aca6-4faf-b828-6061aa164eb5/workspace/index.html'"
+        ],
+        "unavailable": true,
+        "expectedCheckCount": 50,
+        "passedCheckCount": 0
+      },
+      "browserQaAttempts": 0,
+      "readmeQaAttempts": 0,
+      "globalVerificationAttempts": 0,
+      "internalTests": {
+        "configuration": "gpt-6-sol-max",
+        "status": "NOT_RUN",
+        "reason": "구현 단계 전에 종료되어 테스트 파일이 생성되지 않았습니다."
+      }
+    }
+  ],
+  "finishedAt": "2026-10-09T06:41:24.800Z",
+  "evaluationCompletedAt": "2026-10-09T06:49:53.785Z"
+}

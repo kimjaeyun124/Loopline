@@ -1,0 +1,283 @@
+{
+  "analyzedAt": "2026-10-09T06:47:25.785Z",
+  "configurations": [
+    {
+      "configuration": "automatic-loop",
+      "status": "limit",
+      "autonomousApplied": false,
+      "independentTaskSuccess": false,
+      "roles": {
+        "planner": {
+          "calls": 10,
+          "reportedTokens": 233732,
+          "missingUsage": 0,
+          "durationMs": 616734,
+          "failures": 2
+        },
+        "worker": {
+          "calls": 11,
+          "reportedTokens": 353571,
+          "missingUsage": 0,
+          "durationMs": 614059,
+          "failures": 0
+        },
+        "judge": {
+          "calls": 21,
+          "reportedTokens": 615504,
+          "missingUsage": 0,
+          "durationMs": 626188,
+          "failures": 1
+        }
+      },
+      "events": {
+        "formatFallbacks": [
+          {
+            "title": "응답 형식 오류 · 대체 모델 시도 / Invalid output · Trying fallback",
+            "status": "completed",
+            "detail": "GPT-6-Luna이 요청된 응답 구조를 따르지 않아 저장된 다음 우선순위 모델을 시도합니다. 독립 QA 계획 오류: 키보드 검사에는 실제 키 입력 이후의 assertion이 필요합니다."
+          },
+          {
+            "title": "응답 형식 오류 · 대체 모델 시도 / Invalid output · Trying fallback",
+            "status": "completed",
+            "detail": "models/gemini-3-flash-preview이 요청된 응답 구조를 따르지 않아 저장된 다음 우선순위 모델을 시도합니다. 모델 응답이 요청한 JSON 형식이 아닙니다."
+          },
+          {
+            "title": "응답 형식 오류 · 대체 모델 시도 / Invalid output · Trying fallback",
+            "status": "completed",
+            "detail": "GPT-6-Astra이 요청된 응답 구조를 따르지 않아 저장된 다음 우선순위 모델을 시도합니다. 모델 배정 응답 형식이 올바르지 않습니다: 모델 응답이 요청한 JSON 형식이 아닙니다."
+          }
+        ],
+        "planFeedbackRecovery": [
+          {
+            "title": "계획 판정 근거 복구 · 모델 전환 / Plan review feedback recovery",
+            "status": "completed",
+            "detail": "독립 QA 계획이 1번 거부됐지만 구체적인 수정 사유가 없어 저장된 다음 판정 후보 GPT-6-Astra가 같은 계획과 같은 질문을 다시 검토합니다. 자동 통과하지 않으며 실제 검증·브라우저 QA 조건을 유지합니다."
+          },
+          {
+            "title": "독립 QA 계획 보완 / Refine QA contract",
+            "status": "completed",
+            "detail": "Add the missing observable behavior checks before implementation. 두 화면 크기에서 실행되는 fixedChecks가 빈 화면과 가로 넘침 검증을 담당하고, Node 테스트와 최종 시각 검토는 별도 완료 조건으로 유지됩니다. 그러나 브라우저에서 관찰 가능한 요구사항 중 입력 경계와 과목 공백 제거, 오류 발생 시 미추가 및 정상 제출 후 오류 숨김, HTML 형태 입력의 문자 그대로 표시, 전체·진행 중 필터와 완료 항목의 실제 표시, 제목의 대소문자 무시 검색, 완료 취소, 삭제·완료 취소 후 새로고침 복원, 필터와 무관한 전체 요약 갱신, 마지막 항목 삭제 후 빈 상태 표시가 빠져 있습니다. 명시된 Tab 순서의 마지막 #addTask와 label 클릭에 따른 입력 포커스도 보강해야 합니다. 기존의 유효한 개별 사례를 유지하면서 누락된 관찰과 단언을 추가해야 합니다.\nAdd the required input actions and observable accepted/rejected outcomes. 일반 입력의 추가와 제목 공백 제거는 확인하지만 제목 100자·과목 30자 허용 및 초과 거부, 과목 공백 제거와 필수값 검증, 공백만 있는 입력, 시간 1·480 허용과 범위 밖·소수·빈 값 거부가 충분히 검증되지 않습니다. 특히 500분 제출 시 과목이 비어 있어 오류 표시만으로 시간 검증을 입증할 수 없습니다. 각 거부 사례는 나머지 필드를 유효하게 채우고 #formError 표시와 작업 미추가를 확인해야 하며, 정상 제출 후 오류 숨김과 HTML 형태 문자열의 문자 그대로 표시도 추가해야 합니다.\nAdd a data change, reload, and assertion of the required restored state. 작업 추가 후 제목·학습 시간 복원과 완료 처리 후 완료 개수 복원은 검증합니다. 그러나 완료 취소 자체가 없고, 삭제 후에는 새로고침하지 않습니다. 완료 취소 후 새로고침하여 진행 상태를 확인하고, 삭제 후 새로고침하여 삭제된 항목이 복원되지 않는지 확인해야 합니다. 추가한 과목의 복원도 직접 단언하면 저장 필드 검증을 보완할 수 있습니다.\nAdd observable initial empty and required add/remove transitions, including removal of the last item when requested. 초기 #emptyState 표시, 검색 불일치와 완료 필터 결과 없음, 일치 검색에서 빈 상태가 숨겨지는 전환은 검증합니다. 그러나 마지막 작업을 삭제한 뒤에는 항목 수와 전체 개수만 확인하므로 빈 상태 안내가 실제로 다시 보이는지 알 수 없습니다. 마지막 항목 삭제 직후 #emptyState가 보인다는 단언을 추가해야 합니다.\nAdd real keyboard presses followed by focus or action-result assertions. 실제 Tab 입력 후 세 입력 필드의 focus-visible을 확인하고 Enter 제출 결과를 검증하므로 현재 키보드 검증 방식은 적절합니다. 다만 요구된 순서 #taskTitle → #taskSubject → #taskMinutes → #addTask 중 마지막 버튼으로의 Tab 이동과 보이는 포커스가 검증되지 않습니다. 기존 Enter 제출 검증을 유지하면서 #addTask까지의 Tab 순서와 focus-visible 확인을 추가해야 합니다."
+          },
+          {
+            "title": "독립 QA 계획 보완 / Refine QA contract",
+            "status": "completed",
+            "detail": "Add the missing observable behavior checks before implementation. 입력 검증, 저장·복원, 필터·검색, 완료 취소·삭제, 전체 요약, 빈 상태와 키보드 흐름은 계획되어 있으며 두 화면 크기의 가로 넘침은 fixedChecks가 검사합니다. 다만 각 작업의 학습 시간 표시인 .task-minutes를 확인하는 검증이 없습니다. 현재는 합계만 검사하므로 개별 작업의 시간이 누락되거나 잘못 표시되어도 통과할 수 있습니다. 작업 추가 직후와 reload 후 #taskList 내부 .task-minutes에 입력한 시간이 실제로 표시되는지 검증을 추가해야 합니다. 잘못된 저장 데이터 주입처럼 제공된 executor로 수행할 수 없는 조작이나 별도 완료 게이트의 Node 테스트 실행은 이 판정의 수정 사유가 아닙니다."
+          },
+          {
+            "title": "독립 QA 계획 보완 / Refine QA contract",
+            "status": "completed",
+            "detail": "Add the missing observable behavior checks before implementation. 입력 경계, 저장·복원, 필터·검색, 완료 취소·삭제, 빈 상태와 두 화면 크기의 가로 넘침 검사는 포함되어 있습니다. 다만 명시된 접근성·DOM 계약 중 오류 안내의 aria-live, #statusMessage의 aria-live, form의 novalidate, 제목·과목의 text 및 시간의 number 입력 타입을 확인하는 항목이 없습니다. 이는 지원되는 CSS selector와 count·visible 검사로 확인할 수 있으므로 추가해야 합니다. 잘못된 저장 데이터를 주입하는 동작은 제공된 executor에 없으므로 해당 브라우저 시나리오의 부재를 수정 사유로 삼지는 않습니다."
+          }
+        ],
+        "prioritySwitches": [
+          {
+            "title": "우선순위 모델 전환 / Priority model selected",
+            "status": "completed",
+            "detail": "planner 역할이 저장된 순서에 따라 models/gemini-3-flash-preview로 전환했습니다. 잔여 한도 미제공."
+          },
+          {
+            "title": "우선순위 모델 전환 / Priority model selected",
+            "status": "completed",
+            "detail": "planner 역할이 저장된 순서에 따라 GPT-6-Astra로 전환했습니다. 남은 사용 한도 93%."
+          },
+          {
+            "title": "우선순위 모델 전환 / Priority model selected",
+            "status": "completed",
+            "detail": "judge 역할이 저장된 순서에 따라 GPT-6-Sol로 전환했습니다. 남은 사용 한도 91%."
+          }
+        ],
+        "workerRouting": [],
+        "automaticRecoveries": []
+      },
+      "measuredModelTimeMs": 1856981,
+      "modelTimeFraction": 0.9987377159920143,
+      "nonModelTimeMs": 2347,
+      "summedCallTokens": 1202807,
+      "aggregateTokenDifference": 0,
+      "implementationTokenFraction": 0.29395489051859525,
+      "expectedCommonChecks": 50,
+      "independentQa": {
+        "passed": true,
+        "checksPassed": 50,
+        "actualCheckCount": 50,
+        "failures": []
+      },
+      "humanIntervention": {
+        "manualCodeEdits": 0,
+        "manualResumes": 0,
+        "stopRequests": 0,
+        "observationStop": false,
+        "repairPersonMinutes": null,
+        "explanation": "미완료 결과를 수동 수리하지 않았음. 복구에 필요한 사람 시간은 0이 아니라 미측정."
+      }
+    },
+    {
+      "configuration": "gpt-6-luna-max",
+      "status": "failed",
+      "autonomousApplied": false,
+      "independentTaskSuccess": false,
+      "roles": {
+        "planner": {
+          "calls": 5,
+          "reportedTokens": 125692,
+          "missingUsage": 0,
+          "durationMs": 189037,
+          "failures": 2
+        },
+        "worker": {
+          "calls": 0,
+          "reportedTokens": 0,
+          "missingUsage": 0,
+          "durationMs": 0,
+          "failures": 0
+        },
+        "judge": {
+          "calls": 2,
+          "reportedTokens": 50761,
+          "missingUsage": 0,
+          "durationMs": 39277,
+          "failures": 0
+        }
+      },
+      "events": {
+        "formatFallbacks": [
+          {
+            "title": "응답 형식 보완 / Repair structured response",
+            "status": "completed",
+            "detail": "직전 응답의 형식 오류: 독립 QA 보완 오류: notApplicable은 허용 분류에 대한 근거 객체여야 합니다.. 원래 요청의 필드와 JSON 구조를 정확히 지켜 다시 반환하세요. 설명 문장, 마크다운, 실제 도구 호출을 추가하지 마세요. 원래 목표와 판정 기준을 유지하고 형식만 보완하세요."
+          }
+        ],
+        "planFeedbackRecovery": [
+          {
+            "title": "독립 QA 계획 보완 / Refine QA contract",
+            "status": "completed",
+            "detail": "Add the missing observable behavior checks before implementation. 검색 결과가 없을 때의 빈 상태는 확인하지만, 작업 필터 결과가 없을 때의 빈 상태와 작업 추가 후 빈 상태가 사라지는 전환은 확인하지 않습니다. 저장 검증도 추가 후 새로고침만 다루며 완료·완료 취소·삭제 상태의 복원은 빠져 있습니다. 손상된 localStorage 검증을 현재 브라우저 동작으로 수행할 수 없다는 사유는 구체적이고 타당합니다.\nAdd a data change, reload, and assertion of the required restored state. 작업 추가 후 새로고침하여 복원되는 것은 확인하지만, 완료·완료 취소·삭제가 저장되고 새로고침 후에도 복원되는지는 확인하지 않습니다.\nAdd observable initial empty and required add/remove transitions, including removal of the last item when requested. 초기 빈 목록과 마지막 작업 삭제 후 빈 상태는 확인하지만, 작업을 추가했을 때 빈 상태가 사라지는 전환은 확인하지 않습니다."
+          }
+        ],
+        "prioritySwitches": [],
+        "workerRouting": [],
+        "automaticRecoveries": []
+      },
+      "measuredModelTimeMs": 228314,
+      "modelTimeFraction": 0.998342756446415,
+      "nonModelTimeMs": 379,
+      "summedCallTokens": 176453,
+      "aggregateTokenDifference": 0,
+      "implementationTokenFraction": 0,
+      "expectedCommonChecks": 50,
+      "independentQa": {
+        "passed": false,
+        "checksPassed": 0,
+        "actualCheckCount": 0,
+        "failures": [
+          "ENOENT: no such file or directory, realpath '/Users/dgsw59/Documents/Codex/2026-09-26/sj/outputs/mosaic-ai/reports/assets/live-comparison-2026-10-09/qa-user-data/harness/961d29d1-af50-4292-bcc7-4ef62ac09df9/workspace/index.html'"
+        ]
+      },
+      "humanIntervention": {
+        "manualCodeEdits": 0,
+        "manualResumes": 0,
+        "stopRequests": 0,
+        "observationStop": false,
+        "repairPersonMinutes": null,
+        "explanation": "미완료 결과를 수동 수리하지 않았음. 복구에 필요한 사람 시간은 0이 아니라 미측정."
+      }
+    },
+    {
+      "configuration": "gpt-6-sol-max",
+      "status": "failed",
+      "autonomousApplied": false,
+      "independentTaskSuccess": false,
+      "roles": {
+        "planner": {
+          "calls": 7,
+          "reportedTokens": 182057,
+          "missingUsage": 0,
+          "durationMs": 386400,
+          "failures": 2
+        },
+        "worker": {
+          "calls": 0,
+          "reportedTokens": 0,
+          "missingUsage": 0,
+          "durationMs": 0,
+          "failures": 0
+        },
+        "judge": {
+          "calls": 4,
+          "reportedTokens": 121322,
+          "missingUsage": 0,
+          "durationMs": 252450,
+          "failures": 0
+        }
+      },
+      "events": {
+        "formatFallbacks": [
+          {
+            "title": "응답 형식 보완 / Repair structured response",
+            "status": "completed",
+            "detail": "직전 응답의 형식 오류: 독립 QA 보완 오류: 실제 보완 내용이 없습니다. 판정에서 누락된 행동 검사를 추가하거나 허용된 실패 검사만 고치세요.. 원래 요청의 필드와 JSON 구조를 정확히 지켜 다시 반환하세요. 설명 문장, 마크다운, 실제 도구 호출을 추가하지 마세요. 원래 목표와 판정 기준을 유지하고 형식만 보완하세요."
+          }
+        ],
+        "planFeedbackRecovery": [
+          {
+            "title": "독립 QA 계획 보완 / Refine QA contract",
+            "status": "completed",
+            "detail": "Add the missing observable behavior checks before implementation. 실행기로 확인할 수 있는 100자 초과 제목·30자 초과 과목의 처리, 공백만 입력한 필수값의 거부, 검색과 필터의 동시 적용, 완료 상태 배지의 표시가 빠져 있습니다. 해당 동작과 결과를 확인하는 사례를 추가해야 합니다.\nAdd the required input actions and observable accepted/rejected outcomes. 필수값 누락, 시간 범위·정수 여부, 상한값 허용은 확인하지만 공백만 입력한 제목·과목과 글자 수 상한 초과의 처리 결과는 확인하지 않습니다."
+          },
+          {
+            "title": "독립 QA 계획 보완 / Refine QA contract",
+            "status": "completed",
+            "detail": "Add the missing observable behavior checks before implementation. 필터 적용 후 네 요약값이 전체 작업 기준으로 유지되는지 충분히 확인하지 않는다. 검색·필터·작업 버튼의 가시적 키보드 초점 검사도 추가해야 한다.\nCorrect the contradictory or inadequate actions/assertions of check filters-keep-global-summary, preserving its ID and categories. 요약값은 필터를 누르기 전에만 일부 확인한다. 각 필터 적용 후 totalCount, activeCount, completedCount, totalMinutes가 전체 작업 기준으로 유지되는지 확인해야 한다."
+          },
+          {
+            "title": "독립 QA 계획 보완 / Refine QA contract",
+            "status": "completed",
+            "detail": "Add the missing observable behavior checks before implementation. 검색과 필터를 함께 검사하는 사례에서 검색어에 '사용자:'와 줄바꿈이 포함되어 기대한 작업과 일치하지 않습니다. 검색어를 '문법'으로 고쳐 결합 동작을 검증해야 합니다.\nCorrect the contradictory or inadequate actions/assertions of check search-and-filter-together, preserving its ID and categories. 검색 입력값이 '문법' 뒤에 줄바꿈과 '사용자:'를 포함합니다. 이 값은 '문법 복습'과 일치하지 않으므로 완료 필터에서 1건을 기대하는 단언과 모순됩니다. 검색어를 '문법'으로 수정해야 합니다."
+          }
+        ],
+        "prioritySwitches": [],
+        "workerRouting": [],
+        "automaticRecoveries": []
+      },
+      "measuredModelTimeMs": 638850,
+      "modelTimeFraction": 0.9993852103190806,
+      "nonModelTimeMs": 393,
+      "summedCallTokens": 303379,
+      "aggregateTokenDifference": 0,
+      "implementationTokenFraction": 0,
+      "expectedCommonChecks": 50,
+      "independentQa": {
+        "passed": false,
+        "checksPassed": 0,
+        "actualCheckCount": 0,
+        "failures": [
+          "ENOENT: no such file or directory, realpath '/Users/dgsw59/Documents/Codex/2026-09-26/sj/outputs/mosaic-ai/reports/assets/live-comparison-2026-10-09/qa-user-data/harness/7491c24d-aca6-4faf-b828-6061aa164eb5/workspace/index.html'"
+        ]
+      },
+      "humanIntervention": {
+        "manualCodeEdits": 0,
+        "manualResumes": 0,
+        "stopRequests": 0,
+        "observationStop": false,
+        "repairPersonMinutes": null,
+        "explanation": "미완료 결과를 수동 수리하지 않았음. 복구에 필요한 사람 시간은 0이 아니라 미측정."
+      }
+    }
+  ],
+  "comparisons": [
+    {
+      "against": "gpt-6-luna-max",
+      "loopTimeRatio": 8.130235730870643,
+      "loopReportedTokenRatio": 6.816585719710065,
+      "equalSuccessOutcome": true,
+      "warning": "미완료 실행의 적은 시간/토큰은 성공 산출물의 효율 개선으로 해석할 수 없음. 제공자별 토큰과 과금 단위는 다를 수 있음."
+    },
+    {
+      "against": "gpt-6-sol-max",
+      "loopTimeRatio": 2.908640376194968,
+      "loopReportedTokenRatio": 3.9647009186529063,
+      "equalSuccessOutcome": true,
+      "warning": "미완료 실행의 적은 시간/토큰은 성공 산출물의 효율 개선으로 해석할 수 없음. 제공자별 토큰과 과금 단위는 다를 수 있음."
+    }
+  ]
+}

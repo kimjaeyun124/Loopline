@@ -1,0 +1,2058 @@
+{
+  "id": "2a3033bc-fb35-4764-932c-158a89891a85",
+  "task": "Focus Board라는 완성된 반응형 학습 작업 관리 웹앱을 현재 프로젝트에 제작해 주세요. 외부 라이브러리와 네트워크 호출 없이 Node.js 20+와 브라우저 표준 API만 사용하세요. 사용자에게 추가 선택이나 승인을 요청하지 말고 실제 테스트·브라우저 QA·자동 반영까지 완료하세요.\n\n기능 요구사항:\n1. 작업 제목(필수, 100자까지 허용), 과목(필수, 30자까지 허용), 학습 시간(1~480 사이의 정수)을 입력하여 작업을 추가합니다. 앞뒤 공백은 제거합니다. 잘못된 입력은 #formError에 표시하고 비어 있는 제목은 #taskTitle로 초점을 돌립니다. 자체 검증 오류를 표시할 수 있도록 form에 novalidate를 사용합니다.\n2. 작업 추가·완료·완료 취소·삭제를 localStorage의 focus-board-v1 키로 저장하고 새로고침 후 그대로 복원합니다. 저장 파일이 잘못된 JSON이거나 내용이 올바르지 않으면 화면을 멈추지 않고 #statusMessage에 안내하고 빈 목록으로 안전하게 시작합니다.\n3. 전체·진행 중·완료 필터와 제목/과목 대소문자 무시 검색을 제공합니다. 검색 또는 필터에 해당하는 항목이 없으면 #emptyState가 보입니다. 입력 문자열은 HTML로 실행되지 않고 문자 그대로 표시됩니다.\n4. #totalCount, #activeCount, #completedCount, #totalMinutes는 현재 필터와 관계없이 저장된 전체 작업의 개수/진행/완료/학습 시간 합계를 표시합니다. 추가·삭제·상태 변경 후 즉시 갱신합니다.\n5. 한국어 기반 UI를 제작합니다. 일관된 시각 계층, 여백, 색상, 상태 배지, 빈 상태 안내를 갖추고 1440×900과 390×844 화면에서 가로 넘침이 없어야 합니다. 긴 작업 제목은 줄바꿈합니다. Tab 이동, Enter 제출, 눈에 보이는 keyboard focus, label 연결, aria-live 오류/상태 안내를 구현합니다.\n\n검증 가능한 DOM 계약(이 ID와 class를 그대로 사용):\n- form 내 입력 순서는 #taskTitle → #taskSubject → #taskMinutes → #addTask 입니다. Enter로 추가됩니다.\n- 입력은 일반 text, minutes는 number. form 오류 #formError는 오류가 없으면 숨깁니다. 상태 안내 #statusMessage는 aria-live 입니다.\n- 목록 #taskList에 표시되는 각 항목은 .task, 제목은 .task-title, 과목 .task-subject, 시간 .task-minutes 입니다. 항목마다 button[data-action=\"toggle\"]과 button[data-action=\"delete\"]를 제공합니다.\n- 필터는 button#filterAll, button#filterActive, button#filterCompleted, 검색은 input#searchInput 입니다.\n- 빈 상태 #emptyState와 요약 #totalCount,#activeCount,#completedCount,#totalMinutes를 제공합니다.\n\n산출물: 프로젝트 루트의 index.html, styles.css, app.mjs, model.mjs, model.test.mjs, server.mjs, package.json, README.md. package.json은 type:module, test:node --test, start:node server.mjs로 구성합니다. server.mjs는 기본 http://127.0.0.1:3000/에서 루트 HTML과 올바른 MIME의 CSS/JS를 제공하고 PORT 환경 변수를 지원합니다. README의 실행 안내는 node server.mjs와 위 기본 주소를 정확히 기술하세요. model.mjs에는 UI와 분리된 실제 상태/검증 함수를 두고 model.test.mjs에는 입력 경계, 추가, 완료 취소, 삭제, 검색, 저장 데이터 검증을 검사하는 의미 있는 테스트를 작성하세요. 소스 파일을 text로 읽는 검사만으로 기능 테스트를 대체하지 마세요.\n\n권장 부분 작업은 최대 3개: 상태 모델과 독립 Node 테스트 → 반응형 화면 및 실제 저장·상호작용 연결 → 서버·실행 안내와 전체 통합 검증. 소유 파일을 중복 배정하지 말고 첫 부분 작업은 미래 파일 없이 독립 검증할 수 있게 구성하세요. 최종 실제 검증 명령은 node --test 입니다. 빈 상태, 입력·저장, 필터·검색, 완료·삭제, 모바일 화면과 keyboard focus를 실제 브라우저로 검사하고 실패하면 근거를 사용해 다음 회차에 수정하세요. 성공 판정은 실제 실행 근거를 충족해야 하며 테스트를 약화하여 통과시키지 마세요.\n",
+  "status": "limit",
+  "stage": "finished",
+  "round": 6,
+  "rounds": 6,
+  "createdAt": 1791525350963,
+  "finishedAt": 1791527210291,
+  "summary": "부분 작업 1/3 검증 완료. 전체 통합 검증은 아직 완료되지 않았습니다. 회차 한도에 도달해 근거와 작업 공간을 보존했습니다.",
+  "source": "/Users/dgsw59/Library/Application Support/Mosaic Desk/harness/projects/2a3033bc-fb35-4764-932c-158a89891a85/focus-board-01",
+  "workspace": "/Users/dgsw59/Library/Application Support/Mosaic Desk/harness/2a3033bc-fb35-4764-932c-158a89891a85/workspace",
+  "roles": {
+    "planner": {
+      "provider": "openai",
+      "model": "gpt-6-sol",
+      "label": "GPT-6-Sol",
+      "supportedReasoningEfforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max",
+        "ultra"
+      ],
+      "codexAccountId": "default",
+      "decisionOnly": false,
+      "reasoningEffort": "ultra",
+      "automatic": true,
+      "nativePlugins": false,
+      "loopMcp": false,
+      "instructions": ""
+    },
+    "worker": {
+      "provider": "openai",
+      "model": "gpt-6-sol",
+      "label": "GPT-6-Sol",
+      "supportedReasoningEfforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max",
+        "ultra"
+      ],
+      "codexAccountId": "default",
+      "decisionOnly": false,
+      "reasoningEffort": "ultra",
+      "automatic": true,
+      "nativePlugins": false,
+      "loopMcp": false,
+      "instructions": ""
+    },
+    "judge": {
+      "provider": "openai",
+      "model": "gpt-6-sol",
+      "label": "GPT-6-Sol",
+      "supportedReasoningEfforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max",
+        "ultra"
+      ],
+      "codexAccountId": "default",
+      "decisionOnly": false,
+      "reasoningEffort": "ultra",
+      "automatic": false,
+      "nativePlugins": false,
+      "loopMcp": false,
+      "instructions": ""
+    }
+  },
+  "events": [
+    {
+      "id": "e2483bcf-0d8e-46cc-81b1-1b7739bb3568",
+      "title": "LangGraph Loop 시작 / Workflow started",
+      "detail": "StateGraph · 단계 복구 위치: select",
+      "status": "completed",
+      "timestamp": 1791525350966
+    },
+    {
+      "id": "662afc74-36f2-48ea-8c43-0beb136215de",
+      "title": "모델 배정 / Model selection",
+      "detail": "0/6 · 추론 강도 / Effort: 자동 · 잔여 한도 미제공 · 누적 사용 7,359 tokens · 잔여 한도 미제공",
+      "status": "completed",
+      "timestamp": 1791525351038,
+      "model": {
+        "role": "judge",
+        "provider": "api",
+        "source": "",
+        "id": "jev-latest",
+        "label": "jev-latest",
+        "effort": ""
+      }
+    },
+    {
+      "id": "9ee31b6c-bfe4-4342-8062-dc58ae954d02",
+      "title": "모델 배정 결과 / Model assigned",
+      "detail": "계획 → GPT-6-Luna · 대체 3개 순위 저장",
+      "status": "completed",
+      "timestamp": 1791525351529,
+      "model": {
+        "role": "planner",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-luna",
+        "label": "GPT-6-Luna",
+        "effort": "max"
+      }
+    },
+    {
+      "id": "87f7013e-0b3f-4da2-beca-f39e76f5f34e",
+      "title": "모델 배정 결과 / Model assigned",
+      "detail": "구현 → GPT-6-Luna · 대체 3개 순위 저장",
+      "status": "completed",
+      "timestamp": 1791525351529,
+      "model": {
+        "role": "worker",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-luna",
+        "label": "GPT-6-Luna",
+        "effort": "max"
+      }
+    },
+    {
+      "id": "31285405-8ca5-46e1-ae04-775e6b6b15c9",
+      "title": "LangGraph 단계 저장 / Workflow checkpoint",
+      "detail": "다음 단계: prepare · 완료 회차 0/6",
+      "status": "completed",
+      "timestamp": 1791525351531
+    },
+    {
+      "id": "30bcfa58-346b-4c09-84e6-89b2b689c0da",
+      "title": "계획 / Planning",
+      "detail": "0/6 · 추론 강도 / Effort: max · 잔여 한도 미제공 · 누적 사용 19,897 tokens · 남은 사용 한도 93%",
+      "status": "completed",
+      "timestamp": 1791525351533,
+      "model": {
+        "role": "planner",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-luna",
+        "label": "GPT-6-Luna",
+        "effort": "max"
+      }
+    },
+    {
+      "id": "c9d84917-73c9-4d3c-b74d-0d8acccb52e9",
+      "title": "판정 / Review",
+      "detail": "0/6 · 추론 강도 / Effort: 자동 · 잔여 한도 미제공 · 누적 사용 9,117 tokens · 잔여 한도 미제공",
+      "status": "completed",
+      "timestamp": 1791525357053,
+      "model": {
+        "role": "judge",
+        "provider": "api",
+        "source": "",
+        "id": "jev-latest",
+        "label": "jev-latest",
+        "effort": ""
+      }
+    },
+    {
+      "id": "58f351e4-045a-409d-8d9f-958359a7d5af",
+      "title": "Jev 실제 판정 / Live Jev decision",
+      "detail": "Jev · jev-1.13.0\n폴더 이름 / Folder name: pass · 신뢰도 / Confidence 88.0%",
+      "status": "completed",
+      "timestamp": 1791525357403,
+      "model": {
+        "role": "judge",
+        "provider": "api",
+        "source": "",
+        "id": "jev-1.13.0",
+        "label": "jev-latest",
+        "effort": ""
+      }
+    },
+    {
+      "id": "a654a580-2141-4adc-9f7b-a8a65cfa669b",
+      "title": "작업 공간 준비 / Workspace ready",
+      "detail": "원본 변경 사항을 별도 작업 공간으로 복사했습니다. 회차별 승인은 요청하지 않습니다.",
+      "status": "completed",
+      "timestamp": 1791525357690
+    },
+    {
+      "id": "33fc7818-d57b-4980-a900-a97f7db8deb0",
+      "title": "계획 / Planning",
+      "detail": "0/6 · 추론 강도 / Effort: max · 남은 사용 한도 93% · 누적 사용 41,127 tokens · 남은 사용 한도 93%",
+      "status": "completed",
+      "timestamp": 1791525357707,
+      "model": {
+        "role": "planner",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-luna",
+        "label": "GPT-6-Luna",
+        "effort": "max"
+      }
+    },
+    {
+      "id": "a3bc0fc0-51f8-4968-80ba-5480f8f7a3a5",
+      "title": "구현 계획 / Implementation plan",
+      "detail": "## 요구사항\nFocus Board를 한국어 반응형 웹앱으로 구현합니다. 작업 입력·검증, localStorage 저장과 복원, 필터·검색, 전체 요약, 완료·삭제, 키보드 접근성을 포함합니다.\n\n## 완료 기준\n루트에 `index.html`, `styles.css`, `app.mjs`, `model.mjs`, `model.test.mjs`, `server.mjs`, `package.json`, `README.md`가 있습니다. 화면은 1440×900 및 390×844에서 가로로 넘치지 않고, 새로고침 후 작업이 복원됩니다. 잘못된 저장 데이터는 안내 후 빈 목록으로 안전하게 시작합니다.\n\n## 작업 순서\n1. UI와 분리된 상태·입력·저장 데이터 검증 모델과 독립 테스트를 작성합니다.\n2. 반응형 화면과 상호작용을 구현하고, 모델을 연결해 저장·복원합니다.\n3. HTTP 요청 처리 함수를 가짜 요청·응답으로 검증하고, 실행 안내와 전체 통합을 마칩니다.\n\n## 디자인 브리프\n학습 집중도를 위한 차분한 서재 분위기를 사용합니다. 따뜻한 아이보리 바탕에 짙은 남색 텍스트와 청록색 진행 상태, 완료 작업에는 절제된 초록색 배지를 둡니다. 시스템 글꼴, 넉넉한 카드 여백, 선명한 제목·요약·작업 목록 위계를 적용합니다. 넓은 화면은 요약과 목록을 나란히 배치하고, 모바일에서는 세로 흐름으로 전환합니다. 긴 제목은 줄바꿈하고 버튼에는 포커스 표시와 충분한 조작 영역을 제공하며, 오류·상태 알림은 `aria-live`로 전달합니다.\n\n## 검증 기준\n`node --test`에서 입력 경계, 추가, 완료 취소, 삭제, 검색, 저장 데이터 검증을 확인합니다. 서버 테스트는 요청 처리 함수에 가짜 객체를 전달해 라우트와 MIME을 검사하며 소켓 연결은 시도하지 않습니다. Harness가 README 실행 스모크와 브라우저에서 빈 상태, 저장·복원, 필터·검색, 완료·삭제, 키보드 포커스를 두 화면 크기로 확인합니다. 데이터 영속화는 브라우저 `localStorage`를 사용하므로 앱의 파일 교체 작업은 없습니다. 실제 실행 전에는 검증 성공으로 간주하지 않습니다.",
+      "status": "completed",
+      "timestamp": 1791525370602
+    },
+    {
+      "id": "4c002869-f548-4548-ba1b-a7564eda2cc8",
+      "title": "독립 QA 계획 / Independent QA plan",
+      "detail": "0/6 · 추론 강도 / Effort: max · 남은 사용 한도 93% · 독립 QA 계획 오류: 키보드 검사에는 실제 키 입력 이후의 assertion이 필요합니다.",
+      "status": "failed",
+      "timestamp": 1791525370603,
+      "model": {
+        "role": "planner",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-luna",
+        "label": "GPT-6-Luna",
+        "effort": "max"
+      }
+    },
+    {
+      "id": "3617848e-075e-4644-95e7-b1894c48380f",
+      "title": "응답 형식 오류 · 대체 모델 시도 / Invalid output · Trying fallback",
+      "detail": "GPT-6-Luna이 요청된 응답 구조를 따르지 않아 저장된 다음 우선순위 모델을 시도합니다. 독립 QA 계획 오류: 키보드 검사에는 실제 키 입력 이후의 assertion이 필요합니다.",
+      "status": "completed",
+      "timestamp": 1791525493997,
+      "model": {
+        "role": "planner",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-luna",
+        "label": "GPT-6-Luna",
+        "effort": "max"
+      }
+    },
+    {
+      "id": "8ecb936a-0d68-44e2-97fb-668bb767c21b",
+      "title": "독립 QA 계획 / Independent QA plan",
+      "detail": "0/6 · 추론 강도 / Effort: 자동 · 잔여 한도 미제공 · 누적 사용 7,610 tokens · 잔여 한도 미제공",
+      "status": "completed",
+      "timestamp": 1791525493998,
+      "model": {
+        "role": "planner",
+        "provider": "api",
+        "source": "",
+        "id": "models/gemini-3-flash-preview",
+        "label": "models/gemini-3-flash-preview",
+        "effort": ""
+      }
+    },
+    {
+      "id": "6813e10a-bbf0-4abe-a0c8-575c55394a7d",
+      "title": "우선순위 모델 전환 / Priority model selected",
+      "detail": "planner 역할이 저장된 순서에 따라 models/gemini-3-flash-preview로 전환했습니다. 잔여 한도 미제공.",
+      "status": "completed",
+      "timestamp": 1791525521582,
+      "model": {
+        "role": "planner",
+        "provider": "api",
+        "source": "",
+        "id": "models/gemini-3-flash-preview",
+        "label": "models/gemini-3-flash-preview",
+        "effort": ""
+      }
+    },
+    {
+      "id": "473f8ec3-d0f1-4001-b69b-6aae03e08e0b",
+      "title": "판정 / Review",
+      "detail": "0/6 · 추론 강도 / Effort: 자동 · 잔여 한도 미제공 · 누적 사용 15,404 tokens · 잔여 한도 미제공",
+      "status": "completed",
+      "timestamp": 1791525521585,
+      "model": {
+        "role": "judge",
+        "provider": "api",
+        "source": "",
+        "id": "jev-latest",
+        "label": "jev-latest",
+        "effort": ""
+      }
+    },
+    {
+      "id": "cb9a9fb9-c75f-45e6-b0fe-f28d995bb68b",
+      "title": "Jev 실제 판정 / Live Jev decision",
+      "detail": "Jev · jev-1.13.0\n독립 QA 기준: revise · 신뢰도 / Confidence 94.0%\nQA 입력 행동: pass · 신뢰도 / Confidence 67.0%\nQA 저장 복원: pass · 신뢰도 / Confidence 98.0%\nQA 빈 상태: pass · 신뢰도 / Confidence 88.0%\nQA 키보드 행동: pass · 신뢰도 / Confidence 98.0%\nQA 검사 initial-empty-state: pass · 신뢰도 / Confidence 79.0%\nQA 검사 add-task-with-trimming: pass · 신뢰도 / Confidence 88.0%\nQA 검사 form-validation-rules: pass · 신뢰도 / Confidence 55.0%\nQA 검사 task-persistence: pass · 신뢰도 / Confidence 64.0%\nQA 검사 search-and-filter-behavior: pass · 신뢰도 / Confidence 52.0%\nQA 검사 keyboard-accessibility-flow: pass · 신뢰도 / Confidence 74.0%\nQA 검사 toggle-and-delete-updates: pass · 신뢰도 / Confidence 77.0%",
+      "status": "completed",
+      "timestamp": 1791525521977,
+      "model": {
+        "role": "judge",
+        "provider": "api",
+        "source": "",
+        "id": "jev-1.13.0",
+        "label": "jev-latest",
+        "effort": ""
+      }
+    },
+    {
+      "id": "4ec9d3cb-e67b-4c16-9a12-e7d166740203",
+      "title": "계획 판정 근거 복구 · 모델 전환 / Plan review feedback recovery",
+      "detail": "독립 QA 계획이 1번 거부됐지만 구체적인 수정 사유가 없어 저장된 다음 판정 후보 GPT-6-Astra가 같은 계획과 같은 질문을 다시 검토합니다. 자동 통과하지 않으며 실제 검증·브라우저 QA 조건을 유지합니다.",
+      "status": "completed",
+      "timestamp": 1791525521979,
+      "model": {
+        "role": "judge",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-astra",
+        "label": "GPT-6-Astra",
+        "effort": "ultra"
+      }
+    },
+    {
+      "id": "cb6140e9-df35-4aa9-8b65-fda61bed4ba8",
+      "title": "판정 / Review",
+      "detail": "0/6 · 추론 강도 / Effort: ultra · 잔여 한도 미제공 · 누적 사용 27,803 tokens · 남은 사용 한도 93%",
+      "status": "completed",
+      "timestamp": 1791525521980,
+      "model": {
+        "role": "judge",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-astra",
+        "label": "GPT-6-Astra",
+        "effort": "ultra"
+      }
+    },
+    {
+      "id": "f6ea4c76-9f5e-44f3-bf6e-585fa834e1b4",
+      "title": "모델 판정 / Live model decision",
+      "detail": "GPT-6-Astra · gpt-6-astra\n독립 QA 기준: revise · 두 화면 크기에서 실행되는 fixedChecks가 빈 화면과 가로 넘침 검증을 담당하고, Node 테스트와 최종 시각 검토는 별도 완료 조건으로 유지됩니다. 그러나 브라우저에서 관찰 가능한 요구사항 중 입력 경계와 과목 공백 제거, 오류 발생 시 미추가 및 정상 제출 후 오류 숨김, HTML 형태 입력의 문자 그대로 표시, 전체·진행 중 필터와 완료 항목의 실제 표시, 제목의 대소문자 무시 검색, 완료 취소, 삭제·완료 취소 후 새로고침 복원, 필터와 무관한 전체 요약 갱신, 마지막 항목 삭제 후 빈 상태 표시가 빠져 있습니다. 명시된 Tab 순서의 마지막 #addTask와 label 클릭에 따른 입력 포커스도 보강해야 합니다. 기존의 유효한 개별 사례를 유지하면서 누락된 관찰과 단언을 추가해야 합니다.\nQA 입력 행동: revise · 일반 입력의 추가와 제목 공백 제거는 확인하지만 제목 100자·과목 30자 허용 및 초과 거부, 과목 공백 제거와 필수값 검증, 공백만 있는 입력, 시간 1·480 허용과 범위 밖·소수·빈 값 거부가 충분히 검증되지 않습니다. 특히 500분 제출 시 과목이 비어 있어 오류 표시만으로 시간 검증을 입증할 수 없습니다. 각 거부 사례는 나머지 필드를 유효하게 채우고 #formError 표시와 작업 미추가를 확인해야 하며, 정상 제출 후 오류 숨김과 HTML 형태 문자열의 문자 그대로 표시도 추가해야 합니다.\nQA 저장 복원: revise · 작업 추가 후 제목·학습 시간 복원과 완료 처리 후 완료 개수 복원은 검증합니다. 그러나 완료 취소 자체가 없고, 삭제 후에는 새로고침하지 않습니다. 완료 취소 후 새로고침하여 진행 상태를 확인하고, 삭제 후 새로고침하여 삭제된 항목이 복원되지 않는지 확인해야 합니다. 추가한 과목의 복원도 직접 단언하면 저장 필드 검증을 보완할 수 있습니다.\nQA 빈 상태: revise · 초기 #emptyState 표시, 검색 불일치와 완료 필터 결과 없음, 일치 검색에서 빈 상태가 숨겨지는 전환은 검증합니다. 그러나 마지막 작업을 삭제한 뒤에는 항목 수와 전체 개수만 확인하므로 빈 상태 안내가 실제로 다시 보이는지 알 수 없습니다. 마지막 항목 삭제 직후 #emptyState가 보인다는 단언을 추가해야 합니다.\nQA 키보드 행동: revise · 실제 Tab 입력 후 세 입력 필드의 focus-visible을 확인하고 Enter 제출 결과를 검증하므로 현재 키보드 검증 방식은 적절합니다. 다만 요구된 순서 #taskTitle → #taskSubject → #taskMinutes → #addTask 중 마지막 버튼으로의 Tab 이동과 보이는 포커스가 검증되지 않습니다. 기존 Enter 제출 검증을 유지하면서 #addTask까지의 Tab 순서와 focus-visible 확인을 추가해야 합니다.\nQA 검사 initial-empty-state: pass · 초기화 후 #emptyState의 실제 표시와 전체 개수·학습 시간 합계가 0인 상태를 확인합니다. 제공된 실행 동작으로 수행 가능하며 초기 빈 목록이라는 사례 목적과 기대값이 일치합니다.\nQA 검사 add-task-with-trimming: pass · 유효한 과목과 45분을 입력하고 앞뒤 공백이 있는 제목으로 제출한 뒤, 공백이 제거된 제목과 전체 개수 1·학습 시간 45를 확인합니다. 입력값과 기대 문자열이 정확히 일치하고 추가 및 제목 공백 제거를 의미 있게 검증합니다.\nQA 검사 form-validation-rules: pass · 빈 제목 제출 후 #taskTitle 포커스를 확인하고, 이어서 유효하지 않은 폼 제출 후 #formError가 보이는지 확인하므로 동작과 기대값은 일관됩니다. 두 번째 제출에는 빈 과목과 500분이 함께 있어 시간 검증만을 독립적으로 입증하지는 않지만, 잘못된 폼의 오류 표시 사례 자체는 유효합니다. 개별 입력 규칙의 분리 검증은 qaInput 보강 대상으로 판단합니다.\nQA 검사 task-persistence: pass · 제한 길이 안의 제목, 과목, 120분을 입력하여 추가한 뒤 실제 reload를 수행하고 입력한 제목과 학습 시간 합계를 확인합니다. 기대 제목은 입력 문자열과 일치하며 추가 데이터의 복원을 검증하는 실행 가능한 사례입니다.\nQA 검사 search-and-filter-behavior: pass · 진행 중인 Math 과목 작업을 추가한 후 불일치 검색에서 빈 상태 표시, 소문자 math 검색에서 빈 상태 숨김, 같은 검색을 유지한 완료 필터에서 빈 상태 표시를 확인합니다. 각 단계의 데이터 상태와 기대 결과가 일치하며 과목의 대소문자 무시 검색과 필터 결합을 검증합니다.\nQA 검사 keyboard-accessibility-flow: pass · 실제 Tab 입력으로 제목·과목·시간 순서의 focus-visible을 확인하고, 유효한 입력 후 Enter를 눌러 작업 수와 전체 개수 증가를 확인합니다. 지원되는 키와 동작만 사용하며 보이는 포커스와 키보드 제출을 의미 있게 검증합니다. #addTask까지의 추가 순서 검증은 별도 보강 사항입니다.\nQA 검사 toggle-and-delete-updates: pass · 작업 추가 후 완료 버튼을 눌러 완료 개수 증가를 확인하고, reload 후 완료 개수가 유지되는지 확인한 뒤 삭제하여 항목 수와 전체 개수가 0이 되는지 검증합니다. 모든 단계와 기대값이 일관됩니다. 완료 취소, 삭제 후 복원 여부, 삭제 후 빈 상태 안내는 이 사례를 유지한 채 추가할 수 있는 별도 누락 범위입니다.",
+      "status": "completed",
+      "timestamp": 1791525622803,
+      "model": {
+        "role": "judge",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-astra",
+        "label": "GPT-6-Astra",
+        "effort": "ultra"
+      }
+    },
+    {
+      "id": "8b8ba1ef-b282-4814-9eed-775bffbf3766",
+      "title": "독립 QA 계획 보완 / Refine QA contract",
+      "detail": "Add the missing observable behavior checks before implementation. 두 화면 크기에서 실행되는 fixedChecks가 빈 화면과 가로 넘침 검증을 담당하고, Node 테스트와 최종 시각 검토는 별도 완료 조건으로 유지됩니다. 그러나 브라우저에서 관찰 가능한 요구사항 중 입력 경계와 과목 공백 제거, 오류 발생 시 미추가 및 정상 제출 후 오류 숨김, HTML 형태 입력의 문자 그대로 표시, 전체·진행 중 필터와 완료 항목의 실제 표시, 제목의 대소문자 무시 검색, 완료 취소, 삭제·완료 취소 후 새로고침 복원, 필터와 무관한 전체 요약 갱신, 마지막 항목 삭제 후 빈 상태 표시가 빠져 있습니다. 명시된 Tab 순서의 마지막 #addTask와 label 클릭에 따른 입력 포커스도 보강해야 합니다. 기존의 유효한 개별 사례를 유지하면서 누락된 관찰과 단언을 추가해야 합니다.\nAdd the required input actions and observable accepted/rejected outcomes. 일반 입력의 추가와 제목 공백 제거는 확인하지만 제목 100자·과목 30자 허용 및 초과 거부, 과목 공백 제거와 필수값 검증, 공백만 있는 입력, 시간 1·480 허용과 범위 밖·소수·빈 값 거부가 충분히 검증되지 않습니다. 특히 500분 제출 시 과목이 비어 있어 오류 표시만으로 시간 검증을 입증할 수 없습니다. 각 거부 사례는 나머지 필드를 유효하게 채우고 #formError 표시와 작업 미추가를 확인해야 하며, 정상 제출 후 오류 숨김과 HTML 형태 문자열의 문자 그대로 표시도 추가해야 합니다.\nAdd a data change, reload, and assertion of the required restored state. 작업 추가 후 제목·학습 시간 복원과 완료 처리 후 완료 개수 복원은 검증합니다. 그러나 완료 취소 자체가 없고, 삭제 후에는 새로고침하지 않습니다. 완료 취소 후 새로고침하여 진행 상태를 확인하고, 삭제 후 새로고침하여 삭제된 항목이 복원되지 않는지 확인해야 합니다. 추가한 과목의 복원도 직접 단언하면 저장 필드 검증을 보완할 수 있습니다.\nAdd observable initial empty and required add/remove transitions, including removal of the last item when requested. 초기 #emptyState 표시, 검색 불일치와 완료 필터 결과 없음, 일치 검색에서 빈 상태가 숨겨지는 전환은 검증합니다. 그러나 마지막 작업을 삭제한 뒤에는 항목 수와 전체 개수만 확인하므로 빈 상태 안내가 실제로 다시 보이는지 알 수 없습니다. 마지막 항목 삭제 직후 #emptyState가 보인다는 단언을 추가해야 합니다.\nAdd real keyboard presses followed by focus or action-result assertions. 실제 Tab 입력 후 세 입력 필드의 focus-visible을 확인하고 Enter 제출 결과를 검증하므로 현재 키보드 검증 방식은 적절합니다. 다만 요구된 순서 #taskTitle → #taskSubject → #taskMinutes → #addTask 중 마지막 버튼으로의 Tab 이동과 보이는 포커스가 검증되지 않습니다. 기존 Enter 제출 검증을 유지하면서 #addTask까지의 Tab 순서와 focus-visible 확인을 추가해야 합니다.",
+      "status": "completed",
+      "timestamp": 1791525622807
+    },
+    {
+      "id": "0e094692-54a8-4b86-8f6d-21d0f27a6b7c",
+      "title": "독립 QA 계획 / Independent QA plan",
+      "detail": "0/6 · 추론 강도 / Effort: 자동 · 잔여 한도 미제공 · 모델 응답이 요청한 JSON 형식이 아닙니다.",
+      "status": "failed",
+      "timestamp": 1791525622808,
+      "model": {
+        "role": "planner",
+        "provider": "api",
+        "source": "",
+        "id": "models/gemini-3-flash-preview",
+        "label": "models/gemini-3-flash-preview",
+        "effort": ""
+      }
+    },
+    {
+      "id": "2d8e4504-0f6c-41fa-82f0-4d25d818c7ab",
+      "title": "응답 형식 오류 · 대체 모델 시도 / Invalid output · Trying fallback",
+      "detail": "models/gemini-3-flash-preview이 요청된 응답 구조를 따르지 않아 저장된 다음 우선순위 모델을 시도합니다. 모델 응답이 요청한 JSON 형식이 아닙니다.",
+      "status": "completed",
+      "timestamp": 1791525643471,
+      "model": {
+        "role": "planner",
+        "provider": "api",
+        "source": "",
+        "id": "models/gemini-3-flash-preview",
+        "label": "models/gemini-3-flash-preview",
+        "effort": ""
+      }
+    },
+    {
+      "id": "2331c21f-7f5e-46c9-8dd2-e65e29263d8d",
+      "title": "독립 QA 계획 / Independent QA plan",
+      "detail": "0/6 · 추론 강도 / Effort: ultra · 남은 사용 한도 93% · 누적 사용 63,357 tokens · 남은 사용 한도 93%",
+      "status": "completed",
+      "timestamp": 1791525643472,
+      "model": {
+        "role": "planner",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-astra",
+        "label": "GPT-6-Astra",
+        "effort": "ultra"
+      }
+    },
+    {
+      "id": "ac9c5ced-1a91-44f5-bbb8-f5bb4fab6ac7",
+      "title": "우선순위 모델 전환 / Priority model selected",
+      "detail": "planner 역할이 저장된 순서에 따라 GPT-6-Astra로 전환했습니다. 남은 사용 한도 93%.",
+      "status": "completed",
+      "timestamp": 1791525958234,
+      "model": {
+        "role": "planner",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-astra",
+        "label": "GPT-6-Astra",
+        "effort": "ultra"
+      }
+    },
+    {
+      "id": "b4876dfe-2f01-4164-abe2-42b778018114",
+      "title": "독립 QA 부분 보완 / QA patch applied",
+      "detail": "기존 7개 검사 보존 · 새 검사 9개 · 추가 확인 49단계 · 실패 검사 교체 허용 0개. 전체 계획 재작성 없이 같은 기준으로 재판정합니다.",
+      "status": "completed",
+      "timestamp": 1791525958241
+    },
+    {
+      "id": "821c1fdc-345c-4277-82cc-366f54820c34",
+      "title": "판정 / Review",
+      "detail": "0/6 · 추론 강도 / Effort: ultra · 남은 사용 한도 93% · 누적 사용 97,984 tokens · 남은 사용 한도 92%",
+      "status": "completed",
+      "timestamp": 1791525958242,
+      "model": {
+        "role": "judge",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-astra",
+        "label": "GPT-6-Astra",
+        "effort": "ultra"
+      }
+    },
+    {
+      "id": "3624c85c-fad8-4dd7-91a4-5a12630fae94",
+      "title": "모델 판정 / Live model decision",
+      "detail": "GPT-6-Astra · gpt-6-astra\n독립 QA 기준: revise · 입력 검증, 저장·복원, 필터·검색, 완료 취소·삭제, 전체 요약, 빈 상태와 키보드 흐름은 계획되어 있으며 두 화면 크기의 가로 넘침은 fixedChecks가 검사합니다. 다만 각 작업의 학습 시간 표시인 .task-minutes를 확인하는 검증이 없습니다. 현재는 합계만 검사하므로 개별 작업의 시간이 누락되거나 잘못 표시되어도 통과할 수 있습니다. 작업 추가 직후와 reload 후 #taskList 내부 .task-minutes에 입력한 시간이 실제로 표시되는지 검증을 추가해야 합니다. 잘못된 저장 데이터 주입처럼 제공된 executor로 수행할 수 없는 조작이나 별도 완료 게이트의 Node 테스트 실행은 이 판정의 수정 사유가 아닙니다.\nQA 입력 행동: pass · 실제 입력과 제출 후 제목·과목의 공백 제거, 필수값, 길이 경계, 시간의 허용 범위와 정수 조건, 오류 후 정상 제출, HTML 문자열의 문자 그대로 표시를 확인합니다. 거부 사례에는 오류 표시와 항목 수 유지 검증이 포함됩니다.\nQA 저장 복원: pass · 추가, 완료, 완료 취소, 삭제로 데이터를 변경한 뒤 각각 reload하여 작업 내용이나 해당 상태가 복원되는지 확인합니다. 마지막 작업 삭제 후에도 빈 목록과 모든 요약값이 유지되는지 검사합니다.\nQA 빈 상태: pass · 초기 빈 상태, 검색·필터 결과가 없는 상태, 검색 결과가 생겼을 때 빈 안내가 숨겨지는 전환, 마지막 항목 삭제 직후와 reload 후의 빈 상태를 실제 표시 여부로 확인합니다.\nQA 키보드 행동: pass · 실제 Tab 입력 후 제목·과목·시간·추가 버튼의 focus-visible을 검사하고, 시간 입력에서 Enter를 눌러 작업이 추가되는지 확인합니다. label 클릭에 따른 입력 초점 이동도 별도로 검사합니다.\nQA 검사 initial-empty-state: pass · reset 후 빈 안내 표시, 네 가지 요약값의 0 초기화, 오류 안내 숨김을 확인합니다. 초기 상태 요구사항과 일치하며 제공된 executor로 실행할 수 있습니다.\nQA 검사 add-task-with-trimming: pass · 앞뒤 공백이 있는 제목과 유효한 과목·시간을 제출하고, 공백이 제거된 제목과 작업 수 1, 총시간 45를 확인합니다. 입력값과 기대 결과가 일치합니다.\nQA 검사 form-validation-rules: pass · 빈 제목 제출 후 제목으로 초점이 이동하는지 확인하고, 과목을 채운 상태의 시간 500 제출과 유효한 시간에서의 빈 제목 제출을 통해 오류 표시 및 추가 거부를 검사합니다. 초기 복합 오류 단계 이후 개별 오류를 확인하는 단계가 있어 판정이 가능합니다.\nQA 검사 task-persistence: pass · 허용 길이 안의 긴 제목, 과목, 시간 120을 저장한 뒤 reload하여 동일한 제목·과목과 총시간을 확인합니다. 채운 문자열과 기대 문자열이 일치하고 저장 복원 사례로 유효합니다.\nQA 검사 search-and-filter-behavior: pass · 검색 불일치와 완료 필터의 빈 상태, 과목 Math에 대한 소문자 검색, 제목 MiXeD Title에 대한 소문자·대문자 검색을 확인합니다. 검색으로 한 항목만 보여도 전체 작업 수는 2라는 기대값이 일관됩니다.\nQA 검사 keyboard-accessibility-flow: pass · Tab 순서가 제목 → 과목 → 시간으로 이어지고 각 입력의 표시 가능한 초점을 검사합니다. Enter 제출 결과, label 연결, 시간 입력 다음 추가 버튼의 focus-visible까지 실행 가능한 동작으로 확인합니다.\nQA 검사 toggle-and-delete-updates: pass · 추가한 작업을 완료한 직후와 reload 후 완료 수 1을 확인하고, 마지막 작업 삭제 후 항목 수·모든 요약값·빈 안내를 검사합니다. 삭제 결과도 reload 후 재확인하므로 상태 변경과 저장 요구에 부합합니다.\nQA 검사 title-length-boundaries: pass · 정확히 100자인 제목은 그대로 추가되고 오류가 숨겨져야 하며, 101자인 제목은 오류가 표시되고 기존 한 항목만 유지되어야 합니다. 반복 문자열의 길이와 기대 제목이 일치합니다.\nQA 검사 subject-trimming-and-length-boundaries: pass · 앞뒤 공백을 제거하면 정확히 30자인 과목을 허용하고 정규화된 표시값을 확인합니다. 이어지는 31자 과목은 오류와 항목 수 유지로 거부를 확인하므로 공백 제거와 길이 제한 요구에 일치합니다.\nQA 검사 whitespace-title-and-required-subject: pass · 공백만 있는 제목은 오류·추가 거부·제목 초점 복귀를 확인하고, 유효한 제목과 시간을 유지한 채 빈 과목 및 공백만 있는 과목의 거부를 각각 검사합니다.\nQA 검사 minutes-range-boundaries: pass · 시간 1과 480의 추가 성공을 항목 수 2와 합계 481로 확인하고, 0과 481은 오류가 표시되면서 항목 수가 유지되는지 검사합니다. 경계값과 기대 합계가 정확합니다.\nQA 검사 minutes-format-and-error-recovery: pass · 소수 1.5와 빈 시간 입력은 오류 표시 및 항목 수 0으로 거부를 확인합니다. 이후 정상 시간 30을 제출하면 오류가 숨겨지고 작업 수 1과 총시간 30이 표시되어야 하므로 오류 복구 흐름도 검증합니다.\nQA 검사 html-input-renders-literally: pass · 제목과 과목에 입력한 HTML 형식 문자열이 그대로 표시되는지 확인하고, 해당 요소 내부에 b 또는 i 요소가 생성되지 않았는지 검사합니다. 입력값을 HTML로 해석하지 않아야 한다는 요구를 직접 확인합니다.\nQA 검사 completion-undo-persists-after-reload: pass · 완료와 완료 취소 직후 진행·완료 수의 변화를 확인하고, reload 후에도 진행 상태가 유지되는지 검사합니다. 진행 필터의 해당 작업 표시와 완료 필터의 빈 상태도 기대 상태와 일치합니다.\nQA 검사 filtered-add-delete-updates-global-summary: pass · 완료 작업 20분을 남겨 둔 채 진행 필터에서 30분 작업을 추가하여 전체 2건·진행 1건·완료 1건·총 50분을 확인합니다. 표시된 진행 작업 삭제 후 전체 1건·완료 1건·총 20분과 필터의 빈 상태를 확인하므로 전체 요약과 필터 결과를 구분해 검사합니다.\nQA 검사 mixed-status-filter-results: pass · 완료 작업과 진행 작업을 각각 만든 뒤 완료·진행 필터에서 올바른 제목과 항목 수를 확인하고 전체 필터에서 두 항목을 확인합니다. 완료 필터에서도 전체 요약 2건·진행 1건·완료 1건·총 50분이 유지되어야 한다는 기대값이 정확합니다.",
+      "status": "completed",
+      "timestamp": 1791526055050,
+      "model": {
+        "role": "judge",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-astra",
+        "label": "GPT-6-Astra",
+        "effort": "ultra"
+      }
+    },
+    {
+      "id": "9a3be586-7252-44c2-b059-f85bc996d4a0",
+      "title": "독립 QA 계획 보완 / Refine QA contract",
+      "detail": "Add the missing observable behavior checks before implementation. 입력 검증, 저장·복원, 필터·검색, 완료 취소·삭제, 전체 요약, 빈 상태와 키보드 흐름은 계획되어 있으며 두 화면 크기의 가로 넘침은 fixedChecks가 검사합니다. 다만 각 작업의 학습 시간 표시인 .task-minutes를 확인하는 검증이 없습니다. 현재는 합계만 검사하므로 개별 작업의 시간이 누락되거나 잘못 표시되어도 통과할 수 있습니다. 작업 추가 직후와 reload 후 #taskList 내부 .task-minutes에 입력한 시간이 실제로 표시되는지 검증을 추가해야 합니다. 잘못된 저장 데이터 주입처럼 제공된 executor로 수행할 수 없는 조작이나 별도 완료 게이트의 Node 테스트 실행은 이 판정의 수정 사유가 아닙니다.",
+      "status": "completed",
+      "timestamp": 1791526055053
+    },
+    {
+      "id": "f896f273-6b92-4e37-acc9-d9d42bd3da6e",
+      "title": "QA 계획 판정 복구 · 모델 전환 / QA planning review recovery",
+      "detail": "QA 계획이 두 번 판정을 통과하지 못해 저장된 다음 후보 GPT-6-Sol로 다음 계획 시도를 진행합니다. 검사 조건과 판정 역할은 유지합니다.",
+      "status": "completed",
+      "timestamp": 1791526055056,
+      "model": {
+        "role": "planner",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-sol",
+        "label": "GPT-6-Sol",
+        "effort": "ultra"
+      }
+    },
+    {
+      "id": "e2dde412-9a3e-4f68-804e-61a8a7d6e9fa",
+      "title": "독립 QA 계획 / Independent QA plan",
+      "detail": "0/6 · 추론 강도 / Effort: ultra · 잔여 한도 미제공 · 누적 사용 26,449 tokens · 남은 사용 한도 92%",
+      "status": "completed",
+      "timestamp": 1791526055057,
+      "model": {
+        "role": "planner",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-sol",
+        "label": "GPT-6-Sol",
+        "effort": "ultra"
+      }
+    },
+    {
+      "id": "66078f4f-1b77-4dae-8af5-6c7a88268130",
+      "title": "독립 QA 부분 보완 / QA patch applied",
+      "detail": "기존 16개 검사 보존 · 새 검사 0개 · 추가 확인 2단계 · 실패 검사 교체 허용 0개. 전체 계획 재작성 없이 같은 기준으로 재판정합니다.",
+      "status": "completed",
+      "timestamp": 1791526069993
+    },
+    {
+      "id": "cd8c911a-09a8-41e2-b0d4-9d75abec954f",
+      "title": "판정 / Review",
+      "detail": "0/6 · 추론 강도 / Effort: ultra · 남은 사용 한도 92% · 누적 사용 132,557 tokens · 남은 사용 한도 92%",
+      "status": "completed",
+      "timestamp": 1791526069995,
+      "model": {
+        "role": "judge",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-astra",
+        "label": "GPT-6-Astra",
+        "effort": "ultra"
+      }
+    },
+    {
+      "id": "e17889a2-102f-405e-acdd-676675dbac46",
+      "title": "모델 판정 / Live model decision",
+      "detail": "GPT-6-Astra · gpt-6-astra\n독립 QA 기준: revise · 입력 경계, 저장·복원, 필터·검색, 완료 취소·삭제, 빈 상태와 두 화면 크기의 가로 넘침 검사는 포함되어 있습니다. 다만 명시된 접근성·DOM 계약 중 오류 안내의 aria-live, #statusMessage의 aria-live, form의 novalidate, 제목·과목의 text 및 시간의 number 입력 타입을 확인하는 항목이 없습니다. 이는 지원되는 CSS selector와 count·visible 검사로 확인할 수 있으므로 추가해야 합니다. 잘못된 저장 데이터를 주입하는 동작은 제공된 executor에 없으므로 해당 브라우저 시나리오의 부재를 수정 사유로 삼지는 않습니다.\nQA 입력 행동: pass · 실제 입력과 제출 후 제목·과목의 필수값, 공백 제거, 길이 상한, 시간의 정수·범위·빈값 조건을 확인합니다. 정상 입력의 추가 결과와 잘못된 입력의 오류 표시·추가 거부, 오류 수정 후 정상 복구, HTML 문자열의 문자 그대로 표시까지 포함합니다.\nQA 저장 복원: pass · 작업 추가 후 제목·과목·시간을 새로고침으로 복원하는지 확인하며, 완료·완료 취소·삭제도 각각 변경 후 새로고침하여 상태나 빈 목록을 확인합니다. 요구된 정상 저장·복원 흐름에 대한 관찰 가능한 검증이 있습니다.\nQA 빈 상태: pass · 초기 빈 상태, 검색·필터에 일치하는 항목이 없을 때의 빈 상태, 검색 결과가 생겼을 때의 숨김, 마지막 작업 삭제 후 및 새로고침 후의 빈 상태를 확인합니다.\nQA 키보드 행동: pass · 실제 Tab 입력 후 제목·과목·시간·추가 버튼의 focus-visible을 검사하고, 시간 입력에서 Enter를 눌러 작업이 추가되는지 확인합니다. label 클릭 후 연결된 입력으로 초점이 이동하는지도 확인합니다.\nQA 검사 initial-empty-state: pass · 초기화 후 #emptyState 표시, 전체·진행·완료 개수와 학습 시간의 0, 오류 영역 숨김을 확인합니다. 초기 빈 목록의 요구 상태와 일치하며 지원되는 동작만 사용합니다.\nQA 검사 add-task-with-trimming: pass · 앞뒤 공백이 있는 제목과 유효한 과목·시간을 제출한 뒤 공백이 제거된 제목, 작업 수 1, 총 45분과 항목의 45분 표시를 확인합니다. 입력값과 기대 결과가 일치합니다.\nQA 검사 form-validation-rules: pass · 빈 제목 제출 후 제목 입력으로 초점이 이동하는지 확인하고, 과목을 채운 상태에서 500분을 제출하여 오류 표시와 추가 거부를 확인합니다. 마지막에는 유효한 과목·시간과 빈 제목으로 제목 필수 검증을 독립적으로 확인하므로 논리적으로 일관됩니다.\nQA 검사 task-persistence: pass · 허용 길이의 긴 제목, 과목, 120분을 추가한 다음 새로고침하여 동일한 제목·과목·항목 시간과 총시간을 확인합니다. 입력한 문자열과 복원 기대값이 일치하고 고정 레이아웃 검사도 두 화면 크기에 적용됩니다.\nQA 검사 search-and-filter-behavior: pass · 검색 불일치와 과목의 대소문자 무시 일치, 완료 필터의 빈 결과, 제목의 소문자·대문자 검색 일치를 확인합니다. 검색 결과가 한 항목이어도 전체 작업 수가 2로 유지되는 기대값은 앞선 추가 동작과 일치합니다.\nQA 검사 keyboard-accessibility-flow: pass · Tab 순서에 따른 입력 초점과 눈에 보이는 focus 표시, Enter 제출 결과, 각 입력 label의 초점 연결, 시간 입력 다음 추가 버튼의 초점을 확인합니다. 모든 동작과 검증은 executor가 지원합니다.\nQA 검사 toggle-and-delete-updates: pass · 작업을 완료한 뒤 완료 개수와 새로고침 후 유지 여부를 확인하고, 삭제 후 목록·모든 요약 수치·빈 상태를 검사합니다. 다시 새로고침하여 삭제 결과가 유지되는지도 확인하므로 상태 전이가 일관됩니다.\nQA 검사 title-length-boundaries: pass · 100자 제목은 원문 그대로 추가되고 오류가 숨겨지는지 확인하며, 101자 제목은 오류를 표시하고 기존 작업 수 1을 유지하는지 확인합니다. 입력 길이와 기대 결과가 요구된 경계 조건에 부합합니다.\nQA 검사 subject-trimming-and-length-boundaries: pass · 앞뒤 공백을 제거하면 30자인 과목을 정상 등록하고 정제된 문자열을 표시하는지 확인합니다. 이후 31자 과목의 오류 표시와 추가 거부를 확인하므로 공백 제거와 길이 경계를 함께 검증합니다.\nQA 검사 whitespace-title-and-required-subject: pass · 공백뿐인 제목은 오류와 제목 초점 복귀로 확인하고, 유효한 제목에 빈 과목 또는 공백뿐인 과목을 각각 제출하여 오류 표시와 작업 수 0을 확인합니다. 필수 입력의 정제 후 검증 요구와 일치합니다.\nQA 검사 minutes-range-boundaries: pass · 1분과 480분을 각각 추가하여 작업 수 2와 합계 481분을 확인하고, 0분과 481분은 오류를 표시하며 작업 수를 늘리지 않는지 확인합니다. 양쪽 경계의 허용·거부 결과가 정확합니다.\nQA 검사 minutes-format-and-error-recovery: pass · 소수 시간과 빈 시간을 각각 제출한 뒤 오류 표시와 추가 거부를 확인합니다. 이어서 30분을 제출하여 오류가 숨겨지고 작업 수와 총시간이 갱신되는지 확인하므로 정수 검증과 오류 복구를 관찰할 수 있습니다.\nQA 검사 html-input-renders-literally: pass · HTML 태그 모양의 제목·과목을 입력한 뒤 해당 문자열이 화면에 그대로 표시되고 내부 b·i 요소가 생성되지 않는지 확인합니다. 입력을 HTML로 해석하지 않아야 한다는 요구를 의미 있게 검증합니다.\nQA 검사 completion-undo-persists-after-reload: pass · 완료와 완료 취소 후 진행·완료 개수의 변화를 확인하고, 새로고침 후 진행 상태가 유지되는지 검사합니다. 진행 필터에는 작업이 보이고 완료 필터에는 빈 상태가 보인다는 기대도 복원된 상태와 일치합니다.\nQA 검사 filtered-add-delete-updates-global-summary: pass · 완료된 20분 작업을 유지한 채 진행 필터에서 30분 작업을 추가하여 전체 요약이 2개·진행 1개·완료 1개·50분인지 확인합니다. 진행 작업 삭제 후 완료 작업만 전체 요약에 남고 현재 필터는 빈 상태가 되는 결과도 정확합니다.\nQA 검사 mixed-status-filter-results: pass · 완료 작업과 진행 작업을 함께 만든 뒤 각 상태 필터가 올바른 제목의 한 항목만 표시하고 전체 필터가 두 항목을 표시하는지 확인합니다. 완료 필터에서도 전체 개수와 상태별 개수, 총 50분이 유지되는 기대값은 저장된 전체 작업과 일치합니다.",
+      "status": "completed",
+      "timestamp": 1791526167714,
+      "model": {
+        "role": "judge",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-astra",
+        "label": "GPT-6-Astra",
+        "effort": "ultra"
+      }
+    },
+    {
+      "id": "36c03077-2a77-41b6-a721-364c3bf0d954",
+      "title": "QA 계획 보완 연장 / QA repair continuation",
+      "detail": "3/6 · 기존 검사 보완 후 새로 확인된 판정 근거를 다음 부분 보완에 전달합니다. 검사 통과와 실제 실행 전에는 구현·자동 반영을 허용하지 않습니다.",
+      "status": "completed",
+      "timestamp": 1791526167715
+    },
+    {
+      "id": "8ea7a4e6-d2ba-4ba6-954f-eb213044af4c",
+      "title": "독립 QA 계획 보완 / Refine QA contract",
+      "detail": "Add the missing observable behavior checks before implementation. 입력 경계, 저장·복원, 필터·검색, 완료 취소·삭제, 빈 상태와 두 화면 크기의 가로 넘침 검사는 포함되어 있습니다. 다만 명시된 접근성·DOM 계약 중 오류 안내의 aria-live, #statusMessage의 aria-live, form의 novalidate, 제목·과목의 text 및 시간의 number 입력 타입을 확인하는 항목이 없습니다. 이는 지원되는 CSS selector와 count·visible 검사로 확인할 수 있으므로 추가해야 합니다. 잘못된 저장 데이터를 주입하는 동작은 제공된 executor에 없으므로 해당 브라우저 시나리오의 부재를 수정 사유로 삼지는 않습니다.",
+      "status": "completed",
+      "timestamp": 1791526167716
+    },
+    {
+      "id": "c46c7810-c173-4d0f-b813-ba7497b9e6ac",
+      "title": "독립 QA 계획 / Independent QA plan",
+      "detail": "0/6 · 추론 강도 / Effort: ultra · 남은 사용 한도 92% · 누적 사용 53,571 tokens · 남은 사용 한도 92%",
+      "status": "completed",
+      "timestamp": 1791526167717,
+      "model": {
+        "role": "planner",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-sol",
+        "label": "GPT-6-Sol",
+        "effort": "ultra"
+      }
+    },
+    {
+      "id": "2e3f7b3a-b395-4ab3-bde1-a4b717518454",
+      "title": "독립 QA 부분 보완 / QA patch applied",
+      "detail": "기존 16개 검사 보존 · 새 검사 0개 · 추가 확인 6단계 · 실패 검사 교체 허용 0개. 전체 계획 재작성 없이 같은 기준으로 재판정합니다.",
+      "status": "completed",
+      "timestamp": 1791526190003
+    },
+    {
+      "id": "53062eec-7b3d-40d0-8103-beab14399632",
+      "title": "판정 / Review",
+      "detail": "0/6 · 추론 강도 / Effort: ultra · 남은 사용 한도 92% · 누적 사용 167,029 tokens · 남은 사용 한도 92%",
+      "status": "completed",
+      "timestamp": 1791526190004,
+      "model": {
+        "role": "judge",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-astra",
+        "label": "GPT-6-Astra",
+        "effort": "ultra"
+      }
+    },
+    {
+      "id": "6704c9ef-0b45-4436-a7dc-106c64e6de2c",
+      "title": "모델 판정 / Live model decision",
+      "detail": "GPT-6-Astra · gpt-6-astra\n독립 QA 기준: pass · 제공된 실행기로 수행 가능한 입력 검증, 저장 후 복원, 필터·검색, 전체 작업 기준 요약, 빈 상태 전환, HTML 문자열 표시, 키보드 조작과 접근성 속성 검사를 포함한다. 두 화면 크기에서 각 검사 후 수행되는 고정 레이아웃 검사도 명시되어 있다. 손상된 localStorage 데이터의 직접 주입은 제공된 실행기 동작에 없으므로 브라우저 계획의 필수 보완 사항으로 요구하지 않는다. 실제 Node 테스트와 최종 코드·시각 검토는 별도 필수 완료 게이트로 유지된다.\nQA 입력 행동: pass · 실제 입력과 제출 후 제목·과목 공백 제거, 필수값, 제목 100자와 과목 30자 경계, 시간 1~480의 정수 조건을 검증한다. 거부 시 오류 표시와 목록 개수 유지, 빈 제목의 초점 이동, 정상 입력 후 오류 해제 및 HTML 문자열의 문자 그대로 표시까지 확인한다.\nQA 저장 복원: pass · 작업 추가 후 새로고침하여 제목·과목·시간을 확인하며, 완료·완료 취소·삭제도 각각 상태 변경 후 새로고침하여 복원 결과를 검증한다.\nQA 빈 상태: pass · 초기 빈 목록, 검색·필터 결과가 없는 상태, 일치하는 작업이 있을 때 빈 안내가 숨겨지는 상태를 검증한다. 마지막 작업 삭제 직후와 새로고침 후에도 빈 안내와 0으로 초기화된 요약을 확인한다.\nQA 키보드 행동: pass · 실제 Tab 입력 후 제목·과목·시간·추가 버튼의 focus-visible을 확인하고, 시간 입력에서 Enter를 눌러 작업이 추가되는 결과를 검증한다. 입력 label 클릭에 따른 초점 연결도 확인한다.\nQA 검사 initial-empty-state: pass · 초기화 후 빈 안내, 네 요약값의 0 표시, 오류 숨김을 확인한다. novalidate, 입력 타입, 오류·상태 안내의 aria-live 속성도 제공된 count 동작으로 검증할 수 있는 일관된 DOM 계약이다.\nQA 검사 add-task-with-trimming: pass · 앞뒤 공백이 있는 제목과 유효한 과목·시간을 제출한 뒤 공백이 제거된 제목, 작업 수 1, 총시간 45 및 항목의 45분 표시를 확인하므로 입력과 기대 결과가 일치한다.\nQA 검사 form-validation-rules: pass · 빈 제목 제출 시 제목 입력으로 초점이 이동하는지 확인한다. 이어 유효한 제목·과목과 범위를 벗어난 시간, 유효한 과목·시간과 빈 제목을 각각 제출하여 오류 표시와 작업 미추가를 검증한다.\nQA 검사 task-persistence: pass · 허용 길이 안의 긴 제목, 과목, 120분을 입력하고 추가한 뒤 새로고침하여 같은 제목·과목·항목 시간과 총시간이 표시되는지 확인한다. 입력값과 복원 기대값이 일치한다.\nQA 검사 search-and-filter-behavior: pass · 불일치 검색의 빈 상태, 과목의 대소문자 무시 검색, 검색과 완료 필터의 조합을 확인한다. 이후 제목을 소문자와 대문자로 검색하여 동일한 작업만 표시되고 전체 작업 수는 2로 유지되는지 검증한다.\nQA 검사 keyboard-accessibility-flow: pass · Tab으로 제목·과목·시간 순서의 눈에 보이는 초점을 확인하고 Enter 제출 결과를 검증한다. 각 입력의 label 클릭으로 초점 연결을 확인한 뒤 시간 입력에서 Tab으로 추가 버튼에 이동하는 순서도 일관된다.\nQA 검사 toggle-and-delete-updates: pass · 작업 완료 후 완료 개수를 확인하고 새로고침 후에도 유지되는지 검증한다. 이어 유일한 작업을 삭제하여 목록, 네 요약값, 빈 안내가 즉시 갱신되고 새로고침 후에도 삭제 상태가 유지되는지 확인한다.\nQA 검사 title-length-boundaries: pass · 100자 제목은 원문 그대로 추가되고 오류가 숨겨지는지 확인한다. 101자 제목은 오류를 표시하며 기존 작업 수 1을 유지하도록 검증하므로 허용 경계와 초과 거부 조건이 정확하다.\nQA 검사 subject-trimming-and-length-boundaries: pass · 앞뒤 공백을 제거하면 30자인 과목은 정상 추가되고 정규화된 값으로 표시되는지 확인한다. 31자 과목은 오류를 표시하고 작업을 추가하지 않도록 검증하여 공백 제거와 길이 경계가 일관된다.\nQA 검사 whitespace-title-and-required-subject: pass · 공백만 있는 제목은 오류 표시, 작업 미추가, 제목 초점 이동으로 검증한다. 유효한 제목과 시간을 유지하면서 빈 과목 및 공백만 있는 과목도 각각 거부되는지 확인한다.\nQA 검사 minutes-range-boundaries: pass · 1분과 480분 작업을 허용하여 작업 수 2와 합계 481분을 확인한다. 이어 0분과 481분 입력을 각각 거부하고 기존 작업 수를 유지하도록 검증하므로 시간 범위의 양쪽 경계가 정확하다.\nQA 검사 minutes-format-and-error-recovery: pass · 소수 시간과 빈 시간 제출 후 오류 표시 및 작업 미추가를 확인한다. 이후 30분으로 수정하여 제출하면 오류가 숨겨지고 작업 수와 총시간이 정상 갱신되는지 검증한다.\nQA 검사 html-input-renders-literally: pass · 제목과 과목에 HTML 태그 형태의 문자열을 입력한 뒤 해당 문자열이 화면 텍스트로 그대로 표시되는지 확인한다. 실제 b·i 하위 요소가 생성되지 않는다는 검증도 포함되어 있다.\nQA 검사 completion-undo-persists-after-reload: pass · 완료와 완료 취소를 차례로 수행하며 진행·완료 개수의 변화를 확인한다. 새로고침 후 취소 상태가 유지되고 진행 필터에는 작업이 표시되며 완료 필터에는 빈 안내가 표시되는지 검증한다.\nQA 검사 filtered-add-delete-updates-global-summary: pass · 완료 작업을 남겨 둔 상태에서 진행 필터로 새 작업을 추가·삭제하며 네 요약값이 숨겨진 완료 작업까지 포함하는지 확인한다. 진행 목록이 비었을 때 빈 안내를 확인하고 전체 필터에서 남은 완료 작업도 검증한다.\nQA 검사 mixed-status-filter-results: pass · 완료 작업과 진행 작업을 함께 만든 뒤 각 상태 필터가 올바른 제목의 작업 하나만 표시하고 전체 필터는 두 작업을 표시하는지 확인한다. 완료 필터에서도 네 요약값이 전체 작업 기준으로 유지되는지 검증한다.",
+      "status": "completed",
+      "timestamp": 1791526276020,
+      "model": {
+        "role": "judge",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-astra",
+        "label": "GPT-6-Astra",
+        "effort": "ultra"
+      }
+    },
+    {
+      "id": "2db59b90-d789-46bf-8ec5-7876e2b2d8d5",
+      "title": "독립 QA 기준 확정 / QA contract fixed",
+      "detail": "16개 기능 검사 · 데스크톱/모바일 · 작업 중 검사 기준을 변경하지 않습니다.",
+      "status": "completed",
+      "timestamp": 1791526276022
+    },
+    {
+      "id": "c2b0caa4-87b7-41d6-95d9-a7c56eafc32f",
+      "title": "부분 작업 계획 / Milestone plan",
+      "detail": "0/6 · 추론 강도 / Effort: ultra · 남은 사용 한도 92% · 누적 사용 81,455 tokens · 남은 사용 한도 92%",
+      "status": "completed",
+      "timestamp": 1791526276030,
+      "model": {
+        "role": "planner",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-sol",
+        "label": "GPT-6-Sol",
+        "effort": "ultra"
+      }
+    },
+    {
+      "id": "e7249601-2f2f-4ad5-8913-cacbb6a65980",
+      "title": "판정 / Review",
+      "detail": "0/6 · 추론 강도 / Effort: ultra · 남은 사용 한도 92% · 누적 사용 197,579 tokens · 남은 사용 한도 92%",
+      "status": "completed",
+      "timestamp": 1791526319048,
+      "model": {
+        "role": "judge",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-astra",
+        "label": "GPT-6-Astra",
+        "effort": "ultra"
+      }
+    },
+    {
+      "id": "908d2594-df9b-4ab3-b192-a7cfb73428ea",
+      "title": "모델 판정 / Live model decision",
+      "detail": "GPT-6-Astra · gpt-6-astra\n부분 작업 범위: pass · 3개 부분 작업의 파일 소유권이 겹치지 않고 모델 → UI → 통합 순서의 의존성이 타당하다. 첫 단계는 model.mjs와 model.test.mjs만으로 실행 가능하며, 입력 경계·상태 변경·검색·필터·전체 요약·저장 데이터 검증을 실제 함수 입출력으로 검사한다. UI 단계는 DOM·localStorage 대역을 통해 이벤트 처리, 렌더링, 저장·복원, 손상 데이터 처리와 HTML 문자 표시를 검증하고, 서버 단계는 실제 요청 처리 함수의 응답과 MIME을 검사하도록 계획되어 있어 소스 텍스트 확인에 머무르지 않는다. 지정된 DOM 계약, 한국어 UI, 접근성, 반응형 화면, 저장 키, 실행 명령과 기본 주소도 수용 기준에 포함되어 있다. 고정 브라우저 QA는 입력 경계, Enter 제출과 Tab 이동, 보이는 포커스, label 연결, 새로고침 후 상태 복원, 검색·필터·전체 요약, 완료 취소·삭제를 확인하며, executor가 두 지정 화면 크기에서 가로 넘침을 검사한다. 최",
+      "status": "completed",
+      "timestamp": 1791526347240,
+      "model": {
+        "role": "judge",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-astra",
+        "label": "GPT-6-Astra",
+        "effort": "ultra"
+      }
+    },
+    {
+      "id": "2718ba69-bc45-4304-ad1a-20e69a9879ac",
+      "title": "부분 작업 기준 확정 / Milestones fixed",
+      "detail": "1. 상태 모델과 입력·저장 데이터 검증 · 의존 없음 · node --test model.test.mjs\n2. 반응형 화면과 브라우저 상호작용 연결 · 의존 model · node --test app.test.mjs\n3. 정적 서버·실행 안내와 전체 통합 검증 · 의존 model, ui · node --test",
+      "status": "completed",
+      "timestamp": 1791526347241
+    },
+    {
+      "id": "6ac6be7d-ee16-40b8-b3a4-8d98609d47fa",
+      "title": "LangGraph 단계 저장 / Workflow checkpoint",
+      "detail": "다음 단계: round · 완료 회차 0/6",
+      "status": "completed",
+      "timestamp": 1791526347244
+    },
+    {
+      "id": "51648162-0d34-4bce-8298-6133dbc43fbe",
+      "title": "계획별 모델 배정 / Plan-based model selection",
+      "detail": "1/6 · 추론 강도 / Effort: ultra · 남은 사용 한도 92% · 모델 배정 응답 형식이 올바르지 않습니다: 모델 응답이 요청한 JSON 형식이 아닙니다.",
+      "status": "failed",
+      "timestamp": 1791526347327,
+      "model": {
+        "role": "judge",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-astra",
+        "label": "GPT-6-Astra",
+        "effort": "ultra"
+      }
+    },
+    {
+      "id": "7b7fb5c1-0fb7-4eee-aab8-b6580dbd0279",
+      "title": "응답 형식 오류 · 대체 모델 시도 / Invalid output · Trying fallback",
+      "detail": "GPT-6-Astra이 요청된 응답 구조를 따르지 않아 저장된 다음 우선순위 모델을 시도합니다. 모델 배정 응답 형식이 올바르지 않습니다: 모델 응답이 요청한 JSON 형식이 아닙니다.",
+      "status": "completed",
+      "timestamp": 1791526369729,
+      "model": {
+        "role": "judge",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-astra",
+        "label": "GPT-6-Astra",
+        "effort": "ultra"
+      }
+    },
+    {
+      "id": "4221a0d3-0ce0-4262-ad53-82822af54086",
+      "title": "계획별 모델 배정 / Plan-based model selection",
+      "detail": "1/6 · 추론 강도 / Effort: ultra · 남은 사용 한도 92% · 누적 사용 113,269 tokens · 남은 사용 한도 91%",
+      "status": "completed",
+      "timestamp": 1791526369730,
+      "model": {
+        "role": "judge",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-sol",
+        "label": "GPT-6-Sol",
+        "effort": "ultra"
+      }
+    },
+    {
+      "id": "b2b2f683-1b2e-4166-bff9-63a54eb28f7d",
+      "title": "우선순위 모델 전환 / Priority model selected",
+      "detail": "judge 역할이 저장된 순서에 따라 GPT-6-Sol로 전환했습니다. 남은 사용 한도 91%.",
+      "status": "completed",
+      "timestamp": 1791526383635,
+      "model": {
+        "role": "judge",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-sol",
+        "label": "GPT-6-Sol",
+        "effort": "ultra"
+      }
+    },
+    {
+      "id": "2345796b-2254-41ae-8081-7f0718f460a9",
+      "title": "계획별 모델 배정 결과 / Plan-based model assigned",
+      "detail": "상태 모델과 입력·저장 데이터 검증\n구현 → 기존 기본 모델 유지 · 현재 단계는 상태 모델과 독립 테스트 구현이다. 기존 후보는 역할 단독 완료 3회 중 0회, 검증 통과 3회 중 0회로 측정됐지만, 다른 후보는 완료 안정성을 비교할 충분한 표본이 없다. 기본 배정을 개선한다는 근거가 없어 유지한다.",
+      "status": "completed",
+      "timestamp": 1791526383637,
+      "model": {
+        "role": "worker",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-luna",
+        "label": "GPT-6-Luna",
+        "effort": "max"
+      }
+    },
+    {
+      "id": "44228f51-9991-41d7-aa08-7b104e6668bd",
+      "title": "구현 / Implementation",
+      "detail": "1/6 · 추론 강도 / Effort: max · 남은 사용 한도 93% · 누적 사용 100,870 tokens · 남은 사용 한도 91%",
+      "status": "completed",
+      "timestamp": 1791526383640,
+      "model": {
+        "role": "worker",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-luna",
+        "label": "GPT-6-Luna",
+        "effort": "max"
+      }
+    },
+    {
+      "id": "7db94d40-7334-4dc9-b67d-01adc985d2bd",
+      "title": "파일 작업 / File operations",
+      "detail": "list: .",
+      "status": "completed",
+      "timestamp": 1791526391348
+    },
+    {
+      "id": "eb1c4fbe-ce50-4e3a-8175-b96df477e2ab",
+      "title": "구현 / Implementation",
+      "detail": "1/6 · 추론 강도 / Effort: max · 남은 사용 한도 91% · 누적 사용 136,829 tokens · 남은 사용 한도 91%",
+      "status": "completed",
+      "timestamp": 1791526391349,
+      "model": {
+        "role": "worker",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-luna",
+        "label": "GPT-6-Luna",
+        "effort": "max"
+      }
+    },
+    {
+      "id": "f7fe1b21-a0f9-44bf-9d51-a20db7eb415c",
+      "title": "파일 작업 / File operations",
+      "detail": "write: model.mjs\nwrite: model.test.mjs",
+      "status": "completed",
+      "timestamp": 1791526605207
+    },
+    {
+      "id": "5fadb20a-4238-4801-b853-5148b862d46e",
+      "title": "회차 변경 요약 / Round summary",
+      "detail": "UI와 분리된 입력 검증, 작업 추가·완료 전환·삭제, 검색·필터, 전체 요약, 저장 데이터 파싱·검증·직렬화 모델을 작성하고 경계값·상태 변경·검색·복원·잘못된 저장값 거부를 확인하는 독립 Node 테스트를 추가했습니다.",
+      "status": "completed",
+      "timestamp": 1791526605207
+    },
+    {
+      "id": "f2746e79-c30c-4b43-b87f-42362855206c",
+      "title": "판정 / Review",
+      "detail": "1/6 · 추론 강도 / Effort: ultra · 남은 사용 한도 91% · 누적 사용 140,970 tokens · 남은 사용 한도 91%",
+      "status": "completed",
+      "timestamp": 1791526605422,
+      "model": {
+        "role": "judge",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-sol",
+        "label": "GPT-6-Sol",
+        "effort": "ultra"
+      }
+    },
+    {
+      "id": "4efdb305-36e2-4b66-b948-f567eeb08221",
+      "title": "모델 판정 / Live model decision",
+      "detail": "GPT-6-Sol · gpt-6-sol\n상태 모델과 입력·저장 데이터 검증 완료: pass · model.mjs에 입력 경계 검증, 작업 추가·완료 전환·삭제, 필터·대소문자 무시 검색, 전체 작업 기준 요약, 저장 데이터 파싱·검증이 구현되어 있습니다. model.test.mjs는 이 동작을 함수의 입력·출력으로 독립 검사하며, 제시된 검증 결과에서 9개 테스트가 모두 통과했습니다.",
+      "status": "completed",
+      "timestamp": 1791526617345,
+      "model": {
+        "role": "judge",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-sol",
+        "label": "GPT-6-Sol",
+        "effort": "ultra"
+      }
+    },
+    {
+      "id": "10313863-02fe-422b-9ea0-55731032b6e8",
+      "title": "부분 작업 완료 / Milestone verified",
+      "detail": "상태 모델과 입력·저장 데이터 검증 · node --test model.test.mjs\nGPT-6-Sol · gpt-6-sol\n상태 모델과 입력·저장 데이터 검증 완료: pass · model.mjs에 입력 경계 검증, 작업 추가·완료 전환·삭제, 필터·대소문자 무시 검색, 전체 작업 기준 요약, 저장 데이터 파싱·검증이 구현되어 있습니다. model.test.mjs는 이 동작을 함수의 입력·출력으로 독립 검사하며, 제시된 검증 결과에서 9개 테스트가 모두 통과했습니다.",
+      "status": "completed",
+      "timestamp": 1791526617350
+    },
+    {
+      "id": "ef3c4a91-6435-4f5e-b00c-dddda535cde8",
+      "title": "LangGraph 단계 저장 / Workflow checkpoint",
+      "detail": "다음 단계: round · 완료 회차 1/6",
+      "status": "completed",
+      "timestamp": 1791526617354
+    },
+    {
+      "id": "ac7347d6-188b-4d02-a8b4-15c87d63498c",
+      "title": "계획별 모델 배정 / Plan-based model selection",
+      "detail": "2/6 · 추론 강도 / Effort: ultra · 남은 사용 한도 91% · 누적 사용 173,006 tokens · 남은 사용 한도 91%",
+      "status": "completed",
+      "timestamp": 1791526617419,
+      "model": {
+        "role": "judge",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-sol",
+        "label": "GPT-6-Sol",
+        "effort": "ultra"
+      }
+    },
+    {
+      "id": "ae17d5d8-14f2-4b3c-9691-ad8eac12bfd5",
+      "title": "계획별 모델 배정 결과 / Plan-based model assigned",
+      "detail": "반응형 화면과 브라우저 상호작용 연결 · 검증 피드백 반영\n구현 → 기존 기본 모델 유지 · 현재 UI 부분 작업에서 candidate_0은 역할 단독 완료 3회 중 0회이고 검증 통과율도 0%지만, 나머지 후보는 완료율을 비교할 충분한 표본이 없습니다. 미계측 값을 0이나 예상 성능으로 간주할 수 없어 기존 배정과 대체 순서를 바꿀 근거가 부족합니다.",
+      "status": "completed",
+      "timestamp": 1791526634644,
+      "model": {
+        "role": "worker",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-luna",
+        "label": "GPT-6-Luna",
+        "effort": "max"
+      }
+    },
+    {
+      "id": "cd2f9472-9dfe-4190-85ef-f688d8575aa7",
+      "title": "구현 / Implementation",
+      "detail": "2/6 · 추론 강도 / Effort: max · 남은 사용 한도 91% · 누적 사용 163,188 tokens · 남은 사용 한도 91%",
+      "status": "completed",
+      "timestamp": 1791526634647,
+      "model": {
+        "role": "worker",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-luna",
+        "label": "GPT-6-Luna",
+        "effort": "max"
+      }
+    },
+    {
+      "id": "7992049c-37e2-476a-ae60-43e715f3bd08",
+      "title": "파일 작업 / File operations",
+      "detail": "list: .\nread: model.mjs\nread: model.test.mjs",
+      "status": "completed",
+      "timestamp": 1791526644179
+    },
+    {
+      "id": "12edd43b-33b0-4530-920c-ead1ba38d021",
+      "title": "구현 / Implementation",
+      "detail": "2/6 · 추론 강도 / Effort: max · 남은 사용 한도 91% · 누적 사용 202,798 tokens · 남은 사용 한도 91%",
+      "status": "completed",
+      "timestamp": 1791526644180,
+      "model": {
+        "role": "worker",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-luna",
+        "label": "GPT-6-Luna",
+        "effort": "max"
+      }
+    },
+    {
+      "id": "25cf8661-d29b-40df-bce2-1ff7a3e64117",
+      "title": "파일 작업 / File operations",
+      "detail": "write: index.html\nwrite: styles.css\nwrite: app.mjs",
+      "status": "completed",
+      "timestamp": 1791526823995
+    },
+    {
+      "id": "32d82811-e9d8-4445-ba8f-f1cd4608e34d",
+      "title": "구현 / Implementation",
+      "detail": "2/6 · 추론 강도 / Effort: max · 남은 사용 한도 91% · 누적 사용 245,994 tokens · 남은 사용 한도 91%",
+      "status": "completed",
+      "timestamp": 1791526823997,
+      "model": {
+        "role": "worker",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-luna",
+        "label": "GPT-6-Luna",
+        "effort": "max"
+      }
+    },
+    {
+      "id": "0470e13a-7b0a-4b20-84a1-89025125bf42",
+      "title": "파일 작업 / File operations",
+      "detail": "write: app.test.mjs",
+      "status": "completed",
+      "timestamp": 1791526889921
+    },
+    {
+      "id": "187459ac-b856-463c-b9fd-574229d2d8ee",
+      "title": "회차 변경 요약 / Round summary",
+      "detail": "기존 UI와 모델 연결을 대상으로 app.test.mjs를 추가했습니다. 주입한 DOM·localStorage 대역에서 실제 폼 제출, 입력 검증과 포커스, 작업 렌더링, 저장·복원, 완료 전환·삭제, 검색·필터·전체 요약, HTML 문자 표시, 잘못된 저장값의 비덮어쓰기 동작을 검사하도록 구성했습니다.",
+      "status": "completed",
+      "timestamp": 1791526889922
+    },
+    {
+      "id": "99e828e3-336e-4821-9283-47460ba3f571",
+      "title": "판정 / Review",
+      "detail": "2/6 · 추론 강도 / Effort: ultra · 남은 사용 한도 91% · 누적 사용 210,061 tokens · 남은 사용 한도 91%",
+      "status": "completed",
+      "timestamp": 1791526890140,
+      "model": {
+        "role": "judge",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-sol",
+        "label": "GPT-6-Sol",
+        "effort": "ultra"
+      }
+    },
+    {
+      "id": "8d4e967b-e594-4c46-810d-ee0a29bb9949",
+      "title": "모델 판정 / Live model decision",
+      "detail": "GPT-6-Sol · gpt-6-sol\n반응형 화면과 브라우저 상호작용 연결 완료: revise · node --test app.test.mjs의 7개 테스트가 통과했고, 주입한 DOM·localStorage 대역으로 주요 상태 변경과 렌더링을 검증했습니다. 그러나 이 대역은 실제 브라우저의 Enter 제출, 1440×900·390×844 화면에서의 가로 넘침, Tab 이동과 눈에 보이는 포커스를 검증하지 못합니다. 이 부분 작업의 화면·키보드 기준을 충족했다는 브라우저 실행 근거가 필요합니다.",
+      "status": "completed",
+      "timestamp": 1791526909896,
+      "model": {
+        "role": "judge",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-sol",
+        "label": "GPT-6-Sol",
+        "effort": "ultra"
+      }
+    },
+    {
+      "id": "6b4ab6b6-36e3-439d-9213-a815f8e1b9e8",
+      "title": "부분 작업 수정 / Milestone failed",
+      "detail": "반응형 화면과 브라우저 상호작용 연결 · node --test app.test.mjs\n반응형 화면과 브라우저 상호작용 연결: Fix missing behavior or verification for this partial task without weakening its original criteria. node --test app.test.mjs의 7개 테스트가 통과했고, 주입한 DOM·localStorage 대역으로 주요 상태 변경과 렌더링을 검증했습니다. 그러나 이 대역은 실제 브라우저의 Enter 제출, 1440×900·390×844 화면에서의 가로 넘침, Tab 이동과 눈에 보이는 포커스를 검증하지 못합니다. 이 부분 작업의 화면·키보드 기준을 충족했다는 브라우저 실행 근거가 필요합니다.\n검증 종료 코드 0: ✔ 초기 화면은 빈 목록과 전체 요약을 실제 DOM에 표시한다 (1.950583ms)\n✔ 폼 제출은 입력을 정리해 작업을 렌더링하고 localStorage에 저장한다 (6.03475ms)\n✔ 입력 오류는 표시되고 빈 제목은 제목 입력란에 초점을 돌린다 (0.564584ms)\n✔ 완료·완료 취소·삭제는 저장되며 새 앱 초기화에서 복원된다 (1.046666ms)\n✔ 검색과 상태 필터는 목록만 바꾸고 요약은 전체 작업 기준으로 유지한다 (0.6965ms)\n✔ 제목과 과목의 HTML 문자는 실행하지 않고 문자 그대로 렌더링한다 (0.235625ms)\n✔ 잘못된 저장 데이터는 안내 후 빈 목록으로 시작하고 자동으로 덮어쓰지 않는다 (0.44125ms)\nℹ tests 7\nℹ suites 0\nℹ pass 7\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 46.751583\n",
+      "status": "failed",
+      "timestamp": 1791526909897
+    },
+    {
+      "id": "499d2a1c-842c-409c-86d8-8a6de47ed442",
+      "title": "LangGraph 단계 저장 / Workflow checkpoint",
+      "detail": "다음 단계: round · 완료 회차 2/6",
+      "status": "completed",
+      "timestamp": 1791526909900
+    },
+    {
+      "id": "eab242ce-0c71-440b-8595-03ceb60ae8c1",
+      "title": "계획별 모델 배정 / Plan-based model selection",
+      "detail": "3/6 · 추론 강도 / Effort: ultra · 남은 사용 한도 91% · 누적 사용 242,342 tokens · 남은 사용 한도 91%",
+      "status": "completed",
+      "timestamp": 1791526909965,
+      "model": {
+        "role": "judge",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-sol",
+        "label": "GPT-6-Sol",
+        "effort": "ultra"
+      }
+    },
+    {
+      "id": "d06172b8-411e-467b-8722-925d1405e214",
+      "title": "계획별 모델 배정 결과 / Plan-based model assigned",
+      "detail": "반응형 화면과 브라우저 상호작용 연결 · 검증 피드백 반영\n구현 → 기존 기본 모델 유지 · candidate_0의 동일 역할 단독 완료 3회는 모두 실패해 95% Wilson 신뢰구간 하한이 0이다. 나머지 후보는 완료율 비교에 필요한 표본이 부족하며, 품질·추론 능력을 비교할 실측 근거도 없다. 현재 피드백은 실제 브라우저의 화면·키보드 검증 근거가 부족하다는 내용이므로, 기본 배정을 바꿀 근거가 없다.",
+      "status": "completed",
+      "timestamp": 1791526924501,
+      "model": {
+        "role": "worker",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-luna",
+        "label": "GPT-6-Luna",
+        "effort": "max"
+      }
+    },
+    {
+      "id": "a626be2d-0d6f-4048-8a2c-2fef83d1d30e",
+      "title": "구현 / Implementation",
+      "detail": "3/6 · 추론 강도 / Effort: max · 남은 사용 한도 91% · 누적 사용 272,873 tokens · 남은 사용 한도 91%",
+      "status": "completed",
+      "timestamp": 1791526924504,
+      "model": {
+        "role": "worker",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-luna",
+        "label": "GPT-6-Luna",
+        "effort": "max"
+      }
+    },
+    {
+      "id": "c861357e-27ab-42fe-886b-e71291b78749",
+      "title": "파일 작업 / File operations",
+      "detail": "read: index.html\nread: styles.css\nread: app.mjs\nread: app.test.mjs",
+      "status": "completed",
+      "timestamp": 1791526938517
+    },
+    {
+      "id": "d6715be5-af30-45a7-9048-d62458c5c79c",
+      "title": "구현 / Implementation",
+      "detail": "3/6 · 추론 강도 / Effort: max · 남은 사용 한도 91% · 누적 사용 311,795 tokens · 남은 사용 한도 91%",
+      "status": "completed",
+      "timestamp": 1791526938518,
+      "model": {
+        "role": "worker",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-luna",
+        "label": "GPT-6-Luna",
+        "effort": "max"
+      }
+    },
+    {
+      "id": "3ab1b17f-be5a-45d2-9825-9bc3ee6b57a0",
+      "title": "파일 작업 / File operations",
+      "detail": "edit: app.mjs\nedit: app.test.mjs",
+      "status": "completed",
+      "timestamp": 1791526970325
+    },
+    {
+      "id": "d8644bc4-e678-46f4-838b-e765005b703d",
+      "title": "회차 변경 요약 / Round summary",
+      "detail": "입력란의 Enter 키가 IME 조합 중에는 제출되지 않고, 그 외에는 requestSubmit을 통해 일반 제출·검증·저장 흐름을 사용하도록 연결했습니다. 주입 DOM 테스트에 Enter 제출 및 렌더링·저장·초점 복귀 검사를 추가했습니다. 실제 브라우저 QA는 Harness의 후속 검증에서 확인해야 합니다.",
+      "status": "completed",
+      "timestamp": 1791526970326
+    },
+    {
+      "id": "4020a4eb-e601-475a-952b-a0f9e5fe460c",
+      "title": "판정 / Review",
+      "detail": "3/6 · 추론 강도 / Effort: ultra · 남은 사용 한도 91% · 누적 사용 279,519 tokens · 남은 사용 한도 91%",
+      "status": "completed",
+      "timestamp": 1791526970509,
+      "model": {
+        "role": "judge",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-sol",
+        "label": "GPT-6-Sol",
+        "effort": "ultra"
+      }
+    },
+    {
+      "id": "3c69ef80-0f5a-4227-98aa-d815b21f6cc6",
+      "title": "모델 판정 / Live model decision",
+      "detail": "GPT-6-Sol · gpt-6-sol\n반응형 화면과 브라우저 상호작용 연결 완료: revise · app.test.mjs의 실제 이벤트·렌더링 대역 테스트 8개는 통과했고, 변경 내용에서 지정된 DOM 요소와 주요 상호작용을 확인할 수 있습니다. 그러나 1440×900 및 390×844 화면의 가로 넘침, 긴 제목 표시, 실제 브라우저의 키보드 포커스와 Enter 제출을 검사한 근거가 없습니다. 이 부분 작업의 화면·접근성 기준을 실제 브라우저에서 검증해야 합니다.",
+      "status": "completed",
+      "timestamp": 1791526990070,
+      "model": {
+        "role": "judge",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-sol",
+        "label": "GPT-6-Sol",
+        "effort": "ultra"
+      }
+    },
+    {
+      "id": "60d3ace4-41f5-4503-ad28-ed64328bbfc3",
+      "title": "부분 작업 수정 / Milestone failed",
+      "detail": "반응형 화면과 브라우저 상호작용 연결 · node --test app.test.mjs\n반응형 화면과 브라우저 상호작용 연결: Fix missing behavior or verification for this partial task without weakening its original criteria. app.test.mjs의 실제 이벤트·렌더링 대역 테스트 8개는 통과했고, 변경 내용에서 지정된 DOM 요소와 주요 상호작용을 확인할 수 있습니다. 그러나 1440×900 및 390×844 화면의 가로 넘침, 긴 제목 표시, 실제 브라우저의 키보드 포커스와 Enter 제출을 검사한 근거가 없습니다. 이 부분 작업의 화면·접근성 기준을 실제 브라우저에서 검증해야 합니다.\n검증 종료 코드 0: ✔ 입력란에서 Enter를 누르면 폼 제출과 동일한 검증·저장 흐름을 탄다 (3.256625ms)\n✔ 초기 화면은 빈 목록과 전체 요약을 실제 DOM에 표시한다 (0.461375ms)\n✔ 폼 제출은 입력을 정리해 작업을 렌더링하고 localStorage에 저장한다 (0.580459ms)\n✔ 입력 오류는 표시되고 빈 제목은 제목 입력란에 초점을 돌린다 (0.282416ms)\n✔ 완료·완료 취소·삭제는 저장되며 새 앱 초기화에서 복원된다 (1.064ms)\n✔ 검색과 상태 필터는 목록만 바꾸고 요약은 전체 작업 기준으로 유지한다 (0.520042ms)\n✔ 제목과 과목의 HTML 문자는 실행하지 않고 문자 그대로 렌더링한다 (0.324375ms)\n✔ 잘못된 저장 데이터는 안내 후 빈 목록으로 시작하고 자동으로 덮어쓰지 않는다 (0.3255ms)\nℹ tests 8\nℹ suites 0\nℹ pass 8\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 38.176375\n",
+      "status": "failed",
+      "timestamp": 1791526990071
+    },
+    {
+      "id": "a32812a4-cc50-4044-8122-c86c4cbb412f",
+      "title": "LangGraph 단계 저장 / Workflow checkpoint",
+      "detail": "다음 단계: round · 완료 회차 3/6",
+      "status": "completed",
+      "timestamp": 1791526990074
+    },
+    {
+      "id": "45c25de3-f5f2-4109-a6df-a31177047c2a",
+      "title": "계획별 모델 배정 / Plan-based model selection",
+      "detail": "4/6 · 추론 강도 / Effort: ultra · 남은 사용 한도 91% · 누적 사용 311,772 tokens · 남은 사용 한도 91%",
+      "status": "completed",
+      "timestamp": 1791526990138,
+      "model": {
+        "role": "judge",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-sol",
+        "label": "GPT-6-Sol",
+        "effort": "ultra"
+      }
+    },
+    {
+      "id": "3e1c3bfa-d35d-4fac-9a16-17f20b60a652",
+      "title": "계획별 모델 배정 결과 / Plan-based model assigned",
+      "detail": "반응형 화면과 브라우저 상호작용 연결 · 검증 피드백 반영\n구현 → 기존 기본 모델 유지 · 동일 역할·Effort에서 완료율 비교 기준을 충족한 후보는 candidate_0뿐이며, 3회 중 완료 0회로 95% Wilson 신뢰구간 하한은 0입니다. 다른 후보는 표본이 부족해 완료 안정성이 더 높다고 판단할 수 없습니다. 현재 부분 작업에는 실제 브라우저 화면·키보드 검증이 남아 있지만, 대체 후보의 해당 QA 실측도 부족하므로 기본 배정을 바꿀 근거가 없습니다.",
+      "status": "completed",
+      "timestamp": 1791527007161,
+      "model": {
+        "role": "worker",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-luna",
+        "label": "GPT-6-Luna",
+        "effort": "max"
+      }
+    },
+    {
+      "id": "52047f42-1625-4078-94f9-340018d12352",
+      "title": "구현 / Implementation",
+      "detail": "4/6 · 추론 강도 / Effort: max · 남은 사용 한도 91% · 누적 사용 339,240 tokens · 남은 사용 한도 91%",
+      "status": "completed",
+      "timestamp": 1791527007164,
+      "model": {
+        "role": "worker",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-luna",
+        "label": "GPT-6-Luna",
+        "effort": "max"
+      }
+    },
+    {
+      "id": "fd9e45f9-214d-4296-b568-a8d07c520f7e",
+      "title": "파일 작업 / File operations",
+      "detail": "read: styles.css\nread: index.html\nread: app.mjs",
+      "status": "completed",
+      "timestamp": 1791527025725
+    },
+    {
+      "id": "29e16a46-dd5c-48ea-bd4e-3629a1761517",
+      "title": "구현 / Implementation",
+      "detail": "4/6 · 추론 강도 / Effort: max · 남은 사용 한도 91% · 누적 사용 373,520 tokens · 남은 사용 한도 91%",
+      "status": "completed",
+      "timestamp": 1791527025727,
+      "model": {
+        "role": "worker",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-luna",
+        "label": "GPT-6-Luna",
+        "effort": "max"
+      }
+    },
+    {
+      "id": "c63022af-d55f-4cef-af7e-5926f9db7e45",
+      "title": "회차 변경 요약 / Round summary",
+      "detail": "UI 부분 작업 파일이 완료되었습니다. 반응형 레이아웃, 긴 제목 줄바꿈, 키보드 포커스 표시와 Enter 제출 동작이 구현되어 있고 주입 DOM 테스트 8개가 통과했습니다. 1440×900 및 390×844 실제 브라우저 QA는 Harness에서 이어서 실행해야 합니다.",
+      "status": "completed",
+      "timestamp": 1791527053429
+    },
+    {
+      "id": "9a697f49-ef18-4bec-8abf-11e93ba29791",
+      "title": "판정 / Review",
+      "detail": "4/6 · 추론 강도 / Effort: ultra · 남은 사용 한도 91% · 누적 사용 349,213 tokens · 남은 사용 한도 91%",
+      "status": "completed",
+      "timestamp": 1791527053610,
+      "model": {
+        "role": "judge",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-sol",
+        "label": "GPT-6-Sol",
+        "effort": "ultra"
+      }
+    },
+    {
+      "id": "b64caacb-7e39-4806-aefb-3cb7e13158a8",
+      "title": "모델 판정 / Live model decision",
+      "detail": "GPT-6-Sol · gpt-6-sol\n반응형 화면과 브라우저 상호작용 연결 완료: revise · app.test.mjs의 실제 이벤트·렌더링 테스트 8개는 통과했지만, 필수인 실제 브라우저 검증 결과가 없습니다. 1440×900 및 390×844에서 가로 넘침, 긴 제목 줄바꿈, 키보드 포커스와 상호작용을 확인한 근거가 없어 UI 부분 작업의 모든 기준을 충족했다고 판정할 수 없습니다. 해당 브라우저 QA를 실행하고 결과를 제출해야 합니다.",
+      "status": "completed",
+      "timestamp": 1791527076248,
+      "model": {
+        "role": "judge",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-sol",
+        "label": "GPT-6-Sol",
+        "effort": "ultra"
+      }
+    },
+    {
+      "id": "e50148c2-22a0-49af-a7af-dcc8f1f95def",
+      "title": "부분 작업 수정 / Milestone failed",
+      "detail": "반응형 화면과 브라우저 상호작용 연결 · node --test app.test.mjs\n반응형 화면과 브라우저 상호작용 연결: Fix missing behavior or verification for this partial task without weakening its original criteria. app.test.mjs의 실제 이벤트·렌더링 테스트 8개는 통과했지만, 필수인 실제 브라우저 검증 결과가 없습니다. 1440×900 및 390×844에서 가로 넘침, 긴 제목 줄바꿈, 키보드 포커스와 상호작용을 확인한 근거가 없어 UI 부분 작업의 모든 기준을 충족했다고 판정할 수 없습니다. 해당 브라우저 QA를 실행하고 결과를 제출해야 합니다.\n검증 종료 코드 0: ✔ 입력란에서 Enter를 누르면 폼 제출과 동일한 검증·저장 흐름을 탄다 (3.27725ms)\n✔ 초기 화면은 빈 목록과 전체 요약을 실제 DOM에 표시한다 (0.283209ms)\n✔ 폼 제출은 입력을 정리해 작업을 렌더링하고 localStorage에 저장한다 (0.528292ms)\n✔ 입력 오류는 표시되고 빈 제목은 제목 입력란에 초점을 돌린다 (0.287333ms)\n✔ 완료·완료 취소·삭제는 저장되며 새 앱 초기화에서 복원된다 (0.998625ms)\n✔ 검색과 상태 필터는 목록만 바꾸고 요약은 전체 작업 기준으로 유지한다 (0.475542ms)\n✔ 제목과 과목의 HTML 문자는 실행하지 않고 문자 그대로 렌더링한다 (0.330208ms)\n✔ 잘못된 저장 데이터는 안내 후 빈 목록으로 시작하고 자동으로 덮어쓰지 않는다 (0.339709ms)\nℹ tests 8\nℹ suites 0\nℹ pass 8\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 38.103\n",
+      "status": "failed",
+      "timestamp": 1791527076250
+    },
+    {
+      "id": "04a23884-5450-4b18-8a3d-95486ccd9334",
+      "title": "정체 복구 계획 / Stagnation replan",
+      "detail": "4/6 · 추론 강도 / Effort: ultra · 남은 사용 한도 91% · 누적 사용 375,973 tokens · 남은 사용 한도 91%",
+      "status": "completed",
+      "timestamp": 1791527076253,
+      "model": {
+        "role": "planner",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-sol",
+        "label": "GPT-6-Sol",
+        "effort": "ultra"
+      }
+    },
+    {
+      "id": "f66edfc5-6a18-48f3-a6dd-ba9fd2da255d",
+      "title": "품질 정체 후 모델 교체 / Quality escalation",
+      "detail": "같은 변경이 반복되어 저장한 구현 우선순위의 다음 미사용 모델로 전환했습니다. 다음 회차에서 재계획을 적용합니다.",
+      "status": "completed",
+      "timestamp": 1791527107983,
+      "model": {
+        "role": "worker",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-sol",
+        "label": "GPT-6-Sol",
+        "effort": "ultra"
+      }
+    },
+    {
+      "id": "6eeed9ed-6745-421c-975c-53ec642d14dd",
+      "title": "Loop 접근 재정비 / Loop strategy reset",
+      "detail": "회차 4/6 · 새 계획 수립 · 구현 모델 교체.",
+      "status": "completed",
+      "timestamp": 1791527107984
+    },
+    {
+      "id": "915c5c86-2fa0-4393-8077-1c85a7ae5378",
+      "title": "LangGraph 단계 저장 / Workflow checkpoint",
+      "detail": "다음 단계: round · 완료 회차 4/6",
+      "status": "completed",
+      "timestamp": 1791527107988
+    },
+    {
+      "id": "310b9e63-f2e4-4fed-8ede-4fd7f7adc0c1",
+      "title": "계획별 모델 배정 / Plan-based model selection",
+      "detail": "5/6 · 추론 강도 / Effort: ultra · 남은 사용 한도 91% · 누적 사용 408,107 tokens · 남은 사용 한도 91%",
+      "status": "completed",
+      "timestamp": 1791527108047,
+      "model": {
+        "role": "judge",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-sol",
+        "label": "GPT-6-Sol",
+        "effort": "ultra"
+      }
+    },
+    {
+      "id": "195a8f4e-bfd8-40f4-bd0f-6e7369258c80",
+      "title": "계획별 모델 배정 결과 / Plan-based model assigned",
+      "detail": "반응형 화면과 브라우저 상호작용 연결 · 검증 피드백 반영\n구현 → 기존 기본 모델 유지 · 현재 UI 부분 작업의 미충족 기준은 실제 브라우저 QA 근거입니다. candidate_3은 역할 단독 완료 0/3회, 브라우저 QA 통과 1/3회이며, 나머지 후보는 완료 안정성을 비교할 충분한 표본이 없습니다. 기본 배정을 바꿔 완료 신뢰도를 높일 근거가 없어 유지합니다.",
+      "status": "completed",
+      "timestamp": 1791527121888,
+      "model": {
+        "role": "worker",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-sol",
+        "label": "GPT-6-Sol",
+        "effort": "ultra"
+      }
+    },
+    {
+      "id": "32a2ad25-e2e5-495f-ba95-24f0149265fa",
+      "title": "구현 / Implementation",
+      "detail": "5/6 · 추론 강도 / Effort: ultra · 남은 사용 한도 91% · 누적 사용 435,360 tokens · 남은 사용 한도 91%",
+      "status": "completed",
+      "timestamp": 1791527121892,
+      "model": {
+        "role": "worker",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-sol",
+        "label": "GPT-6-Sol",
+        "effort": "ultra"
+      }
+    },
+    {
+      "id": "22c11bba-b3fd-4c69-ab93-276f10d0a9b9",
+      "title": "회차 변경 요약 / Round summary",
+      "detail": "UI 담당 파일의 구현은 완료되었고 app.test.mjs의 실제 이벤트·렌더링 테스트 8개가 통과했습니다. 실제 브라우저 QA 근거는 아직 없습니다. Harness에서 1440×900 및 390×844 화면의 가로 넘침, 긴 제목 줄바꿈, 키보드 포커스, 추가·복원·검색·필터·완료 취소·삭제 동작을 확인하고 최종 node --test 결과를 기록해야 합니다.",
+      "status": "completed",
+      "timestamp": 1791527144529
+    },
+    {
+      "id": "b56b1e36-aad5-498b-9cb5-6c3999bf8930",
+      "title": "판정 / Review",
+      "detail": "5/6 · 추론 강도 / Effort: ultra · 남은 사용 한도 91% · 누적 사용 472,264 tokens · 남은 사용 한도 91%",
+      "status": "completed",
+      "timestamp": 1791527144731,
+      "model": {
+        "role": "judge",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-sol",
+        "label": "GPT-6-Sol",
+        "effort": "ultra"
+      }
+    },
+    {
+      "id": "3bc33e14-96bb-4aa6-a2b1-2269c70cab1d",
+      "title": "모델 판정 / Live model decision",
+      "detail": "GPT-6-Sol · gpt-6-sol\n반응형 화면과 브라우저 상호작용 연결 완료: revise · app.test.mjs의 실제 이벤트·렌더링 테스트 8개는 통과했지만, 1440×900 및 390×844에서 가로 넘침과 긴 제목 줄바꿈을 확인한 브라우저 근거가 없습니다. 눈에 보이는 키보드 포커스도 실제 브라우저에서 검증되지 않았습니다. 해당 UI 기준을 브라우저에서 확인하고 결과를 기록해야 합니다.",
+      "status": "completed",
+      "timestamp": 1791527158728,
+      "model": {
+        "role": "judge",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-sol",
+        "label": "GPT-6-Sol",
+        "effort": "ultra"
+      }
+    },
+    {
+      "id": "0c4b826a-0d9d-4e25-90a8-a2ca9415f8cf",
+      "title": "부분 작업 수정 / Milestone failed",
+      "detail": "반응형 화면과 브라우저 상호작용 연결 · node --test app.test.mjs\n반응형 화면과 브라우저 상호작용 연결: Fix missing behavior or verification for this partial task without weakening its original criteria. app.test.mjs의 실제 이벤트·렌더링 테스트 8개는 통과했지만, 1440×900 및 390×844에서 가로 넘침과 긴 제목 줄바꿈을 확인한 브라우저 근거가 없습니다. 눈에 보이는 키보드 포커스도 실제 브라우저에서 검증되지 않았습니다. 해당 UI 기준을 브라우저에서 확인하고 결과를 기록해야 합니다.\n검증 종료 코드 0: ✔ 입력란에서 Enter를 누르면 폼 제출과 동일한 검증·저장 흐름을 탄다 (5.545584ms)\n✔ 초기 화면은 빈 목록과 전체 요약을 실제 DOM에 표시한다 (0.29625ms)\n✔ 폼 제출은 입력을 정리해 작업을 렌더링하고 localStorage에 저장한다 (0.550125ms)\n✔ 입력 오류는 표시되고 빈 제목은 제목 입력란에 초점을 돌린다 (0.283166ms)\n✔ 완료·완료 취소·삭제는 저장되며 새 앱 초기화에서 복원된다 (1.28225ms)\n✔ 검색과 상태 필터는 목록만 바꾸고 요약은 전체 작업 기준으로 유지한다 (0.771ms)\n✔ 제목과 과목의 HTML 문자는 실행하지 않고 문자 그대로 렌더링한다 (0.298667ms)\n✔ 잘못된 저장 데이터는 안내 후 빈 목록으로 시작하고 자동으로 덮어쓰지 않는다 (0.492208ms)\nℹ tests 8\nℹ suites 0\nℹ pass 8\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 45.538834\n",
+      "status": "failed",
+      "timestamp": 1791527158729
+    },
+    {
+      "id": "ba7c4528-37e6-42ee-a292-47d47ca74c72",
+      "title": "LangGraph 단계 저장 / Workflow checkpoint",
+      "detail": "다음 단계: round · 완료 회차 5/6",
+      "status": "completed",
+      "timestamp": 1791527158734
+    },
+    {
+      "id": "8ed29664-9f3c-4269-be0f-b059d2e058ac",
+      "title": "계획별 모델 배정 / Plan-based model selection",
+      "detail": "6/6 · 추론 강도 / Effort: ultra · 남은 사용 한도 91% · 누적 사용 504,372 tokens · 남은 사용 한도 91%",
+      "status": "completed",
+      "timestamp": 1791527158795,
+      "model": {
+        "role": "judge",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-sol",
+        "label": "GPT-6-Sol",
+        "effort": "ultra"
+      }
+    },
+    {
+      "id": "f5f82aff-6605-445e-8068-b99d94c13123",
+      "title": "계획별 모델 배정 결과 / Plan-based model assigned",
+      "detail": "반응형 화면과 브라우저 상호작용 연결 · 검증 피드백 반영\n구현 → 기존 기본 모델 유지 · 현재 UI 부분 작업에는 실제 브라우저 QA 근거가 필요합니다. 충분한 완료 표본이 있는 candidate_3은 역할 단독 완료율 0%이고, 나머지 후보는 완료 안정성을 비교할 표본이 부족합니다. 기본 배정을 개선할 근거가 없어 유지합니다.",
+      "status": "completed",
+      "timestamp": 1791527174224,
+      "model": {
+        "role": "worker",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-sol",
+        "label": "GPT-6-Sol",
+        "effort": "ultra"
+      }
+    },
+    {
+      "id": "73b59902-d64f-4bb2-bb16-057f63bbb536",
+      "title": "구현 / Implementation",
+      "detail": "6/6 · 추론 강도 / Effort: ultra · 남은 사용 한도 91% · 누적 사용 531,972 tokens · 남은 사용 한도 91%",
+      "status": "completed",
+      "timestamp": 1791527174228,
+      "model": {
+        "role": "worker",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-sol",
+        "label": "GPT-6-Sol",
+        "effort": "ultra"
+      }
+    },
+    {
+      "id": "d5efa42f-1bbd-4253-82ec-2a2c770bafac",
+      "title": "회차 변경 요약 / Round summary",
+      "detail": "이번 회차 파일 변경은 없습니다. UI 구현과 app.test.mjs의 이벤트·렌더링 테스트 8개는 이전 회차에 완료되었으며, 실제 브라우저 QA 근거는 아직 없습니다. Harness에서 1440×900 및 390×844 화면의 가로 넘침, 긴 제목 줄바꿈, 키보드 포커스와 추가·복원·검색·필터·완료 취소·삭제 동작을 확인하고 최종 node --test 결과를 기록해야 합니다.",
+      "status": "completed",
+      "timestamp": 1791527196797
+    },
+    {
+      "id": "bdbaecb7-64e5-48bf-a66f-3963c9783a12",
+      "title": "판정 / Review",
+      "detail": "6/6 · 추론 강도 / Effort: ultra · 남은 사용 한도 91% · 누적 사용 568,915 tokens · 남은 사용 한도 91%",
+      "status": "completed",
+      "timestamp": 1791527196997,
+      "model": {
+        "role": "judge",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-sol",
+        "label": "GPT-6-Sol",
+        "effort": "ultra"
+      }
+    },
+    {
+      "id": "1f7d87df-4b5a-45aa-932f-30a3869e9914",
+      "title": "모델 판정 / Live model decision",
+      "detail": "GPT-6-Sol · gpt-6-sol\n반응형 화면과 브라우저 상호작용 연결 완료: revise · app.test.mjs의 실제 이벤트·렌더링 테스트 8개는 통과했지만, 1440×900 및 390×844 실제 브라우저에서 가로 넘침과 긴 제목 줄바꿈을 확인한 근거가 없고 키보드 포커스의 시각적 확인 근거도 없습니다. 반응형 화면 기준과 브라우저 상호작용 검증을 완료한 뒤 다시 판정해야 합니다.",
+      "status": "completed",
+      "timestamp": 1791527210244,
+      "model": {
+        "role": "judge",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-sol",
+        "label": "GPT-6-Sol",
+        "effort": "ultra"
+      }
+    },
+    {
+      "id": "0181b45e-00c4-4c91-8500-137ba81a0991",
+      "title": "부분 작업 수정 / Milestone failed",
+      "detail": "반응형 화면과 브라우저 상호작용 연결 · node --test app.test.mjs\n반응형 화면과 브라우저 상호작용 연결: Fix missing behavior or verification for this partial task without weakening its original criteria. app.test.mjs의 실제 이벤트·렌더링 테스트 8개는 통과했지만, 1440×900 및 390×844 실제 브라우저에서 가로 넘침과 긴 제목 줄바꿈을 확인한 근거가 없고 키보드 포커스의 시각적 확인 근거도 없습니다. 반응형 화면 기준과 브라우저 상호작용 검증을 완료한 뒤 다시 판정해야 합니다.\n검증 종료 코드 0: ✔ 입력란에서 Enter를 누르면 폼 제출과 동일한 검증·저장 흐름을 탄다 (3.29075ms)\n✔ 초기 화면은 빈 목록과 전체 요약을 실제 DOM에 표시한다 (0.2815ms)\n✔ 폼 제출은 입력을 정리해 작업을 렌더링하고 localStorage에 저장한다 (0.555042ms)\n✔ 입력 오류는 표시되고 빈 제목은 제목 입력란에 초점을 돌린다 (0.426084ms)\n✔ 완료·완료 취소·삭제는 저장되며 새 앱 초기화에서 복원된다 (1.207834ms)\n✔ 검색과 상태 필터는 목록만 바꾸고 요약은 전체 작업 기준으로 유지한다 (0.670208ms)\n✔ 제목과 과목의 HTML 문자는 실행하지 않고 문자 그대로 렌더링한다 (0.368125ms)\n✔ 잘못된 저장 데이터는 안내 후 빈 목록으로 시작하고 자동으로 덮어쓰지 않는다 (0.36225ms)\nℹ tests 8\nℹ suites 0\nℹ pass 8\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 43.251375\n",
+      "status": "failed",
+      "timestamp": 1791527210247
+    },
+    {
+      "id": "fd571119-5345-4a64-8241-c90103318181",
+      "title": "LangGraph 단계 저장 / Workflow checkpoint",
+      "detail": "다음 단계: finish · 완료 회차 6/6",
+      "status": "completed",
+      "timestamp": 1791527210252
+    },
+    {
+      "id": "15ed05c8-2651-4e6c-a3da-98fb880828fe",
+      "title": "LangGraph 단계 저장 / Workflow checkpoint",
+      "detail": "다음 단계: done · 완료 회차 6/6",
+      "status": "completed",
+      "timestamp": 1791527210267
+    },
+    {
+      "id": "14608873-4bd5-4f87-b5ac-56a7023a2c8d",
+      "title": "모델 사용량·잔여 한도 / Model usage and remaining quota",
+      "detail": "jev-latest: 15,404 tokens · 3회 호출 · 잔여 한도 미제공\nGPT-6-Luna: 373,520 tokens · 12회 호출 · 남은 사용 한도 91%\nmodels/gemini-3-flash-preview: 15,161 tokens · 2회 호출 · 잔여 한도 미제공\nGPT-6-Astra: 229,807 tokens · 7회 호출 · 남은 사용 한도 92%\nGPT-6-Sol: 568,915 tokens · 18회 호출 · 남은 사용 한도 91%",
+      "status": "completed",
+      "timestamp": 1791527210291
+    },
+    {
+      "id": "9976b58d-2b13-4f51-8694-d6df86db6332",
+      "title": "실행 종료 / Run finished",
+      "detail": "부분 작업 1/3 검증 완료. 전체 통합 검증은 아직 완료되지 않았습니다. 회차 한도에 도달해 근거와 작업 공간을 보존했습니다.",
+      "status": "failed",
+      "timestamp": 1791527210294
+    }
+  ],
+  "modelCalls": [
+    {
+      "eventId": "662afc74-36f2-48ea-8c43-0beb136215de",
+      "role": "judge",
+      "provider": "api",
+      "model": "jev-latest",
+      "effort": "default",
+      "round": 0,
+      "tokens": 7359,
+      "status": "success",
+      "durationMs": 467
+    },
+    {
+      "eventId": "30bcfa58-346b-4c09-84e6-89b2b689c0da",
+      "role": "planner",
+      "provider": "openai",
+      "model": "gpt-6-luna",
+      "effort": "max",
+      "round": 0,
+      "tokens": 19897,
+      "status": "success",
+      "durationMs": 5518
+    },
+    {
+      "eventId": "c9d84917-73c9-4d3c-b74d-0d8acccb52e9",
+      "role": "judge",
+      "provider": "api",
+      "model": "jev-latest",
+      "effort": "default",
+      "round": 0,
+      "tokens": 1758,
+      "status": "success",
+      "durationMs": 347
+    },
+    {
+      "eventId": "33fc7818-d57b-4980-a900-a97f7db8deb0",
+      "role": "planner",
+      "provider": "openai",
+      "model": "gpt-6-luna",
+      "effort": "max",
+      "round": 0,
+      "tokens": 21230,
+      "status": "success",
+      "durationMs": 12893
+    },
+    {
+      "eventId": "4c002869-f548-4548-ba1b-a7564eda2cc8",
+      "role": "planner",
+      "provider": "openai",
+      "model": "gpt-6-luna",
+      "effort": "max",
+      "round": 0,
+      "tokens": 33675,
+      "status": "failed",
+      "durationMs": 123388,
+      "failureKind": "format"
+    },
+    {
+      "eventId": "8ecb936a-0d68-44e2-97fb-668bb767c21b",
+      "role": "planner",
+      "provider": "api",
+      "model": "models/gemini-3-flash-preview",
+      "effort": "default",
+      "round": 0,
+      "tokens": 7610,
+      "status": "success",
+      "durationMs": 27583
+    },
+    {
+      "eventId": "473f8ec3-d0f1-4001-b69b-6aae03e08e0b",
+      "role": "judge",
+      "provider": "api",
+      "model": "jev-latest",
+      "effort": "default",
+      "round": 0,
+      "tokens": 6287,
+      "status": "success",
+      "durationMs": 390
+    },
+    {
+      "eventId": "cb6140e9-df35-4aa9-8b65-fda61bed4ba8",
+      "role": "judge",
+      "provider": "openai",
+      "model": "gpt-6-astra",
+      "effort": "ultra",
+      "round": 0,
+      "tokens": 27803,
+      "status": "success",
+      "durationMs": 100819
+    },
+    {
+      "eventId": "0e094692-54a8-4b86-8f6d-21d0f27a6b7c",
+      "role": "planner",
+      "provider": "api",
+      "model": "models/gemini-3-flash-preview",
+      "effort": "default",
+      "round": 0,
+      "tokens": 7551,
+      "status": "failed",
+      "durationMs": 20660,
+      "failureKind": "format"
+    },
+    {
+      "eventId": "2331c21f-7f5e-46c9-8dd2-e65e29263d8d",
+      "role": "planner",
+      "provider": "openai",
+      "model": "gpt-6-astra",
+      "effort": "ultra",
+      "round": 0,
+      "tokens": 35554,
+      "status": "success",
+      "durationMs": 314751
+    },
+    {
+      "eventId": "821c1fdc-345c-4277-82cc-366f54820c34",
+      "role": "judge",
+      "provider": "openai",
+      "model": "gpt-6-astra",
+      "effort": "ultra",
+      "round": 0,
+      "tokens": 34627,
+      "status": "success",
+      "durationMs": 96806
+    },
+    {
+      "eventId": "e2dde412-9a3e-4f68-804e-61a8a7d6e9fa",
+      "role": "planner",
+      "provider": "openai",
+      "model": "gpt-6-sol",
+      "effort": "ultra",
+      "round": 0,
+      "tokens": 26449,
+      "status": "success",
+      "durationMs": 14931
+    },
+    {
+      "eventId": "cd8c911a-09a8-41e2-b0d4-9d75abec954f",
+      "role": "judge",
+      "provider": "openai",
+      "model": "gpt-6-astra",
+      "effort": "ultra",
+      "round": 0,
+      "tokens": 34573,
+      "status": "success",
+      "durationMs": 97715
+    },
+    {
+      "eventId": "c46c7810-c173-4d0f-b813-ba7497b9e6ac",
+      "role": "planner",
+      "provider": "openai",
+      "model": "gpt-6-sol",
+      "effort": "ultra",
+      "round": 0,
+      "tokens": 27122,
+      "status": "success",
+      "durationMs": 22279
+    },
+    {
+      "eventId": "53062eec-7b3d-40d0-8103-beab14399632",
+      "role": "judge",
+      "provider": "openai",
+      "model": "gpt-6-astra",
+      "effort": "ultra",
+      "round": 0,
+      "tokens": 34472,
+      "status": "success",
+      "durationMs": 86012
+    },
+    {
+      "eventId": "c2b0caa4-87b7-41d6-95d9-a7c56eafc32f",
+      "role": "planner",
+      "provider": "openai",
+      "model": "gpt-6-sol",
+      "effort": "ultra",
+      "round": 0,
+      "tokens": 27884,
+      "status": "success",
+      "durationMs": 43013
+    },
+    {
+      "eventId": "e7249601-2f2f-4ad5-8913-cacbb6a65980",
+      "role": "judge",
+      "provider": "openai",
+      "model": "gpt-6-astra",
+      "effort": "ultra",
+      "round": 0,
+      "tokens": 30550,
+      "status": "success",
+      "durationMs": 28189
+    },
+    {
+      "eventId": "51648162-0d34-4bce-8298-6133dbc43fbe",
+      "role": "judge",
+      "provider": "openai",
+      "model": "gpt-6-astra",
+      "effort": "ultra",
+      "round": 1,
+      "tokens": 32228,
+      "status": "failed",
+      "durationMs": 22399,
+      "failureKind": "format"
+    },
+    {
+      "eventId": "4221a0d3-0ce0-4262-ad53-82822af54086",
+      "role": "judge",
+      "provider": "openai",
+      "model": "gpt-6-sol",
+      "effort": "ultra",
+      "round": 1,
+      "tokens": 31814,
+      "status": "success",
+      "durationMs": 13902
+    },
+    {
+      "eventId": "44228f51-9991-41d7-aa08-7b104e6668bd",
+      "role": "worker",
+      "provider": "openai",
+      "model": "gpt-6-luna",
+      "effort": "max",
+      "round": 1,
+      "tokens": 26068,
+      "status": "success",
+      "durationMs": 7703
+    },
+    {
+      "eventId": "eb1c4fbe-ce50-4e3a-8175-b96df477e2ab",
+      "role": "worker",
+      "provider": "openai",
+      "model": "gpt-6-luna",
+      "effort": "max",
+      "round": 1,
+      "tokens": 35959,
+      "status": "success",
+      "durationMs": 213841
+    },
+    {
+      "eventId": "f2746e79-c30c-4b43-b87f-42362855206c",
+      "role": "judge",
+      "provider": "openai",
+      "model": "gpt-6-sol",
+      "effort": "ultra",
+      "round": 1,
+      "tokens": 27701,
+      "status": "success",
+      "durationMs": 11921
+    },
+    {
+      "eventId": "ac7347d6-188b-4d02-a8b4-15c87d63498c",
+      "role": "judge",
+      "provider": "openai",
+      "model": "gpt-6-sol",
+      "effort": "ultra",
+      "round": 2,
+      "tokens": 32036,
+      "status": "success",
+      "durationMs": 17221
+    },
+    {
+      "eventId": "cd2f9472-9dfe-4190-85ef-f688d8575aa7",
+      "role": "worker",
+      "provider": "openai",
+      "model": "gpt-6-luna",
+      "effort": "max",
+      "round": 2,
+      "tokens": 26359,
+      "status": "success",
+      "durationMs": 9527
+    },
+    {
+      "eventId": "12edd43b-33b0-4530-920c-ead1ba38d021",
+      "role": "worker",
+      "provider": "openai",
+      "model": "gpt-6-luna",
+      "effort": "max",
+      "round": 2,
+      "tokens": 39610,
+      "status": "success",
+      "durationMs": 179808
+    },
+    {
+      "eventId": "32d82811-e9d8-4445-ba8f-f1cd4608e34d",
+      "role": "worker",
+      "provider": "openai",
+      "model": "gpt-6-luna",
+      "effort": "max",
+      "round": 2,
+      "tokens": 43196,
+      "status": "success",
+      "durationMs": 65918
+    },
+    {
+      "eventId": "99e828e3-336e-4821-9283-47460ba3f571",
+      "role": "judge",
+      "provider": "openai",
+      "model": "gpt-6-sol",
+      "effort": "ultra",
+      "round": 2,
+      "tokens": 37055,
+      "status": "success",
+      "durationMs": 19754
+    },
+    {
+      "eventId": "eab242ce-0c71-440b-8595-03ceb60ae8c1",
+      "role": "judge",
+      "provider": "openai",
+      "model": "gpt-6-sol",
+      "effort": "ultra",
+      "round": 3,
+      "tokens": 32281,
+      "status": "success",
+      "durationMs": 14533
+    },
+    {
+      "eventId": "a626be2d-0d6f-4048-8a2c-2fef83d1d30e",
+      "role": "worker",
+      "provider": "openai",
+      "model": "gpt-6-luna",
+      "effort": "max",
+      "round": 3,
+      "tokens": 26879,
+      "status": "success",
+      "durationMs": 14008
+    },
+    {
+      "eventId": "d6715be5-af30-45a7-9048-d62458c5c79c",
+      "role": "worker",
+      "provider": "openai",
+      "model": "gpt-6-luna",
+      "effort": "max",
+      "round": 3,
+      "tokens": 38922,
+      "status": "success",
+      "durationMs": 31802
+    },
+    {
+      "eventId": "4020a4eb-e601-475a-952b-a0f9e5fe460c",
+      "role": "judge",
+      "provider": "openai",
+      "model": "gpt-6-sol",
+      "effort": "ultra",
+      "round": 3,
+      "tokens": 37177,
+      "status": "success",
+      "durationMs": 19558
+    },
+    {
+      "eventId": "45c25de3-f5f2-4109-a6df-a31177047c2a",
+      "role": "judge",
+      "provider": "openai",
+      "model": "gpt-6-sol",
+      "effort": "ultra",
+      "round": 4,
+      "tokens": 32253,
+      "status": "success",
+      "durationMs": 17020
+    },
+    {
+      "eventId": "52047f42-1625-4078-94f9-340018d12352",
+      "role": "worker",
+      "provider": "openai",
+      "model": "gpt-6-luna",
+      "effort": "max",
+      "round": 4,
+      "tokens": 27445,
+      "status": "success",
+      "durationMs": 18554
+    },
+    {
+      "eventId": "29e16a46-dd5c-48ea-bd4e-3629a1761517",
+      "role": "worker",
+      "provider": "openai",
+      "model": "gpt-6-luna",
+      "effort": "max",
+      "round": 4,
+      "tokens": 34280,
+      "status": "success",
+      "durationMs": 27698
+    },
+    {
+      "eventId": "9a697f49-ef18-4bec-8abf-11e93ba29791",
+      "role": "judge",
+      "provider": "openai",
+      "model": "gpt-6-sol",
+      "effort": "ultra",
+      "round": 4,
+      "tokens": 37441,
+      "status": "success",
+      "durationMs": 22636
+    },
+    {
+      "eventId": "04a23884-5450-4b18-8a3d-95486ccd9334",
+      "role": "planner",
+      "provider": "openai",
+      "model": "gpt-6-sol",
+      "effort": "ultra",
+      "round": 4,
+      "tokens": 26760,
+      "status": "success",
+      "durationMs": 31718
+    },
+    {
+      "eventId": "310b9e63-f2e4-4fed-8ede-4fd7f7adc0c1",
+      "role": "judge",
+      "provider": "openai",
+      "model": "gpt-6-sol",
+      "effort": "ultra",
+      "round": 5,
+      "tokens": 32134,
+      "status": "success",
+      "durationMs": 13837
+    },
+    {
+      "eventId": "32a2ad25-e2e5-495f-ba95-24f0149265fa",
+      "role": "worker",
+      "provider": "openai",
+      "model": "gpt-6-sol",
+      "effort": "ultra",
+      "round": 5,
+      "tokens": 27253,
+      "status": "success",
+      "durationMs": 22635
+    },
+    {
+      "eventId": "b56b1e36-aad5-498b-9cb5-6c3999bf8930",
+      "role": "judge",
+      "provider": "openai",
+      "model": "gpt-6-sol",
+      "effort": "ultra",
+      "round": 5,
+      "tokens": 36904,
+      "status": "success",
+      "durationMs": 13992
+    },
+    {
+      "eventId": "8ed29664-9f3c-4269-be0f-b059d2e058ac",
+      "role": "judge",
+      "provider": "openai",
+      "model": "gpt-6-sol",
+      "effort": "ultra",
+      "round": 6,
+      "tokens": 32108,
+      "status": "success",
+      "durationMs": 15426
+    },
+    {
+      "eventId": "73b59902-d64f-4bb2-bb16-057f63bbb536",
+      "role": "worker",
+      "provider": "openai",
+      "model": "gpt-6-sol",
+      "effort": "ultra",
+      "round": 6,
+      "tokens": 27600,
+      "status": "success",
+      "durationMs": 22565
+    },
+    {
+      "eventId": "bdbaecb7-64e5-48bf-a66f-3963c9783a12",
+      "role": "judge",
+      "provider": "openai",
+      "model": "gpt-6-sol",
+      "effort": "ultra",
+      "round": 6,
+      "tokens": 36943,
+      "status": "success",
+      "durationMs": 13244
+    }
+  ],
+  "modelUsage": {
+    "[\"api\",\"d2af9947-1459-4719-b11b-60d0775a0189\",\"jev-latest\",\"default\"]": {
+      "provider": "api",
+      "model": "jev-latest",
+      "label": "jev-latest",
+      "totalTokens": 15404,
+      "calls": 3
+    },
+    "[\"openai\",\"\",\"gpt-6-luna\",\"default\"]": {
+      "provider": "openai",
+      "model": "gpt-6-luna",
+      "label": "GPT-6-Luna",
+      "totalTokens": 373520,
+      "calls": 12
+    },
+    "[\"api\",\"f7a0013e-5238-47e3-a222-ad27ee060f6d\",\"models/gemini-3-flash-preview\",\"default\"]": {
+      "provider": "api",
+      "model": "models/gemini-3-flash-preview",
+      "label": "models/gemini-3-flash-preview",
+      "totalTokens": 15161,
+      "calls": 2
+    },
+    "[\"openai\",\"\",\"gpt-6-astra\",\"default\"]": {
+      "provider": "openai",
+      "model": "gpt-6-astra",
+      "label": "GPT-6-Astra",
+      "totalTokens": 229807,
+      "calls": 7
+    },
+    "[\"openai\",\"\",\"gpt-6-sol\",\"default\"]": {
+      "provider": "openai",
+      "model": "gpt-6-sol",
+      "label": "GPT-6-Sol",
+      "totalTokens": 568915,
+      "calls": 18
+    }
+  },
+  "humanActions": {
+    "manualResumes": 0,
+    "stopRequests": 0,
+    "completeCoverage": true
+  },
+  "milestones": [
+    {
+      "id": "model",
+      "title": "상태 모델과 입력·저장 데이터 검증",
+      "dependsOn": [],
+      "paths": [
+        "model.mjs",
+        "model.test.mjs"
+      ],
+      "criteria": [
+        "model.mjs에 UI와 분리된 입력 검증, 작업 추가·완료·완료 취소·삭제, 필터·대소문자 무시 검색, 전체 작업 기준 요약, 저장 데이터 파싱·검증 함수를 구현한다.",
+        "제목과 과목의 앞뒤 공백을 제거하고 필수값·길이 경계(제목 100자, 과목 30자) 및 학습 시간의 정수·1~480 범위를 검증한다.",
+        "잘못된 JSON이나 구조·값이 잘못된 저장 데이터는 오류로 반환해 빈 목록으로 안전하게 시작할 수 있게 한다. 파싱 실패만으로 저장값을 덮어쓰지 않는다.",
+        "model.test.mjs에서 경계값, 추가·완료 취소·삭제, 검색·필터, 전체 요약, 정상 저장 데이터 복원과 잘못된 데이터 거부를 함수의 입력·출력으로 검사한다. 이 단계의 검증은 이후 화면·서버 파일 없이 실행된다."
+      ],
+      "verifyCommand": "node --test model.test.mjs",
+      "status": "completed",
+      "evidence": {
+        "reviewed": true,
+        "round": 1,
+        "verifiedAt": 1791526617347,
+        "verifyCommand": "node --test model.test.mjs",
+        "verificationOutput": "✔ 입력 경계값을 정리하고 허용한다 (0.318792ms)\n✔ 필수값, 길이 초과, 정수가 아닌 시간과 범위 밖 시간을 거부한다 (0.071708ms)\n✔ 작업 추가는 공백을 정리하고 기존 목록을 변경하지 않는다 (0.5035ms)\n✔ 완료 처리와 완료 취소가 작업 상태를 전환한다 (0.08675ms)\n✔ 삭제는 지정한 작업만 제거한다 (0.070333ms)\n✔ 검색은 제목과 과목을 대소문자 구분 없이 찾고 상태 필터와 결합한다 (0.393291ms)\n✔ 요약은 필터 결과가 아니라 전체 작업을 기준으로 계산한다 (0.076291ms)\n✔ 저장 데이터 직렬화 후 작업 목록을 정상 복원한다 (0.109833ms)\n✔ 잘못된 JSON과 구조 또는 값이 잘못된 저장 데이터를 거부한다 (0.376333ms)\nℹ tests 9\nℹ suites 0\nℹ pass 9\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 39.390167\n",
+        "reviewSummary": "GPT-6-Sol · gpt-6-sol\n상태 모델과 입력·저장 데이터 검증 완료: pass · model.mjs에 입력 경계 검증, 작업 추가·완료 전환·삭제, 필터·대소문자 무시 검색, 전체 작업 기준 요약, 저장 데이터 파싱·검증이 구현되어 있습니다. model.test.mjs는 이 동작을 함수의 입력·출력으로 독립 검사하며, 제시된 검증 결과에서 9개 테스트가 모두 통과했습니다.",
+        "files": {
+          "model.mjs": "82a3d3c44be202de151c5aeed500f1d46e9fe34f17d0b679b37b260be0ef6ee9",
+          "model.test.mjs": "68f8d64b5c2f37b227567d72dbe891a539c5fea23dc55477681b5daa7633c11c"
+        }
+      },
+      "attempts": 1,
+      "evidenceHistory": []
+    },
+    {
+      "id": "ui",
+      "title": "반응형 화면과 브라우저 상호작용 연결",
+      "dependsOn": [
+        "model"
+      ],
+      "paths": [
+        "index.html",
+        "styles.css",
+        "app.mjs",
+        "app.test.mjs"
+      ],
+      "criteria": [
+        "한국어 화면에 지정된 모든 ID·class와 입력 순서, 연결된 label, form novalidate, aria-live 오류·상태 안내를 구현한다. 오류가 없을 때 #formError를 숨기고 빈 제목 오류 시 #taskTitle에 초점을 둔다.",
+        "app.mjs에서 모델을 사용해 Enter 제출, 추가·완료·완료 취소·삭제, focus-board-v1 localStorage 저장·새로고침 복원, 필터·검색·빈 상태·전체 요약 갱신을 연결한다. 잘못된 저장 데이터는 안내 후 빈 목록으로 표시하며 자동으로 덮어쓰지 않는다.",
+        "사용자 입력은 textContent 등 안전한 DOM API로 문자 그대로 표시한다. 1440×900 및 390×844에서 가로 넘침이 없도록 구성하고 긴 제목 줄바꿈, 상태 배지, 눈에 보이는 키보드 포커스를 제공한다.",
+        "app.test.mjs에서 외부 라이브러리 없이 주입한 DOM·localStorage 대역으로 실제 이벤트 처리와 렌더링, 저장·복원, 잘못된 저장값 처리, 필터·검색·요약 및 HTML 문자 표시를 검사한다. 소스 텍스트 검사로 동작 검사를 대체하지 않는다."
+      ],
+      "verifyCommand": "node --test app.test.mjs",
+      "status": "pending",
+      "evidence": null,
+      "attempts": 5
+    },
+    {
+      "id": "integration",
+      "title": "정적 서버·실행 안내와 전체 통합 검증",
+      "dependsOn": [
+        "model",
+        "ui"
+      ],
+      "paths": [
+        "server.mjs",
+        "server.test.mjs",
+        "package.json",
+        "README.md"
+      ],
+      "criteria": [
+        "server.mjs는 기본 http://127.0.0.1:3000/에서 루트 HTML과 올바른 MIME의 CSS·JS를 제공하고 PORT 환경 변수를 지원한다. HTTP 요청 처리 함수를 export하며 모듈을 테스트에서 import할 때 서버가 자동으로 listen하지 않는다.",
+        "server.test.mjs는 가짜 request·response로 루트·정적 파일·없는 경로의 응답과 MIME을 검사한다. 테스트에서 소켓 bind·listen, localhost fetch, 서버 프로세스 실행을 시도하지 않는다.",
+        "package.json은 type:module, test:node --test, start:node server.mjs로 설정한다. README.md에는 node server.mjs 실행과 기본 주소 http://127.0.0.1:3000/을 정확히 안내한다.",
+        "최종 node --test로 모든 모델·화면 연결·서버 테스트를 실행한다. Harness의 README 실행 스모크와 독립 브라우저 QA에서 빈 상태, 입력 검증·저장·복원, 필터·검색, 완료·취소·삭제, 잘못된 저장 데이터 안내, 키보드 포커스 및 1440×900·390×844 화면을 확인하고 실패 근거가 있으면 수정 후 재검증한다.",
+        "영속 데이터는 브라우저 localStorage만 사용한다. JSON 파일 갱신이나 파일 교체 작업은 수행하지 않는다."
+      ],
+      "verifyCommand": "node --test",
+      "status": "pending",
+      "evidence": null,
+      "attempts": 0
+    }
+  ],
+  "qaHistory": [],
+  "autoResumeAttempts": 0,
+  "verifyCommand": ""
+}

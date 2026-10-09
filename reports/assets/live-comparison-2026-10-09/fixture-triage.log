@@ -1,0 +1,185 @@
+TAP version 13
+# Subtest: milestone judgement receives the fixed browser contract and future planning phase without granting execution success
+ok 1 - milestone judgement receives the fixed browser contract and future planning phase without granting execution success
+  ---
+  duration_ms: 3.48625
+  type: 'test'
+  ...
+# Subtest: non-web milestone planning does not fabricate a browser executor or execution evidence
+ok 2 - non-web milestone planning does not fabricate a browser executor or execution evidence
+  ---
+  duration_ms: 0.945375
+  type: 'test'
+  ...
+# Subtest: malformed milestone plans get one bounded repair prompt before the plan review
+ok 3 - malformed milestone plans get one bounded repair prompt before the plan review
+  ---
+  duration_ms: 0.452625
+  type: 'test'
+  ...
+# Subtest: repeated malformed milestone plans stop after the single repair attempt without granting a plan
+ok 4 - repeated malformed milestone plans stop after the single repair attempt without granting a plan
+  ---
+  duration_ms: 0.426041
+  type: 'test'
+  ...
+# Subtest: explicit milestone rejection retains the three-attempt bound and never grants a milestone contract
+ok 5 - explicit milestone rejection retains the three-attempt bound and never grants a milestone contract
+  ---
+  duration_ms: 0.752792
+  type: 'test'
+  ...
+# Subtest: unexplained planning rejection uses the first available saved explanatory judge without granting approval
+ok 6 - unexplained planning rejection uses the first available saved explanatory judge without granting approval
+  ---
+  duration_ms: 0.403167
+  type: 'test'
+  ...
+# Subtest: planning review keeps fixed explanatory judges, concrete critiques and unavailable fallback configurations
+ok 7 - planning review keeps fixed explanatory judges, concrete critiques and unavailable fallback configurations
+  ---
+  duration_ms: 0.393625
+  type: 'test'
+  ...
+# Subtest: milestone review changes judge after two unexplained rejections and rechecks the identical pending plan
+ok 8 - milestone review changes judge after two unexplained rejections and rechecks the identical pending plan
+  ---
+  duration_ms: 0.428208
+  type: 'test'
+  ...
+# Subtest: milestone plans reject cycles, unbounded ownership, empty criteria and fake checks
+ok 9 - milestone plans reject cycles, unbounded ownership, empty criteria and fake checks
+  ---
+  duration_ms: 0.196375
+  type: 'test'
+  ...
+# Subtest: completion criteria hash excludes execution state and completed evidence is invalidated by changed dependencies
+ok 10 - completion criteria hash excludes execution state and completed evidence is invalidated by changed dependencies
+  ---
+  duration_ms: 2.01925
+  type: 'test'
+  ...
+# Subtest: shared configuration revalidation includes other milestone file presence without treating it as completed evidence
+ok 11 - shared configuration revalidation includes other milestone file presence without treating it as completed evidence
+  ---
+  duration_ms: 179.49375
+  type: 'test'
+  ...
+# Subtest: complete shared-file inventory and an optimistic judge cannot override a failed actual partial test
+ok 12 - complete shared-file inventory and an optimistic judge cannot override a failed actual partial test
+  ---
+  duration_ms: 177.246458
+  type: 'test'
+  ...
+# Subtest: milestone review explicitly marks bounded inventory and scoped file previews as incomplete
+ok 13 - milestone review explicitly marks bounded inventory and scoped file previews as incomplete
+  ---
+  duration_ms: 195.997791
+  type: 'test'
+  ...
+# Subtest: multi-task execution preserves verified parts and applies only after integration verification
+ok 14 - multi-task execution preserves verified parts and applies only after integration verification
+  ---
+  duration_ms: 831.32675
+  type: 'test'
+  ...
+# Subtest: matching final CLI milestone verification is reused only when the reviewed workspace stays unchanged
+ok 15 - matching final CLI milestone verification is reused only when the reviewed workspace stays unchanged
+  ---
+  duration_ms: 873.187
+  type: 'test'
+  ...
+# Subtest: automatic CLI verification reuses the final milestone result after selecting the matching full command
+ok 16 - automatic CLI verification reuses the final milestone result after selecting the matching full command
+  ---
+  duration_ms: 750.478459
+  type: 'test'
+  ...
+# Subtest: automatic CLI verification runs the selected full command when it differs from the final milestone check
+ok 17 - automatic CLI verification runs the selected full command when it differs from the final milestone check
+  ---
+  duration_ms: 688.252042
+  type: 'test'
+  ...
+# Subtest: automatic CLI verification reruns the full check when verification setup changes the workspace
+ok 18 - automatic CLI verification reruns the full check when verification setup changes the workspace
+  ---
+  duration_ms: 718.050209
+  type: 'test'
+  ...
+# Subtest: last web milestone receives full test and browser evidence before approval without an extra worker round
+ok 19 - last web milestone receives full test and browser evidence before approval without an extra worker round
+  ---
+  duration_ms: 699.604625
+  type: 'test'
+  ...
+# Subtest: final web milestone chooses the full verification command before browser QA when configuration is automatic
+ok 20 - final web milestone chooses the full verification command before browser QA when configuration is automatic
+  ---
+  duration_ms: 696.893125
+  type: 'test'
+  ...
+# Subtest: failed full tests or partial browser QA preserve the verified core and feed the next UI round
+    # Subtest: fullFailure
+    ok 1 - fullFailure
+      ---
+      duration_ms: 833.299583
+      type: 'test'
+      ...
+    # Subtest: browserFailure
+    ok 2 - browserFailure
+      ---
+      duration_ms: 791.761417
+      type: 'test'
+      ...
+    1..2
+ok 21 - failed full tests or partial browser QA preserve the verified core and feed the next UI round
+  ---
+  duration_ms: 1625.328375
+  type: 'test'
+  ...
+# Subtest: final integration verification and browser evidence are reused instead of rerun
+ok 22 - final integration verification and browser evidence are reused instead of rerun
+  ---
+  duration_ms: 700.939916
+  type: 'test'
+  ...
+# Subtest: failed README launch smoke automatically returns work to its owning milestone and completes after repair
+ok 23 - failed README launch smoke automatically returns work to its owning milestone and completes after repair
+  ---
+  duration_ms: 1008.674208
+  type: 'test'
+  ...
+# Subtest: actual partial integration failure reopens the shared-file owner and rechecks dependents before automatic application
+ok 24 - actual partial integration failure reopens the shared-file owner and rechecks dependents before automatic application
+  ---
+  duration_ms: 1462.734542
+  type: 'test'
+  ...
+# Subtest: invalid dependency repair ownership preserves the failing gate and original scope without reopening another task
+ok 25 - invalid dependency repair ownership preserves the failing gate and original scope without reopening another task
+  ---
+  duration_ms: 804.736542
+  type: 'test'
+  ...
+# Subtest: a valid negative review with successful actual execution never reassigns another milestone
+ok 26 - a valid negative review with successful actual execution never reassigns another milestone
+  ---
+  duration_ms: 1062.564208
+  type: 'test'
+  ...
+# Subtest: unchanged milestone diff triggers bounded recovery despite unrelated workspace changes
+ok 27 - unchanged milestone diff triggers bounded recovery despite unrelated workspace changes
+  ---
+  duration_ms: 1729.366958
+  type: 'test'
+  ...
+1..27
+# tests 29
+# suites 0
+# pass 29
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 14262.652583

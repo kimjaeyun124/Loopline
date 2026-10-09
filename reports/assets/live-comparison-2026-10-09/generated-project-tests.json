@@ -1,0 +1,21 @@
+[
+  {
+    "configuration": "automatic-loop",
+    "status": "PASS",
+    "exitCode": 0,
+    "tests": 17,
+    "passed": 17,
+    "failed": 0,
+    "error": null
+  },
+  {
+    "configuration": "gpt-6-luna-max",
+    "status": "NOT_RUN",
+    "reason": "구현 단계 전에 종료되어 테스트 파일이 생성되지 않았습니다."
+  },
+  {
+    "configuration": "gpt-6-sol-max",
+    "status": "NOT_RUN",
+    "reason": "구현 단계 전에 종료되어 테스트 파일이 생성되지 않았습니다."
+  }
+]

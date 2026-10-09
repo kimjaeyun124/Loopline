@@ -1,0 +1,14 @@
+{
+  "eventId": "15921470-34f4-404e-9b1d-2df225a34da2",
+  "inputTruncated": false,
+  "notApplicable": {
+    "malformed-storage": "손상된 localStorage JSON 검증은 요구사항에 있지만, 허용된 브라우저 동작에는 저장소 값을 직접 주입하는 단계가 없어 브라우저에서 해당 상태를 만들 수 없습니다. 이 검증은 model.test.mjs에서 수행해야 합니다."
+  },
+  "categories": [
+    "empty",
+    "input",
+    "save",
+    "keyboard"
+  ],
+  "checks": 14
+}

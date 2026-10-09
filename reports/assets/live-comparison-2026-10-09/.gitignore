@@ -1,0 +1,3 @@
+# 사본은 QA 재실행 시 다시 만들며 최종 프로젝트와 캡처를 별도로 보존한다.
+qa-user-data/**/workspace/
+interim-qa/

@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f3ec">
+  <title>Focus Board — 학습 작업 보드</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="page-header">
+      <p class="eyebrow">STUDY PLANNER</p>
+      <h1>Focus Board</h1>
+      <p class="page-intro">오늘의 배움을 차근차근 쌓아 보세요.</p>
+    </header>
+
+    <section class="dashboard" aria-label="학습 작업 보드">
+      <aside class="summary-card" aria-labelledby="summaryHeading">
+        <div class="section-heading">
+          <p class="eyebrow">YOUR PROGRESS</p>
+          <h2 id="summaryHeading">학습 요약</h2>
+        </div>
+        <dl class="summary-grid">
+          <div class="summary-item summary-item--primary"><dt>전체 작업</dt><dd><span id="totalCount">0</span><small>개</small></dd></div>
+          <div class="summary-item"><dt>진행 중</dt><dd><span id="activeCount">0</span><small>개</small></dd></div>
+          <div class="summary-item"><dt>완료</dt><dd><span id="completedCount">0</span><small>개</small></dd></div>
+          <div class="summary-item summary-item--wide"><dt>총 학습 시간</dt><dd><span id="totalMinutes">0</span><small>분</small></dd></div>
+        </dl>
+        <p class="summary-note">작은 집중이 모여 큰 성장을 만듭니다.</p>
+      </aside>
+
+      <div class="board-column">
+        <section class="form-card" aria-labelledby="formHeading">
+          <div class="section-heading section-heading--row">
+            <div><p class="eyebrow">MAKE A PLAN</p><h2 id="formHeading">새 학습 작업</h2></div>
+            <span class="heading-mark" aria-hidden="true">＋</span>
+          </div>
+          <form id="taskForm" novalidate>
+            <div class="field-grid">
+              <label class="field field--title" for="taskTitle">작업 제목
+                <input id="taskTitle" name="title" type="text" maxlength="100" placeholder="예: 영어 단어 복습" autocomplete="off">
+              </label>
+              <label class="field" for="taskSubject">과목
+                <input id="taskSubject" name="subject" type="text" maxlength="30" placeholder="예: 영어" autocomplete="off">
+              </label>
+              <label class="field field--minutes" for="taskMinutes">학습 시간
+                <span class="input-with-unit"><input id="taskMinutes" name="minutes" type="number" min="1" max="480" step="1" placeholder="30"><span>분</span></span>
+              </label>
+              <button id="addTask" class="primary-button" type="submit">작업 추가 <span aria-hidden="true">↗</span></button>
+            </div>
+            <p id="formError" class="form-error" aria-live="polite" role="alert" hidden></p>
+            <p id="statusMessage" class="status-message" aria-live="polite" role="status"></p>
+          </form>
+        </section>
+
+        <section class="tasks-section" aria-labelledby="tasksHeading">
+          <div class="list-heading">
+            <div><p class="eyebrow">STAY ON TRACK</p><h2 id="tasksHeading">학습 목록</h2></div>
+            <label class="search-field" for="searchInput"><span class="visually-hidden">제목 또는 과목 검색</span>
+              <span aria-hidden="true">⌕</span><input id="searchInput" type="search" placeholder="작업 검색" autocomplete="off">
+            </label>
+          </div>
+          <nav class="filter-tabs" aria-label="작업 상태 필터">
+            <button id="filterAll" class="filter-button is-active" type="button" aria-pressed="true">전체</button>
+            <button id="filterActive" class="filter-button" type="button" aria-pressed="false">진행 중</button>
+            <button id="filterCompleted" class="filter-button" type="button" aria-pressed="false">완료</button>
+          </nav>
+          <div id="taskList" class="task-list" role="list"></div>
+          <div id="emptyState" class="empty-state">
+            <span class="empty-icon" aria-hidden="true">✳</span>
+            <h3>아직 표시할 작업이 없어요</h3>
+            <p>새 학습 작업을 추가하거나 검색 조건을 바꿔 보세요.</p>
+          </div>
+        </section>
+      </div>
+    </section>
+  </main>
+  <script type="module" src="/app.mjs"></script>
+</body>
+</html>

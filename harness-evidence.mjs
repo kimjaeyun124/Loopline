@@ -176,7 +176,7 @@ export class HarnessEvidence {
       for (const keys of roleKeys.values()) if (keys.size === 1) isolatedRoleKeys.add(keys.values().next().value);
       for (const [key, calls] of grouped) {
         if (!groups.has(key)) groups.set(key, { type: run.type, role: calls[0].role, provider: calls[0].provider, model: calls[0].model, effort: calls[0].effort,
-          excludedOutcomeRuns: 0, reportedInputTokens: 0, reportedOutputTokens: 0, reportedCachedInputTokens: 0, detailedUsageCalls: 0, firstResponses: [], schemaFallbackCalls: 0,
+          excludedOutcomeRuns: 0, reportedInputTokens: 0, reportedOutputTokens: 0, reportedCachedInputTokens: 0, detailedUsageCalls: 0, cachedUsageCalls: 0, firstResponses: [], schemaFallbackCalls: 0,
           runs: 0, completionMeasuredRuns: 0, completedRuns: 0, verificationMeasuredRuns: 0, verifiedRuns: 0, browserQaRuns: 0, browserQaPassedRuns: 0, calls: 0, successfulCalls: 0, missingUsageCalls: 0, reportedTokens: 0, providerFailures: 0, formatFailures: 0,
           humanInterventionMeasuredRuns: 0, partiallyMeasuredInterventionRuns: 0, fullyMeasuredInterventionRuns: 0, fullyMeasuredRunsWithObservedActions: 0,
           runsWithObservedActions: 0, runsWithManualResume: 0, manualResumes: 0, runsWithStopRequest: 0, stopRequests: 0,
@@ -205,6 +205,7 @@ export class HarnessEvidence {
           group.reportedInputTokens += call.inputTokens || 0;
           group.reportedOutputTokens += call.outputTokens || 0;
           group.reportedCachedInputTokens += call.cachedInputTokens || 0;
+          if (call.cachedInputTokens != null) group.cachedUsageCalls++;
           if (Number.isFinite(call.firstResponseMs)) group.firstResponses.push(call.firstResponseMs);
           if (call.schemaFallback) group.schemaFallbackCalls++;
         }

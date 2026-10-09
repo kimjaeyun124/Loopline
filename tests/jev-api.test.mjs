@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto';
 import { ApiConnections } from '../api-connections.mjs';
 import { HarnessEngine } from '../harness-engine.mjs';
 import { RESPONSE_SCHEMAS, decisionResponseSchema } from '../harness-response-schemas.mjs';
+import { applyBrowserPlanPatch, validateBrowserPlan, QA_CATEGORIES } from '../browser-qa.mjs';
 
 test('structured response schemas require every property and keep action-specific values', () => {
   const inspect = (node) => {
@@ -22,6 +23,42 @@ test('structured response schemas require every property and keep action-specifi
   assert.deepEqual(decision.properties.answers.required, ['final', 'qaSave']);
   assert.equal(RESPONSE_SCHEMAS.browserPlan.properties.notApplicable.anyOf.length, 16);
   assert.deepEqual(RESPONSE_SCHEMAS.browserPlan.properties.notApplicable.anyOf[0].properties, {});
+});
+
+const displayCheck = (id, steps = 1) => ({ id, categories: [], steps: Array.from({ length: steps }, () => ({ action: 'visible', selector: '#status' })) });
+const displayPlan = (count = 1, steps = 1) => ({ entry: 'index.html', checks: Array.from({ length: count }, (_, i) => displayCheck(`case-${i}`, steps)),
+  notApplicable: Object.fromEntries(QA_CATEGORIES.map(category => [category, '이 과제는 사용자 입력과 저장 상태가 없는 정적 안내 화면입니다.'])) });
+
+test('browser generation bounds match accepted and rejected executor boundaries', () => {
+  const checks = RESPONSE_SCHEMAS.browserPlan.properties.checks;
+  const steps = checks.items.properties.steps;
+  assert.deepEqual([checks.minItems, checks.maxItems], [1, 16]);
+  assert.deepEqual([steps.minItems, steps.maxItems], [1, 24]);
+  for (const count of [checks.minItems, checks.maxItems]) {
+    const plan = displayPlan(count); assert.deepEqual(validateBrowserPlan(plan), plan);
+  }
+  for (const count of [checks.minItems - 1, checks.maxItems + 1]) assert.throws(() => validateBrowserPlan(displayPlan(count)), /검사는 1~16개/);
+  for (const count of [steps.minItems, steps.maxItems]) {
+    const plan = displayPlan(1, count); assert.deepEqual(validateBrowserPlan(plan), plan);
+  }
+  for (const count of [steps.minItems - 1, steps.maxItems + 1]) assert.throws(() => validateBrowserPlan(displayPlan(1, count)), /단계는 1~24개/);
+});
+
+test('bounded browser patch arrays preserve empty alternatives and combined runtime guards', () => {
+  const schema = RESPONSE_SCHEMAS.browserPatch.properties;
+  for (const name of ['addChecks', 'replaceChecks', 'extendChecks']) {
+    assert.equal(schema[name].maxItems, 16); assert.equal(schema[name].minItems ?? 0, 0);
+    assert.deepEqual([schema[name].items.properties.steps.minItems, schema[name].items.properties.steps.maxItems], [1, 24]);
+  }
+  const base = displayPlan(), original = structuredClone(base);
+  const patch = { addChecks: [], replaceChecks: [], extendChecks: [{ id: 'case-0', steps: displayCheck('unused', 23).steps }], notApplicable: {} };
+  assert.equal(applyBrowserPlanPatch(base, patch).checks[0].steps.length, 24);
+  patch.extendChecks[0].steps.push({ action: 'visible', selector: '#status' });
+  assert.throws(() => applyBrowserPlanPatch(base, patch), /단계는 1~24개/, 'individual schema bounds cannot replace the merged step limit');
+  assert.throws(() => applyBrowserPlanPatch(displayPlan(16), { addChecks: [displayCheck('extra')] }), /검사는 1~16개/);
+  assert.throws(() => applyBrowserPlanPatch(base, { addChecks: displayPlan(8).checks, replaceChecks: displayPlan(9).checks }), /보완할 검사는 최대 16개/);
+  assert.throws(() => applyBrowserPlanPatch(base, { replaceChecks: [displayCheck('case-0')] }), /실패한 검사만 교체/);
+  assert.deepEqual(base, original, 'rejected patches must not mutate the accepted plan');
 });
 
 const question = { type: 'choice', instructions: 'Does evidence pass?', criteria: { pass: 'yes', revise: 'no', uncertain: 'unknown' } };
@@ -52,6 +89,24 @@ async function setupChatConnection(t, reply) {
   const connection = await api.connect({ name: 'QA API', baseUrl: 'https://api.example.test/v1', apiKey: 'test-only-secret' });
   return { api, connection, calls };
 }
+
+test('API sends browser generation bounds without removing strict response validation', async (t) => {
+  let calls = 0, usageCalls = 0;
+  const f = await setupChatConnection(t, options => {
+    const body = JSON.parse(options.body), schema = body.response_format.json_schema;
+    assert.equal(schema.strict, true);
+    const expected = calls++ === 0 ? RESPONSE_SCHEMAS.browserPlan : RESPONSE_SCHEMAS.browserPatch;
+    assert.deepEqual(schema.schema, expected);
+    const bounded = schema.schema.properties.checks || schema.schema.properties.addChecks;
+    assert.equal(bounded.maxItems, 16); assert.equal(bounded.items.properties.steps.maxItems, 24);
+    return Response.json({ choices: [{ message: { content: JSON.stringify(displayPlan()) } }], usage: { total_tokens: 20 } });
+  });
+  for (const responseSchema of [RESPONSE_SCHEMAS.browserPlan, RESPONSE_SCHEMAS.browserPatch]) {
+    await f.api.chat(f.connection.id, 'qa-model', [], { signal: new AbortController().signal, responseSchema,
+      onDelta() {}, onUsage: () => usageCalls++, onSchemaFallback: () => assert.fail('No unsupported-format response was returned') });
+  }
+  assert.equal(calls, 2); assert.equal(usageCalls, 2);
+});
 
 test('API forwards strict schemas and falls back once only for explicit unsupported format', async (t) => {
   let requests = 0, fallback = 0, usageCalls = 0;

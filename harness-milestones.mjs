@@ -18,14 +18,19 @@ export function validateMilestones(value) {
     if (!Array.isArray(task.dependsOn) || task.dependsOn.some((id) => !seen.has(id))) invalid('의존 작업은 앞에서 선언된 ID여야 합니다.');
     if (!Array.isArray(task.paths) || !task.paths.length || task.paths.length > 16 || task.paths.some((path) => typeof path !== 'string' || path.length > 300 || path.startsWith('/') || /[\\\x00-\x1f]/.test(path) || path.split('/').some((p) => !p || ['.', '..', '.git', 'node_modules'].includes(p)) || path.includes('*') && !/^[^*]+\/\*\*$/.test(path))) invalid('담당 파일 또는 폴더/** 경로가 필요합니다.');
     if (!Array.isArray(task.criteria) || !task.criteria.length || task.criteria.length > 8 || task.criteria.some((text) => typeof text !== 'string' || text.trim().length < 8 || text.length > 600)) invalid('관찰 가능한 완료 기준이 필요합니다.');
+    if (task.integrationCriteria !== undefined && (!Array.isArray(task.integrationCriteria) || task.integrationCriteria.length > 8
+      || task.integrationCriteria.some((text) => typeof text !== 'string' || text.trim().length < 8 || text.length > 600))) invalid('최종 통합 기준은 관찰 가능한 문자열 배열이어야 합니다.');
     if (typeof task.verifyCommand !== 'string' || task.verifyCommand.trim().length < 5 || task.verifyCommand.length > 1600 || /^(?:true|echo\s+|printf\s+|exit\s+0\s*$)/.test(task.verifyCommand.trim())) invalid('실제 부분 작업 검증 명령이 필요합니다.');
     seen.add(task.id);
-    return { id: task.id, title: task.title.trim(), dependsOn: [...new Set(task.dependsOn)], paths: [...new Set(task.paths)], criteria: [...task.criteria], verifyCommand: task.verifyCommand.trim(), status: 'pending', evidence: null, attempts: 0 };
+    return { id: task.id, title: task.title.trim(), dependsOn: [...new Set(task.dependsOn)], paths: [...new Set(task.paths)], criteria: [...task.criteria],
+      ...(task.integrationCriteria !== undefined ? { integrationCriteria: [...task.integrationCriteria] } : {}),
+      verifyCommand: task.verifyCommand.trim(), status: 'pending', evidence: null, attempts: 0 };
   });
   return tasks;
 }
 export function milestoneContract(tasks) {
-  return createHash('sha256').update(JSON.stringify(tasks.map(({ id, title, dependsOn, paths, criteria, verifyCommand }) => ({ id, title, dependsOn, paths, criteria, verifyCommand })))).digest('hex');
+  return createHash('sha256').update(JSON.stringify(tasks.map(({ id, title, dependsOn, paths, criteria, integrationCriteria, verifyCommand }) => ({ id, title, dependsOn, paths, criteria,
+    ...(integrationCriteria !== undefined ? { integrationCriteria } : {}), verifyCommand })))).digest('hex');
 }
 export async function milestoneFiles(workspace, inventory, milestone) {
   const paths = new Set(inventory.filter((path) => matchesMilestone(path, milestone)));

@@ -1547,7 +1547,7 @@ export class HarnessEngine {
     let feedback = '';
     let schemaRepairAttempts = 0;
     const triedPlannerModels = new Set([selectionKey(run.roles.planner)]);
-      const verificationContract = `${offlineServerVerificationGuidance(run.task, files)}${filePersistenceSafetyGuidance(run.task, plan)}\n부분 검증 명령은 그 부분의 담당 파일과 기능을 실제로 검사해야 합니다. 화면 부분의 검증에 앞선 저장 모듈 테스트만 반복하지 마세요. UI 계약이나 통합 동작을 검사하는 테스트 파일과 명령을 해당 부분 paths에 포함하세요. 뒤 단계 파일이 아직 없는 시점에도 앞 부분 검사가 실행되어야 합니다. README 등 문서는 관련 구현 부분에 포함하고 별도의 문서 작업으로 최종 기능 QA를 대체하지 마세요.`;
+    const verificationContract = `${offlineServerVerificationGuidance(run.task, files)}${filePersistenceSafetyGuidance(run.task, plan)}\n부분 검증 명령은 그 부분의 담당 파일과 기능을 실제로 검사해야 합니다. 화면 부분의 검증에 앞선 저장 모듈 테스트만 반복하지 마세요. UI 계약이나 통합 동작을 검사하는 테스트 파일과 명령을 해당 부분 paths에 포함하세요. 뒤 단계 파일이 아직 없는 시점에도 앞 부분 검사가 실행되어야 합니다. README 등 문서는 관련 구현 부분에 포함하고 별도의 문서 작업으로 최종 기능 QA를 대체하지 마세요.\n각 작업에 integrationCriteria 배열을 함께 작성하세요. criteria에는 해당 단계의 파일·실제 부분 검증 명령으로 확인할 기준을, integrationCriteria에는 후속 연결 이후 확인할 실제 브라우저·키보드 포커스·화면 크기·README 실행·전체 통합 기준을 넣으세요. 해당 기준이 없으면 []입니다. 실제 Chromium과 README QA는 마지막 작업에서 실행되므로 앞 작업의 criteria에서 그 실행 결과를 요구하면 계획이 실행 불가능합니다. 예: UI criteria=["UI 입력과 상태 연결을 Node 동작 테스트로 검증한다"], integrationCriteria=["실제 브라우저의 두 화면 크기에서 입력·저장·키보드 조작이 통과한다"]. 원래 요구사항은 두 기준을 합쳐 모두 보존하며, integrationCriteria도 계획 확정 후 변경할 수 없습니다.`;
     for (let attempt = 0; attempt < 3; attempt++) {
       let tasks;
       try {
@@ -1565,10 +1565,12 @@ export class HarnessEngine {
       // and browser evidence remain required by the later completion gates.
       const reviewState = {
         phase: 'pre-implementation planning', task: run.task, tasks,
+        verificationSchedule: { partial: 'Each task runs its verifyCommand and reviews its criteria before dependencies can continue.',
+          integration: 'The last task runs full verification, actual Chromium QA and applicable README QA, then reviews every task integrationCriteria before application.' },
         ...(run.qaPlan ? { qaPlan: run.qaPlan, executor: BROWSER_QA_EXECUTOR } : {}),
       }, reviewChecks = { workPlan: {
         label: '부분 작업 범위',
-        question: 'Evaluate this pre-implementation milestone plan. Does it cover every original requirement with sensible file ownership, dependency order, observable acceptance criteria and meaningful independently executable checks for each task? Judge the declared verification strategy, not whether unbuilt files exist or tests already pass. The first task must be testable without later-task files. When state.qaPlan exists, evaluate the proposed Node tests together with that fixed browser QA plan and state.executor: Node tests must meaningfully check logic and integration contracts, while actual DOM behavior, keyboard focus, persistence and layout are independently executed after implementation and before application. Planned browser QA cannot replace meaningful per-task Node tests. Execution evidence will be required by later completion gates.',
+        question: 'Evaluate this pre-implementation milestone plan. Does it cover every original requirement with sensible file ownership, dependency order, observable acceptance criteria and meaningful independently executable checks for each task? Judge the declared verification strategy, not whether unbuilt files exist or tests already pass. The first task must be testable without later-task files. Check state.verificationSchedule: non-final criteria must be provable by that task files and its verifyCommand; requirements for actual Chromium, real viewport/focus or README execution belong in integrationCriteria and are mandatory at final integration. Reject plans requiring final-stage evidence to approve an earlier task, and identify the exact criterion to move before the plan is frozen. Do not remove any original requirement. When state.qaPlan exists, evaluate the proposed Node tests together with that fixed browser QA plan and state.executor: Node tests must meaningfully check logic and integration contracts, while actual DOM behavior, keyboard focus, persistence and layout are independently executed after implementation and before application. Planned browser QA cannot replace meaningful per-task Node tests. Execution evidence will be required by later completion gates.',
         pass: 'The future implementation plan covers the original requirements and each task has meaningful verification that can run in dependency order; execution evidence is still required after implementation.',
         revise: 'Repair missing original requirements, invalid dependencies or ineffective per-task verification.',
       } };
@@ -1611,7 +1613,10 @@ export class HarnessEngine {
     // The final web milestone may itself require integration/browser evidence.
     // Obtain that evidence before judging it; waiting for its approval first
     // would prevent the required checks from ever running.
-    const integrationRequired = run.qaRequired && run.milestones.every((other) => other.id === task.id || other.status === 'completed');
+    const finalMilestone = run.milestones.every((other) => other.id === task.id || other.status === 'completed');
+    const integrationRequired = run.qaRequired && finalMilestone;
+    const integrationCriteria = run.milestones.filter((item) => item.integrationCriteria?.length)
+      .map(({ id, title, integrationCriteria: criteria }) => ({ id, title, criteria }));
     let integrationVerification = null, independentBrowserQa = null, readmeLaunchQa = null;
     if (integrationRequired && verification.code === 0) {
       try {
@@ -1634,7 +1639,6 @@ export class HarnessEngine {
       }
       run.stage = 'milestone-qa';
     }
-    const finalMilestone = run.milestones.every((other) => other.id === task.id || other.status === 'completed');
     const finalVerificationCommand = integrationRequired ? run.verifyCommand : task.verifyCommand;
     const finalVerification = integrationRequired ? integrationVerification : verification;
     const canReuseFinalVerification = finalMilestone && Boolean(finalVerificationCommand)
@@ -1664,12 +1668,18 @@ export class HarnessEngine {
       } } : {}),
     }));
     const verdict = await this.decide(record, { task: run.task, milestone: task, previousSummary, verification,
+      verificationPhase: finalMilestone ? 'final integration' : 'partial task', integrationCriteria,
+      verificationSchedule: 'Current partial criteria require actual successful verifyCommand evidence. All integrationCriteria remain mandatory at final integration with actual browser/README evidence when applicable; they are not evidence already obtained by a partial approval.',
       ...(integrationRequired ? { integrationVerification, independentBrowserQa, readmeLaunchQa } : {}),
       workspaceInventory, workspaceInventoryTruncated: completeInventory.length > MAX_PROJECT_FILE_LIST,
       relatedMilestones, ownedFiles: owned,
       actualFilesTruncated: owned.length > 8,
       diff: diff.slice(0, 60_000), diffTruncated: diff.length > 60_000, actualFiles }, {
       milestone: { label: `${task.title} 완료`, question: 'Do the actual changed files and meaningful successful verification satisfy every immutable acceptance criterion of this partial task? The diff and actualFiles previews are scoped to ownedFiles; absence from them is not evidence that another milestone file is missing. Use workspaceInventory for file presence and relatedMilestones for ownership and current review status. A truncated inventory cannot establish file absence. Shared configuration may include tests from another milestone. Inventory and prior review evidence do not replace the current verification, required integration/browser evidence, or applicable README launch smoke evidence. A skipped README smoke test is explicitly marked not applicable and must not be treated as a failure or as a passed execution check. Judge this milestone\'s original criteria without requiring an unrelated milestone to be complete.', pass: 'All criteria are implemented and independently verified.', revise: 'Fix missing behavior or verification for this partial task without weakening its original criteria.' },
+      ...(finalMilestone && integrationCriteria.length ? { integrationCriteria: {
+        label: '전체 부분 작업 통합 기준', question: 'Does the actual final verification and available independent browser/README evidence satisfy every immutable criterion in state.integrationCriteria? Prior partial approvals do not satisfy these deferred runtime requirements. Missing required execution evidence means revise; never infer a runtime pass from a Node mock alone.',
+        pass: 'Every deferred integration criterion has actual implementation and execution evidence.', revise: 'Fix the missing final integration behavior or actual execution evidence while retaining every original criterion.',
+      } } : {}),
     });
     let workspaceUnchangedSinceVerification = true;
     if (verifiedWorkspaceFingerprint) {

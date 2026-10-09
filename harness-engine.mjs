@@ -43,6 +43,16 @@ function normalizeQaFailures(value, maxCount) {
   return { valid, failures };
 }
 
+function browserCheckContexts(plan) {
+  let start = 0;
+  return new Map(plan.checks.map((check, index) => {
+    // A reset at the start makes the case independent of earlier state. Without
+    // it, an earlier edit invalidates every later dependent case judgment.
+    if (check.steps[0]?.action === 'reset') start = index;
+    return [`qaCheck_${check.id}`, createHash('sha256').update(JSON.stringify({ entry: plan.entry, checks: plan.checks.slice(start, index + 1) })).digest('hex')];
+  }));
+}
+
 function offlineServerVerificationGuidance(task, files = '') {
   if (!/(?:\b(?:http|https|api|server|route|mime)\b|웹\s?(?:사이트|앱|페이지)|서버|라우트|정적\s*파일)/i.test(`${task}\n${files}`)) return '';
   return '\n검증 샌드박스 제약: Harness 검증 명령은 네트워크가 차단된 격리 환경에서 실행됩니다. TCP/UDP/Unix-domain socket bind·listen, localhost fetch, 서버 프로세스 실행을 테스트에서 시도하지 마세요. 이 방식은 EPERM/EACCES/EINVAL로 실패합니다. HTTP 라우트·상태·MIME 테스트는 요청 처리 함수를 export하고 가짜 request/response로 직접 호출해 assertion 하세요. 실제 README 실행과 HTTP·화면 동작은 Harness README 스모크 및 독립 브라우저 QA가 별도로 검사합니다. 샌드박스 제한을 우회하거나 권한을 바꾸지 마세요.';
@@ -1239,6 +1249,17 @@ export class HarnessEngine {
     return true;
   }
 
+  async recoverPlanningReview(record, state, checks, verdict, label, rejections) {
+    if (!await this.usePlanningReviewFallback(record, verdict, label, rejections)) return verdict;
+    const unresolved = new Set(verdict.unexplainedChecks);
+    const questions = Object.fromEntries(Object.entries(checks).filter(([id]) => unresolved.has(id)));
+    const recovered = await this.decide(record, state, questions);
+    const failedChecks = [...(verdict.failedChecks || []).filter((id) => !unresolved.has(id)), ...(recovered.failedChecks || [])];
+    const unexplainedChecks = [...(verdict.unexplainedChecks || []).filter((id) => !unresolved.has(id)), ...(recovered.unexplainedChecks || [])];
+    await this.event(record, '누락 판정 근거 보완 / Targeted review feedback', `전체 ${Object.keys(checks).length}개 질문 중 사유가 없는 ${Object.keys(questions).length}개만 같은 상태로 다시 판정했습니다. 앞서 통과한 질문의 판정은 보존합니다.`);
+    return { ...recovered, decision: failedChecks.length ? 'revise' : 'complete', failedChecks, unexplainedChecks };
+  }
+
   async selectModels(record, planContext = null) {
     const { run } = record;
     const context = planContext ? {
@@ -1575,7 +1596,7 @@ export class HarnessEngine {
         revise: 'Repair missing original requirements, invalid dependencies or ineffective per-task verification.',
       } };
       let verdict = await this.decide(record, reviewState, reviewChecks);
-      if (attempt === 1 && await this.usePlanningReviewFallback(record, verdict, '부분 작업 계획')) verdict = await this.decide(record, reviewState, reviewChecks);
+      if (attempt === 1) verdict = await this.recoverPlanningReview(record, reviewState, reviewChecks, verdict, '부분 작업 계획', 2);
       if (verdict.decision === 'complete') { run.milestones = tasks; break; }
       feedback = verdict.feedback;
       // A typed judge can reject a feasible-looking plan without a useful prose
@@ -1770,7 +1791,7 @@ export class HarnessEngine {
     const selectorContract = `\ntext는 화면 가시성도 확인합니다. 문서 메타데이터인 title/head/meta/script/style/link를 text나 visible로 검사하지 말고 실제 h1 등 표시 요소를 검사하세요. 입력값과 후속 selector의 리터럴을 정확히 일치시키세요. 긴 반복 문자열을 aria-label 정확 일치 selector에 다시 복사하면 반복 수가 달라질 수 있습니다. 이때 동일 검사에서 항목 수·전체 제목 text를 확인하고 동작 이름을 포함한 안정적인 selector로 대상 버튼을 찾으세요. 접근성 역할이 요구됐다면 이름뿐 아니라 실제 의미 구조도 확인하세요. 예를 들어 목록은 ul/ol 또는 role=list 컨테이너와 listitem 항목을 count selector로 검사할 수 있습니다. 비어 있는 컨테이너의 의미 구조 검사는 가시성 대신 count를 사용하세요. 원래 요구한 대상별 동작과 실제 assertion은 유지하세요.`;
     let feedback = '', proposal = null, replaceableCheckIds = [];
     let attemptLimit = 3;
-    const feedbackHistory = [], seenFeedback = new Set();
+    const feedbackHistory = [], seenFeedback = new Set(), acceptedCaseContexts = new Map();
     const triedPlannerModels = new Set([selectionKey(run.roles.planner)]);
     for (let attempt = 0; attempt < attemptLimit; attempt++) {
       const validate = (value) => {
@@ -1805,12 +1826,22 @@ export class HarnessEngine {
           revise: `Correct the contradictory or inadequate actions/assertions of check ${check.id}, preserving its ID and categories.`,
         }])),
       };
-      let verdict = await this.decide(record, reviewState, reviewChecks);
+      const contexts = browserCheckContexts(qaPlan);
+      const scopedChecks = Object.fromEntries(Object.entries(reviewChecks).filter(([id]) => !contexts.has(id) || acceptedCaseContexts.get(id) !== contexts.get(id)));
+      const retained = Object.keys(reviewChecks).filter((id) => !Object.hasOwn(scopedChecks, id));
+      if (retained.length) {
+        reviewState.retainedCaseJudgments = retained.map((id) => ({ id, contextFingerprint: contexts.get(id), choice: 'pass' }));
+        await this.event(record, 'QA 변경 범위 판정 / Review changed QA cases', `동작·선행 상태가 동일한 ${retained.length}개 검사의 개별 판정을 보존합니다. 전체 요구사항과 입력·저장·빈 상태·키보드 범위는 다시 판정합니다.`);
+      }
+      let verdict = await this.decide(record, reviewState, scopedChecks);
       // If every concrete case passed, an unexplained coverage-only rejection
       // needs a specific critique before spending another speculative rewrite.
       const coverageOnly = verdict.failedChecks?.length === 1 && verdict.failedChecks[0] === 'qaContract';
-      if ((attempt === 1 || (attempt === 0 && coverageOnly))
-        && await this.usePlanningReviewFallback(record, verdict, '독립 QA 계획', attempt + 1)) verdict = await this.decide(record, reviewState, reviewChecks);
+      if (attempt === 1 || (attempt === 0 && coverageOnly)) verdict = await this.recoverPlanningReview(record, reviewState, scopedChecks, verdict, '독립 QA 계획', attempt + 1);
+      for (const [id, fingerprint] of contexts) if (Object.hasOwn(scopedChecks, id)) {
+        if (verdict.failedChecks?.includes(id)) acceptedCaseContexts.delete(id);
+        else acceptedCaseContexts.set(id, fingerprint);
+      }
       if (verdict.decision === 'complete') { run.qaPlan = qaPlan; break; }
       const planChanged = proposal !== null && JSON.stringify(proposal) !== JSON.stringify(qaPlan);
       const feedbackKey = JSON.stringify([verdict.failedChecks, verdict.feedback.trim()]);

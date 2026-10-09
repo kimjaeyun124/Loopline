@@ -1,0 +1,57 @@
+{
+  "status": "completed",
+  "applied": true,
+  "matches": true,
+  "files": [
+    {
+      "path": "README.md",
+      "matches": true,
+      "sha256": "e8b87eb5d7690793e2a1f48956953aca4aaa4872ef2e3a7917eb5ca16c65658b"
+    },
+    {
+      "path": "app.mjs",
+      "matches": true,
+      "sha256": "73c9cb1080cb5dada58ab4379f66a178afe3795c844f70496f39073a7361fcd6"
+    },
+    {
+      "path": "app.test.mjs",
+      "matches": true,
+      "sha256": "da76972bcdc335dc9d2dd6d1d77513c9d72e52afc3547eecfbfc73e060e01d30"
+    },
+    {
+      "path": "index.html",
+      "matches": true,
+      "sha256": "165561f24d1968d338d3c5f7ff4a847a5515c99c7605eb61a4f8046aa27258c6"
+    },
+    {
+      "path": "model.mjs",
+      "matches": true,
+      "sha256": "f29d96ecd9ad2b75b256206ddaa1335d70f79c1ca93c55926bf67f14136afa5d"
+    },
+    {
+      "path": "model.test.mjs",
+      "matches": true,
+      "sha256": "82fb446b150af2e2af55d5b193366957179edddfc79a10c44dbd9fad58903e59"
+    },
+    {
+      "path": "package.json",
+      "matches": true,
+      "sha256": "4795fe7f6cc4783fbf646a5f8457908100ff2fe267d138a82c3d95183b1c0065"
+    },
+    {
+      "path": "server.mjs",
+      "matches": true,
+      "sha256": "e5da4ec9839bfb77886657f39d963fd9ed83a5349b5444afe0269e5a821df6f4"
+    },
+    {
+      "path": "server.test.mjs",
+      "matches": true,
+      "sha256": "293e94f067c4c704e2ac938a302e6695711ec8f316f78956a20dcc7f1bbd5227"
+    },
+    {
+      "path": "styles.css",
+      "matches": true,
+      "sha256": "fc458eb3f57f3000146c8ebfc3e2e4e1eb9f36339dcd0642570dd02d8c381de9"
+    }
+  ]
+}

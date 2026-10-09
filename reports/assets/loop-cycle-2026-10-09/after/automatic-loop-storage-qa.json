@@ -1,0 +1,152 @@
+{
+  "passed": true,
+  "checks": [
+    {
+      "id": "malformed-json",
+      "viewport": "desktop",
+      "passed": true
+    },
+    {
+      "id": "malformed-json-layout",
+      "viewport": "desktop",
+      "passed": true,
+      "actual": {
+        "overflow": false,
+        "width": 1440,
+        "body": true
+      }
+    },
+    {
+      "id": "invalid-shape",
+      "viewport": "desktop",
+      "passed": true
+    },
+    {
+      "id": "invalid-shape-layout",
+      "viewport": "desktop",
+      "passed": true,
+      "actual": {
+        "overflow": false,
+        "width": 1440,
+        "body": true
+      }
+    },
+    {
+      "id": "invalid-values",
+      "viewport": "desktop",
+      "passed": true
+    },
+    {
+      "id": "invalid-values-layout",
+      "viewport": "desktop",
+      "passed": true,
+      "actual": {
+        "overflow": false,
+        "width": 1440,
+        "body": true
+      }
+    },
+    {
+      "id": "layout",
+      "viewport": "desktop",
+      "passed": true,
+      "actual": {
+        "overflow": false,
+        "width": 1440,
+        "body": true
+      }
+    },
+    {
+      "id": "malformed-json",
+      "viewport": "mobile",
+      "passed": true
+    },
+    {
+      "id": "malformed-json-layout",
+      "viewport": "mobile",
+      "passed": true,
+      "actual": {
+        "overflow": false,
+        "width": 390,
+        "body": true
+      }
+    },
+    {
+      "id": "invalid-shape",
+      "viewport": "mobile",
+      "passed": true
+    },
+    {
+      "id": "invalid-shape-layout",
+      "viewport": "mobile",
+      "passed": true,
+      "actual": {
+        "overflow": false,
+        "width": 390,
+        "body": true
+      }
+    },
+    {
+      "id": "invalid-values",
+      "viewport": "mobile",
+      "passed": true
+    },
+    {
+      "id": "invalid-values-layout",
+      "viewport": "mobile",
+      "passed": true,
+      "actual": {
+        "overflow": false,
+        "width": 390,
+        "body": true
+      }
+    },
+    {
+      "id": "layout",
+      "viewport": "mobile",
+      "passed": true,
+      "actual": {
+        "overflow": false,
+        "width": 390,
+        "body": true
+      }
+    }
+  ],
+  "failures": [],
+  "screenshots": [
+    {
+      "checkId": "malformed-json",
+      "viewport": "desktop",
+      "name": "desktop-malformed-json.png"
+    },
+    {
+      "checkId": "invalid-shape",
+      "viewport": "desktop",
+      "name": "desktop-invalid-shape.png"
+    },
+    {
+      "checkId": "invalid-values",
+      "viewport": "desktop",
+      "name": "desktop-invalid-values.png"
+    },
+    {
+      "checkId": "malformed-json",
+      "viewport": "mobile",
+      "name": "mobile-malformed-json.png"
+    },
+    {
+      "checkId": "invalid-shape",
+      "viewport": "mobile",
+      "name": "mobile-invalid-shape.png"
+    },
+    {
+      "checkId": "invalid-values",
+      "viewport": "mobile",
+      "name": "mobile-invalid-values.png"
+    }
+  ],
+  "outputDirectory": "harness/cab76da5-4400-45a7-9317-6615aa6f03ac/browser-qa/round-1",
+  "testedAt": 1791547466446,
+  "expectedCheckCount": 14,
+  "passedCheckCount": 14
+}

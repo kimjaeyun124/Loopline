@@ -1,0 +1,46 @@
+{
+  "firstWorkerMs": 381964,
+  "preparationReportedTokens": 265224,
+  "finalMissingStorageEvidenceFailures": [
+    {
+      "title": "부분 작업 수정 / Milestone failed",
+      "timestamp": 1791543432302,
+      "detail": "HTTP 서버·실행 안내와 전체 통합 검증 · node --test\nHTTP 서버·실행 안내와 전체 통합 검증: Fix the missing final integration behavior or actual execution evidence while retaining every original criterion. 최종 node --test와 README 실행 스모크가 성공했고, 독립 브라우저 QA에서도 빈 상태, 입력 검증, 저장, 검색·필터, 작업 상태 변경·삭제, 전체 통계, HTML 문자열 표시, 키보드 조작 및 데스크톱·모바일 레이아웃 관련 검사가 통과했다. 그러나 필수 통합 기준인 손상된 저장 데이터 복구를 실제 브라우저에서 검증한 실행 근거가 제공된 QA 항목에 없다. 해당 동작의 Node 테스트 통과만으로 브라우저 실행 요건을 충족할 수 없다. focus-board-v1에 잘못된 JSON과 구조 또는 값이 유효하지 않은 데이터를 각각 저장한 뒤 새로고침하여 #statusMessage 안내, 빈 목록 시작, 이후 정상 작업 추가가 가능한지 실제 Chromium에서 검사하고 결과를 추가해야 한다.\n검증 종료 코드 0: ✔ 폼 제출은 입력을 검증하고 오류 초점 및 정상 추가를 처리한다 (2.548208ms)\n✔ 저장 복원, 안전한 문자열 렌더링, 검색·필터, 완료 취소와 삭제를 연결한다 (1.555875ms)\n✔ 손상되었거나 유효하지 않은 저장 데이터는 안내 후 빈 목록으로 시작한다 (0.292625ms)\n✔ 입력 검증은 앞뒤 공백을 제거하고 제목·과목·시간의 경계값을 허용한다 (0.7155ms)\n✔ 입력 검증은 필수값, 글자 수 초과, 비정수 및 시간 범위 밖 값을 거부한다 (0.804459ms)\n✔ TaskModel은 작업 추가, 완료 전환·취소, 삭제를 반영하고 전체 통계를 갱신한다 (1.149417ms)\n✔ 검색은 제목과 과목을 대소문자 구분 없이 찾고 필터는 상태와 함께 적용된다 (0.211084ms)\n✔ 통계는 필터 결과와 무관하게 저장된 전체 작업을 집계한다 (0.144209ms)\n✔ 유효한 저장 JSON은 복원되고 잘못된 JSON과 유효하지 않은 저장 데이터는 거부된다 (0.369292ms)\n✔ 루트 경로에서 HTML을 제공한다 (2.557667ms)\n✔ CSS와 브라우저 모듈에 올바른 MIME을 제공한다 (1.255666ms)\n✔ 알 수 없는 경로는 404를 반환한다 (0.128333ms)\n✔ 잘못된 경로와 경로 순회 요청은 400으로 거부한다 (0.096292ms)\n✔ 지원하지 않는 HTTP 메서드는 허용 메서드와 함께 405를 반환한다 (0.082625ms)\nℹ tests 14\nℹ suites 0\nℹ pass 14\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 99.557291\n"
+    },
+    {
+      "title": "부분 작업 수정 / Milestone failed",
+      "timestamp": 1791543535941,
+      "detail": "HTTP 서버·실행 안내와 전체 통합 검증 · node --test\nHTTP 서버·실행 안내와 전체 통합 검증: Fix the missing final integration behavior or actual execution evidence while retaining every original criterion. 필수 통합 기준인 손상된 저장 데이터 복구의 실제 브라우저 실행 근거가 누락되었습니다. 제공된 독립 Chromium QA는 빈 상태, 입력 검증, 저장·복원, 검색·필터, 상태 변경·삭제, 통계, HTML 문자열 표시, 키보드 조작과 반응형 화면 검사를 통과했지만, 잘못된 JSON 및 파싱은 가능하나 내용이 유효하지 않은 저장 데이터를 복구하는 시나리오의 실행 결과는 없습니다. Node 모의 UI 테스트 통과와 README에 추가한 점검 절차는 실제 브라우저 검증을 대체하지 못합니다. Chromium에서 두 손상 사례를 각각 주입하고 새로고침하여 #statusMessage 안내, 빈 목록, #emptyState 표시와 전체 개수 0을 확인한 뒤, 정상 작업 추가 및 재새로고침 후 복원까지 실행 결과로 남겨야 합니다. 실패하면 해당 구현을 수정하고 node --test 및 실패 시나리오를 다시 검증해야 합니다.\n검증 종료 코드 0: ✔ 폼 제출은 입력을 검증하고 오류 초점 및 정상 추가를 처리한다 (2.375709ms)\n✔ 저장 복원, 안전한 문자열 렌더링, 검색·필터, 완료 취소와 삭제를 연결한다 (1.403375ms)\n✔ 손상되었거나 유효하지 않은 저장 데이터는 안내 후 빈 목록으로 시작한다 (0.35075ms)\n✔ 입력 검증은 앞뒤 공백을 제거하고 제목·과목·시간의 경계값을 허용한다 (0.725667ms)\n✔ 입력 검증은 필수값, 글자 수 초과, 비정수 및 시간 범위 밖 값을 거부한다 (0.641125ms)\n✔ TaskModel은 작업 추가, 완료 전환·취소, 삭제를 반영하고 전체 통계를 갱신한다 (1.086042ms)\n✔ 검색은 제목과 과목을 대소문자 구분 없이 찾고 필터는 상태와 함께 적용된다 (0.193458ms)\n✔ 통계는 필터 결과와 무관하게 저장된 전체 작업을 집계한다 (0.136042ms)\n✔ 유효한 저장 JSON은 복원되고 잘못된 JSON과 유효하지 않은 저장 데이터는 거부된다 (0.279958ms)\n✔ 루트 경로에서 HTML을 제공한다 (2.453875ms)\n✔ CSS와 브라우저 모듈에 올바른 MIME을 제공한다 (1.273791ms)\n✔ 알 수 없는 경로는 404를 반환한다 (0.179708ms)\n✔ 잘못된 경로와 경로 순회 요청은 400으로 거부한다 (0.122917ms)\n✔ 지원하지 않는 HTTP 메서드는 허용 메서드와 함께 405를 반환한다 (0.099ms)\nℹ tests 14\nℹ suites 0\nℹ pass 14\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 81.481667\n"
+    },
+    {
+      "title": "부분 작업 수정 / Milestone failed",
+      "timestamp": 1791543646578,
+      "detail": "HTTP 서버·실행 안내와 전체 통합 검증 · node --test\nHTTP 서버·실행 안내와 전체 통합 검증: Fix the missing final integration behavior or actual execution evidence while retaining every original criterion. 최종 node --test와 README 실행 스모크는 통과했고, 독립 Chromium QA에서도 데스크톱·모바일의 일반 입력, 저장·복원, 검색·필터, 작업 상태 변경·삭제, 통계, HTML 문자열 표시, 키보드 조작 및 레이아웃 검사 성공이 기록되어 있다. 그러나 필수 통합 기준인 손상된 저장 데이터 복구의 실제 Chromium 실행 근거가 여전히 없다. 제공된 QA checks에는 잘못된 JSON과 파싱 가능하지만 내용이 유효하지 않은 저장 데이터를 각각 주입하고 새로고침한 검사가 포함되어 있지 않다. Node 모의 테스트 통과와 README의 점검 절차 추가만으로 이 브라우저 실행 기준을 충족할 수 없다. 두 손상 사례 각각에 대해 #statusMessage 안내, 빈 목록, #emptyState 표시, #totalCount 0을 실제 Chromium에서 확인하고, 이후 정상 작업 추가 및 새로고침 복원 결과를 기록해야 한다. 실패가 발생하면 해당 구현을 수정한 뒤 node --test와 실패 시나리오를 다시 검증해야 한다.\n검증 종료 코드 0: ✔ 폼 제출은 입력을 검증하고 오류 초점 및 정상 추가를 처리한다 (3.658083ms)\n✔ 저장 복원, 안전한 문자열 렌더링, 검색·필터, 완료 취소와 삭제를 연결한다 (1.553667ms)\n✔ 손상되었거나 유효하지 않은 저장 데이터는 안내 후 빈 목록으로 시작한다 (0.306292ms)\n✔ 입력 검증은 앞뒤 공백을 제거하고 제목·과목·시간의 경계값을 허용한다 (1.191625ms)\n✔ 입력 검증은 필수값, 글자 수 초과, 비정수 및 시간 범위 밖 값을 거부한다 (0.888125ms)\n✔ TaskModel은 작업 추가, 완료 전환·취소, 삭제를 반영하고 전체 통계를 갱신한다 (1.545583ms)\n✔ 검색은 제목과 과목을 대소문자 구분 없이 찾고 필터는 상태와 함께 적용된다 (0.21425ms)\n✔ 통계는 필터 결과와 무관하게 저장된 전체 작업을 집계한다 (0.15125ms)\n✔ 유효한 저장 JSON은 복원되고 잘못된 JSON과 유효하지 않은 저장 데이터는 거부된다 (0.586125ms)\n✔ 루트 경로에서 HTML을 제공한다 (2.708ms)\n✔ CSS와 브라우저 모듈에 올바른 MIME을 제공한다 (1.354625ms)\n✔ 알 수 없는 경로는 404를 반환한다 (0.155834ms)\n✔ 잘못된 경로와 경로 순회 요청은 400으로 거부한다 (0.104ms)\n✔ 지원하지 않는 HTTP 메서드는 허용 메서드와 함께 405를 반환한다 (0.086583ms)\nℹ tests 14\nℹ suites 0\nℹ pass 14\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 96.038042\n"
+    }
+  ],
+  "roundsFiveAndSix": {
+    "calls": 8,
+    "reportedTokens": 270514,
+    "durationMs": 164524
+  },
+  "browserHistory": [
+    {
+      "round": 4,
+      "passed": true,
+      "total": 58,
+      "passing": 58
+    },
+    {
+      "round": 5,
+      "passed": true,
+      "total": 58,
+      "passing": 58
+    },
+    {
+      "round": 6,
+      "passed": true,
+      "total": 58,
+      "passing": 58
+    }
+  ]
+}

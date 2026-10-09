@@ -1,0 +1,11 @@
+✔ storage fixture contracts accept raw strings and restrict scope and size (3.769125ms)
+✔ each storage fixture needs a reload and assertion before reset or replacement (0.798583ms)
+✔ real Chromium verifies damaged storage recovery and isolated fixture reset without hiding failures (15792.007792ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 15889.457417

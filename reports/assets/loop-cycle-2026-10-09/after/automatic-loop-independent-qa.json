@@ -1,0 +1,512 @@
+{
+  "passed": true,
+  "checks": [
+    {
+      "id": "empty",
+      "viewport": "desktop",
+      "passed": true
+    },
+    {
+      "id": "empty-layout",
+      "viewport": "desktop",
+      "passed": true,
+      "actual": {
+        "overflow": false,
+        "width": 1440,
+        "body": true
+      }
+    },
+    {
+      "id": "required",
+      "viewport": "desktop",
+      "passed": true
+    },
+    {
+      "id": "required-layout",
+      "viewport": "desktop",
+      "passed": true,
+      "actual": {
+        "overflow": false,
+        "width": 1440,
+        "body": true
+      }
+    },
+    {
+      "id": "add-and-persist",
+      "viewport": "desktop",
+      "passed": true
+    },
+    {
+      "id": "add-and-persist-layout",
+      "viewport": "desktop",
+      "passed": true,
+      "actual": {
+        "overflow": false,
+        "width": 1440,
+        "body": true
+      }
+    },
+    {
+      "id": "invalid-minutes",
+      "viewport": "desktop",
+      "passed": true
+    },
+    {
+      "id": "invalid-minutes-layout",
+      "viewport": "desktop",
+      "passed": true,
+      "actual": {
+        "overflow": false,
+        "width": 1440,
+        "body": true
+      }
+    },
+    {
+      "id": "toggle-and-undo",
+      "viewport": "desktop",
+      "passed": true
+    },
+    {
+      "id": "toggle-and-undo-layout",
+      "viewport": "desktop",
+      "passed": true,
+      "actual": {
+        "overflow": false,
+        "width": 1440,
+        "body": true
+      }
+    },
+    {
+      "id": "filter",
+      "viewport": "desktop",
+      "passed": true
+    },
+    {
+      "id": "filter-layout",
+      "viewport": "desktop",
+      "passed": true,
+      "actual": {
+        "overflow": false,
+        "width": 1440,
+        "body": true
+      }
+    },
+    {
+      "id": "search",
+      "viewport": "desktop",
+      "passed": true
+    },
+    {
+      "id": "search-layout",
+      "viewport": "desktop",
+      "passed": true,
+      "actual": {
+        "overflow": false,
+        "width": 1440,
+        "body": true
+      }
+    },
+    {
+      "id": "delete-last",
+      "viewport": "desktop",
+      "passed": true
+    },
+    {
+      "id": "delete-last-layout",
+      "viewport": "desktop",
+      "passed": true,
+      "actual": {
+        "overflow": false,
+        "width": 1440,
+        "body": true
+      }
+    },
+    {
+      "id": "keyboard-focus",
+      "viewport": "desktop",
+      "passed": true
+    },
+    {
+      "id": "keyboard-focus-layout",
+      "viewport": "desktop",
+      "passed": true,
+      "actual": {
+        "overflow": false,
+        "width": 1440,
+        "body": true
+      }
+    },
+    {
+      "id": "literal-text",
+      "viewport": "desktop",
+      "passed": true
+    },
+    {
+      "id": "literal-text-layout",
+      "viewport": "desktop",
+      "passed": true,
+      "actual": {
+        "overflow": false,
+        "width": 1440,
+        "body": true
+      }
+    },
+    {
+      "id": "long-text",
+      "viewport": "desktop",
+      "passed": true
+    },
+    {
+      "id": "long-text-layout",
+      "viewport": "desktop",
+      "passed": true,
+      "actual": {
+        "overflow": false,
+        "width": 1440,
+        "body": true
+      }
+    },
+    {
+      "id": "completed-persist",
+      "viewport": "desktop",
+      "passed": true
+    },
+    {
+      "id": "completed-persist-layout",
+      "viewport": "desktop",
+      "passed": true,
+      "actual": {
+        "overflow": false,
+        "width": 1440,
+        "body": true
+      }
+    },
+    {
+      "id": "layout",
+      "viewport": "desktop",
+      "passed": true,
+      "actual": {
+        "overflow": false,
+        "width": 1440,
+        "body": true
+      }
+    },
+    {
+      "id": "empty",
+      "viewport": "mobile",
+      "passed": true
+    },
+    {
+      "id": "empty-layout",
+      "viewport": "mobile",
+      "passed": true,
+      "actual": {
+        "overflow": false,
+        "width": 390,
+        "body": true
+      }
+    },
+    {
+      "id": "required",
+      "viewport": "mobile",
+      "passed": true
+    },
+    {
+      "id": "required-layout",
+      "viewport": "mobile",
+      "passed": true,
+      "actual": {
+        "overflow": false,
+        "width": 390,
+        "body": true
+      }
+    },
+    {
+      "id": "add-and-persist",
+      "viewport": "mobile",
+      "passed": true
+    },
+    {
+      "id": "add-and-persist-layout",
+      "viewport": "mobile",
+      "passed": true,
+      "actual": {
+        "overflow": false,
+        "width": 390,
+        "body": true
+      }
+    },
+    {
+      "id": "invalid-minutes",
+      "viewport": "mobile",
+      "passed": true
+    },
+    {
+      "id": "invalid-minutes-layout",
+      "viewport": "mobile",
+      "passed": true,
+      "actual": {
+        "overflow": false,
+        "width": 390,
+        "body": true
+      }
+    },
+    {
+      "id": "toggle-and-undo",
+      "viewport": "mobile",
+      "passed": true
+    },
+    {
+      "id": "toggle-and-undo-layout",
+      "viewport": "mobile",
+      "passed": true,
+      "actual": {
+        "overflow": false,
+        "width": 390,
+        "body": true
+      }
+    },
+    {
+      "id": "filter",
+      "viewport": "mobile",
+      "passed": true
+    },
+    {
+      "id": "filter-layout",
+      "viewport": "mobile",
+      "passed": true,
+      "actual": {
+        "overflow": false,
+        "width": 390,
+        "body": true
+      }
+    },
+    {
+      "id": "search",
+      "viewport": "mobile",
+      "passed": true
+    },
+    {
+      "id": "search-layout",
+      "viewport": "mobile",
+      "passed": true,
+      "actual": {
+        "overflow": false,
+        "width": 390,
+        "body": true
+      }
+    },
+    {
+      "id": "delete-last",
+      "viewport": "mobile",
+      "passed": true
+    },
+    {
+      "id": "delete-last-layout",
+      "viewport": "mobile",
+      "passed": true,
+      "actual": {
+        "overflow": false,
+        "width": 390,
+        "body": true
+      }
+    },
+    {
+      "id": "keyboard-focus",
+      "viewport": "mobile",
+      "passed": true
+    },
+    {
+      "id": "keyboard-focus-layout",
+      "viewport": "mobile",
+      "passed": true,
+      "actual": {
+        "overflow": false,
+        "width": 390,
+        "body": true
+      }
+    },
+    {
+      "id": "literal-text",
+      "viewport": "mobile",
+      "passed": true
+    },
+    {
+      "id": "literal-text-layout",
+      "viewport": "mobile",
+      "passed": true,
+      "actual": {
+        "overflow": false,
+        "width": 390,
+        "body": true
+      }
+    },
+    {
+      "id": "long-text",
+      "viewport": "mobile",
+      "passed": true
+    },
+    {
+      "id": "long-text-layout",
+      "viewport": "mobile",
+      "passed": true,
+      "actual": {
+        "overflow": false,
+        "width": 390,
+        "body": true
+      }
+    },
+    {
+      "id": "completed-persist",
+      "viewport": "mobile",
+      "passed": true
+    },
+    {
+      "id": "completed-persist-layout",
+      "viewport": "mobile",
+      "passed": true,
+      "actual": {
+        "overflow": false,
+        "width": 390,
+        "body": true
+      }
+    },
+    {
+      "id": "layout",
+      "viewport": "mobile",
+      "passed": true,
+      "actual": {
+        "overflow": false,
+        "width": 390,
+        "body": true
+      }
+    }
+  ],
+  "failures": [],
+  "screenshots": [
+    {
+      "checkId": "empty",
+      "viewport": "desktop",
+      "name": "desktop-empty.png"
+    },
+    {
+      "checkId": "required",
+      "viewport": "desktop",
+      "name": "desktop-required.png"
+    },
+    {
+      "checkId": "add-and-persist",
+      "viewport": "desktop",
+      "name": "desktop-add-and-persist.png"
+    },
+    {
+      "checkId": "invalid-minutes",
+      "viewport": "desktop",
+      "name": "desktop-invalid-minutes.png"
+    },
+    {
+      "checkId": "toggle-and-undo",
+      "viewport": "desktop",
+      "name": "desktop-toggle-and-undo.png"
+    },
+    {
+      "checkId": "filter",
+      "viewport": "desktop",
+      "name": "desktop-filter.png"
+    },
+    {
+      "checkId": "search",
+      "viewport": "desktop",
+      "name": "desktop-search.png"
+    },
+    {
+      "checkId": "delete-last",
+      "viewport": "desktop",
+      "name": "desktop-delete-last.png"
+    },
+    {
+      "checkId": "keyboard-focus",
+      "viewport": "desktop",
+      "name": "desktop-keyboard-focus.png"
+    },
+    {
+      "checkId": "literal-text",
+      "viewport": "desktop",
+      "name": "desktop-literal-text.png"
+    },
+    {
+      "checkId": "long-text",
+      "viewport": "desktop",
+      "name": "desktop-long-text.png"
+    },
+    {
+      "checkId": "completed-persist",
+      "viewport": "desktop",
+      "name": "desktop-completed-persist.png"
+    },
+    {
+      "checkId": "empty",
+      "viewport": "mobile",
+      "name": "mobile-empty.png"
+    },
+    {
+      "checkId": "required",
+      "viewport": "mobile",
+      "name": "mobile-required.png"
+    },
+    {
+      "checkId": "add-and-persist",
+      "viewport": "mobile",
+      "name": "mobile-add-and-persist.png"
+    },
+    {
+      "checkId": "invalid-minutes",
+      "viewport": "mobile",
+      "name": "mobile-invalid-minutes.png"
+    },
+    {
+      "checkId": "toggle-and-undo",
+      "viewport": "mobile",
+      "name": "mobile-toggle-and-undo.png"
+    },
+    {
+      "checkId": "filter",
+      "viewport": "mobile",
+      "name": "mobile-filter.png"
+    },
+    {
+      "checkId": "search",
+      "viewport": "mobile",
+      "name": "mobile-search.png"
+    },
+    {
+      "checkId": "delete-last",
+      "viewport": "mobile",
+      "name": "mobile-delete-last.png"
+    },
+    {
+      "checkId": "keyboard-focus",
+      "viewport": "mobile",
+      "name": "mobile-keyboard-focus.png"
+    },
+    {
+      "checkId": "literal-text",
+      "viewport": "mobile",
+      "name": "mobile-literal-text.png"
+    },
+    {
+      "checkId": "long-text",
+      "viewport": "mobile",
+      "name": "mobile-long-text.png"
+    },
+    {
+      "checkId": "completed-persist",
+      "viewport": "mobile",
+      "name": "mobile-completed-persist.png"
+    }
+  ],
+  "outputDirectory": "harness/cab76da5-4400-45a7-9317-6615aa6f03ac/browser-qa/round-1",
+  "testedAt": 1791547323468,
+  "expectedCheckCount": 50,
+  "passedCheckCount": 50
+}

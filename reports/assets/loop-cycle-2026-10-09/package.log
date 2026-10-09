@@ -1,0 +1,33 @@
+
+> mosaic-ai@0.1.0 desktop:package
+> npm run build:langgraph && npm run build:mcp && electron-builder --mac dir --arm64
+
+
+> mosaic-ai@0.1.0 build:langgraph
+> esbuild harness-graph-runtime.mjs --bundle --platform=node --format=esm --outfile=dist/langgraph-runtime.bundle.mjs
+
+
+  dist/langgraph-runtime.bundle.mjs  2.5mb ⚠️
+
+⚡ Done in 84ms
+
+> mosaic-ai@0.1.0 build:mcp
+> esbuild mcp-runtime-entry.mjs --bundle --platform=node --format=esm --outfile=dist/mcp-runtime.bundle.mjs
+
+
+  dist/mcp-runtime.bundle.mjs  903.5kb
+
+⚡ Done in 33ms
+  • electron-builder  version=26.15.3 os=25.6.0
+  • loaded configuration  file=package.json ("build" field)
+  • description is missed in the package.json  appPackageFile=/Users/dgsw59/Documents/Codex/2026-09-26/sj/outputs/mosaic-ai/package.json
+  • author is missed in the package.json  appPackageFile=/Users/dgsw59/Documents/Codex/2026-09-26/sj/outputs/mosaic-ai/package.json
+  • executing @electron/rebuild  electronVersion=44.4.5 arch=arm64 buildFromSource=false workspaceRoot=/Users/dgsw59/Documents/Codex/2026-09-26/sj/outputs/mosaic-ai projectDir=./ appDir=./
+  • installing native dependencies  arch=arm64
+  • completed installing native dependencies
+  • packaging       platform=darwin arch=arm64 electron=44.4.5 appOutDir=release/mac-arm64
+  • downloaded      label=electron progress=100%
+  • downloaded electron zip extracted successfully  output=/Users/dgsw59/Documents/Codex/2026-09-26/sj/outputs/mosaic-ai/release/mac-arm64
+  • searching for node modules  pm=npm searchDir=/Users/dgsw59/Documents/Codex/2026-09-26/sj/outputs/mosaic-ai
+  • duplicate dependency references  dependencies=["p-queue@6.6.2","@langchain/core@1.2.13","@langchain/core@1.2.13"]
+  • skipped macOS code signing  reason=identity explicitly is set to null

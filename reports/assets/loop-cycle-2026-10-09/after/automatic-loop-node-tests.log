@@ -1,0 +1,118 @@
+TAP version 13
+# Subtest: index.html이 지정된 입력, 레이블, 필터, 통계 및 안내 DOM 계약을 제공한다
+ok 1 - index.html이 지정된 입력, 레이블, 필터, 통계 및 안내 DOM 계약을 제공한다
+  ---
+  duration_ms: 5.337167
+  type: 'test'
+  ...
+# Subtest: 입력 오류를 표시하고 빈 제목에 초점을 둔 뒤 유효한 작업을 저장한다
+ok 2 - 입력 오류를 표시하고 빈 제목에 초점을 둔 뒤 유효한 작업을 저장한다
+  ---
+  duration_ms: 10.881209
+  type: 'test'
+  ...
+# Subtest: Enter 제출과 저장 복원이 렌더링에 연결된다
+ok 3 - Enter 제출과 저장 복원이 렌더링에 연결된다
+  ---
+  duration_ms: 2.496333
+  type: 'test'
+  ...
+# Subtest: 필터와 검색, 완료 취소, 삭제 후에도 통계는 전체 작업 기준으로 갱신된다
+ok 4 - 필터와 검색, 완료 취소, 삭제 후에도 통계는 전체 작업 기준으로 갱신된다
+  ---
+  duration_ms: 2.320125
+  type: 'test'
+  ...
+# Subtest: 제목과 과목은 HTML로 해석되지 않고 검색은 대소문자를 무시한다
+ok 5 - 제목과 과목은 HTML로 해석되지 않고 검색은 대소문자를 무시한다
+  ---
+  duration_ms: 2.015
+  type: 'test'
+  ...
+# Subtest: 손상된 저장 데이터는 상태 안내 후 빈 목록으로 복구하고 입력을 다시 받는다
+ok 6 - 손상된 저장 데이터는 상태 안내 후 빈 목록으로 복구하고 입력을 다시 받는다
+  ---
+  duration_ms: 4.039458
+  type: 'test'
+  ...
+# Subtest: 저장 실패를 상태 안내로 표시하고 현재 모델 작업을 추가하지 않는다
+ok 7 - 저장 실패를 상태 안내로 표시하고 현재 모델 작업을 추가하지 않는다
+  ---
+  duration_ms: 0.951792
+  type: 'test'
+  ...
+# Subtest: 입력 경계와 공백 정규화를 검증한다
+ok 8 - 입력 경계와 공백 정규화를 검증한다
+  ---
+  duration_ms: 0.946083
+  type: 'test'
+  ...
+# Subtest: 연속 추가는 고유 ID를 만들고 완료·취소·삭제를 저장한다
+ok 9 - 연속 추가는 고유 ID를 만들고 완료·취소·삭제를 저장한다
+  ---
+  duration_ms: 15.775959
+  type: 'test'
+  ...
+# Subtest: 필터와 대소문자 무시 검색은 통계 범위를 바꾸지 않는다
+ok 10 - 필터와 대소문자 무시 검색은 통계 범위를 바꾸지 않는다
+  ---
+  duration_ms: 0.249916
+  type: 'test'
+  ...
+# Subtest: 저장된 작업의 필수 필드와 자료형·값 범위를 검사한다
+ok 11 - 저장된 작업의 필수 필드와 자료형·값 범위를 검사한다
+  ---
+  duration_ms: 0.258625
+  type: 'test'
+  ...
+# Subtest: 잘못된 JSON과 스키마는 빈 목록 오류를 반환하고 저장 값을 덮어쓰지 않는다
+ok 12 - 잘못된 JSON과 스키마는 빈 목록 오류를 반환하고 저장 값을 덮어쓰지 않는다
+  ---
+  duration_ms: 0.50975
+  type: 'test'
+  ...
+# Subtest: 저장 실패 시 메모리 상태와 기존 저장 값을 유지한다
+ok 13 - 저장 실패 시 메모리 상태와 기존 저장 값을 유지한다
+  ---
+  duration_ms: 0.202834
+  type: 'test'
+  ...
+# Subtest: serves the HTML page, stylesheet, and JavaScript modules with their MIME types
+ok 14 - serves the HTML page, stylesheet, and JavaScript modules with their MIME types
+  ---
+  duration_ms: 3.122042
+  type: 'test'
+  ...
+# Subtest: returns 404 for an unknown path
+ok 15 - returns 404 for an unknown path
+  ---
+  duration_ms: 0.183958
+  type: 'test'
+  ...
+# Subtest: uses the default port and honors PORT without opening a server
+ok 16 - uses the default port and honors PORT without opening a server
+  ---
+  duration_ms: 0.106459
+  type: 'test'
+  ...
+# Subtest: rejects invalid PORT values
+ok 17 - rejects invalid PORT values
+  ---
+  duration_ms: 0.263417
+  type: 'test'
+  ...
+# Subtest: rejects unsupported methods without serving a file
+ok 18 - rejects unsupported methods without serving a file
+  ---
+  duration_ms: 0.073625
+  type: 'test'
+  ...
+1..18
+# tests 18
+# suites 0
+# pass 18
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 122.696375

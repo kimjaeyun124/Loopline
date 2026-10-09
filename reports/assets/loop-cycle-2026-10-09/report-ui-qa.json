@@ -1,0 +1,46 @@
+{
+  "url": "http://127.0.0.1:41730/loop-cycle-2026-10-09.html#summary",
+  "checks": [
+    {
+      "height": 900,
+      "name": "desktop-layout",
+      "pass": true,
+      "scrollWidth": 1440,
+      "width": 1440
+    },
+    {
+      "name": "comparison-navigation",
+      "pass": true,
+      "rows": 14
+    },
+    {
+      "count": 2,
+      "name": "screenshots-loaded",
+      "pass": true
+    },
+    {
+      "name": "usage-expand",
+      "pass": true,
+      "rows": 9
+    },
+    {
+      "hash": "#comparison",
+      "height": 844,
+      "name": "mobile-layout",
+      "pass": true,
+      "scrollWidth": 390,
+      "width": 390
+    },
+    {
+      "name": "keyboard-details",
+      "pass": true
+    },
+    {
+      "name": "report-console-errors",
+      "errors": [],
+      "pass": true
+    }
+  ],
+  "passed": true,
+  "viewportReset": true
+}

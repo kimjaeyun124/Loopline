@@ -1,0 +1,11 @@
+[
+  {
+    "configuration": "automatic-loop",
+    "status": "PASS",
+    "exitCode": 0,
+    "tests": 18,
+    "passed": 18,
+    "failed": 0,
+    "error": null
+  }
+]

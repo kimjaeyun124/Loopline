@@ -1,0 +1,79 @@
+{
+  "runId": "656b55bb-76cd-4fc6-b846-6b6bf6f61ff1",
+  "failures": [
+    {
+      "id": "ceebf05c-7174-4ed6-a1d6-1fc2d2092a65",
+      "title": "부분 작업 수정 / Milestone failed",
+      "detail": "반응형 화면과 저장·상호작용 연결 · node --test app.test.mjs\n반응형 화면과 저장·상호작용 연결: Fix missing behavior or verification for this partial task without weakening its original criteria. 현재 부분 작업의 필수 검증인 node --test app.test.mjs가 종료 코드 1로 실패했습니다. 3개 테스트 중 2개가 app.test.mjs:187 및 :202에서 null.textContent 접근 오류로 중단되어 정상 추가, 저장 복원, 검색·필터, 완료 취소·삭제의 검증을 완료하지 못했습니다. 제공된 코드에서 가짜 DOM의 matches()는 클래스 선택자를 지원하지 않지만 테스트는 .task, .task-title, .task-subject를 조회합니다. 이 때문에 렌더링된 요소를 찾지 못하며, .task 개수가 0이라는 일부 단언도 실제 상태를 검증하지 못합니다. 가짜 DOM에 클래스 선택자 처리를 구현하고 기존 기능 단언을 유지한 채 검증 명령을 다시 실행하여 전체 통과 근거를 확보해야 합니다. 실제 브라우저 QA와 README 실행 검증은 지정된 최종 통합 단계에서 반드시 수행해야 하며, 이번 부분 작업의 실패 사유는 현재 필수 테스트의 실패입니다.\n검증 종료 코드 1: ✖ 폼 제출은 입력을 검증하고 오류 초점 및 정상 추가를 처리한다 (2.853417ms)\n✖ 저장 복원, 안전한 문자열 렌더링, 검색·필터, 완료 취소와 삭제를 연결한다 (0.406166ms)\n✔ 손상되었거나 유효하지 않은 저장 데이터는 안내 후 빈 목록으로 시작한다 (0.371209ms)\nℹ tests 3\nℹ suites 0\nℹ pass 1\nℹ fail 2\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 69.248917\n\n✖ failing tests:\n\ntest at app.test.mjs:171:2\n✖ 폼 제출은 입력을 검증하고 오류 초점 및 정상 추가를 처리한다 (2.853417ms)\n  TypeError: Cannot read properties of null (reading 'textContent')\n      at TestContext.<anonymous> (file:///Users/dgsw59/Library/Application%20Support/Mosaic%20Desk/harness/656b55bb-76cd-4fc6-b846-6b6bf6f61ff1/workspace/app.test.mjs:187:80)\n      at Test.runInAsyncScope (node:async_hooks:226:14)\n      at Test.run (node:internal/test_runner/test:1402:25)\n      at Test.start (node:internal/test_runner/test:1262:17)\n      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17)\n\ntest at app.test.mjs:194:1\n✖ 저장 복원, 안전한 문자열 렌더링, 검색·필터, 완료 취소와 삭제를 연결한다 (0.406166ms)\n  TypeError: Cannot read properties of null (reading 'textContent')\n      at TestContext.<anonymous> (file:///Users/dgsw59/Library/Application%20Support/Mosaic%20Desk/harness/656b55bb-76cd-4fc6-b846-6b6bf6f61ff1/workspace/app.test.mjs:202:49)\n      at Test.runInAsyncScope (node:async_hooks:226:14)\n      at Test.run (node:internal/test_runner/test:1402:25)\n      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)\n      at Test.postRun (node:internal/test_runner/test:1542:19)\n      at Test.run (node:internal/test_runner/test:1467:12)\n      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)\n",
+      "status": "failed",
+      "timestamp": 1791543244580
+    },
+    {
+      "id": "52e6eed7-22b6-43c0-a5a4-b00cbb73b939",
+      "title": "부분 작업 수정 / Milestone failed",
+      "detail": "HTTP 서버·실행 안내와 전체 통합 검증 · node --test\nHTTP 서버·실행 안내와 전체 통합 검증: Fix the missing final integration behavior or actual execution evidence while retaining every original criterion. 최종 node --test와 README 실행 스모크가 성공했고, 독립 브라우저 QA에서도 빈 상태, 입력 검증, 저장, 검색·필터, 작업 상태 변경·삭제, 전체 통계, HTML 문자열 표시, 키보드 조작 및 데스크톱·모바일 레이아웃 관련 검사가 통과했다. 그러나 필수 통합 기준인 손상된 저장 데이터 복구를 실제 브라우저에서 검증한 실행 근거가 제공된 QA 항목에 없다. 해당 동작의 Node 테스트 통과만으로 브라우저 실행 요건을 충족할 수 없다. focus-board-v1에 잘못된 JSON과 구조 또는 값이 유효하지 않은 데이터를 각각 저장한 뒤 새로고침하여 #statusMessage 안내, 빈 목록 시작, 이후 정상 작업 추가가 가능한지 실제 Chromium에서 검사하고 결과를 추가해야 한다.\n검증 종료 코드 0: ✔ 폼 제출은 입력을 검증하고 오류 초점 및 정상 추가를 처리한다 (2.548208ms)\n✔ 저장 복원, 안전한 문자열 렌더링, 검색·필터, 완료 취소와 삭제를 연결한다 (1.555875ms)\n✔ 손상되었거나 유효하지 않은 저장 데이터는 안내 후 빈 목록으로 시작한다 (0.292625ms)\n✔ 입력 검증은 앞뒤 공백을 제거하고 제목·과목·시간의 경계값을 허용한다 (0.7155ms)\n✔ 입력 검증은 필수값, 글자 수 초과, 비정수 및 시간 범위 밖 값을 거부한다 (0.804459ms)\n✔ TaskModel은 작업 추가, 완료 전환·취소, 삭제를 반영하고 전체 통계를 갱신한다 (1.149417ms)\n✔ 검색은 제목과 과목을 대소문자 구분 없이 찾고 필터는 상태와 함께 적용된다 (0.211084ms)\n✔ 통계는 필터 결과와 무관하게 저장된 전체 작업을 집계한다 (0.144209ms)\n✔ 유효한 저장 JSON은 복원되고 잘못된 JSON과 유효하지 않은 저장 데이터는 거부된다 (0.369292ms)\n✔ 루트 경로에서 HTML을 제공한다 (2.557667ms)\n✔ CSS와 브라우저 모듈에 올바른 MIME을 제공한다 (1.255666ms)\n✔ 알 수 없는 경로는 404를 반환한다 (0.128333ms)\n✔ 잘못된 경로와 경로 순회 요청은 400으로 거부한다 (0.096292ms)\n✔ 지원하지 않는 HTTP 메서드는 허용 메서드와 함께 405를 반환한다 (0.082625ms)\nℹ tests 14\nℹ suites 0\nℹ pass 14\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 99.557291\n",
+      "status": "failed",
+      "timestamp": 1791543432302
+    },
+    {
+      "id": "06cefebf-9687-4455-8c9f-b84708d7bbc0",
+      "title": "부분 작업 수정 / Milestone failed",
+      "detail": "HTTP 서버·실행 안내와 전체 통합 검증 · node --test\nHTTP 서버·실행 안내와 전체 통합 검증: Fix the missing final integration behavior or actual execution evidence while retaining every original criterion. 필수 통합 기준인 손상된 저장 데이터 복구의 실제 브라우저 실행 근거가 누락되었습니다. 제공된 독립 Chromium QA는 빈 상태, 입력 검증, 저장·복원, 검색·필터, 상태 변경·삭제, 통계, HTML 문자열 표시, 키보드 조작과 반응형 화면 검사를 통과했지만, 잘못된 JSON 및 파싱은 가능하나 내용이 유효하지 않은 저장 데이터를 복구하는 시나리오의 실행 결과는 없습니다. Node 모의 UI 테스트 통과와 README에 추가한 점검 절차는 실제 브라우저 검증을 대체하지 못합니다. Chromium에서 두 손상 사례를 각각 주입하고 새로고침하여 #statusMessage 안내, 빈 목록, #emptyState 표시와 전체 개수 0을 확인한 뒤, 정상 작업 추가 및 재새로고침 후 복원까지 실행 결과로 남겨야 합니다. 실패하면 해당 구현을 수정하고 node --test 및 실패 시나리오를 다시 검증해야 합니다.\n검증 종료 코드 0: ✔ 폼 제출은 입력을 검증하고 오류 초점 및 정상 추가를 처리한다 (2.375709ms)\n✔ 저장 복원, 안전한 문자열 렌더링, 검색·필터, 완료 취소와 삭제를 연결한다 (1.403375ms)\n✔ 손상되었거나 유효하지 않은 저장 데이터는 안내 후 빈 목록으로 시작한다 (0.35075ms)\n✔ 입력 검증은 앞뒤 공백을 제거하고 제목·과목·시간의 경계값을 허용한다 (0.725667ms)\n✔ 입력 검증은 필수값, 글자 수 초과, 비정수 및 시간 범위 밖 값을 거부한다 (0.641125ms)\n✔ TaskModel은 작업 추가, 완료 전환·취소, 삭제를 반영하고 전체 통계를 갱신한다 (1.086042ms)\n✔ 검색은 제목과 과목을 대소문자 구분 없이 찾고 필터는 상태와 함께 적용된다 (0.193458ms)\n✔ 통계는 필터 결과와 무관하게 저장된 전체 작업을 집계한다 (0.136042ms)\n✔ 유효한 저장 JSON은 복원되고 잘못된 JSON과 유효하지 않은 저장 데이터는 거부된다 (0.279958ms)\n✔ 루트 경로에서 HTML을 제공한다 (2.453875ms)\n✔ CSS와 브라우저 모듈에 올바른 MIME을 제공한다 (1.273791ms)\n✔ 알 수 없는 경로는 404를 반환한다 (0.179708ms)\n✔ 잘못된 경로와 경로 순회 요청은 400으로 거부한다 (0.122917ms)\n✔ 지원하지 않는 HTTP 메서드는 허용 메서드와 함께 405를 반환한다 (0.099ms)\nℹ tests 14\nℹ suites 0\nℹ pass 14\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 81.481667\n",
+      "status": "failed",
+      "timestamp": 1791543535941
+    },
+    {
+      "id": "5ecb669f-53d5-47a1-92e4-c9624c590b54",
+      "title": "부분 작업 수정 / Milestone failed",
+      "detail": "HTTP 서버·실행 안내와 전체 통합 검증 · node --test\nHTTP 서버·실행 안내와 전체 통합 검증: Fix the missing final integration behavior or actual execution evidence while retaining every original criterion. 최종 node --test와 README 실행 스모크는 통과했고, 독립 Chromium QA에서도 데스크톱·모바일의 일반 입력, 저장·복원, 검색·필터, 작업 상태 변경·삭제, 통계, HTML 문자열 표시, 키보드 조작 및 레이아웃 검사 성공이 기록되어 있다. 그러나 필수 통합 기준인 손상된 저장 데이터 복구의 실제 Chromium 실행 근거가 여전히 없다. 제공된 QA checks에는 잘못된 JSON과 파싱 가능하지만 내용이 유효하지 않은 저장 데이터를 각각 주입하고 새로고침한 검사가 포함되어 있지 않다. Node 모의 테스트 통과와 README의 점검 절차 추가만으로 이 브라우저 실행 기준을 충족할 수 없다. 두 손상 사례 각각에 대해 #statusMessage 안내, 빈 목록, #emptyState 표시, #totalCount 0을 실제 Chromium에서 확인하고, 이후 정상 작업 추가 및 새로고침 복원 결과를 기록해야 한다. 실패가 발생하면 해당 구현을 수정한 뒤 node --test와 실패 시나리오를 다시 검증해야 한다.\n검증 종료 코드 0: ✔ 폼 제출은 입력을 검증하고 오류 초점 및 정상 추가를 처리한다 (3.658083ms)\n✔ 저장 복원, 안전한 문자열 렌더링, 검색·필터, 완료 취소와 삭제를 연결한다 (1.553667ms)\n✔ 손상되었거나 유효하지 않은 저장 데이터는 안내 후 빈 목록으로 시작한다 (0.306292ms)\n✔ 입력 검증은 앞뒤 공백을 제거하고 제목·과목·시간의 경계값을 허용한다 (1.191625ms)\n✔ 입력 검증은 필수값, 글자 수 초과, 비정수 및 시간 범위 밖 값을 거부한다 (0.888125ms)\n✔ TaskModel은 작업 추가, 완료 전환·취소, 삭제를 반영하고 전체 통계를 갱신한다 (1.545583ms)\n✔ 검색은 제목과 과목을 대소문자 구분 없이 찾고 필터는 상태와 함께 적용된다 (0.21425ms)\n✔ 통계는 필터 결과와 무관하게 저장된 전체 작업을 집계한다 (0.15125ms)\n✔ 유효한 저장 JSON은 복원되고 잘못된 JSON과 유효하지 않은 저장 데이터는 거부된다 (0.586125ms)\n✔ 루트 경로에서 HTML을 제공한다 (2.708ms)\n✔ CSS와 브라우저 모듈에 올바른 MIME을 제공한다 (1.354625ms)\n✔ 알 수 없는 경로는 404를 반환한다 (0.155834ms)\n✔ 잘못된 경로와 경로 순회 요청은 400으로 거부한다 (0.104ms)\n✔ 지원하지 않는 HTTP 메서드는 허용 메서드와 함께 405를 반환한다 (0.086583ms)\nℹ tests 14\nℹ suites 0\nℹ pass 14\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 96.038042\n",
+      "status": "failed",
+      "timestamp": 1791543646578
+    }
+  ],
+  "qa": [
+    {
+      "round": 4,
+      "passed": true,
+      "count": 58,
+      "failed": []
+    },
+    {
+      "round": 5,
+      "passed": true,
+      "count": 58,
+      "failed": []
+    },
+    {
+      "round": 6,
+      "passed": true,
+      "count": 58,
+      "failed": []
+    }
+  ],
+  "integrationCriteria": [
+    {
+      "id": "core",
+      "integrationCriteria": [
+        "UI 연결 후 모델의 검증 결과가 #formError와 입력 초점에 반영된다.",
+        "localStorage의 focus-board-v1 데이터가 새로고침 후 복원되고, 손상된 데이터는 #statusMessage 안내와 빈 목록으로 처리된다."
+      ]
+    },
+    {
+      "id": "ui",
+      "integrationCriteria": [
+        "실제 브라우저에서 빈 상태, 입력 경계와 오류 초점, Enter 제출, 저장·새로고침, 손상된 저장 데이터 복구가 통과한다.",
+        "실제 브라우저에서 전체·진행 중·완료 필터, 대소문자 무시 검색, 완료·완료 취소·삭제, 전체 통계, HTML 문자열의 문자 그대로 표시가 통과한다.",
+        "1440×900과 390×844에서 가로 넘침 없이 긴 제목과 작업 버튼이 표시되고, Tab·Space·Enter 조작 및 눈에 보이는 focus가 통과한다."
+      ]
+    },
+    {
+      "id": "integration",
+      "integrationCriteria": [
+        "Harness의 README 스모크에서 안내된 명령과 기본 주소로 앱이 실행되며 HTML·CSS·JS가 제공된다.",
+        "독립 Chromium QA에서 제공된 DOM 계약과 빈 상태, 입력·저장, 필터·검색, 완료·삭제 시나리오를 확인한다.",
+        "독립 Chromium QA에서 1440×900 및 390×844 화면, 가로 넘침, 긴 제목 줄바꿈, Tab·Enter·Space와 focus 표시를 확인한다.",
+        "브라우저 QA 실패 시 실패 근거로 해당 단계의 파일을 수정한 뒤 node --test와 실패 시나리오를 다시 검증한다."
+      ]
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "at": "2026-10-09T11:08:16.446Z",
+  "connectedAccounts": 1,
+  "connectedApiConnections": 2,
+  "activeRuns": [],
+  "hashes": {
+    "before": {
+      "prompt": "1010fb02fa1d603729d91f13e9bd9e025316a17437c73e531dd7ef2cbc0f0573",
+      "qa": "049272d78695a0dc6775927e1c243cba82be9d5332f4a9798f9d56cfcd84ec82"
+    },
+    "after": {
+      "prompt": "1010fb02fa1d603729d91f13e9bd9e025316a17437c73e531dd7ef2cbc0f0573",
+      "qa": "049272d78695a0dc6775927e1c243cba82be9d5332f4a9798f9d56cfcd84ec82"
+    }
+  }
+}

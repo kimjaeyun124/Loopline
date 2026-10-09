@@ -1,0 +1,1225 @@
+{
+  "plan": {
+    "entry": "index.html",
+    "checks": [
+      {
+        "id": "initial-empty-state",
+        "categories": [
+          "empty"
+        ],
+        "steps": [
+          {
+            "action": "reset"
+          },
+          {
+            "action": "visible",
+            "selector": "#emptyState"
+          },
+          {
+            "action": "text",
+            "selector": "#totalCount",
+            "value": "0"
+          },
+          {
+            "action": "text",
+            "selector": "#totalMinutes",
+            "value": "0"
+          },
+          {
+            "action": "text",
+            "selector": "#activeCount",
+            "value": "0"
+          },
+          {
+            "action": "text",
+            "selector": "#completedCount",
+            "value": "0"
+          },
+          {
+            "action": "hidden",
+            "selector": "#formError"
+          },
+          {
+            "action": "count",
+            "selector": "form[novalidate]:has(#taskTitle):has(#taskSubject):has(#taskMinutes):has(#addTask)",
+            "value": 1
+          },
+          {
+            "action": "count",
+            "selector": "input#taskTitle[type=\"text\"], input#taskTitle:not([type])",
+            "value": 1
+          },
+          {
+            "action": "count",
+            "selector": "input#taskSubject[type=\"text\"], input#taskSubject:not([type])",
+            "value": 1
+          },
+          {
+            "action": "count",
+            "selector": "input#taskMinutes[type=\"number\"]",
+            "value": 1
+          },
+          {
+            "action": "count",
+            "selector": "label[for=\"taskTitle\"], label:has(#taskTitle)",
+            "value": 1
+          },
+          {
+            "action": "count",
+            "selector": "label[for=\"taskSubject\"], label:has(#taskSubject)",
+            "value": 1
+          },
+          {
+            "action": "count",
+            "selector": "label[for=\"taskMinutes\"], label:has(#taskMinutes)",
+            "value": 1
+          },
+          {
+            "action": "count",
+            "selector": "#statusMessage[aria-live=\"polite\"], #statusMessage[aria-live=\"assertive\"]",
+            "value": 1
+          },
+          {
+            "action": "count",
+            "selector": "#formError[aria-live=\"polite\"], #formError[aria-live=\"assertive\"], #formError[role=\"alert\"], [aria-live=\"polite\"] #formError, [aria-live=\"assertive\"] #formError",
+            "value": 1
+          }
+        ]
+      },
+      {
+        "id": "task-creation-persistence",
+        "categories": [
+          "input",
+          "save",
+          "keyboard"
+        ],
+        "steps": [
+          {
+            "action": "reset"
+          },
+          {
+            "action": "fill",
+            "selector": "#taskTitle",
+            "value": "Persistent Task"
+          },
+          {
+            "action": "fill",
+            "selector": "#taskSubject",
+            "value": "Study"
+          },
+          {
+            "action": "fill",
+            "selector": "#taskMinutes",
+            "value": "60"
+          },
+          {
+            "action": "press",
+            "key": "Enter"
+          },
+          {
+            "action": "text",
+            "selector": ".task-title",
+            "value": "Persistent Task"
+          },
+          {
+            "action": "reload"
+          },
+          {
+            "action": "count",
+            "selector": ".task",
+            "value": 1
+          },
+          {
+            "action": "text",
+            "selector": ".task-title",
+            "value": "Persistent Task"
+          },
+          {
+            "action": "text",
+            "selector": "#totalCount",
+            "value": "1"
+          },
+          {
+            "action": "text",
+            "selector": "#totalMinutes",
+            "value": "60"
+          },
+          {
+            "action": "click",
+            "selector": "button[data-action=\"toggle\"]"
+          },
+          {
+            "action": "reload"
+          },
+          {
+            "action": "text",
+            "selector": "#completedCount",
+            "value": "1"
+          },
+          {
+            "action": "text",
+            "selector": "#activeCount",
+            "value": "0"
+          },
+          {
+            "action": "click",
+            "selector": "button[data-action=\"toggle\"]"
+          },
+          {
+            "action": "reload"
+          },
+          {
+            "action": "text",
+            "selector": "#completedCount",
+            "value": "0"
+          },
+          {
+            "action": "text",
+            "selector": "#activeCount",
+            "value": "1"
+          },
+          {
+            "action": "text",
+            "selector": "#totalMinutes",
+            "value": "60"
+          },
+          {
+            "action": "click",
+            "selector": "button[data-action=\"delete\"]"
+          },
+          {
+            "action": "reload"
+          },
+          {
+            "action": "count",
+            "selector": ".task",
+            "value": 0
+          },
+          {
+            "action": "text",
+            "selector": "#totalCount",
+            "value": "0"
+          }
+        ]
+      },
+      {
+        "id": "form-validation-logic",
+        "categories": [
+          "input",
+          "keyboard"
+        ],
+        "steps": [
+          {
+            "action": "reset"
+          },
+          {
+            "action": "fill",
+            "selector": "#taskTitle",
+            "value": ""
+          },
+          {
+            "action": "fill",
+            "selector": "#taskSubject",
+            "value": "Math"
+          },
+          {
+            "action": "fill",
+            "selector": "#taskMinutes",
+            "value": "30"
+          },
+          {
+            "action": "press",
+            "key": "Enter"
+          },
+          {
+            "action": "visible",
+            "selector": "#formError"
+          },
+          {
+            "action": "focused",
+            "selector": "#taskTitle"
+          },
+          {
+            "action": "fill",
+            "selector": "#taskTitle",
+            "value": "Valid Title"
+          },
+          {
+            "action": "fill",
+            "selector": "#taskMinutes",
+            "value": "500"
+          },
+          {
+            "action": "click",
+            "selector": "#addTask"
+          },
+          {
+            "action": "visible",
+            "selector": "#formError"
+          },
+          {
+            "action": "count",
+            "selector": ".task",
+            "value": 0
+          },
+          {
+            "action": "fill",
+            "selector": "#taskMinutes",
+            "value": "481"
+          },
+          {
+            "action": "click",
+            "selector": "#addTask"
+          },
+          {
+            "action": "visible",
+            "selector": "#formError"
+          },
+          {
+            "action": "count",
+            "selector": ".task",
+            "value": 0
+          },
+          {
+            "action": "text",
+            "selector": "#totalCount",
+            "value": "0"
+          },
+          {
+            "action": "text",
+            "selector": "#totalMinutes",
+            "value": "0"
+          }
+        ]
+      },
+      {
+        "id": "search-filtering-empty",
+        "categories": [
+          "input",
+          "empty"
+        ],
+        "steps": [
+          {
+            "action": "reset"
+          },
+          {
+            "action": "fill",
+            "selector": "#taskTitle",
+            "value": "UniqueTask"
+          },
+          {
+            "action": "fill",
+            "selector": "#taskSubject",
+            "value": "General"
+          },
+          {
+            "action": "fill",
+            "selector": "#taskMinutes",
+            "value": "10"
+          },
+          {
+            "action": "click",
+            "selector": "#addTask"
+          },
+          {
+            "action": "fill",
+            "selector": "#searchInput",
+            "value": "NonExistent"
+          },
+          {
+            "action": "count",
+            "selector": ".task",
+            "value": 0
+          },
+          {
+            "action": "visible",
+            "selector": "#emptyState"
+          },
+          {
+            "action": "fill",
+            "selector": "#searchInput",
+            "value": "unique"
+          },
+          {
+            "action": "count",
+            "selector": ".task",
+            "value": 1
+          },
+          {
+            "action": "hidden",
+            "selector": "#emptyState"
+          },
+          {
+            "action": "fill",
+            "selector": "#searchInput",
+            "value": "gEnErAl"
+          },
+          {
+            "action": "count",
+            "selector": ".task",
+            "value": 1
+          },
+          {
+            "action": "text",
+            "selector": ".task-title",
+            "value": "UniqueTask"
+          },
+          {
+            "action": "fill",
+            "selector": "#searchInput",
+            "value": ""
+          },
+          {
+            "action": "click",
+            "selector": "#filterCompleted"
+          },
+          {
+            "action": "count",
+            "selector": ".task",
+            "value": 0
+          },
+          {
+            "action": "visible",
+            "selector": "#emptyState"
+          },
+          {
+            "action": "text",
+            "selector": "#totalCount",
+            "value": "1"
+          },
+          {
+            "action": "text",
+            "selector": "#totalMinutes",
+            "value": "10"
+          },
+          {
+            "action": "click",
+            "selector": "#filterAll"
+          },
+          {
+            "action": "count",
+            "selector": ".task",
+            "value": 1
+          },
+          {
+            "action": "hidden",
+            "selector": "#emptyState"
+          }
+        ]
+      },
+      {
+        "id": "keyboard-focus-flow",
+        "categories": [
+          "keyboard"
+        ],
+        "steps": [
+          {
+            "action": "reset"
+          },
+          {
+            "action": "press",
+            "key": "Tab"
+          },
+          {
+            "action": "focus-visible",
+            "selector": "#taskTitle"
+          },
+          {
+            "action": "press",
+            "key": "Tab"
+          },
+          {
+            "action": "focus-visible",
+            "selector": "#taskSubject"
+          },
+          {
+            "action": "press",
+            "key": "Tab"
+          },
+          {
+            "action": "focus-visible",
+            "selector": "#taskMinutes"
+          },
+          {
+            "action": "press",
+            "key": "Tab"
+          },
+          {
+            "action": "focus-visible",
+            "selector": "#addTask"
+          }
+        ]
+      },
+      {
+        "id": "task-actions-stats",
+        "categories": [
+          "input"
+        ],
+        "steps": [
+          {
+            "action": "reset"
+          },
+          {
+            "action": "fill",
+            "selector": "#taskTitle",
+            "value": "ActionTask"
+          },
+          {
+            "action": "fill",
+            "selector": "#taskSubject",
+            "value": "S"
+          },
+          {
+            "action": "fill",
+            "selector": "#taskMinutes",
+            "value": "45"
+          },
+          {
+            "action": "click",
+            "selector": "#addTask"
+          },
+          {
+            "action": "click",
+            "selector": "button[data-action=\"toggle\"]"
+          },
+          {
+            "action": "text",
+            "selector": "#completedCount",
+            "value": "1"
+          },
+          {
+            "action": "text",
+            "selector": "#activeCount",
+            "value": "0"
+          },
+          {
+            "action": "click",
+            "selector": "button[data-action=\"delete\"]"
+          },
+          {
+            "action": "count",
+            "selector": ".task",
+            "value": 0
+          },
+          {
+            "action": "text",
+            "selector": "#totalCount",
+            "value": "0"
+          },
+          {
+            "action": "text",
+            "selector": "#activeCount",
+            "value": "0"
+          },
+          {
+            "action": "text",
+            "selector": "#completedCount",
+            "value": "0"
+          },
+          {
+            "action": "text",
+            "selector": "#totalMinutes",
+            "value": "0"
+          },
+          {
+            "action": "visible",
+            "selector": "#emptyState"
+          }
+        ]
+      },
+      {
+        "id": "long-content-responsiveness",
+        "categories": [
+          "input"
+        ],
+        "steps": [
+          {
+            "action": "reset"
+          },
+          {
+            "action": "fill",
+            "selector": "#taskTitle",
+            "value": "0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789"
+          },
+          {
+            "action": "fill",
+            "selector": "#taskSubject",
+            "value": "012345678901234567890123456789"
+          },
+          {
+            "action": "fill",
+            "selector": "#taskMinutes",
+            "value": "480"
+          },
+          {
+            "action": "click",
+            "selector": "#addTask"
+          },
+          {
+            "action": "hidden",
+            "selector": "#formError"
+          },
+          {
+            "action": "count",
+            "selector": ".task",
+            "value": 1
+          },
+          {
+            "action": "text",
+            "selector": ".task-title",
+            "value": "0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789"
+          },
+          {
+            "action": "text",
+            "selector": ".task-subject",
+            "value": "012345678901234567890123456789"
+          },
+          {
+            "action": "visible",
+            "selector": ".task-minutes"
+          },
+          {
+            "action": "text",
+            "selector": "#totalMinutes",
+            "value": "480"
+          },
+          {
+            "action": "visible",
+            "selector": "button[data-action=\"toggle\"]"
+          },
+          {
+            "action": "visible",
+            "selector": "button[data-action=\"delete\"]"
+          },
+          {
+            "action": "text",
+            "selector": ".task-minutes",
+            "value": "480분"
+          },
+          {
+            "action": "count",
+            "selector": "#taskList .task",
+            "value": 1
+          }
+        ]
+      },
+      {
+        "id": "trimmed-inputs-and-error-recovery",
+        "categories": [
+          "input",
+          "empty"
+        ],
+        "steps": [
+          {
+            "action": "reset"
+          },
+          {
+            "action": "fill",
+            "selector": "#taskTitle",
+            "value": "   "
+          },
+          {
+            "action": "fill",
+            "selector": "#taskSubject",
+            "value": "  수학  "
+          },
+          {
+            "action": "fill",
+            "selector": "#taskMinutes",
+            "value": "30"
+          },
+          {
+            "action": "click",
+            "selector": "#addTask"
+          },
+          {
+            "action": "visible",
+            "selector": "#formError"
+          },
+          {
+            "action": "focused",
+            "selector": "#taskTitle"
+          },
+          {
+            "action": "count",
+            "selector": ".task",
+            "value": 0
+          },
+          {
+            "action": "fill",
+            "selector": "#taskTitle",
+            "value": "  미적분 복습  "
+          },
+          {
+            "action": "click",
+            "selector": "#addTask"
+          },
+          {
+            "action": "hidden",
+            "selector": "#formError"
+          },
+          {
+            "action": "count",
+            "selector": ".task",
+            "value": 1
+          },
+          {
+            "action": "text",
+            "selector": ".task-title",
+            "value": "미적분 복습"
+          },
+          {
+            "action": "text",
+            "selector": ".task-subject",
+            "value": "수학"
+          },
+          {
+            "action": "hidden",
+            "selector": "#emptyState"
+          },
+          {
+            "action": "text",
+            "selector": "#totalMinutes",
+            "value": "30"
+          }
+        ]
+      },
+      {
+        "id": "required-subject-validation",
+        "categories": [
+          "input"
+        ],
+        "steps": [
+          {
+            "action": "reset"
+          },
+          {
+            "action": "fill",
+            "selector": "#taskTitle",
+            "value": "과목 필수 검사"
+          },
+          {
+            "action": "fill",
+            "selector": "#taskSubject",
+            "value": ""
+          },
+          {
+            "action": "fill",
+            "selector": "#taskMinutes",
+            "value": "30"
+          },
+          {
+            "action": "click",
+            "selector": "#addTask"
+          },
+          {
+            "action": "visible",
+            "selector": "#formError"
+          },
+          {
+            "action": "count",
+            "selector": ".task",
+            "value": 0
+          },
+          {
+            "action": "fill",
+            "selector": "#taskSubject",
+            "value": "   "
+          },
+          {
+            "action": "click",
+            "selector": "#addTask"
+          },
+          {
+            "action": "visible",
+            "selector": "#formError"
+          },
+          {
+            "action": "count",
+            "selector": ".task",
+            "value": 0
+          },
+          {
+            "action": "text",
+            "selector": "#totalCount",
+            "value": "0"
+          }
+        ]
+      },
+      {
+        "id": "text-length-over-limit-validation",
+        "categories": [
+          "input"
+        ],
+        "steps": [
+          {
+            "action": "reset"
+          },
+          {
+            "action": "fill",
+            "selector": "#taskTitle",
+            "value": "0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789X"
+          },
+          {
+            "action": "fill",
+            "selector": "#taskSubject",
+            "value": "수학"
+          },
+          {
+            "action": "fill",
+            "selector": "#taskMinutes",
+            "value": "30"
+          },
+          {
+            "action": "value",
+            "selector": "#taskTitle",
+            "value": "0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789X"
+          },
+          {
+            "action": "click",
+            "selector": "#addTask"
+          },
+          {
+            "action": "visible",
+            "selector": "#formError"
+          },
+          {
+            "action": "count",
+            "selector": ".task",
+            "value": 0
+          },
+          {
+            "action": "fill",
+            "selector": "#taskTitle",
+            "value": "정상 제목"
+          },
+          {
+            "action": "fill",
+            "selector": "#taskSubject",
+            "value": "012345678901234567890123456789X"
+          },
+          {
+            "action": "value",
+            "selector": "#taskSubject",
+            "value": "012345678901234567890123456789X"
+          },
+          {
+            "action": "click",
+            "selector": "#addTask"
+          },
+          {
+            "action": "visible",
+            "selector": "#formError"
+          },
+          {
+            "action": "count",
+            "selector": ".task",
+            "value": 0
+          },
+          {
+            "action": "text",
+            "selector": "#totalMinutes",
+            "value": "0"
+          }
+        ]
+      },
+      {
+        "id": "minutes-required-integer-and-lower-bound",
+        "categories": [
+          "input"
+        ],
+        "steps": [
+          {
+            "action": "reset"
+          },
+          {
+            "action": "fill",
+            "selector": "#taskTitle",
+            "value": "시간 경계 검사"
+          },
+          {
+            "action": "fill",
+            "selector": "#taskSubject",
+            "value": "수학"
+          },
+          {
+            "action": "fill",
+            "selector": "#taskMinutes",
+            "value": ""
+          },
+          {
+            "action": "click",
+            "selector": "#addTask"
+          },
+          {
+            "action": "visible",
+            "selector": "#formError"
+          },
+          {
+            "action": "count",
+            "selector": ".task",
+            "value": 0
+          },
+          {
+            "action": "fill",
+            "selector": "#taskMinutes",
+            "value": "0"
+          },
+          {
+            "action": "click",
+            "selector": "#addTask"
+          },
+          {
+            "action": "visible",
+            "selector": "#formError"
+          },
+          {
+            "action": "count",
+            "selector": ".task",
+            "value": 0
+          },
+          {
+            "action": "fill",
+            "selector": "#taskMinutes",
+            "value": "-1"
+          },
+          {
+            "action": "click",
+            "selector": "#addTask"
+          },
+          {
+            "action": "visible",
+            "selector": "#formError"
+          },
+          {
+            "action": "count",
+            "selector": ".task",
+            "value": 0
+          },
+          {
+            "action": "fill",
+            "selector": "#taskMinutes",
+            "value": "1.5"
+          },
+          {
+            "action": "click",
+            "selector": "#addTask"
+          },
+          {
+            "action": "visible",
+            "selector": "#formError"
+          },
+          {
+            "action": "count",
+            "selector": ".task",
+            "value": 0
+          },
+          {
+            "action": "fill",
+            "selector": "#taskMinutes",
+            "value": "1"
+          },
+          {
+            "action": "click",
+            "selector": "#addTask"
+          },
+          {
+            "action": "hidden",
+            "selector": "#formError"
+          },
+          {
+            "action": "text",
+            "selector": "#totalMinutes",
+            "value": "1"
+          },
+          {
+            "action": "count",
+            "selector": ".task",
+            "value": 1
+          }
+        ]
+      },
+      {
+        "id": "literal-html-content-persistence",
+        "categories": [
+          "input",
+          "save"
+        ],
+        "steps": [
+          {
+            "action": "reset"
+          },
+          {
+            "action": "fill",
+            "selector": "#taskTitle",
+            "value": "<svg onload=\"this.remove()\"></svg>"
+          },
+          {
+            "action": "fill",
+            "selector": "#taskSubject",
+            "value": "<b>Math</b>"
+          },
+          {
+            "action": "fill",
+            "selector": "#taskMinutes",
+            "value": "15"
+          },
+          {
+            "action": "click",
+            "selector": "#addTask"
+          },
+          {
+            "action": "text",
+            "selector": ".task-title",
+            "value": "<svg onload=\"this.remove()\"></svg>"
+          },
+          {
+            "action": "text",
+            "selector": ".task-subject",
+            "value": "<b>Math</b>"
+          },
+          {
+            "action": "count",
+            "selector": ".task-title svg, .task-subject b",
+            "value": 0
+          },
+          {
+            "action": "reload"
+          },
+          {
+            "action": "count",
+            "selector": ".task",
+            "value": 1
+          },
+          {
+            "action": "text",
+            "selector": ".task-title",
+            "value": "<svg onload=\"this.remove()\"></svg>"
+          },
+          {
+            "action": "text",
+            "selector": ".task-subject",
+            "value": "<b>Math</b>"
+          },
+          {
+            "action": "count",
+            "selector": ".task-title svg, .task-subject b",
+            "value": 0
+          }
+        ]
+      },
+      {
+        "id": "combined-filter-search-global-stats",
+        "categories": [
+          "input",
+          "empty"
+        ],
+        "steps": [
+          {
+            "action": "reset"
+          },
+          {
+            "action": "fill",
+            "selector": "#taskTitle",
+            "value": "Finished Algebra"
+          },
+          {
+            "action": "fill",
+            "selector": "#taskSubject",
+            "value": "Math"
+          },
+          {
+            "action": "fill",
+            "selector": "#taskMinutes",
+            "value": "20"
+          },
+          {
+            "action": "click",
+            "selector": "#addTask"
+          },
+          {
+            "action": "click",
+            "selector": "button[data-action=\"toggle\"]"
+          },
+          {
+            "action": "fill",
+            "selector": "#taskTitle",
+            "value": "Active Reading"
+          },
+          {
+            "action": "fill",
+            "selector": "#taskSubject",
+            "value": "English"
+          },
+          {
+            "action": "fill",
+            "selector": "#taskMinutes",
+            "value": "35"
+          },
+          {
+            "action": "click",
+            "selector": "#addTask"
+          },
+          {
+            "action": "click",
+            "selector": "#filterCompleted"
+          },
+          {
+            "action": "count",
+            "selector": ".task",
+            "value": 1
+          },
+          {
+            "action": "text",
+            "selector": ".task-title",
+            "value": "Finished Algebra"
+          },
+          {
+            "action": "text",
+            "selector": "#totalCount",
+            "value": "2"
+          },
+          {
+            "action": "text",
+            "selector": "#activeCount",
+            "value": "1"
+          },
+          {
+            "action": "text",
+            "selector": "#completedCount",
+            "value": "1"
+          },
+          {
+            "action": "text",
+            "selector": "#totalMinutes",
+            "value": "55"
+          },
+          {
+            "action": "fill",
+            "selector": "#searchInput",
+            "value": "english"
+          },
+          {
+            "action": "count",
+            "selector": ".task",
+            "value": 0
+          },
+          {
+            "action": "visible",
+            "selector": "#emptyState"
+          },
+          {
+            "action": "click",
+            "selector": "#filterActive"
+          },
+          {
+            "action": "count",
+            "selector": ".task",
+            "value": 1
+          },
+          {
+            "action": "text",
+            "selector": ".task-title",
+            "value": "Active Reading"
+          },
+          {
+            "action": "hidden",
+            "selector": "#emptyState"
+          }
+        ]
+      },
+      {
+        "id": "keyboard-task-toggle-and-delete",
+        "categories": [
+          "input",
+          "keyboard",
+          "empty"
+        ],
+        "steps": [
+          {
+            "action": "reset"
+          },
+          {
+            "action": "fill",
+            "selector": "#taskTitle",
+            "value": "키보드 작업"
+          },
+          {
+            "action": "fill",
+            "selector": "#taskSubject",
+            "value": "수학"
+          },
+          {
+            "action": "fill",
+            "selector": "#taskMinutes",
+            "value": "25"
+          },
+          {
+            "action": "click",
+            "selector": "#addTask"
+          },
+          {
+            "action": "count",
+            "selector": ".task",
+            "value": 1
+          },
+          {
+            "action": "click",
+            "selector": "button[data-action=\"toggle\"]"
+          },
+          {
+            "action": "text",
+            "selector": "#completedCount",
+            "value": "1"
+          },
+          {
+            "action": "press",
+            "key": "Space"
+          },
+          {
+            "action": "text",
+            "selector": "#activeCount",
+            "value": "1"
+          },
+          {
+            "action": "text",
+            "selector": "#completedCount",
+            "value": "0"
+          },
+          {
+            "action": "focus-visible",
+            "selector": "button[data-action=\"toggle\"]"
+          },
+          {
+            "action": "press",
+            "key": "Tab"
+          },
+          {
+            "action": "focus-visible",
+            "selector": "button[data-action=\"delete\"]"
+          },
+          {
+            "action": "press",
+            "key": "Enter"
+          },
+          {
+            "action": "count",
+            "selector": ".task",
+            "value": 0
+          },
+          {
+            "action": "visible",
+            "selector": "#emptyState"
+          },
+          {
+            "action": "text",
+            "selector": "#totalMinutes",
+            "value": "0"
+          }
+        ]
+      }
+    ],
+    "notApplicable": {}
+  },
+  "hash": "5fb9c6cd04bfa130aab982850801e4a55c310f5452a50bb7193296f764397abe"
+}

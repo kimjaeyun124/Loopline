@@ -1,0 +1,26 @@
+[
+  {
+    "file": "browser-qa.mjs",
+    "local": "3a79ae454386a19d42ca349e66f8790b2ff2de8112bd08dbec589f3f194d126b",
+    "packaged": "3a79ae454386a19d42ca349e66f8790b2ff2de8112bd08dbec589f3f194d126b",
+    "matched": true
+  },
+  {
+    "file": "harness-engine.mjs",
+    "local": "5c23adf95762e8e3809f6abec65b4d193aa18c0d82bae0bd817678797488713d",
+    "packaged": "5c23adf95762e8e3809f6abec65b4d193aa18c0d82bae0bd817678797488713d",
+    "matched": true
+  },
+  {
+    "file": "harness-response-schemas.mjs",
+    "local": "1af19761346ce94983f86d410157a67ae2e2e86d323d3c52e4c8d7840d4a3af9",
+    "packaged": "1af19761346ce94983f86d410157a67ae2e2e86d323d3c52e4c8d7840d4a3af9",
+    "matched": true
+  },
+  {
+    "file": "desktop/browser-qa.mjs",
+    "local": "7da76836b78c7afd9145afff6941d76ebc1555bff0aae5aa6dcb518eec5de078",
+    "packaged": "7da76836b78c7afd9145afff6941d76ebc1555bff0aae5aa6dcb518eec5de078",
+    "matched": true
+  }
+]

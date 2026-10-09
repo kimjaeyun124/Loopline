@@ -1,0 +1,59 @@
+{
+  "runId": "656b55bb-76cd-4fc6-b846-6b6bf6f61ff1",
+  "capturedAt": "2026-10-09T10:46:23.983Z",
+  "check": {
+    "id": "long-content-responsiveness",
+    "categories": [
+      "input"
+    ],
+    "steps": [
+      {
+        "action": "reset"
+      },
+      {
+        "action": "fill",
+        "selector": "#taskTitle",
+        "value": "This is an exceptionally long task title designed to test text wrapping and ensure no horizontal overflow occurs on small screens"
+      },
+      {
+        "action": "fill",
+        "selector": "#taskSubject",
+        "value": "VeryLongSubjectNameExceedingNormalSpace"
+      },
+      {
+        "action": "fill",
+        "selector": "#taskMinutes",
+        "value": "120"
+      },
+      {
+        "action": "click",
+        "selector": "#addTask"
+      },
+      {
+        "action": "text",
+        "selector": ".task-title",
+        "value": "This is an exceptionally long task title designed to test text wrapping and ensure no horizontal overflow occurs on small screens"
+      }
+    ]
+  },
+  "filledLengths": [
+    {
+      "selector": "#taskTitle",
+      "length": 129
+    },
+    {
+      "selector": "#taskSubject",
+      "length": 39
+    },
+    {
+      "selector": "#taskMinutes",
+      "length": 3
+    }
+  ],
+  "requirements": {
+    "titleMax": 100,
+    "subjectMax": 30
+  },
+  "judgeFeedback": "Add the missing observable behavior checks before implementation. Correct the contradictory or inadequate actions/assertions of check long-content-responsiveness, preserving its ID and categories.",
+  "reasonProvided": false
+}

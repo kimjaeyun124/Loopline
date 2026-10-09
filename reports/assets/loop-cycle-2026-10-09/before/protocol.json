@@ -1,0 +1,39 @@
+{
+  "frozenAt": "2026-10-09T10:43:03.835625+00:00",
+  "task": "Focus Board responsive web application",
+  "promptSha256": "1010fb02fa1d603729d91f13e9bd9e025316a17437c73e531dd7ef2cbc0f0573",
+  "qaSha256": "049272d78695a0dc6775927e1c243cba82be9d5332f4a9798f9d56cfcd84ec82",
+  "sourceCommit": "a4cc6c3",
+  "iterationsPerConfiguration": 1,
+  "implementationRounds": 6,
+  "commonBrowserChecks": 12,
+  "viewports": [
+    {
+      "id": "desktop",
+      "width": 1440,
+      "height": 900
+    },
+    {
+      "id": "mobile",
+      "width": 390,
+      "height": 844
+    }
+  ],
+  "commonAssertions": "24 behavior checks + 24 per-scenario layout checks + 2 overall layout checks = 50",
+  "externalQaFeedsBackToRun": false,
+  "manualCodeChangesAllowed": false,
+  "manualResumeAllowed": false,
+  "perRunObservationCeilingMs": 2700000,
+  "comparisonOrder": [
+    "automatic-loop"
+  ],
+  "limitation": "동일 과제의 수정 전후 자동 Loop 각 1회. 모델 서비스 상태와 누적 선택 기록은 실행 시점의 앱 상태이며 장기 성공률을 추정하지 않음.",
+  "changedVariables": [],
+  "budgetProfile": "extended",
+  "previousTrial": "bc99c3f5-da74-4898-a755-14eadd7b78e0",
+  "changesFromPreviousTrial": [
+    "동일 프롬프트·공통 QA·확장 예산·6회차·45분 관찰 한도 유지",
+    "현재 버전의 QA 분류 안내와 복수 누락 진단 포함"
+  ],
+  "phase": "before"
+}

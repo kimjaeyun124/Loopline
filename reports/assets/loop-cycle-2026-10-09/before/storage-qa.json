@@ -1,0 +1,249 @@
+{
+  "entry": "index.html",
+  "checks": [
+    {
+      "id": "malformed-json",
+      "categories": [
+        "input",
+        "save",
+        "empty",
+        "keyboard"
+      ],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "set-storage",
+          "key": "focus-board-v1",
+          "value": "{broken"
+        },
+        {
+          "action": "reload"
+        },
+        {
+          "action": "visible",
+          "selector": "#statusMessage"
+        },
+        {
+          "action": "count",
+          "selector": ".task",
+          "value": 0
+        },
+        {
+          "action": "visible",
+          "selector": "#emptyState"
+        },
+        {
+          "action": "fill",
+          "selector": "#taskTitle",
+          "value": "복구 후 작업"
+        },
+        {
+          "action": "fill",
+          "selector": "#taskSubject",
+          "value": "QA"
+        },
+        {
+          "action": "fill",
+          "selector": "#taskMinutes",
+          "value": "25"
+        },
+        {
+          "action": "press",
+          "key": "Enter"
+        },
+        {
+          "action": "hidden",
+          "selector": "#formError"
+        },
+        {
+          "action": "count",
+          "selector": ".task",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": ".task-title",
+          "value": "복구 후 작업"
+        },
+        {
+          "action": "reload"
+        },
+        {
+          "action": "count",
+          "selector": ".task",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": ".task-title",
+          "value": "복구 후 작업"
+        }
+      ]
+    },
+    {
+      "id": "invalid-shape",
+      "categories": [
+        "input",
+        "save",
+        "empty",
+        "keyboard"
+      ],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "set-storage",
+          "key": "focus-board-v1",
+          "value": "{\"unexpected\":true}"
+        },
+        {
+          "action": "reload"
+        },
+        {
+          "action": "visible",
+          "selector": "#statusMessage"
+        },
+        {
+          "action": "count",
+          "selector": ".task",
+          "value": 0
+        },
+        {
+          "action": "visible",
+          "selector": "#emptyState"
+        },
+        {
+          "action": "fill",
+          "selector": "#taskTitle",
+          "value": "복구 후 작업"
+        },
+        {
+          "action": "fill",
+          "selector": "#taskSubject",
+          "value": "QA"
+        },
+        {
+          "action": "fill",
+          "selector": "#taskMinutes",
+          "value": "25"
+        },
+        {
+          "action": "press",
+          "key": "Enter"
+        },
+        {
+          "action": "hidden",
+          "selector": "#formError"
+        },
+        {
+          "action": "count",
+          "selector": ".task",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": ".task-title",
+          "value": "복구 후 작업"
+        },
+        {
+          "action": "reload"
+        },
+        {
+          "action": "count",
+          "selector": ".task",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": ".task-title",
+          "value": "복구 후 작업"
+        }
+      ]
+    },
+    {
+      "id": "invalid-values",
+      "categories": [
+        "input",
+        "save",
+        "empty",
+        "keyboard"
+      ],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "set-storage",
+          "key": "focus-board-v1",
+          "value": "[{\"id\":\"broken\",\"title\":\"\",\"subject\":\"Study\",\"minutes\":0,\"completed\":false}]"
+        },
+        {
+          "action": "reload"
+        },
+        {
+          "action": "visible",
+          "selector": "#statusMessage"
+        },
+        {
+          "action": "count",
+          "selector": ".task",
+          "value": 0
+        },
+        {
+          "action": "visible",
+          "selector": "#emptyState"
+        },
+        {
+          "action": "fill",
+          "selector": "#taskTitle",
+          "value": "복구 후 작업"
+        },
+        {
+          "action": "fill",
+          "selector": "#taskSubject",
+          "value": "QA"
+        },
+        {
+          "action": "fill",
+          "selector": "#taskMinutes",
+          "value": "25"
+        },
+        {
+          "action": "press",
+          "key": "Enter"
+        },
+        {
+          "action": "hidden",
+          "selector": "#formError"
+        },
+        {
+          "action": "count",
+          "selector": ".task",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": ".task-title",
+          "value": "복구 후 작업"
+        },
+        {
+          "action": "reload"
+        },
+        {
+          "action": "count",
+          "selector": ".task",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": ".task-title",
+          "value": "복구 후 작업"
+        }
+      ]
+    }
+  ],
+  "notApplicable": {}
+}

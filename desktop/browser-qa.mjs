@@ -87,6 +87,7 @@ export async function verifyBrowser({ workspace, runId, round, plan }, userData,
       for (const check of plan.checks) {
         let failure = null;
         const focusBaselines = {};
+        const inputObservations = [];
         try {
           for (const [index, step] of check.steps.entries()) {
             if (signal?.aborted) throw signal.reason;
@@ -96,6 +97,10 @@ export async function verifyBrowser({ workspace, runId, round, plan }, userData,
               const exists = await js('(s)=>{const el=document.querySelector(s.selector);if(!el)return false;el.focus();if(el.select)el.select();return true;}', step);
               if (!exists) throw new Error(`입력 요소 없음: ${step.selector}`);
               await wc.debugger.sendCommand('Input.insertText', { text: step.value });
+              // Native constraints can alter inserted text before the application
+              // validates it. Report that cause without bypassing the constraint.
+              const input = await js('(s)=>{const el=document.querySelector(s.selector);return {matches:el?.value===s.value,actualLength:typeof el?.value==="string"?el.value.length:null,maxLength:Number.isInteger(el?.maxLength)?el.maxLength:null,type:el?.type||null};}', step);
+              if (!input.matches) inputObservations.push({ step: index + 1, selector: step.selector, requestedLength: step.value.length, ...input });
             } else if (step.action === 'click') {
               const point = await js('(s)=>{const e=document.querySelector(s.selector);if(!e)return null;e.scrollIntoView({block:"center"});const r=e.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2};}', step);
               if (!point) throw new Error(`클릭 요소 없음: ${step.selector}`);
@@ -118,7 +123,12 @@ export async function verifyBrowser({ workspace, runId, round, plan }, userData,
             }
             await pause(40);
           }
-        } catch (error) { if (signal?.aborted) throw signal.reason; failure = String(error.message).slice(0, 1000); }
+        } catch (error) {
+          if (signal?.aborted) throw signal.reason;
+          failure = inputObservations.length
+            ? `${String(error.message).slice(0, 550)}\n입력 전달 차이 / Browser input constraints: ${JSON.stringify(inputObservations.slice(-3)).slice(0, 380)}`
+            : String(error.message).slice(0, 1000);
+        }
         const result = { id: check.id, viewport: label, passed: !failure, ...(failure ? { failure } : {}) }; checks.push(result);
         if (failure) failures.push(`${label}/${check.id}: ${failure}`);
         await inspectLayout(`${check.id}-layout`);

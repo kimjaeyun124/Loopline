@@ -13,6 +13,7 @@ export const BROWSER_QA_EXECUTOR = Object.freeze({
   fixedChecks: [{ id: 'layout', after: 'every planned check and the final state', criteria: ['nonblank rendered page', 'no horizontal overflow', 'requested viewport width'] }],
   focusVisibleEvidence: 'focus-visible asserts keyboard focus plus a visible outline or a box shadow that changed from its unfocused style; focused alone asserts only the active element.',
   textEvidence: 'text asserts rendered, visible text. A document title or head metadata is not visible page text; use a visible heading for page-title UI assertions.',
+  inputEvidence: 'fill focuses and selects the input, then inserts text through the real browser. Native maxlength and input-type restrictions apply; it never assigns element.value or bypasses HTML constraints. If the task requires an over-limit error, let that input reach the application validator instead of silently truncating it with maxlength, slicing, or sanitization. Preserve valid boundary inputs and the original error requirement. When input prevention itself is required, assert the retained value and resulting state rather than expecting an error for text the browser never accepted.',
 });
 
 const README_LAUNCH_RESULT = '__LOOPLINE_README_LAUNCH_QA__';

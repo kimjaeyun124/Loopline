@@ -357,18 +357,61 @@ test('search keeps the selected model and automatic reset preserves fallback pri
   assert.deepEqual(s.saved().roles.worker, { model: '', effort: '', nativePlugins: true, loopMcp: true, fallbacks: ['c', 'b'] });
 });
 
-test('all role selectors use the concise automatic label with or without Jev', (t) => {
+test('role selectors explain automatic assignment and saved first-candidate selection', (t) => {
   for (const withJev of [false, true]) {
     const models = [{ id: 'writer', label: 'Writer', provider: 'api', source: 'QA', connected: true }];
     if (withJev) models.push({ id: 'jev', label: 'Jev', provider: 'api', source: 'QA', connected: true, decisionOnly: true });
     const s = setup(t, { models }); s.ui.open();
+    assert.equal(s.node('#harnessModelSelectionMode').value, 'automatic');
     for (const role of ['planner', 'worker', 'judge']) {
       const options = s.fields.innerHTML.match(new RegExp(`<select data-harness-role="${role}"[^>]*>([\\s\\S]*?)</select>`))?.[1];
       assert.ok(options, role);
-      assert.match(options, /<option value="">자동<\/option>/);
-      assert.doesNotMatch(options, /자동 ·/);
+      assert.match(options, /<option value="">자동 · 작업별 추천<\/option>/);
     }
+    assert.match(s.node('#harnessModelSelectionHint').textContent, /자동 선택/);
   }
+});
+
+test('automatic and saved-candidate modes switch explicitly and persist across reloads', (t) => {
+  const models = [
+    { id: 'gpt-5.6-luna', label: 'GPT-5.6 Luna', provider: 'openai', source: 'Codex', connected: true, supportedReasoningEfforts: [{ reasoningEffort: 'medium' }] },
+    { id: 'gpt-6-sol', label: 'GPT-6 Sol', provider: 'openai', source: 'Codex', connected: true, supportedReasoningEfforts: [{ reasoningEffort: 'high' }] },
+  ];
+  const s = setup(t, { models });
+  s.node('#messageInput').value = 'Fix one label.';
+  s.ui.open();
+  assert.equal(s.node('#harnessModelSelectionMode').value, 'automatic');
+  assert.match(s.node('#harnessModelSelectionHint').textContent, /GPT-5\.6 Luna/);
+  assert.match(s.fields.innerHTML, /자동 추천 · GPT-5\.6 Luna/);
+
+  s.node('#harnessModelSelectionMode').value = 'priority';
+  s.node('#harnessModelSelectionMode').fire('change');
+  assert.equal(s.saved().modelSelectionMode, 'priority');
+  assert.match(s.node('#harnessModelSelectionHint').textContent, /후보 순서/);
+  assert.match(s.fields.innerHTML, /후보 1순위 선택/);
+
+  s.fields.fire('change', { dataset: { harnessRole: 'worker' }, value: 'gpt-6-sol' });
+  assert.equal(s.saved().roles.worker.model, 'gpt-6-sol');
+  assert.equal(s.saved().modelSelectionMode, 'priority');
+  const reloaded = setup(t, { storage: s.storage, models });
+  reloaded.node('#messageInput').value = 'Fix one label.';
+  reloaded.ui.open();
+  assert.equal(reloaded.node('#harnessModelSelectionMode').value, 'priority');
+  assert.match(reloaded.fields.innerHTML, /GPT-6 Sol/);
+
+  reloaded.node('#harnessModelSelectionMode').value = 'automatic';
+  reloaded.node('#harnessModelSelectionMode').fire('change');
+  assert.equal(reloaded.saved().modelSelectionMode, 'automatic');
+  assert.match(reloaded.fields.innerHTML, /자동 추천 · GPT-5\.6 Luna/);
+});
+
+test('legacy saved model settings migrate to candidate-priority mode', (t) => {
+  const storage = new Map([[KEY, JSON.stringify({ roles: { worker: { model: 'jev-test', fallbacks: [] } } })]]);
+  const s = setup(t, { storage });
+  s.ui.open();
+  assert.equal(s.node('#harnessModelSelectionMode').value, 'priority');
+  assert.equal(s.saved().modelSelectionMode, 'priority');
+  assert.equal(s.saved().roles.worker.model, 'jev-test');
 });
 
 

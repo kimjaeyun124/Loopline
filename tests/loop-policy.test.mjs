@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { automaticLoopStartRounds, classifyEvidenceTaskType, classifyLoopTask, DEFAULT_LOOP_PRIORITIES, extendAutomaticLoopRounds, MAX_AUTO_LOOP_ROUNDS, MAX_LOOP_ROUNDS, normalizeExecutionBudget, normalizeLoopPriorities, rankLoopModelCandidates, recommendLoopEffort, selectAutomaticLoopModel } from '../public/loop-policy.mjs';
+import { automaticLoopModelOrder, automaticLoopStartRounds, classifyEvidenceTaskType, classifyLoopModelTier, classifyLoopTask, DEFAULT_LOOP_PRIORITIES, extendAutomaticLoopRounds, MAX_AUTO_LOOP_ROUNDS, MAX_LOOP_ROUNDS, normalizeExecutionBudget, normalizeLoopPriorities, rankLoopModelCandidates, recommendLoopEffort, selectAutomaticLoopModel } from '../public/loop-policy.mjs';
 
 test('execution budgets have bounded profiles and cannot allocate more preparation than total', () => {
   assert.equal(normalizeExecutionBudget().totalTokens, 2_000_000);
@@ -70,24 +70,49 @@ test('automatic roles share the implementation model, prefer Jev for review, and
 });
 
 
-test('automatic roles prefer the measured mix and skip known exhausted accounts', () => {
+test('automatic model routing matches task complexity, role strengths and available account limits', () => {
   const models = [
     { id: 'gpt-6-luna', provider: 'openai', connected: true },
     { id: 'gpt-6-sol', provider: 'openai', connected: true, remainingPercent: 20 },
+    { id: 'gpt-5.6-luna', provider: 'openai', connected: true },
+    { id: 'gpt-6-astra', provider: 'openai', connected: true },
     { id: 'models/gemini-3-flash-preview', provider: 'api', connectionId: 'gemini', connected: true },
     { id: 'jev', provider: 'api', connected: true, decisionOnly: true },
   ];
   const key = (model) => model.id;
-  const options = { currentModelKey: 'gpt-6-luna' };
-  assert.equal(selectAutomaticLoopModel('worker', models, key, options).id, 'gpt-6-sol');
-  assert.equal(selectAutomaticLoopModel('planner', models, key, options).id, 'models/gemini-3-flash-preview');
-  assert.equal(selectAutomaticLoopModel('judge', models, key, options).id, 'jev');
-  assert.equal(selectAutomaticLoopModel('worker', models, key, { ...options, workerModelKey: 'gpt-6-luna' }).id, 'gpt-6-luna');
+  const simple = 'Fix one label.';
+  const standard = 'Build a website dashboard with responsive layout.';
+  const complex = 'Implement database migration with authentication and safe rollback.';
+  assert.equal(classifyLoopModelTier(simple), 'simple');
+  assert.equal(classifyLoopModelTier(standard), 'standard');
+  assert.equal(classifyLoopModelTier(complex), 'complex');
+  assert.equal(selectAutomaticLoopModel('worker', models, key, { currentModelKey: 'gpt-6-sol', task: simple }).id, 'gpt-5.6-luna');
+  assert.equal(selectAutomaticLoopModel('planner', models, key, { task: standard }).id, 'models/gemini-3-flash-preview');
+  assert.equal(selectAutomaticLoopModel('worker', models, key, { task: standard }).id, 'gpt-6-luna');
+  assert.equal(selectAutomaticLoopModel('worker', models, key, { task: complex }).id, 'gpt-6-astra');
+  assert.equal(selectAutomaticLoopModel('judge', models, key).id, 'jev');
+  assert.equal(selectAutomaticLoopModel('worker', models, key, { task: simple, priorities: ['reasoning', 'quality'] }).id, 'gpt-6-astra');
+  assert.equal(selectAutomaticLoopModel('worker', models, key, { task: simple, workerModelKey: 'gpt-6-luna' }).id, 'gpt-6-luna');
+
+  models.find((model) => model.id === 'gpt-5.6-luna').remainingTokens = 0;
+  assert.equal(selectAutomaticLoopModel('worker', models, key, { task: simple }).id, 'gpt-6-luna');
+  const order = automaticLoopModelOrder('worker', models, key, { task: simple });
+  assert.equal(order.some((model) => model.id === 'gpt-5.6-luna'), false);
+  assert.equal(selectAutomaticLoopModel('worker', [{ ...models[2], remainingPercent: 0 }], key, { task: simple }), null);
   models[1].remainingPercent = 0;
-  assert.equal(selectAutomaticLoopModel('worker', models, key, options).id, 'gpt-6-luna');
-  assert.equal(selectAutomaticLoopModel('worker', [{ ...models[1] }], key, options), null);
   models[2].connected = false;
-  assert.equal(selectAutomaticLoopModel('planner', models, key, options).id, 'gpt-6-luna');
+  assert.equal(selectAutomaticLoopModel('worker', models, key, { task: simple }).id, 'gpt-6-luna');
+  models.find((model) => model.id === 'models/gemini-3-flash-preview').connected = false;
+  assert.equal(selectAutomaticLoopModel('planner', models, key, { task: standard }).id, 'gpt-6-luna');
+
+  const previousGeneration = [
+    { id: 'gpt-5.6', provider: 'openai', connected: true },
+    { id: 'gpt-5.6-terra', provider: 'openai', connected: true },
+    { id: 'gpt-5.6-luna', provider: 'openai', connected: true },
+  ];
+  assert.equal(selectAutomaticLoopModel('worker', previousGeneration, key, { task: standard }).id, 'gpt-5.6-terra');
+  assert.equal(selectAutomaticLoopModel('worker', previousGeneration, key, { task: 'Refactor several modules into clear layers.' }).id, 'gpt-5.6');
+  assert.equal(selectAutomaticLoopModel('worker', previousGeneration, key, { task: 'Implement database migration with safe rollback.' }).id, 'gpt-5.6');
 });
 
 test('evidence task classification shares the task categories used for measured model comparisons', () => {

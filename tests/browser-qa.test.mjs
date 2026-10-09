@@ -888,10 +888,12 @@ test('independent QA vetoes optimistic review, preserves evidence and forwards f
         assert.match(prompt, /categories: \[\]/);
         assert.match(prompt, /새 분류 이름은 허용되지 않습니다/);
         assert.ok(prompt.includes(BROWSER_QA_EXECUTOR.inputEvidence));
+        assert.ok(prompt.includes(BROWSER_QA_EXECUTOR.storageEvidence));
         assert.ok(prompt.includes(JSON.stringify(BROWSER_QA_EXECUTOR.categoryEvidence)));
         return qaPlan;
       }
       assert.ok(prompt.includes(BROWSER_QA_EXECUTOR.inputEvidence));
+      assert.ok(prompt.includes(BROWSER_QA_EXECUTOR.storageEvidence));
       prompts.push(prompt); workerRounds++;
       return JSON.stringify({ done: true, summary: 'Implemented', operations: [{ type: 'write', path: 'index.html', content: `<html>round ${workerRounds}</html>` }] });
     } });

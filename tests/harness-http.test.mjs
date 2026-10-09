@@ -55,6 +55,8 @@ test('HTTP harness relays roles and supported effort, records usage and complete
   const run = await until(async () => { const value = await f.request(`/api/harness/runs/${created.id}`); return value.finishedAt ? value : null; });
   assert.equal(run.status, 'completed', run.summary); assert.equal(run.round, 2); assert.equal(run.applied, true);
   assert.equal(run.stageModels.planner.id, 'qa-worker');
+  assert.ok(f.calls.some((call) => call.response_format?.json_schema?.schema.properties.operations), 'worker schema reaches the HTTP provider');
+  assert.ok(f.calls.some((call) => call.response_format?.json_schema?.schema.properties.answers), 'decision schema reaches the HTTP provider');
   assert.equal(run.stageModels.planner.effort, 'high');
   assert.equal(run.stageModels.planner.role, 'planner');
   assert.ok(Object.values(run.modelBudgets).some((budget) => budget.remainingTokens === 75 && budget.limitTokens === 400));
@@ -152,6 +154,8 @@ test('Harness removes temporary Codex threads after transient delete failures', 
   const unsubscribes = calls.filter((call) => call.method === 'thread/unsubscribe');
   const deletes = calls.filter((call) => call.method === 'thread/delete');
   assert.ok(starts.length >= 3, 'planner, worker, and judge each create a temporary Codex thread');
+  assert.ok(calls.some((call) => call.method === 'turn/start' && call.params.outputSchema?.properties.operations));
+  assert.ok(calls.some((call) => call.method === 'turn/start' && call.params.outputSchema?.properties.answers));
   assert.ok(starts.every((call) => call.params.ephemeral === true), 'temporary role threads must not be persisted to chat history');
   assert.equal(unsubscribes.length, starts.length);
   assert.equal(deletes.length, starts.length + 3, 'transient thread writer failures are retried until deletion succeeds');

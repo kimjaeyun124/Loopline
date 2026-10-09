@@ -6,6 +6,23 @@ import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { ApiConnections } from '../api-connections.mjs';
 import { HarnessEngine } from '../harness-engine.mjs';
+import { RESPONSE_SCHEMAS, decisionResponseSchema } from '../harness-response-schemas.mjs';
+
+test('structured response schemas require every property and keep action-specific values', () => {
+  const inspect = (node) => {
+    if (!node || typeof node !== 'object') return;
+    if (node.type === 'object') {
+      assert.deepEqual(node.required, Object.keys(node.properties));
+      assert.equal(node.additionalProperties, false);
+    }
+    Object.values(node).forEach((value) => Array.isArray(value) ? value.forEach(inspect) : inspect(value));
+  };
+  Object.values(RESPONSE_SCHEMAS).forEach(inspect);
+  const decision = decisionResponseSchema({ final: {}, qaSave: {} }); inspect(decision);
+  assert.deepEqual(decision.properties.answers.required, ['final', 'qaSave']);
+  assert.equal(RESPONSE_SCHEMAS.browserPlan.properties.notApplicable.anyOf.length, 16);
+  assert.deepEqual(RESPONSE_SCHEMAS.browserPlan.properties.notApplicable.anyOf[0].properties, {});
+});
 
 const question = { type: 'choice', instructions: 'Does evidence pass?', criteria: { pass: 'yes', revise: 'no', uncertain: 'unknown' } };
 const valid = () => ({ model: 'jev-test-version', answers: { goal: { type: 'choice', choice: 'pass', confidence: 0.95, probabilities: { pass: 0.98, revise: 0.01, uncertain: 0.01 } } }, usage: { input_tokens: 20, output_tokens: 3 } });
@@ -35,6 +52,32 @@ async function setupChatConnection(t, reply) {
   const connection = await api.connect({ name: 'QA API', baseUrl: 'https://api.example.test/v1', apiKey: 'test-only-secret' });
   return { api, connection, calls };
 }
+
+test('API forwards strict schemas and falls back once only for explicit unsupported format', async (t) => {
+  let requests = 0, fallback = 0, usageCalls = 0;
+  const f = await setupChatConnection(t, (options) => {
+    const body = JSON.parse(options.body);
+    if (++requests === 1) {
+      assert.deepEqual(body.response_format.json_schema.schema, RESPONSE_SCHEMAS.project);
+      assert.equal(body.response_format.json_schema.strict, true);
+      return Response.json({ error: { param: 'response_format', message: 'response_format is not supported' } }, { status: 400 });
+    }
+    assert.equal(body.response_format, undefined);
+    return Response.json({ choices: [{ message: { content: '{"folderName":"qa","reason":"Test project"}' } }], usage: { total_tokens: 30 } });
+  });
+  await f.api.chat(f.connection.id, 'qa-model', [], { signal: new AbortController().signal,
+    responseSchema: RESPONSE_SCHEMAS.project, onSchemaFallback: () => fallback++, onDelta() {}, onUsage: () => usageCalls++ });
+  assert.equal(requests, 2); assert.equal(fallback, 1); assert.equal(usageCalls, 1);
+});
+
+test('invalid schemas and authentication never downgrade structured output', async (t) => {
+  let status = 400, requests = 0;
+  const f = await setupChatConnection(t, () => { requests++; return Response.json({ error: { param: 'response_format', message: 'Invalid JSON schema: private detail' } }, { status }); });
+  for (status of [400, 401]) await assert.rejects(f.api.chat(f.connection.id, 'qa-model', [], {
+    signal: new AbortController().signal, responseSchema: RESPONSE_SCHEMAS.project, onDelta() {}, onSchemaFallback: () => assert.fail('No downgrade'),
+  }), (error) => error.remoteStatus === status && !error.message.includes('private detail'));
+  assert.equal(requests, 2);
+});
 test('Jev native protocol preserves typed answers, accounts usage and never saves the session key', async (t) => {
   const f = await setup(t); let usage;
   const result = await f.evaluate(undefined, (value) => { usage = value; });

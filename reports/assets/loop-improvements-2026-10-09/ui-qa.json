@@ -1,0 +1,63 @@
+{
+  "scope": "개선 실측 보고서 UI",
+  "testedAt": "2026-10-09T09:13:38.455Z",
+  "checks": [
+    {
+      "name": "390×844 모바일",
+      "passed": true,
+      "evidence": "문서 너비 390px, 비교표 12개 항목을 변경 전·후로 표시, 화면 비교 한 열, 상세 표는 내부에서만 가로 스크롤"
+    },
+    {
+      "name": "키보드 상세 펼치기·접기",
+      "passed": true,
+      "evidence": "모델 상세 Enter 접기, 8개 개선 내역 Enter 펼치기·접기 확인"
+    },
+    {
+      "name": "산출물 캡처",
+      "passed": true,
+      "evidence": "변경 전·후 두 이미지 로드 및 모바일 한 열 배치 확인"
+    },
+    {
+      "name": "1024×900 중간 화면",
+      "passed": true,
+      "evidence": "핵심 지표 4열, 모든 지표 카드와 결과 화면 버튼 표시, 문서 가로 넘침 없음"
+    },
+    {
+      "name": "1440×900 데스크톱",
+      "passed": true,
+      "evidence": "문서 가로 넘침 없음, 핵심 지표 4열 및 부분 단계 표시"
+    },
+    {
+      "name": "320×740 좁은 화면",
+      "passed": true,
+      "evidence": "문서 너비 320px, 지표 1열 전환"
+    },
+    {
+      "name": "목차·산출물 링크",
+      "passed": true,
+      "evidence": "목차가 지정 구간으로 이동하고 제목이 고정 메뉴 아래 표시됨. 변경 전·후 생성 화면 둘 다 직접 열기와 뒤로 가기 확인. 내장 브라우저 새 탭 미동작을 같은 창 링크로 수정"
+    },
+    {
+      "name": "정적 링크·수치·문법",
+      "passed": true,
+      "evidence": "로컬 링크·이미지 15개, 앵커 10개 대상 존재. ID 중복 없음, 기존 주요 실측 값 보존. node --check 및 git diff --check 통과"
+    },
+    {
+      "name": "브라우저 오류",
+      "passed": true,
+      "evidence": "보고서와 생성 산출물 방문 후 수집된 error/warn 없음"
+    }
+  ],
+  "sourceCommit": "1d7197a",
+  "finishedAt": "2026-10-09T09:16:43.933Z",
+  "modelCallsDuringUiQa": 0,
+  "screenshots": {
+    "before": "ui-before.jpg",
+    "after": "ui-after.jpg",
+    "mobile": "ui-mobile.jpg"
+  },
+  "limitations": [
+    "이번 검증은 보고서 UI 범위이며 새 모델 실측 또는 제품 전체 회귀 검사를 실행하지 않았습니다.",
+    "보고서의 381/381은 제품 소스 97bd15e의 기존 검사 기록입니다."
+  ]
+}

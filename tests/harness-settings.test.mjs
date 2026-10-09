@@ -1,8 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { createHarnessUI } from '../public/harness-ui.js';
+import { MAX_AUTO_LOOP_ROUNDS } from '../public/loop-policy.mjs';
 
 const KEY = 'loopline.harness.v1';
+
+test('automatic round selector states the same ceiling as the engine policy', async () => {
+  const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
+  assert.match(html, new RegExp(`<option value="0">자동 · 최대 ${MAX_AUTO_LOOP_ROUNDS}회</option>`));
+});
+
 // Minimal event surface: exercise the real settings handlers without a browser dependency.
 function setup(t, { storage = new Map(), project = null, models = null, evidence = { models: [] } } = {}) {
   const nodes = new Map();

@@ -1928,7 +1928,7 @@ async function invokeHarnessModel(selection, prompt, instructions, signal, onSig
     });
   }
   const response = new EventEmitter();
-  let output = '', buffer = '', failure = '', quotaFailure = false, remoteStatus = null, done = false;
+  let output = '', buffer = '', failure = '', quotaFailure = false, remoteStatus = null, done = false, firstResponseSeen = false;
   response.headersSent = false; response.writableEnded = false; response.destroyed = false;
   response.writeHead = (status) => { response.headersSent = true; response.statusCode = status; };
   response.write = (chunk) => {
@@ -1940,7 +1940,10 @@ async function invokeHarnessModel(selection, prompt, instructions, signal, onSig
       const line = block.match(/^data: (.*)$/m)?.[1];
       if (!line) continue;
       const data = JSON.parse(line);
-      if (event === 'delta') { if (data.text) onSignal({ type: 'firstResponse' }); output += data.text || ''; }
+      if (event === 'delta') {
+        if (data.text && !firstResponseSeen) { firstResponseSeen = true; onSignal({ type: 'firstResponse' }); }
+        output += data.text || '';
+      }
       if (event === 'retry') output = '';
       if (event === 'progress' && data.rollbackText && output.endsWith(data.rollbackText)) output = output.slice(0, -data.rollbackText.length);
       if (event === 'usage') onSignal({ type: 'usage', usage: data.usage });

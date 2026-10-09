@@ -1194,7 +1194,9 @@ export class HarnessEngine {
   }
 
   recordModelSignal(record, selection, signal) {
-    if (!signal || typeof signal !== 'object') return;
+    // Response timing and schema diagnostics belong to the final call sample;
+    // persisting them for every streamed delta would create redundant writes.
+    if (!signal || !['budget', 'usage'].includes(signal.type)) return;
     const key = selectionKey(selection), run = record.run;
     if (signal.type === 'budget') {
       const budget = { label: selection.label || selection.model, ...(run.modelBudgets[key] || {}) };

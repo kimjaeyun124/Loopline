@@ -200,6 +200,7 @@
         <p class="harness-intro">역할별 모델, 추론 강도, 연산 우선순위를 저장하면 다음 Loop 작업에도 적용됩니다.</p>
         <div class="harness-selection-toolbar">
           <label class="project-field"><span>모델 빠르게 찾기</span><input id="harnessModelSearch" type="search" placeholder="모델 또는 연결 이름 검색" autocomplete="off" /></label>
+          <label class="project-field harness-model-mode"><span>모델 배정 방식</span><select id="harnessModelSelectionMode"><option value="automatic">자동 선택 · 작업별 추천</option><option value="priority">후보 순서 · 저장한 순위</option></select><small id="harnessModelSelectionHint" role="status" aria-live="polite"></small></label>
           <button type="button" id="harnessUseAutomatic" class="text-button">모든 역할 자동 배정</button>
         </div>
         <section class="harness-priority" aria-labelledby="harnessPriorityTitle">

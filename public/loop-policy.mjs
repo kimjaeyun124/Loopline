@@ -1,4 +1,6 @@
 const DEEP_TASK = /\b(?:architecture|architectural|refactor(?:ing)?|migration|migrate|security|concurrency|database|performance|optimization|integration|distributed|race condition|multi[- ]file)\b|아키텍처|구조 변경|리팩토링|마이그레이션|보안|동시성|경쟁 조건|데이터베이스|성능|최적화|통합|대규모|여러\s*파일/i;
+const PRODUCT_SCOPE_TASK = /\b(?:build|create|implement|develop|application|website|dashboard|backend|server|endpoint|service|feature|project|program)\b|웹사이트|대시보드|백엔드|서버|엔드포인트|서비스|앱|프로그램|기능|구현|제작|개발|만들기/i;
+const HIGH_RISK_TASK = /\b(?:security|authentication|authorization|payment|database|migration|concurrency|race condition|production|architecture)\b|보안|인증|권한|결제|데이터베이스|마이그레이션|동시성|경쟁 조건|운영 환경|아키텍처/i;
 export const MAX_LOOP_ROUNDS = 10;
 export const MAX_AUTO_LOOP_ROUNDS = 20;
 export const LOOP_BUDGET_PROFILES = Object.freeze({
@@ -44,6 +46,38 @@ export function classifyLoopTask(task) {
   return text.length >= 600 || DEEP_TASK.test(text) || checklistItems >= 4 ? 'complex' : 'simple';
 }
 
+export function classifyLoopModelTier(task) {
+  const text = String(task || '').trim();
+  const checklistItems = text.split('\n').filter((line) => /^\s*(?:[-*•]|\d+[.)])\s/.test(line)).length;
+  if (!text) return 'standard';
+  if (text.length >= 600 || DEEP_TASK.test(text) || checklistItems >= 4) return 'complex';
+  if (text.length <= 220 && checklistItems < 3 && !PRODUCT_SCOPE_TASK.test(text)) return 'simple';
+  return 'standard';
+}
+
+const normalizeModelId = (model) => String(model?.id || '').replace(/^models\//, '').toLocaleLowerCase();
+const LOOP_MODEL_FAMILIES = Object.freeze({
+  efficient: ['gpt-5.6-luna'],
+  balanced: ['gpt-6-luna', 'gpt-5.6-terra'],
+  coding: ['gpt-6-sol', 'gpt-5.6'],
+  frontier: ['gpt-6-astra'],
+  planner: ['gemini-3-flash-preview'],
+});
+const modelFamilyMatch = (model, family) => LOOP_MODEL_FAMILIES[family].includes(normalizeModelId(model))
+  && (family === 'planner' || model?.provider === 'openai');
+
+export function loopModelSelectionGuidance(role, task) {
+  if (role === 'judge') return '판정은 연결된 Jev를 먼저 사용하고, 없으면 다른 연결의 판정 모델을 고릅니다.';
+  const tier = classifyLoopModelTier(task);
+  if (tier === 'simple') return '짧고 범위가 좁은 요청은 GPT-5.6 Luna를 먼저 시도합니다. 검사에서 문제가 나오면 저장된 후보로 전환할 수 있습니다.';
+  if (tier === 'complex') return HIGH_RISK_TASK.test(String(task || ''))
+    ? '보안·데이터·동시성처럼 위험도가 높은 작업은 연결된 GPT-6 Astra를 우선하고, GPT-6 Sol 또는 GPT-5.6 Sol 순으로 이어갑니다.'
+    : '범위가 넓거나 여러 단계가 필요한 작업은 연결된 GPT-6 Sol 또는 GPT-5.6 Sol을 우선하고, GPT-6 Astra 순으로 이어갑니다.';
+  return role === 'planner'
+    ? '일반 기능 작업은 연결된 Gemini Flash를 계획에 우선 사용하고, 없으면 GPT-6 Luna·GPT-5.6 Terra 같은 균형형 후보를 고릅니다.'
+    : '일반 기능 작업은 GPT-6 Luna·GPT-5.6 Terra 같은 균형형 후보를 먼저 사용하고, 더 강한 코딩 후보로 이어갑니다.';
+}
+
 export function automaticLoopStartRounds(task) {
   return classifyLoopTask(task) === 'complex' ? 6 : 4;
 }
@@ -78,28 +112,47 @@ function sameConnection(left, right) {
   return left?.provider === right?.provider && (left?.connectionId || '') === (right?.connectionId || '');
 }
 
-export function selectAutomaticLoopModel(role, models, getKey, { currentModelKey = '', workerModelKey = '' } = {}) {
+export function automaticLoopModelOrder(role, models, getKey, { currentModelKey = '', workerModelKey = '', task = '', priorities = DEFAULT_LOOP_PRIORITIES } = {}) {
   const available = (Array.isArray(models) ? models : []).filter((model) => model?.connected
     && !(Number.isFinite(model.remainingPercent) && model.remainingPercent <= 0)
+    && !(Number.isSafeInteger(model.remainingTokens) && model.remainingTokens <= 0)
     && (role === 'judge' || !model.decisionOnly));
-  if (!available.length) return null;
+  if (!available.length) return [];
   const find = (key) => key ? available.find((model) => getKey(model) === key) : null;
-  // This measured combination is a starting preference, not a price or quality ranking
-  // for unknown models. Explicit role choices and saved fallback order remain separate.
-  const id = (model) => String(model.id || '').replace(/^models\//, '');
-  const worker = find(workerModelKey)
-    || available.find((model) => model.provider === 'openai' && id(model) === 'gpt-6-sol')
-    || find(currentModelKey) || available.find((model) => !model.decisionOnly) || null;
-
-  if (role === 'worker') return worker || available[0];
-  if (role === 'planner') return available.find((model) => id(model) === 'gemini-3-flash-preview') || worker || available[0];
+  const worker = find(workerModelKey) || null;
   if (role === 'judge') {
-    return available.find((model) => model.decisionOnly)
+    const reviewModel = available.find((model) => model.decisionOnly)
       || available.find((model) => worker && !sameConnection(model, worker))
-      || worker
-      || available[0];
+      || worker || available[0];
+    return [reviewModel, ...available.filter((model) => model !== reviewModel)];
   }
-  return worker || available[0];
+  const tier = classifyLoopModelTier(task);
+  const strongestFirst = normalizeLoopPriorities(priorities)[0] === 'reasoning';
+  const highRisk = HIGH_RISK_TASK.test(String(task || ''));
+  const familyOrder = tier === 'simple'
+    ? strongestFirst
+      ? ['frontier', 'coding', 'efficient', 'balanced']
+      : ['efficient', 'balanced', 'coding', 'frontier']
+    : tier === 'complex'
+      ? highRisk
+        ? ['frontier', 'coding', 'balanced', 'efficient']
+        : ['coding', 'frontier', 'balanced', 'efficient']
+      : role === 'planner'
+        ? ['planner', 'balanced', 'coding', 'efficient', 'frontier']
+        : ['balanced', 'coding', 'efficient', 'frontier', 'planner'];
+  const ranked = [];
+  const add = (model) => { if (model && !ranked.includes(model)) ranked.push(model); };
+  add(worker);
+  for (const family of familyOrder) add(available.find((model) => modelFamilyMatch(model, family)));
+  // The selected chat model stays available as a fallback, after the task-fit
+  // default. Unrecognized connected providers keep their catalog order.
+  add(find(currentModelKey));
+  for (const model of available) add(model);
+  return ranked;
+}
+
+export function selectAutomaticLoopModel(role, models, getKey, options = {}) {
+  return automaticLoopModelOrder(role, models, getKey, options)[0] || null;
 }
 
 function hasSamples(item, countField, valueField, minimumRuns) {

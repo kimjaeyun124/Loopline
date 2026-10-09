@@ -1,5 +1,10 @@
 import { modelEffortCapability, modelSelectionStrength } from './model-capabilities.mjs';
-import { classifyEvidenceTaskType, LOOP_BUDGET_PROFILES, DEFAULT_LOOP_PRIORITIES, LOOP_PRIORITY_DIMENSIONS, MAX_AUTO_LOOP_ROUNDS, normalizeLoopPriorities, rankLoopModelCandidates, recommendLoopEffort, selectAutomaticLoopModel } from './loop-policy.mjs';
+import {
+  automaticLoopModelOrder, classifyEvidenceTaskType, classifyLoopModelTier,
+  LOOP_BUDGET_PROFILES, DEFAULT_LOOP_PRIORITIES, LOOP_PRIORITY_DIMENSIONS,
+  MAX_AUTO_LOOP_ROUNDS, normalizeLoopPriorities, rankLoopModelCandidates,
+  recommendLoopEffort, selectAutomaticLoopModel, loopModelSelectionGuidance,
+} from './loop-policy.mjs';
 
 const KEY = 'loopline.harness.v1';
 const DONE = new Set(['completed', 'reviewed', 'failed', 'stopped', 'limit', 'blocked', 'interrupted']);
@@ -56,8 +61,12 @@ export function formatBrowserQaSummary(run) {
 export function createHarnessUI({ state, catalog, modelKey, currentKey, getProject, saveProjects, saveConversations, render, toast, instructions, onComplete, getMcpTools = () => [], refreshMcpTools = null }) {
   let saved;
   try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { saved = {}; }
+  const hasSavedRoleModel = ROLES.some(([role]) => typeof saved?.roles?.[role]?.model === 'string' && saved.roles[role].model);
+  const storedModelSelectionMode = ['automatic', 'priority'].includes(saved?.modelSelectionMode)
+    ? saved.modelSelectionMode : hasSavedRoleModel ? 'priority' : 'automatic';
   const config = {
     enabled: saved?.enabled !== false, autoApply: saved?.autoApply !== false,
+    modelSelectionMode: storedModelSelectionMode,
     budgetProfile: Object.hasOwn(LOOP_BUDGET_PROFILES, saved?.budgetProfile) ? saved.budgetProfile : 'standard',
     mcpTools: Array.isArray(saved?.mcpTools) ? saved.mcpTools.filter((tool) => tool && typeof tool.serverId === 'string' && typeof tool.name === 'string').slice(0, MAX_LOOP_MCP_TOOLS) : [],
     priorities: normalizeLoopPriorities(saved?.priorities),
@@ -80,6 +89,8 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
   const evidenceDetails = document.querySelector('#harnessEvidenceDetails');
   const evidenceIds = document.querySelector('#harnessEvidenceIds');
   const evidenceTypeSelect = document.querySelector('#harnessEvidenceType');
+  const modelSelectionMode = document.querySelector('#harnessModelSelectionMode');
+  const modelSelectionHint = document.querySelector('#harnessModelSelectionHint');
   const evidenceScope = document.querySelector('#harnessEvidenceScope');
   const search = document.querySelector('#harnessModelSearch');
   const expandedFallbacks = new Set();
@@ -152,6 +163,35 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
       ? selected
       : recommendLoopEffort(role, supported, task, config.priorities) || 'default';
   }
+  function automaticModelOrder(role, task = currentTaskText()) {
+    const candidates = connected().filter((model) => role === 'judge' || !model.decisionOnly);
+    return automaticLoopModelOrder(role, candidates, modelKey, {
+      currentModelKey: currentKey(), task, priorities: config.priorities,
+      workerModelKey: config.modelSelectionMode === 'priority' ? config.roles.worker.model : '',
+    });
+  }
+  function ensurePrioritySelections(task = currentTaskText()) {
+    let changed = false;
+    for (const [role] of ROLES) {
+      if (config.roles[role].model) continue;
+      const candidates = connected().filter((model) => role === 'judge' || !model.decisionOnly);
+      const candidate = automaticLoopModelOrder(role, candidates, modelKey, {
+        currentModelKey: currentKey(), task, priorities: config.priorities,
+        workerModelKey: config.roles.worker.model,
+      })[0];
+      if (!candidate) continue;
+      config.roles[role].model = modelKey(candidate);
+      changed = true;
+    }
+    return changed;
+  }
+  function renderModelSelectionHint(task) {
+    const tier = classifyLoopModelTier(task);
+    const tierLabel = tier === 'simple' ? '간단' : tier === 'complex' ? '복잡·고위험 가능성' : '일반 기능';
+    modelSelectionHint.textContent = config.modelSelectionMode === 'automatic'
+      ? '자동 선택 · 현재 요청 분류: ' + tierLabel + '. ' + loopModelSelectionGuidance('worker', task) + ' 판정 단계에서 충분한 완료 실측이 있으면 완료 안정성을 우선해 재배정합니다. 후보 순서를 편집하면 후보 순서 모드로 전환됩니다.'
+      : '후보 순서 · 역할별 1순위 모델을 그대로 사용하고, 한도 소진이나 호출 실패 때 저장한 순서로 전환합니다.';
+  }
   function formatPercent(value) { return Number.isFinite(value) ? `${Math.round(value * 100)}%` : '미측정'; }
   function formatRate(passed, total, minimumRuns) {
     if (!total) return '미측정';
@@ -162,6 +202,7 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
     return milliseconds < 1000 ? `${Math.round(milliseconds)}ms` : `${(milliseconds / 1000).toFixed(1)}초`;
   }
   function renderModelComparison(role, task, taskType) {
+    renderModelSelectionHint(task);
     const available = connected().filter((model) => role === 'judge' || !model.decisionOnly);
     const candidates = available.map((model) => {
       const effort = comparisonEffort(role, model, task);
@@ -173,10 +214,11 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
       minimumRuns: minimumEvidenceRuns,
       taskType,
     });
-    const baseline = config.roles[role].model
+    const baseline = config.modelSelectionMode === 'priority' && config.roles[role].model
       ? available.find((model) => modelKey(model) === config.roles[role].model) || null
       : selectAutomaticLoopModel(role, available, modelKey, {
-        currentModelKey: currentKey(), workerModelKey: config.roles.worker.model,
+        currentModelKey: currentKey(), workerModelKey: config.modelSelectionMode === 'priority' ? config.roles.worker.model : '',
+        task, priorities: config.priorities,
       });
     const recommendation = ranking.recommended || ranking.available.find((item) => item.model === baseline) || ranking.available[0] || null;
     const measured = ranking.measured;
@@ -210,8 +252,8 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
     const fastestCandidate = comparableTimes.reduce((best, item) => !best || item.evidence.meanModelTimeMs < best.evidence.meanModelTimeMs ? item : best, null);
     const rows = ordered.map((item) => {
       const { model: candidate, evidence } = item;
-      const selected = config.roles[role].model === modelKey(candidate);
-      const automaticBase = !config.roles[role].model && candidate === baseline;
+      const selected = config.modelSelectionMode === 'priority' && config.roles[role].model === modelKey(candidate);
+      const automaticBase = config.modelSelectionMode === 'automatic' && candidate === baseline;
       const isRecommended = candidate === recommendation?.model;
       const strength = modelSelectionStrength(candidate) || '공급자 강점 설명 없음';
       const supported = efforts(candidate);
@@ -268,10 +310,13 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
     return `<div class="harness-recommendation"><strong>${recommendation ? `추천 기준 모델 · ${escape(recommendation.model.label || recommendation.model.id)}` : '사용 가능한 모델 없음'}</strong><p>${escape(explanation)}</p><small>호출 성공률은 실행 중 기록된 연결·응답 형식 결과이며 추론 품질 점수와 구분합니다. 추론 성능 자체는 공통 과제 벤치마크가 없어 점수화하지 않습니다. 강점과 지원 Effort는 연결에서 받은 모델 설명입니다. 개입 통계는 앱 안에서 측정한 재개·중지뿐이며 실제 사람 투입 시간은 측정하지 않습니다.</small></div>
       <details class="harness-model-comparison"><summary>모델별 강점과 실측 비교 보기 · ${available.length}개</summary><div class="harness-model-candidate-list">${rows || '<p class="settings-footnote">이 역할에 사용할 수 있는 연결 모델이 없습니다.</p>'}</div></details>`;
   }
-  const choose = (role) => {
+  const choose = (role, task = currentTaskText()) => {
     const models = connected().filter((model) => role === 'judge' || !model.decisionOnly);
-    if (config.roles[role].model) return models.find((model) => modelKey(model) === config.roles[role].model);
-    return selectAutomaticLoopModel(role, models, modelKey, { currentModelKey: currentKey(), workerModelKey: config.roles.worker.model });
+    if (config.modelSelectionMode === 'priority' && config.roles[role].model) return models.find((model) => modelKey(model) === config.roles[role].model);
+    return selectAutomaticLoopModel(role, models, modelKey, {
+      currentModelKey: currentKey(), workerModelKey: config.modelSelectionMode === 'priority' ? config.roles.worker.model : '',
+      task, priorities: config.priorities,
+    });
   };
   const resolveEffort = (role, model, task = '') => {
     const allowed = efforts(model);
@@ -317,14 +362,10 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
     }
     if (changed) save();
   }
-  const roleGuidance = {
-    planner: '자동은 작업 적합도와 완료 우선순위를 기준으로 후보를 고릅니다.',
-    worker: '자동은 개인 연산 우선순위를 반영하고, 품질 우선이면 높은 추론 강도를 사용합니다.',
-    judge: '이 모델은 자동 배정 판단과 실행 결과 검토에 사용됩니다.',
-  };
   const budgetLabel = (model) => Number.isFinite(model?.remainingPercent)
     ? `계정 한도 ${Math.max(0, Math.min(100, model.remainingPercent))}% 남음` : '잔여 한도 미제공';
   function modelOptions(models, selected = '') {
+    if (config.modelSelectionMode !== 'priority') selected = '';
     const query = search.value.trim().toLocaleLowerCase();
     const visible = models.filter((model) => modelKey(model) === selected
       || `${model.label} ${model.id} ${model.source} ${modelSelectionStrength(model)}`.toLocaleLowerCase().includes(query));
@@ -340,6 +381,8 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
   function renderRoles() {
     const task = currentTaskText();
     const taskType = comparisonTaskType();
+    modelSelectionMode.value = config.modelSelectionMode;
+    renderModelSelectionHint(task);
     fields.innerHTML = ROLES.map(([role, title]) => {
       const model = choose(role), supported = efforts(model);
       const unavailableEffort = config.roles[role].effort && !supported.includes(config.roles[role].effort);
@@ -361,24 +404,24 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
         </span></li>`).join('');
       return `<div class="harness-role">
         <label class="project-field"><span>${title}</span><select data-harness-role="${role}" aria-label="${title} 모델">
-          <option value="">자동</option>
+          <option value="">${config.modelSelectionMode === 'automatic' ? '자동 · 작업별 추천' : '후보 1순위 선택'}</option>
           ${config.roles[role].model && !model ? `<option selected value="${escape(config.roles[role].model)}">저장된 모델 · 연결 확인 필요</option>` : ''}
           ${modelOptions(available, config.roles[role].model)}</select></label>
         <label class="project-field"><span>추론 강도</span><select data-harness-effort="${role}" aria-label="${title} 추론 강도"${!supported.length ? ' disabled' : ''}>
           <option value="">${supported.length ? '자동' : '서비스 기본값'}</option>
           ${unavailableEffort ? `<option selected value="${escape(config.roles[role].effort)}">${escape(config.roles[role].effort)} · 지원 확인 필요</option>` : ''}
           ${supported.map((value) => `<option value="${escape(value)}"${config.roles[role].effort === value ? ' selected' : ''}>${escape(value)}</option>`).join('')}</select></label>
-        <div class="harness-role-summary"><strong>${!config.roles[role].model ? '기본 후보 · ' : ''}${model ? escape(model.label) : '사용 가능한 모델 없음'}</strong><span>${model ? escape(budgetLabel(model)) : '연결과 잔여 한도를 확인하세요.'}</span></div>
+        <div class="harness-role-summary"><strong>${config.modelSelectionMode === 'automatic' ? '자동 추천 · ' : !config.roles[role].model ? '기본 후보 · ' : ''}${model ? escape(model.label) : '사용 가능한 모델 없음'}</strong><span>${model ? escape(budgetLabel(model)) : '연결과 잔여 한도를 확인하세요.'}</span></div>
         <div class="harness-measured">${(() => { const item = measuredModels.find((m) => m.type === taskType && m.role === role && m.provider === model?.provider && m.model === model?.id && m.effort === comparisonEffort(role, model, task)); if (!item) return '실측 기록 축적 중 · 같은 작업 유형·역할·Effort로 비교'; const completionRuns = item.completionMeasuredRuns ?? 0; const switchedRoles = item.runs > completionRuns; const confidence = item.sufficientEvidence && Number.isFinite(item.completionConfidenceLowerBound) ? ` · 완료 신뢰 하한 ${Math.round(item.completionConfidenceLowerBound * 100)}% (95%)` : ''; return `${item.type} 실행 참여 ${item.runs}회 · 역할 단독 완료 ${item.completedRuns}/${completionRuns}${switchedRoles ? ' (역할 내 모델 전환 실행 제외)' : ''}${confidence} · QA ${item.browserQaPassedRuns}/${item.browserQaRuns} · 호출 토큰 ${item.reportedTokens.toLocaleString()}${item.missingUsageCalls ? ` (사용량 누락 ${item.missingUsageCalls}호출)` : ''}${item.humanInterventionMeasuredRuns ? ` · 개입 계측 ${item.humanInterventionMeasuredRuns}개 실행${item.partiallyMeasuredInterventionRuns ? ' (일부 기록)' : ''} · 수동 재개 ${item.manualResumes}회 · 중지 요청 ${item.stopRequests}회` : ''} · ${item.sufficientEvidence ? '선택 근거 제공' : '표본 축적 중'}`; })()}</div>
         ${renderModelComparison(role, task, taskType)}
-        <small>${model ? `${escape(modelSelectionStrength(model) || effortLabel)} · ${escape(effortLabel)} · ${escape(roleGuidance[role])}` : '모델을 연결하거나 직접 선택해 주세요.'}</small>
+        <small>${model ? `${escape(modelSelectionStrength(model) || effortLabel)} · ${escape(effortLabel)} · ${escape(loopModelSelectionGuidance(role, task))}` : '모델을 연결하거나 직접 선택해 주세요.'}</small>
         <div class="harness-agent-tools"><label><input type="checkbox" data-harness-native="${role}"${config.roles[role].nativePlugins ? ' checked' : ''}> 이 Agent의 Plugin·Skill·MCP 사용</label><label><input type="checkbox" data-harness-shared="${role}"${config.roles[role].loopMcp ? ' checked' : ''}> Loopline MCP 사용</label><small>Codex·Claude의 기존 연결을 사용합니다. API 모델은 Loopline MCP를 사용하며 Jev 판정에는 도구를 전달하지 않습니다.</small></div>
         <details class="harness-fallbacks" data-fallback-details="${role}"${expandedFallbacks.has(role) ? ' open' : ''}>
-          <summary class="harness-fallback-heading"><strong>한도 소진 시 대체 순서</strong><span>${fallbackModels.length}개 · 펼쳐서 편집</span></summary>
+          <summary class="harness-fallback-heading"><strong>${config.modelSelectionMode === 'automatic' ? '저장 후보 순서 · 수동 모드에서 사용' : '한도 소진 시 대체 순서'}</strong><span>${fallbackModels.length}개 · 펼쳐서 편집</span></summary>
           <section aria-label="${title} 대체 모델 우선순위"><ol>${fallbackList || '<li class="harness-fallback-empty">대체 모델이 없습니다.</li>'}</ol>
           <div class="harness-fallback-add"><select data-fallback-select="${role}" aria-label="${title} 대체 모델 선택"><option value="">대체 모델 추가…</option>${modelOptions(eligible)}</select>
           <button type="button" data-fallback-add="${role}"${config.roles[role].fallbacks.length >= MAX_FALLBACKS || !eligible.length ? ' disabled' : ''}>추가</button></div></section>
-          <small>판정 모델이 대체 순서를 제안하고, 실행 중에는 잔여 한도와 실패 여부를 확인해 다음 후보로 전환합니다. 잔여 한도 미제공은 사용 가능량을 알 수 없다는 뜻입니다.</small>
+          <small>${config.modelSelectionMode === 'automatic' ? '자동 선택에서는 작업 난이도와 연결된 모델로 후보 순서를 계산합니다. 이 저장 순서는 후보 순서 모드에서 사용하며, 여기서 편집하면 해당 모드로 전환됩니다.' : '실행 중에는 잔여 한도와 실패 여부를 확인해 저장된 다음 후보로 전환합니다. 잔여 한도 미제공은 사용 가능량을 알 수 없다는 뜻입니다.'}</small>
         </details></div>`;
     }).join('');
   }
@@ -409,6 +452,8 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
     if (state.busy) return toast('실행이 끝난 뒤 구성을 변경해 주세요.');
     document.querySelector('#harnessAutoApply').checked = config.autoApply;
     document.querySelector('#harnessBudgetProfile').value = config.budgetProfile;
+    modelSelectionMode.value = config.modelSelectionMode;
+    if (config.modelSelectionMode === 'priority' && ensurePrioritySelections()) save();
     search.value = ''; evidenceTypeSelect.value = 'auto'; ensureFallbackPriority(); renderPriorities(); renderRoles(); renderMcpTools(); modal.hidden = false; document.querySelector('#harnessClose').focus();
     void refreshEvidence();
     if (typeof refreshMcpTools === 'function') void Promise.resolve(refreshMcpTools({ quiet: true })).then(renderMcpTools);
@@ -514,7 +559,18 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
     for (const [role] of ROLES) {
       config.roles[role].model = ''; config.roles[role].effort = '';
     }
+    config.modelSelectionMode = 'automatic';
+    modelSelectionMode.value = config.modelSelectionMode;
     search.value = ''; save(); renderRoles();
+  });
+  modelSelectionMode.addEventListener('change', () => {
+    if (!['automatic', 'priority'].includes(modelSelectionMode.value)) {
+      modelSelectionMode.value = config.modelSelectionMode;
+      return;
+    }
+    config.modelSelectionMode = modelSelectionMode.value;
+    if (config.modelSelectionMode === 'priority') ensurePrioritySelections();
+    save(); renderRoles();
   });
   fields.addEventListener('change', (event) => {
     const native = event.target.dataset.harnessNative, shared = event.target.dataset.harnessShared;
@@ -525,6 +581,9 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
       const role = event.target.dataset.harnessRole;
       config.roles[role].model = event.target.value;
       config.roles[role].effort = '';
+      config.modelSelectionMode = event.target.value ? 'priority' : 'automatic';
+      modelSelectionMode.value = config.modelSelectionMode;
+      if (config.modelSelectionMode === 'priority') ensurePrioritySelections();
     }
     if (event.target.dataset.harnessEffort) config.roles[event.target.dataset.harnessEffort].effort = event.target.value;
     save(); renderRoles();
@@ -537,6 +596,9 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
       if (!config.roles[role] || !candidate || (role !== 'judge' && candidate.decisionOnly)) return;
       config.roles[role].model = modelKey(candidate);
       config.roles[role].effort = '';
+      config.modelSelectionMode = 'priority';
+      modelSelectionMode.value = config.modelSelectionMode;
+      ensurePrioritySelections();
       save(); renderRoles();
       return;
     }
@@ -545,6 +607,11 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
     const remove = event.target.closest('[data-fallback-remove]');
     const role = add?.dataset.fallbackAdd || move?.dataset.fallbackMove || remove?.dataset.fallbackRemove;
     if (!role || !config.roles[role]) return;
+    if (config.modelSelectionMode === 'automatic') {
+      ensurePrioritySelections();
+      config.modelSelectionMode = 'priority';
+      modelSelectionMode.value = config.modelSelectionMode;
+    }
     const fallbacks = config.roles[role].fallbacks;
     expandedFallbacks.add(role);
     if (add) {
@@ -653,6 +720,7 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
   async function start(task, message, conversation) {
     const project = currentProject();
     const roles = {};
+    if (config.modelSelectionMode === 'priority' && ensurePrioritySelections(task)) save();
     ensureFallbackPriority();
     const roleSelection = (role, model, primary) => ({
       provider: model.provider, source: model.source, model: model.id, label: model.label,
@@ -669,11 +737,14 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
       instructions: instructions(model.provider), nativePlugins: config.roles[role].nativePlugins, loopMcp: config.roles[role].loopMcp,
     });
     for (const [role] of ROLES) {
-      const model = choose(role);
+      const model = choose(role, task);
       if (!model) { open(); throw new Error(role === 'judge' ? 'Jev를 연결하거나 판정 모델을 선택해 주세요.' : '사용할 모델을 연결해 주세요.'); }
-      const fallbacks = config.roles[role].fallbacks.map(modelByKey)
+      const candidates = config.modelSelectionMode === 'automatic'
+        ? automaticModelOrder(role, task).slice(0, MAX_FALLBACKS + 1)
+        : [model, ...config.roles[role].fallbacks.map(modelByKey).filter(Boolean)];
+      const fallbacks = candidates.slice(1)
         .filter((candidate) => candidate && (role === 'judge' || !candidate.decisionOnly) && modelKey(candidate) !== modelKey(model));
-      roles[role] = { ...roleSelection(role, model, true), automatic: !config.roles[role].model, fallbacks: fallbacks.map((candidate) => roleSelection(role, candidate, false)) };
+      roles[role] = { ...roleSelection(role, model, true), automatic: config.modelSelectionMode === 'automatic', fallbacks: fallbacks.map((candidate) => roleSelection(role, candidate, false)) };
     }
     const workspace = project?.workspace || conversation.harnessWorkspace || undefined;
     starting = true; stopRequested = false;

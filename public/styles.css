@@ -466,6 +466,8 @@ kbd { margin-left: auto; color: var(--muted); font-family: inherit; font-size: 1
 .harness-role small { grid-column: 1 / -1; font-size: 11px; color: var(--muted); }
 .harness-selection-toolbar { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; }
 .harness-selection-toolbar .project-field { flex: 1; min-width: 180px; margin: 0; }
+.harness-selection-toolbar .harness-model-mode { flex: 1 1 245px; }
+.harness-model-mode small { display: block; margin-top: 4px; color: var(--muted); font-size: 10px; line-height: 1.45; }
 .harness-selection-toolbar > button { min-height: 38px; }
 .harness-priority { display: grid; grid-template-columns: minmax(0, 1fr) minmax(210px, .9fr); gap: 8px 18px; margin: 14px 0; padding: 13px; border: 1px solid var(--line); border-radius: 10px; background: var(--soft); }
 .harness-priority h3 { margin: 0; color: var(--ink); font-size: 12px; font-weight: 600; }

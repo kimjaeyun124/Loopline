@@ -1,7 +1,7 @@
 import { BROWSER_QA_EXECUTOR, QA_CATEGORIES } from './browser-qa.mjs';
 
 const string = { type: 'string' };
-const array = (items) => ({ type: 'array', items });
+const array = (items, bounds = {}) => ({ type: 'array', items, ...bounds });
 const object = (properties) => ({ type: 'object', properties, required: Object.keys(properties), additionalProperties: false });
 const enumeration = (values) => ({ type: 'string', enum: values });
 const step = { anyOf: BROWSER_QA_EXECUTOR.actions.map((action) => object({
@@ -12,7 +12,9 @@ const step = { anyOf: BROWSER_QA_EXECUTOR.actions.map((action) => object({
   ...(action === 'press' ? { key: enumeration(BROWSER_QA_EXECUTOR.keys) } : {}),
   ...(action === 'set-storage' ? { key: string } : {}),
 })) };
-const check = object({ id: string, categories: array(enumeration(QA_CATEGORIES)), steps: array(step) });
+// Match the executor's existing bounds during generation so an otherwise
+// structured response does not spend a model call on an unexecutable plan.
+const check = object({ id: string, categories: array(enumeration(QA_CATEGORIES)), steps: array(step, { minItems: 1, maxItems: 24 }) });
 // Each variant has only applicable exemption keys. Strict output does not force
 // null placeholders into validators that correctly reject contradictory claims.
 const notApplicable = { anyOf: Array.from({ length: 2 ** QA_CATEGORIES.length }, (_, mask) =>
@@ -21,8 +23,10 @@ const notApplicable = { anyOf: Array.from({ length: 2 ** QA_CATEGORIES.length },
 export const RESPONSE_SCHEMAS = {
   project: object({ folderName: string, reason: string }),
   verification: object({ verifyCommand: string, reason: string }),
-  browserPlan: object({ entry: string, checks: array(check), notApplicable }),
-  browserPatch: object({ addChecks: array(check), replaceChecks: array(check), extendChecks: array(object({ id: string, steps: array(step) })), notApplicable }),
+  browserPlan: object({ entry: string, checks: array(check, { minItems: 1, maxItems: 16 }), notApplicable }),
+  // The executor still validates the combined patch size and the remaining
+  // capacity of each existing case; these are per-array generation ceilings.
+  browserPatch: object({ addChecks: array(check, { maxItems: 16 }), replaceChecks: array(check, { maxItems: 16 }), extendChecks: array(object({ id: string, steps: array(step, { minItems: 1, maxItems: 24 }) }), { maxItems: 16 }), notApplicable }),
   milestones: object({ tasks: array(object({ id: string, title: string, dependsOn: array(string), paths: array(string), criteria: array(string), integrationCriteria: array(string), verifyCommand: string })) }),
   worker: object({ done: { type: 'boolean' }, summary: string, operations: array({ anyOf: [
     object({ type: enumeration(['list']) }),

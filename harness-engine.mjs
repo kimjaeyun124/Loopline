@@ -487,6 +487,9 @@ function validateModelRankingOutput(answer, candidates, questions) {
 
 function validateVerificationPlan(answer) {
   const result = parseStructuredObject(answer, '검증 계획');
+  // Verification may request one bounded inspection before selecting a command.
+  if (Array.isArray(result.operations) && result.operations.length > 0 && result.operations.length <= 12
+    && result.operations.every((operation) => operation?.type === 'list' || (operation?.type === 'read' && typeof operation.path === 'string'))) return result;
   if (typeof result.verifyCommand !== 'string' || !result.verifyCommand.trim() || result.verifyCommand.length > 1000
     || typeof result.reason !== 'string' || !result.reason.trim()) {
     throw invalidStructuredOutput('검증 명령 또는 선택 근거가 비어 있거나 형식에 맞지 않습니다.');
@@ -930,7 +933,6 @@ export class HarnessEngine {
       && prompt.startsWith('새 프로젝트의 작업 폴더 이름을 제안하세요.')) validate = validateProjectSetup;
     if (typeof validate !== 'function' && role === 'worker') validate = validateWorkerAction;
     responseSchema ||= validate === validateProjectSetup ? RESPONSE_SCHEMAS.project
-      : validate === validateVerificationPlan ? RESPONSE_SCHEMAS.verification
       : validate === validateWorkerAction ? RESPONSE_SCHEMAS.worker : undefined;
     const seen = new Set();
     let lastFallbackError = null;

@@ -9,7 +9,7 @@ const MAX_LOOP_MCP_TOOLS = 64;
 const EVIDENCE_REASON_LABELS = new Map([
   ['invalid-shape', '기록 구조'], ['unsupported-version', '지원 버전'], ['id-mismatch', '파일 ID'],
   ['invalid-metadata', '실행 정보'], ['invalid-recoveries', '복구 횟수'], ['invalid-calls', '호출 목록'],
-  ['invalid-call', '호출 데이터'], ['invalid-human-intervention', '개입 정보'],
+  ['invalid-call', '호출 데이터'], ['invalid-attribution', '실패 원인'], ['invalid-human-intervention', '개입 정보'],
   ['malformed-json', 'JSON 오류'], ['unreadable', '읽기 오류'],
 ]);
 const escape = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -233,6 +233,8 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
       const referenceEvidence = reference?.evidence;
       if (Number.isFinite(candidate.remainingPercent) && candidate.remainingPercent <= 0) caveats.push('잔여 한도 없음 · 선택 불가');
       if (evidence?.providerFailures) caveats.push(`연결 오류 ${evidence.providerFailures}회`);
+      if (evidence?.excludedOutcomeRuns) caveats.push(`귀속 불확실·흐름 원인 완료율 제외 ${evidence.excludedOutcomeRuns}회`);
+      if (evidence?.schemaFallbackCalls) caveats.push(`구조화 응답 미지원 ${evidence.schemaFallbackCalls}호출`);
       if (evidence?.formatFailures) caveats.push(`응답 형식 오류 ${evidence.formatFailures}회`);
       if (candidate !== reference?.model && evidence?.sufficientEvidence && referenceEvidence?.sufficientEvidence
         && evidence.completionConfidenceLowerBound < referenceEvidence.completionConfidenceLowerBound) caveats.push('추천 후보보다 완료 신뢰 하한이 낮음');
@@ -258,7 +260,7 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
       return `<article class="harness-model-candidate${isRecommended ? ' recommended' : ''}">
         <div class="harness-model-candidate-head"><div><strong>${escape(candidate.label)}</strong><span>${escape(candidate.source || candidate.provider)} · Effort ${escape(item.effort)}</span></div><div class="harness-model-badges">${isRecommended ? '<span class="recommendation-badge">추천</span>' : ''}${selected ? '<span class="recommendation-badge selected">직접 지정</span>' : automaticBase ? '<span class="recommendation-badge muted">자동 기본</span>' : ''}</div></div>
         <p class="harness-model-strength"><strong>강점</strong> ${escape(strength)}${supported.length ? ` · 지원 Effort ${escape(supported.join(', '))}` : ''}${description ? `<span>${escape(description)}</span>` : ''}</p>
-        <dl class="harness-model-metrics"><div><dt>완료 안정성</dt><dd>${escape(completion)}</dd></div><div><dt>검증</dt><dd>${escape(verification)}</dd></div><div><dt>브라우저 QA</dt><dd>${escape(browserQa)}</dd></div><div><dt>모델 호출 성공률</dt><dd>${escape(callSuccess)}</dd></div><div><dt>모델 응답 시간</dt><dd>${escape(time)}</dd></div><div><dt>사용 토큰</dt><dd>${escape(tokens)}${evidence?.missingUsageCalls ? ` · 사용량 누락 ${evidence.missingUsageCalls}호출` : ''}</dd></div><div><dt>복구 횟수</dt><dd>${escape(recoveries)}</dd></div><div><dt>앱 내 수동 개입</dt><dd>${escape(interventions)}</dd></div></dl>
+        <dl class="harness-model-metrics"><div><dt>완료 안정성</dt><dd>${escape(completion)}</dd></div><div><dt>검증</dt><dd>${escape(verification)}</dd></div><div><dt>브라우저 QA</dt><dd>${escape(browserQa)}</dd></div><div><dt>모델 호출 성공률</dt><dd>${escape(callSuccess)}</dd></div><div><dt>모델 응답 시간</dt><dd>${escape(time)}</dd></div><div><dt>사용 토큰</dt><dd>${escape(tokens)}${evidence?.missingUsageCalls ? ` · 사용량 누락 ${evidence.missingUsageCalls}호출` : ''}</dd></div><div><dt>첫 텍스트 응답</dt><dd>${escape(formatTime(evidence?.meanFirstResponseMs))} · 계측 ${evidence?.firstResponseCalls || 0}호출</dd></div><div><dt>세부 토큰 누적</dt><dd>${evidence?.detailedUsageCalls ? escape(`입력 ${evidence.reportedInputTokens.toLocaleString()} · 출력 ${evidence.reportedOutputTokens.toLocaleString()} · 확인된 캐시 ${evidence.reportedCachedInputTokens.toLocaleString()} · ${evidence.detailedUsageCalls}호출`) : '미측정'}</dd></div><div><dt>복구 횟수</dt><dd>${escape(recoveries)}</dd></div><div><dt>앱 내 수동 개입</dt><dd>${escape(interventions)}</dd></div></dl>
         <p class="harness-model-caveat"><strong>주의점</strong> ${escape(caveatText)}</p>
         <button type="button" class="text-button harness-model-select" data-model-compare-select="${role}" data-key="${escape(modelKey(candidate))}"${selected || (Number.isFinite(candidate.remainingPercent) && candidate.remainingPercent <= 0) ? ' disabled' : ''}>${selected ? '현재 직접 지정됨' : Number.isFinite(candidate.remainingPercent) && candidate.remainingPercent <= 0 ? '현재 한도 소진됨' : '이 모델로 직접 지정'}</button>
       </article>`;

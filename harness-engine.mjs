@@ -1,3 +1,4 @@
+import { normalizeTokenUsage } from './token-usage.mjs';
 import { RESPONSE_SCHEMAS, decisionResponseSchema } from './harness-response-schemas.mjs';
 import { spawn } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
@@ -133,16 +134,11 @@ function isVisualInterfaceTask(task, files = '') {
     || /(?:^|\n)[^\n]*\.(?:html?|css|jsx?|tsx?|vue|svelte|astro)(?:\s|$)/im.test(inventory);
 }
 
-function tokenCount(usage) {
-  if (!usage || typeof usage !== 'object') return null;
-  const total = [usage.totalTokens, usage.total_tokens, usage.usage?.total_tokens]
-    .find((value) => Number.isSafeInteger(value) && value >= 0);
-  if (Number.isSafeInteger(total)) return total;
-  const input = [usage.inputTokens, usage.input_tokens, usage.prompt_tokens, usage.usage?.input_tokens]
-    .find((value) => Number.isSafeInteger(value) && value >= 0);
-  const output = [usage.outputTokens, usage.output_tokens, usage.completion_tokens, usage.usage?.output_tokens]
-    .find((value) => Number.isSafeInteger(value) && value >= 0);
-  return Number.isSafeInteger(input) || Number.isSafeInteger(output) ? (input || 0) + (output || 0) : null;
+function measuredTokenUsage(selection, value) {
+  const usage = value?.usage || value;
+  const provider = selection.provider === 'anthropic' ? 'claude'
+    : usage && ('inputTokens' in usage || 'outputTokens' in usage || 'totalTokens' in usage) ? 'codex' : 'api';
+  return normalizeTokenUsage(provider, usage);
 }
 
 function knownExhausted(budget, selection) {
@@ -1171,12 +1167,18 @@ export class HarnessEngine {
       record.run.firstWorkerAt = startedAt;
       record.run.preparationReportedTokens = (record.run.modelCalls || []).reduce((sum, call) => sum + (call.tokens || 0), 0);
     }
-    const sample = { eventId, role, phase: record.run.firstWorkerAt ? 'execution' : 'preparation', provider: selection.provider, model: selection.model, effort: selection.reasoningEffort || 'default', round: record.run.round, tokens: null, status: 'success' };
+    const sample = { eventId, role, phase: record.run.firstWorkerAt ? 'execution' : 'preparation', provider: selection.provider, model: selection.model, effort: selection.reasoningEffort || 'default', round: record.run.round, tokens: null, inputTokens: null, outputTokens: null, cachedInputTokens: null, firstResponseMs: null, schemaRequested: Boolean(options.responseSchema), schemaFallback: false, status: 'success' };
     try {
-      return await this.invoke(selection, prompt, record.run.instructions, signal, (signal) => {
-        this.recordModelSignal(record, selection, signal);
-        if (signal?.type === 'usage') { const count = tokenCount(signal.usage); if (count !== null) sample.tokens = count; }
+      const result = await this.invoke(selection, prompt, record.run.instructions, signal, (signal) => {
+        if (signal?.type === 'firstResponse' && sample.firstResponseMs === null) sample.firstResponseMs = Date.now() - startedAt;
+        if (signal?.type === 'schemaFallback') sample.schemaFallback = true;
+        if (signal?.type === 'usage') {
+          const usage = measuredTokenUsage(selection, signal.usage);
+          if (usage) Object.assign(sample, { tokens: usage.totalTokens, inputTokens: usage.inputTokens, outputTokens: usage.outputTokens, cachedInputTokens: usage.cachedInputTokens });
+        } else this.recordModelSignal(record, selection, signal);
       }, options);
+      aborted(signal);
+      return result;
     } catch (error) {
       sample.status = record.controller.signal.aborted ? 'stopped' : 'failed';
       sample.failureKind = error.executionBudgetExhausted ? 'budget' : quotaExhausted(error) ? 'quota' : [401, 403].includes(error.remoteStatus || error.status) ? 'authentication' : recoverableModelFailure(error) ? 'transport' : 'other';
@@ -1185,6 +1187,9 @@ export class HarnessEngine {
       clearTimeout(timer);
       sample.durationMs = Date.now() - startedAt;
       record.run.modelCalls ||= []; record.run.modelCalls.push(sample);
+      // Providers can publish cumulative usage repeatedly. Count the final
+      // per-call value once instead of inflating totals on every notification.
+      if (sample.tokens !== null) this.recordModelSignal(record, selection, { type: 'usage', usage: { total_tokens: sample.tokens } });
     }
   }
 
@@ -1200,7 +1205,7 @@ export class HarnessEngine {
       if (Object.keys(budget).length) run.modelBudgets[key] = budget;
     }
     if (signal.type === 'usage') {
-      const count = tokenCount(signal.usage);
+      const count = measuredTokenUsage(selection, signal.usage)?.totalTokens ?? null;
       if (count !== null) {
         const current = run.modelUsage[key] || { provider: selection.provider, model: selection.model, label: selection.label || selection.model, totalTokens: 0, calls: 0 };
         current.totalTokens += count; current.calls += 1;
@@ -1510,6 +1515,8 @@ export class HarnessEngine {
         }
       }
     } catch (error) {
+      run.failureContext = { stage: run.stage, kind: error.executionBudgetExhausted ? 'budget'
+        : error.invalidStructuredOutput ? 'model-output' : error.transientModelFailure || recoverableModelFailure(error) ? 'provider' : 'workflow' };
       run.status = run.shutdownRequested ? 'interrupted' : signal.aborted ? 'stopped' : error.executionBudgetExhausted ? 'limit' : 'failed';
       run.recoverableFailure = run.status === 'failed'
         && run.mcpSideEffectPossible !== true

@@ -13,7 +13,7 @@ const sum = (values) => values.reduce((a, b) => a + b, 0);
 const average = (values) => values.length ? Math.round(sum(values) / values.length) : null;
 function evidenceRecordIssue(value, filename) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return 'invalid-shape';
-  if (![1, 2].includes(value.version)) return 'unsupported-version';
+  if (![1, 2, 3].includes(value.version)) return 'unsupported-version';
   if (value.id !== filename.slice(0, -5)) return 'id-mismatch';
   if (typeof value.type !== 'string' || !value.type || typeof value.status !== 'string'
     || typeof value.completed !== 'boolean' || typeof value.verificationPassed !== 'boolean'
@@ -25,6 +25,7 @@ function evidenceRecordIssue(value, filename) {
     && typeof call.model === 'string' && call.model.length > 0 && typeof call.status === 'string'
     && (call.tokens === null || (Number.isSafeInteger(call.tokens) && call.tokens >= 0))
     && Number.isFinite(call.durationMs) && call.durationMs >= 0)) return 'invalid-call';
+  if (value.version === 3 && (!value.failureAttribution || typeof value.failureAttribution.kind !== 'string' || typeof value.failureAttribution.outcomeEligible !== 'boolean')) return 'invalid-attribution';
   const intervention = value.humanIntervention;
   if (intervention?.measurement === 'observed-actions' && !(['full-run', 'partial-run'].includes(intervention.coverage)
     && Number.isSafeInteger(intervention.manualResumes) && intervention.manualResumes >= 0
@@ -45,7 +46,9 @@ export class HarnessEvidence {
     const calls = (run.modelCalls || []).map((call) => ({
       role: plain(call.role), provider: plain(call.provider), model: plain(call.model), effort: plain(call.effort || 'default'),
       round: call.round || 0, durationMs: call.durationMs || 0, tokens: Number.isSafeInteger(call.tokens) ? call.tokens : null,
-      status: plain(call.status), failureKind: plain(call.failureKind),
+      status: plain(call.status), failureKind: plain(call.failureKind), phase: plain(call.phase),
+      ...Object.fromEntries(['inputTokens', 'outputTokens', 'cachedInputTokens', 'firstResponseMs'].map((key) => [key, Number.isFinite(call[key]) && call[key] >= 0 ? call[key] : null])),
+      schemaRequested: call.schemaRequested === true, schemaFallback: call.schemaFallback === true,
     }));
     const recoveryBreakdown = {
       modelRetries: run.events.filter((event) => /복구|재요청|대체 모델|모델 전환|모델 교체|정체/.test(event.title)).length,
@@ -53,7 +56,19 @@ export class HarnessEvidence {
       milestoneFailures: run.events.filter((event) => event.title.startsWith('부분 작업 수정 / Milestone failed')).length,
     };
     const actions = run.humanActions && typeof run.humanActions === 'object' ? run.humanActions : null;
-    const result = { version: 2, id: run.id, type: taskType(run.task), finishedAt: run.finishedAt, status: run.status,
+    const failed = !(run.status === 'completed' && run.applied === true);
+    const unmeasuredCode = !calls.some((call) => call.role === 'worker');
+    const unavailableQa = (run.qaHistory || []).some((qa) => qa.unavailable === true);
+    const attributionKind = !failed ? 'completed' : run.budgetExceeded ? 'budget'
+      : ['stopped', 'interrupted'].includes(run.status) ? 'user-stop'
+      : unavailableQa ? 'qa-infrastructure' : run.failureContext?.kind || (unmeasuredCode ? 'preparation' : 'not-completed');
+    const failureAttribution = { kind: attributionKind, stage: plain(run.failureContext?.stage || run.stage),
+      outcomeEligible: !failed || (!unmeasuredCode && !['budget', 'provider', 'qa-infrastructure', 'workflow', 'user-stop'].includes(attributionKind)),
+      implementationReached: !unmeasuredCode,
+    };
+    const result = { version: 3, failureAttribution,
+      firstWorkerDelayMs: Number.isFinite(run.firstWorkerAt) ? Math.max(0, run.firstWorkerAt - run.createdAt) : null,
+      preparationReportedTokens: Number.isSafeInteger(run.preparationReportedTokens) ? run.preparationReportedTokens : null, id: run.id, type: taskType(run.task), finishedAt: run.finishedAt, status: run.status,
       completed: run.status === 'completed' && run.applied === true,
       durationMs: Math.max(0, run.finishedAt - run.createdAt), rounds: run.round,
       verificationPassed: run.verificationPassed === true,
@@ -128,6 +143,11 @@ export class HarnessEvidence {
   async summary(type) {
     const { records, diagnostics } = await this.recordsWithDiagnostics(type);
     const groups = new Map();
+    const failureAttributions = {};
+    for (const run of records) {
+      const kind = run.failureAttribution?.kind || 'legacy-unclassified';
+      failureAttributions[kind] = (failureAttributions[kind] || 0) + 1;
+    }
     const measuredInterventions = records.filter((run) => run.humanIntervention?.measurement === 'observed-actions');
     const humanIntervention = {
       measuredRuns: measuredInterventions.length,
@@ -156,12 +176,13 @@ export class HarnessEvidence {
       for (const keys of roleKeys.values()) if (keys.size === 1) isolatedRoleKeys.add(keys.values().next().value);
       for (const [key, calls] of grouped) {
         if (!groups.has(key)) groups.set(key, { type: run.type, role: calls[0].role, provider: calls[0].provider, model: calls[0].model, effort: calls[0].effort,
+          excludedOutcomeRuns: 0, reportedInputTokens: 0, reportedOutputTokens: 0, reportedCachedInputTokens: 0, detailedUsageCalls: 0, firstResponses: [], schemaFallbackCalls: 0,
           runs: 0, completionMeasuredRuns: 0, completedRuns: 0, verificationMeasuredRuns: 0, verifiedRuns: 0, browserQaRuns: 0, browserQaPassedRuns: 0, calls: 0, successfulCalls: 0, missingUsageCalls: 0, reportedTokens: 0, providerFailures: 0, formatFailures: 0,
           humanInterventionMeasuredRuns: 0, partiallyMeasuredInterventionRuns: 0, fullyMeasuredInterventionRuns: 0, fullyMeasuredRunsWithObservedActions: 0,
           runsWithObservedActions: 0, runsWithManualResume: 0, manualResumes: 0, runsWithStopRequest: 0, stopRequests: 0,
           durations: [], tokenSamples: [], recoverySamples: [] });
         const group = groups.get(key);
-        const outcomeAttributed = isolatedRoleKeys.has(key);
+        const outcomeAttributed = isolatedRoleKeys.has(key) && run.failureAttribution?.outcomeEligible !== false;
         const intervention = run.humanIntervention?.measurement === 'observed-actions' ? run.humanIntervention : null;
         if (intervention && outcomeAttributed) {
           const hasObservedActions = intervention.manualResumes > 0 || intervention.stopRequests > 0;
@@ -178,6 +199,15 @@ export class HarnessEvidence {
         // A user-stopped run remains useful for interaction counts, but not for completion or cost comparisons.
         if (['stopped', 'interrupted'].includes(run.status)) continue;
         group.runs++;
+        if (!outcomeAttributed) group.excludedOutcomeRuns++;
+        for (const call of calls) {
+          if (call.inputTokens != null && call.outputTokens != null) group.detailedUsageCalls++;
+          group.reportedInputTokens += call.inputTokens || 0;
+          group.reportedOutputTokens += call.outputTokens || 0;
+          group.reportedCachedInputTokens += call.cachedInputTokens || 0;
+          if (Number.isFinite(call.firstResponseMs)) group.firstResponses.push(call.firstResponseMs);
+          if (call.schemaFallback) group.schemaFallbackCalls++;
+        }
         if (outcomeAttributed) {
           group.completionMeasuredRuns++;
           group.completedRuns += Number(run.completed);
@@ -197,12 +227,12 @@ export class HarnessEvidence {
       }
     }
     const performanceRecords = records.filter((run) => !['stopped', 'interrupted'].includes(run.status));
-    return { minimumRuns: MIN_RUNS, recordedRuns: performanceRecords.length, humanIntervention, evidenceDiagnostics: diagnostics,
-      attribution: '모델 호출·토큰·시간은 해당 호출에 직접 귀속합니다. 완료·검증·QA·개입·복구는 같은 역할에서 단일 모델 설정만 사용한 실행만 집계합니다. 같은 역할에서 대체·전환된 실행은 해당 지표에서 제외합니다. 나머지 완료율도 협업 실행의 관찰값이지 모델 하나의 인과 성능은 아닙니다. 사람 개입은 앱 내 수동 재개·중지 동작만 측정하며 실제 사람 투입 시간과 앱 밖의 수정은 포함하지 않습니다.', models: [...groups.entries()].map(([key, group]) => {
-      const { durations, tokenSamples, recoverySamples, ...metrics } = group;
+    return { minimumRuns: MIN_RUNS, recordedRuns: performanceRecords.length, humanIntervention, failureAttributions, evidenceDiagnostics: diagnostics,
+      attribution: '모델 호출·토큰·시간은 해당 호출에 직접 귀속합니다. 구현 전 중단, 예산, 연결, QA 실행기, 확인된 흐름 오류는 코드 품질 완료율에서 제외하고 실패 원인을 별도 기록합니다. 기존 기록의 원인을 추정하지 않습니다. 완료·검증·QA·개입·복구는 같은 역할에서 단일 모델 설정만 사용한 실행만 집계합니다. 같은 역할에서 대체·전환된 실행은 해당 지표에서 제외합니다. 나머지 완료율도 협업 실행의 관찰값이지 모델 하나의 인과 성능은 아닙니다. 사람 개입은 앱 내 수동 재개·중지 동작만 측정하며 실제 사람 투입 시간과 앱 밖의 수정은 포함하지 않습니다.', models: [...groups.entries()].map(([key, group]) => {
+      const { durations, tokenSamples, recoverySamples, firstResponses, ...metrics } = group;
       const observedActionRate = group.fullyMeasuredInterventionRuns >= MIN_RUNS
         ? group.fullyMeasuredRunsWithObservedActions / group.fullyMeasuredInterventionRuns : null;
-      return { key, ...metrics, durationRuns: durations.length, sufficientEvidence: group.completionMeasuredRuns >= MIN_RUNS,
+      return { key, ...metrics, firstResponseCalls: firstResponses.length, meanFirstResponseMs: average(firstResponses), durationRuns: durations.length, sufficientEvidence: group.completionMeasuredRuns >= MIN_RUNS,
         completionRate: group.completionMeasuredRuns ? group.completedRuns / group.completionMeasuredRuns : null, browserQaPassRate: group.browserQaRuns ? group.browserQaPassedRuns / group.browserQaRuns : null,
         completionConfidenceLowerBound: wilsonLowerBound(group.completedRuns, group.completionMeasuredRuns),
         verificationPassRate: group.verificationMeasuredRuns ? group.verifiedRuns / group.verificationMeasuredRuns : null,

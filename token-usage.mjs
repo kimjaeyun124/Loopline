@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 const count = (value) => Number.isSafeInteger(value) && value >= 0 ? value : null;
 const text = (value, max = 120) => typeof value === 'string' ? value.trim().replace(/[\r\n\0]/g, ' ').slice(0, max) : '';
 
-function normalize(provider, usage) {
+export function normalizeTokenUsage(provider, usage) {
   if (!usage || typeof usage !== 'object') return null;
   let inputTokens = null;
   let outputTokens = null;
@@ -82,7 +82,7 @@ export class TokenUsageStore {
   }
 
   async record({ provider, accountId, accountName, model, turnId, usage, timestamp = Date.now() }) {
-    const normalized = normalize(provider, usage);
+    const normalized = normalizeTokenUsage(provider, usage);
     const safeAccountId = text(accountId, 180);
     const safeTurnId = text(turnId, 180);
     if (!safeAccountId || !['codex', 'claude', 'api'].includes(provider)) return false;

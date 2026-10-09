@@ -1940,7 +1940,7 @@ async function invokeHarnessModel(selection, prompt, instructions, signal, onSig
       const line = block.match(/^data: (.*)$/m)?.[1];
       if (!line) continue;
       const data = JSON.parse(line);
-      if (event === 'delta') output += data.text || '';
+      if (event === 'delta') { if (data.text) onSignal({ type: 'firstResponse' }); output += data.text || ''; }
       if (event === 'retry') output = '';
       if (event === 'progress' && data.rollbackText && output.endsWith(data.rollbackText)) output = output.slice(0, -data.rollbackText.length);
       if (event === 'usage') onSignal({ type: 'usage', usage: data.usage });

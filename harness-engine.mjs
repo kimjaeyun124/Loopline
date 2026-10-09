@@ -4,7 +4,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, readFile, writeFile, rename, realpath, lstat, readdir, copyFile, unlink, access, rm } from 'node:fs/promises';
 import { dirname, join, isAbsolute } from 'node:path';
 import { homedir } from 'node:os';
-import { automaticLoopStartRounds, extendAutomaticLoopRounds, MAX_AUTO_LOOP_ROUNDS, MAX_LOOP_ROUNDS, normalizeLoopPriorities } from './public/loop-policy.mjs';
+import { automaticLoopStartRounds, extendAutomaticLoopRounds, MAX_AUTO_LOOP_ROUNDS, MAX_LOOP_ROUNDS, normalizeExecutionBudget, normalizeLoopPriorities } from './public/loop-policy.mjs';
 import { createHarnessWorkflow } from './harness-graph.mjs';
 import { needsMilestones, validateMilestones, matchesMilestone, milestoneContract, milestoneFiles, refreshMilestones, nextMilestone, milestoneCoverage } from './harness-milestones.mjs';
 import { HarnessEvidence, taskType } from './harness-evidence.mjs';
@@ -676,6 +676,7 @@ export class HarnessEngine {
     if (input.workspace && (typeof input.workspace !== 'string' || !isAbsolute(input.workspace))) throw fail('프로젝트 작업 폴더가 올바르지 않습니다.');
     if (input.verifyCommand != null && (typeof input.verifyCommand !== 'string' || input.verifyCommand.length > 1000)) throw fail('프로젝트 검증 명령이 올바르지 않습니다.');
     if (!Number.isInteger(input.rounds) || input.rounds < 0 || input.rounds > MAX_LOOP_ROUNDS) throw fail('회차는 자동 또는 1~10 사이로 지정해 주세요.');
+    const executionBudget = normalizeExecutionBudget(input.executionBudget, input.budgetProfile);
     const roles = {}, modelPriority = {};
     for (const role of ['planner', 'worker', 'judge']) {
       const selection = input.roles?.[role];
@@ -717,7 +718,7 @@ export class HarnessEngine {
       stagnantRounds: 0, lastRoundScope: null, lastRoundFingerprint: null, qualityTriedWorkerModels: [], source, task: input.task,
       priorities: normalizeLoopPriorities(input.priorities),
       roles, modelPriority,
-      modelBudgets: {}, modelUsage: {}, modelCalls: [],
+      modelBudgets: {}, modelUsage: {}, modelCalls: [], executionBudget,
       humanActions: { manualResumes: 0, stopRequests: 0, completeCoverage: true },
       stageModels: Object.fromEntries(['planner', 'worker', 'judge'].map((role) => {
         const selection = roles[role];
@@ -1135,19 +1136,47 @@ export class HarnessEngine {
     }
   }
 
+  remainingExecutionBudget(record, role) {
+    const { run } = record, budget = run.executionBudget;
+    if (!budget) return null; // Older checkpoints retain their original execution contract.
+    const calls = run.modelCalls || [];
+    const preparing = !run.firstWorkerAt && role !== 'worker';
+    const prepareCalls = calls.filter((call) => call.phase === 'preparation');
+    const total = (items, key) => items.reduce((sum, call) => sum + (Number.isFinite(call[key]) ? call[key] : 0), 0);
+    const scopes = [{ scope: '전체', tokens: budget.totalTokens - total(calls, 'tokens'), timeMs: budget.modelTimeMs - total(calls, 'durationMs') }];
+    if (preparing) scopes.push({ scope: '준비', tokens: budget.preparationTokens - total(prepareCalls, 'tokens'), timeMs: budget.preparationTimeMs - total(prepareCalls, 'durationMs') });
+    const exceeded = scopes.find((scope) => scope.tokens <= 0 || scope.timeMs <= 0);
+    if (exceeded) throw this.executionBudgetError(record, exceeded.scope);
+    return scopes.sort((a, b) => a.timeMs - b.timeMs)[0];
+  }
+
+  executionBudgetError(record, scope) {
+    record.run.budgetExceeded = { scope, timestamp: Date.now() };
+    return Object.assign(new Error(`${scope} 실행 예산에 도달했습니다. 완료 근거와 작업 공간을 보존했습니다. 예산을 조정한 새 실행으로 이어갈 수 있습니다.`), { executionBudgetExhausted: true });
+  }
+
   async invokeMeasured(record, role, selection, prompt, eventId, options = {}) {
+    const remaining = this.remainingExecutionBudget(record, role);
+    const budgetController = new AbortController();
+    const timer = remaining ? setTimeout(() => budgetController.abort(this.executionBudgetError(record, remaining.scope)), remaining.timeMs) : null;
+    const signal = AbortSignal.any([record.controller.signal, budgetController.signal]);
     const startedAt = Date.now();
-    const sample = { eventId, role, provider: selection.provider, model: selection.model, effort: selection.reasoningEffort || 'default', round: record.run.round, tokens: null, status: 'success' };
+    if (role === 'worker' && !record.run.firstWorkerAt) {
+      record.run.firstWorkerAt = startedAt;
+      record.run.preparationReportedTokens = (record.run.modelCalls || []).reduce((sum, call) => sum + (call.tokens || 0), 0);
+    }
+    const sample = { eventId, role, phase: record.run.firstWorkerAt ? 'execution' : 'preparation', provider: selection.provider, model: selection.model, effort: selection.reasoningEffort || 'default', round: record.run.round, tokens: null, status: 'success' };
     try {
-      return await this.invoke(selection, prompt, record.run.instructions, record.controller.signal, (signal) => {
+      return await this.invoke(selection, prompt, record.run.instructions, signal, (signal) => {
         this.recordModelSignal(record, selection, signal);
         if (signal?.type === 'usage') { const count = tokenCount(signal.usage); if (count !== null) sample.tokens = count; }
       }, options);
     } catch (error) {
       sample.status = record.controller.signal.aborted ? 'stopped' : 'failed';
-      sample.failureKind = quotaExhausted(error) ? 'quota' : [401, 403].includes(error.remoteStatus || error.status) ? 'authentication' : recoverableModelFailure(error) ? 'transport' : 'other';
+      sample.failureKind = error.executionBudgetExhausted ? 'budget' : quotaExhausted(error) ? 'quota' : [401, 403].includes(error.remoteStatus || error.status) ? 'authentication' : recoverableModelFailure(error) ? 'transport' : 'other';
       throw error;
     } finally {
+      clearTimeout(timer);
       sample.durationMs = Date.now() - startedAt;
       record.run.modelCalls ||= []; record.run.modelCalls.push(sample);
     }
@@ -1475,7 +1504,7 @@ export class HarnessEngine {
         }
       }
     } catch (error) {
-      run.status = run.shutdownRequested ? 'interrupted' : signal.aborted ? 'stopped' : 'failed';
+      run.status = run.shutdownRequested ? 'interrupted' : signal.aborted ? 'stopped' : error.executionBudgetExhausted ? 'limit' : 'failed';
       run.recoverableFailure = run.status === 'failed'
         && run.mcpSideEffectPossible !== true
         && !error.mcpDispatched

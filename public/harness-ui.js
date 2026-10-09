@@ -1,5 +1,5 @@
 import { modelEffortCapability, modelSelectionStrength } from './model-capabilities.mjs';
-import { classifyEvidenceTaskType, DEFAULT_LOOP_PRIORITIES, LOOP_PRIORITY_DIMENSIONS, MAX_AUTO_LOOP_ROUNDS, normalizeLoopPriorities, rankLoopModelCandidates, recommendLoopEffort, selectAutomaticLoopModel } from './loop-policy.mjs';
+import { classifyEvidenceTaskType, LOOP_BUDGET_PROFILES, DEFAULT_LOOP_PRIORITIES, LOOP_PRIORITY_DIMENSIONS, MAX_AUTO_LOOP_ROUNDS, normalizeLoopPriorities, rankLoopModelCandidates, recommendLoopEffort, selectAutomaticLoopModel } from './loop-policy.mjs';
 
 const KEY = 'loopline.harness.v1';
 const DONE = new Set(['completed', 'reviewed', 'failed', 'stopped', 'limit', 'blocked', 'interrupted']);
@@ -58,6 +58,7 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
   try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { saved = {}; }
   const config = {
     enabled: saved?.enabled !== false, autoApply: saved?.autoApply !== false,
+    budgetProfile: Object.hasOwn(LOOP_BUDGET_PROFILES, saved?.budgetProfile) ? saved.budgetProfile : 'standard',
     mcpTools: Array.isArray(saved?.mcpTools) ? saved.mcpTools.filter((tool) => tool && typeof tool.serverId === 'string' && typeof tool.name === 'string').slice(0, MAX_LOOP_MCP_TOOLS) : [],
     priorities: normalizeLoopPriorities(saved?.priorities),
     roles: Object.fromEntries(ROLES.map(([role]) => [role, {
@@ -405,6 +406,7 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
   function open() {
     if (state.busy) return toast('실행이 끝난 뒤 구성을 변경해 주세요.');
     document.querySelector('#harnessAutoApply').checked = config.autoApply;
+    document.querySelector('#harnessBudgetProfile').value = config.budgetProfile;
     search.value = ''; evidenceTypeSelect.value = 'auto'; ensureFallbackPriority(); renderPriorities(); renderRoles(); renderMcpTools(); modal.hidden = false; document.querySelector('#harnessClose').focus();
     void refreshEvidence();
     if (typeof refreshMcpTools === 'function') void Promise.resolve(refreshMcpTools({ quiet: true })).then(renderMcpTools);
@@ -565,6 +567,9 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
     config.roles[role].fallbacksConfigured = true;
     save(); renderRoles();
   });
+  document.querySelector('#harnessBudgetProfile').addEventListener('change', (event) => {
+    if (Object.hasOwn(LOOP_BUDGET_PROFILES, event.target.value)) { config.budgetProfile = event.target.value; save(); }
+  });
   document.querySelector('#harnessAutoApply').addEventListener('change', (event) => {
     config.autoApply = event.target.checked; save();
   });
@@ -671,7 +676,7 @@ export function createHarnessUI({ state, catalog, modelKey, currentKey, getProje
     starting = true; stopRequested = false;
     state.busy = true; state.loopEngineeringRunning = true; render();
     try {
-      const run = await request('/api/harness/runs', { task, roles, priorities: config.priorities, workspace, rounds: state.loopEngineeringRounds, autoApply: config.autoApply, mcpTools: config.mcpTools, instructions: project ? `${project.instructions || ''}\n${project.knowledge || ''}` : '' });
+      const run = await request('/api/harness/runs', { task, roles, priorities: config.priorities, budgetProfile: config.budgetProfile, workspace, rounds: state.loopEngineeringRounds, autoApply: config.autoApply, mcpTools: config.mcpTools, instructions: project ? `${project.instructions || ''}\n${project.knowledge || ''}` : '' });
       activeRunId = run.id;
       update(run, message, conversation);
       if (stopRequested) await stop();

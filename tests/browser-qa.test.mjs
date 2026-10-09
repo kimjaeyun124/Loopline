@@ -36,6 +36,34 @@ test('browser QA detects web work while keeping command line JavaScript outside 
   assert.equal(needsBrowserQa('버그 수정', 'index.html'), true);
 });
 
+test('initial and patched QA reject contradictory and malformed exemptions identically', () => {
+  for (const notApplicable of [null, [], 'none', { 'malformed-storage': 'Use a Node test for malformed stored JSON.' },
+    { input: 'The existing input check must remain required.' }]) {
+    assert.throws(() => validateBrowserPlan({ ...qaPlan, notApplicable }), /notApplicable|기존 검사/);
+    assert.throws(() => applyBrowserPlanPatch(qaPlan, { notApplicable }), /notApplicable|기존 검사/);
+  }
+  const base = { entry: 'index.html', checks: [qaPlan.checks[0]], notApplicable: {
+    input: 'This information page has no input controls.', save: 'This page has no mutable state to persist.', keyboard: 'This information page has no interactive controls.',
+  } };
+  for (const reason of [false, 123, '', 'none', ' '.repeat(20), 'x'.repeat(501)]) {
+    assert.throws(() => validateBrowserPlan({ ...base, notApplicable: { ...base.notApplicable, save: reason } }), /구체적인 근거/);
+    assert.throws(() => applyBrowserPlanPatch(base, { notApplicable: { save: reason } }), /구체적인 근거/);
+  }
+  assert.deepEqual(validateBrowserPlan(base), base);
+});
+
+test('new executable checks replace their prior exemptions without mutating or weakening existing checks', () => {
+  const base = { entry: 'index.html', checks: [structuredClone(qaPlan.checks[0])], notApplicable: {
+    input: 'This information page has no input controls.', save: 'This page has no mutable state to persist.', keyboard: 'This information page has no interactive controls.',
+  } };
+  const before = structuredClone(base), addition = structuredClone(qaPlan.checks[1]);
+  const merged = applyBrowserPlanPatch(base, { addChecks: [addition] });
+  assert.deepEqual(merged.checks, qaPlan.checks); assert.deepEqual(merged.notApplicable, {});
+  assert.deepEqual(base, before);
+  assert.throws(() => applyBrowserPlanPatch(base, { addChecks: [addition], notApplicable: { save: base.notApplicable.save } }), /기존 검사/);
+  assert.throws(() => applyBrowserPlanPatch(qaPlan, { notApplicable: {} }), /실제 보완 내용/);
+});
+
 function documentedNodeServer(source) {
   return `# Example website\n\n## 실행\n\n\`\`\`sh\nnode -e '${source}'\n\`\`\`\n`;
 }

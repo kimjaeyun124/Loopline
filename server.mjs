@@ -1587,7 +1587,7 @@ async function codexFallbackCandidates(excludedAccountIds, model, reasoningEffor
   });
 }
 
-async function runCodexTurnAttempt(context, model, messages, requestedThreadId, res, instructions, fastMode, accountStatus, reasoningEffort, ephemeralCodexThread = false, developerInstructions = codexProgressInstructions) {
+async function runCodexTurnAttempt(context, model, messages, requestedThreadId, res, instructions, fastMode, accountStatus, reasoningEffort, ephemeralCodexThread = false, developerInstructions = codexProgressInstructions, outputSchema) {
   const client = await getCodexAppServer(context);
   const modelInfo = accountStatus.models?.find((item) => item.id === model);
   const supportedEfforts = modelInfo?.supportedReasoningEfforts
@@ -1679,6 +1679,7 @@ async function runCodexTurnAttempt(context, model, messages, requestedThreadId, 
       model,
       ...(requestedEffort ? { effort: requestedEffort } : {}),
       serviceTierForTurn: fastServiceTier?.id || 'default',
+      ...(outputSchema ? { outputSchema } : {}),
     }, 30_000);
     active.turnId = started.turn?.id || null;
     if (active.cancelled && active.turnId) {
@@ -1698,7 +1699,7 @@ async function runCodexTurnAttempt(context, model, messages, requestedThreadId, 
   return result;
 }
 
-async function runCodexTurn(requestedAccountId, model, messages, requestedThreadId, res, instructions = '', fastMode = false, reasoningEffort = null, ephemeralCodexThread = false, developerInstructions = codexProgressInstructions) {
+async function runCodexTurn(requestedAccountId, model, messages, requestedThreadId, res, instructions = '', fastMode = false, reasoningEffort = null, ephemeralCodexThread = false, developerInstructions = codexProgressInstructions, outputSchema) {
   let candidates;
   try {
     candidates = await codexTurnCandidates(requestedAccountId, model, reasoningEffort);
@@ -1730,7 +1731,7 @@ async function runCodexTurn(requestedAccountId, model, messages, requestedThread
     context.pendingChatRequests.add(reservation);
     let result;
     try {
-      result = await runCodexTurnAttempt(context, model, messages, threadId, res, instructions, fastMode, accountStatus, reasoningEffort, ephemeralCodexThread, developerInstructions);
+      result = await runCodexTurnAttempt(context, model, messages, threadId, res, instructions, fastMode, accountStatus, reasoningEffort, ephemeralCodexThread, developerInstructions, outputSchema);
     } finally {
       context.pendingChatRequests.delete(reservation);
     }
@@ -1825,6 +1826,8 @@ async function relayChat(req, res, internalOptions = {}) {
           signal: controller.signal,
           ...(Number.isSafeInteger(internalOptions.harnessTimeoutMs) ? { timeoutMs: internalOptions.harnessTimeoutMs } : {}),
           reasoningEffort: body.reasoningEffort,
+          responseSchema: internalOptions.responseSchema,
+          onSchemaFallback: () => sendEvent(res, 'schemaFallback', {}),
           onDelta: (text) => sendEvent(res, 'delta', { text }),
           onUsage: async (usage, connection) => {
             await recordTokenUsage({
@@ -1877,7 +1880,7 @@ async function relayChat(req, res, internalOptions = {}) {
     if (provider === 'openai') {
       const ephemeralCodexThread = internalOptions.ephemeralCodexThread === true;
       const developerInstructions = ephemeralCodexThread ? harnessCodexInstructions : codexProgressInstructions;
-      await runCodexTurn(codexAccountId, model, messages, body.codexThreadId, res, instructions, body.fastMode === true, body.reasoningEffort, ephemeralCodexThread, developerInstructions);
+      await runCodexTurn(codexAccountId, model, messages, body.codexThreadId, res, instructions, body.fastMode === true, body.reasoningEffort, ephemeralCodexThread, developerInstructions, internalOptions.responseSchema);
     }
     else await runClaudeCli(model, conversationPrompt(messages, instructions), res, body.reasoningEffort,
       (usage, usedModel) => recordTokenUsage({
@@ -1911,7 +1914,7 @@ async function relayChat(req, res, internalOptions = {}) {
 }
 
 // Reuse provider validation, cancellation and usage accounting without a second HTTP request.
-async function invokeHarnessModel(selection, prompt, instructions, signal, onSignal = () => {}) {
+async function invokeHarnessModel(selection, prompt, instructions, signal, onSignal = () => {}, { responseSchema } = {}) {
   if (signal.aborted) throw signal.reason;
   if (selection.decisionOnly && selection.provider === 'api') {
     return apiConnections.evaluate(selection.connectionId, selection.model, prompt, {
@@ -1941,6 +1944,7 @@ async function invokeHarnessModel(selection, prompt, instructions, signal, onSig
       if (event === 'retry') output = '';
       if (event === 'progress' && data.rollbackText && output.endsWith(data.rollbackText)) output = output.slice(0, -data.rollbackText.length);
       if (event === 'usage') onSignal({ type: 'usage', usage: data.usage });
+      if (event === 'schemaFallback') onSignal({ type: 'schemaFallback' });
       if (event === 'budget') onSignal({ type: 'budget', ...data });
       if (event === 'error') {
         failure = data.error || '모델 호출 실패';
@@ -1974,7 +1978,7 @@ async function invokeHarnessModel(selection, prompt, instructions, signal, onSig
     messages: (`${instructions.length > 24000 ? `추가 프로젝트 지침:\n${instructions.slice(24000)}\n\n` : ''}${promptText}`.match(/[\s\S]{1,35000}/g) || [promptText]).map((content) => ({ role: 'user', content })),
   }))]);
   try {
-    await relayChat(request, response, { ephemeralCodexThread: true, harnessTimeoutMs: HARNESS_MODEL_TIMEOUT_MS });
+    await relayChat(request, response, { ephemeralCodexThread: true, harnessTimeoutMs: HARNESS_MODEL_TIMEOUT_MS, responseSchema });
     if (signal.aborted) throw signal.reason;
     if (failure || !done || !output.trim()) throw Object.assign(new Error(failure || '모델의 완료 응답을 받지 못했습니다.'), {
       quotaExhausted: quotaFailure,

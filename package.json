@@ -29,6 +29,10 @@
     ],
     "extraResources": [
       {
+        "from": "harness-response-schemas.mjs",
+        "to": "app-server/harness-response-schemas.mjs"
+      },
+      {
         "from": "harness-engine.mjs",
         "to": "app-server/harness-engine.mjs"
       },

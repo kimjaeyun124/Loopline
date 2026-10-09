@@ -182,9 +182,19 @@ export class ApiConnections {
         redirect: 'manual',
       });
       if (!response.ok) {
-        await response.body?.cancel();
+        let unsupportedParameter;
+        if (response.status === 400) {
+          try {
+            const payload = await readLimitedJson(response);
+            const detail = payload?.error;
+            const text = String(detail?.message || '');
+            if (/unsupported|not supported|unknown (?:parameter|field)|unrecognized/i.test(text)) {
+              unsupportedParameter = ['response_format', 'stream_options'].find((name) => detail?.param === name || text.includes(name));
+            }
+          } catch { /* Remote bodies are never exposed or retained in errors. */ }
+        } else await response.body?.cancel();
         if (response.status >= 300 && response.status < 400) throw fail('API 주소가 다른 주소로 이동합니다. 서비스가 제공한 최종 기본 주소를 입력해 주세요.', 502);
-        throw remoteError(response.status);
+        throw Object.assign(remoteError(response.status), { unsupportedParameter });
       }
       return response;
     } catch (error) {
@@ -275,7 +285,7 @@ export class ApiConnections {
     });
   }
 
-  async chat(id, model, messages, { signal, onDelta, onUsage, onBudget, reasoningEffort, timeoutMs = 180_000 }) {
+  async chat(id, model, messages, { signal, onDelta, onUsage, onBudget, reasoningEffort, responseSchema, onSchemaFallback, timeoutMs = 180_000 }) {
     await this.#ready;
     await this.#writes;
     const connection = this.#find(id);
@@ -296,19 +306,25 @@ export class ApiConnections {
     try {
       const key = await this.#key(connection);
       let response;
-      try {
-        response = await this.#request(connection, key, 'chat/completions', {
-          method: 'POST', signal: requestSignal,
-          body: JSON.stringify({ model: chatModelId(connection, model), messages, ...reasoning, stream: true, stream_options: { include_usage: true } }),
-        });
-      } catch (error) {
-        // Some OpenAI-compatible services reject stream_options. Retry only their explicit
-        // HTTP 400 response so those integrations keep working without usage metadata.
-        if (error.remoteStatus !== 400) throw error;
-        response = await this.#request(connection, key, 'chat/completions', {
-          method: 'POST', signal: requestSignal,
-          body: JSON.stringify({ model: chatModelId(connection, model), messages, ...reasoning, stream: true }),
-        });
+      const body = { model: chatModelId(connection, model), messages, ...reasoning, stream: true, stream_options: { include_usage: true },
+        ...(responseSchema ? { response_format: { type: 'json_schema', json_schema: { name: 'loopline_result', strict: true, schema: responseSchema } } } : {}),
+      };
+      // Compatibility retries are bounded and happen only before any output.
+      // An invalid schema or authentication error must not silently disable it.
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          response = await this.#request(connection, key, 'chat/completions', {
+            method: 'POST', signal: requestSignal, body: JSON.stringify(body),
+          });
+          break;
+        } catch (error) {
+          if (error.remoteStatus !== 400 || attempt === 2) throw error;
+          if (error.unsupportedParameter === 'response_format' && body.response_format) {
+            delete body.response_format; onSchemaFallback?.();
+          } else if (body.stream_options && (!body.response_format || error.unsupportedParameter === 'stream_options')) {
+            delete body.stream_options;
+          } else throw error;
+        }
       }
       const budget = tokenBudgetHeaders(response.headers);
       if (budget) await onBudget?.(budget, connection, model);

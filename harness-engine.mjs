@@ -2492,7 +2492,9 @@ export class HarnessEngine {
       else qa = await verifyReadmeLaunch(run.workspace, { signal, execute: async (launch, { preload }) => {
         const sandbox = await workspaceSandboxProfile(run.workspace, run.runtime);
         const hook = `data:text/javascript,${encodeURIComponent(preload)}`;
-        const args = ['-p', sandbox.profile, process.execPath, '--import', hook];
+        // In the desktop utility process execPath is Electron Helper, not Node.
+        // Resolve the documented `node` command just as project verification does.
+        const args = ['-p', sandbox.profile, '/usr/bin/env', 'node', '--import', hook];
         if (launch.kind === 'inline') args.push('-e', launch.source);
         else args.push(launch.path);
         return runCommand('/usr/bin/sandbox-exec', args, { cwd: sandbox.workspace,

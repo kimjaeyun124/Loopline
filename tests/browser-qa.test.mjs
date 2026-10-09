@@ -231,6 +231,44 @@ test('default Harness README smoke keeps the project command inside the offline 
   assert.match(record.run.events.at(-1).detail, /HTTP|검사 통과/);
 });
 
+test('desktop utility process runs README smoke through Node instead of Electron Helper', async (t) => {
+  if (process.platform !== 'darwin') { t.skip('The project sandbox is available only on macOS.'); return; }
+  const { default: electron } = await import('electron');
+  const directory = await mkdtemp(join(tmpdir(), 'loopline-readme-electron-'));
+  const workspace = join(directory, 'workspace'), runtime = join(directory, 'runtime');
+  await mkdir(workspace); await mkdir(runtime); await mkdir(join(directory, 'electron-data'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  await writeFile(join(workspace, 'index.html'), '<!doctype html><html><body><h1>Desktop QA</h1></body></html>');
+  await writeFile(join(workspace, 'server.mjs'), 'import http from "node:http";import fs from "node:fs";http.createServer((_req,res)=>fs.readFile("index.html",(err,body)=>{if(err){res.writeHead(404).end();return}res.writeHead(200,{"Content-Type":"text/html"});res.end(body)})).listen(3000,"127.0.0.1");');
+  await writeFile(join(workspace, 'README.md'), '## 실행\n\n```sh\nnode server.mjs\n```\n');
+  const worker = join(directory, 'worker.mjs'), main = join(directory, 'main.mjs');
+  await writeFile(worker, `import { HarnessEngine } from ${JSON.stringify(new URL('../harness-engine.mjs', import.meta.url).href)};
+    const engine = new HarnessEngine({ directory: ${JSON.stringify(directory)}, invoke: async () => { throw new Error('Unexpected model call'); } });
+    const record = { run: { id: ${JSON.stringify(randomUUID())}, workspace: ${JSON.stringify(workspace)}, runtime: ${JSON.stringify(runtime)}, events: [] }, controller: new AbortController(), writes: Promise.resolve() };
+    try { process.parentPort.postMessage({ electron: Boolean(process.versions.electron), qa: await engine.runReadmeLaunchQa(record, 1) }); }
+    catch (error) { process.parentPort.postMessage({ error: String(error.message) }); }
+  `);
+  await writeFile(main, `import { app, utilityProcess } from 'electron';
+    app.setPath('userData', ${JSON.stringify(join(directory, 'electron-data'))});
+    const timer = setTimeout(() => app.exit(1), 15000);
+    app.whenReady().then(() => {
+      const worker = utilityProcess.fork(${JSON.stringify(worker)}, [], { stdio: 'pipe' });
+      worker.stdout.on('data', chunk => process.stdout.write(chunk));
+      worker.stderr.on('data', chunk => process.stderr.write(chunk));
+      worker.on('message', result => { console.log('__DESKTOP_README_QA__' + JSON.stringify(result)); clearTimeout(timer); worker.kill(); app.quit(); });
+    });
+  `);
+  const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => key !== 'ELECTRON_RUN_AS_NODE'));
+  const execution = await runCommand(electron, [main], { cwd: directory, env, timeout: 20000, limit: 20000 });
+  const marker = execution.output.match(/__DESKTOP_README_QA__(\{[^\n]*\})/);
+  assert.equal(execution.code, 0, execution.error || execution.output);
+  assert.ok(marker, execution.output);
+  const result = JSON.parse(marker[1]);
+  assert.equal(result.electron, true, 'the regression must execute in an actual Electron utility process');
+  assert.equal(result.qa?.passed, true, JSON.stringify(result));
+  assert.deepEqual(result.qa.checks.map(({ id, passed }) => [id, passed]), [['root', true]]);
+});
+
 test('README root routing failures return concrete evidence for a targeted automatic repair', async (t) => {
   const workspace = await mkdtemp(join(tmpdir(), 'loopline-readme-failure-'));
   t.after(() => rm(workspace, { recursive: true, force: true }));

@@ -1,0 +1,10 @@
+{
+  "passed": false,
+  "checks": [],
+  "failures": [
+    "ENOENT: no such file or directory, open '/Users/dgsw59/Library/Application Support/Mosaic Desk/harness/12aeabc9-808e-49da-bbb9-93a773317353/workspace/index.html'"
+  ],
+  "unavailable": true,
+  "expectedCheckCount": 50,
+  "passedCheckCount": 0
+}

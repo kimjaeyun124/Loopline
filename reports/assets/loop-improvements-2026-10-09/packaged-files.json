@@ -1,0 +1,40 @@
+{
+  "sourceCommit": "97bd15e",
+  "files": [
+    {
+      "path": "harness-engine.mjs",
+      "sha256": "6a067e6dc6aa210e287ffeaec0cdf3773be62c870d248bc6bdc9834c9a0134d2",
+      "matches": true
+    },
+    {
+      "path": "harness-evidence.mjs",
+      "sha256": "265496bda1e51d85fa660fdc89b99f7aa2477e4410f6664fda09ef676fead131",
+      "matches": true
+    },
+    {
+      "path": "browser-qa.mjs",
+      "sha256": "e72ce397845147d9cfd0a64d83900d89c6a6b68f6ae87fc3c32467535d5d100c",
+      "matches": true
+    },
+    {
+      "path": "harness-response-schemas.mjs",
+      "sha256": "2d207128c7790a01d75336651eb6f09dbfc17bb4759f6c9204c515e88f8cd493",
+      "matches": true
+    },
+    {
+      "path": "public/harness-ui.js",
+      "sha256": "c1822a3dee85524a6abcdcb9b653e24e39d51b444b882410dc7f722681facfa0",
+      "matches": true
+    },
+    {
+      "path": "public/index.html",
+      "sha256": "8f16e65a5e471cfa75cac03b3039219b5dee70518bfede0fa8c644ac568381b1",
+      "matches": true
+    },
+    {
+      "path": "public/loop-policy.mjs",
+      "sha256": "fbd3fa864a4e865db69315546a0e42f10890e1c3ec5d450eab7a1a3d0ca298b1",
+      "matches": true
+    }
+  ]
+}

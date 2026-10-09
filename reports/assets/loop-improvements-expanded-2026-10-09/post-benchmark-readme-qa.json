@@ -1,0 +1,46 @@
+{
+  "measuredAt": "2026-10-09T08:44:00.384Z",
+  "packagedCode": "97bd15e",
+  "modelCalls": 0,
+  "generatedCodeModified": false,
+  "electron": true,
+  "result": {
+    "passed": true,
+    "applicable": true,
+    "skipped": false,
+    "display": "node server.mjs",
+    "ownerPaths": [
+      "server.mjs",
+      "README.md"
+    ],
+    "checks": [
+      {
+        "id": "root",
+        "passed": true,
+        "actual": {
+          "status": 200,
+          "contentType": "text/html; charset=utf-8",
+          "html": true
+        }
+      },
+      {
+        "id": "asset:/styles.css",
+        "passed": true,
+        "actual": {
+          "status": 200,
+          "contentType": "text/css; charset=utf-8"
+        }
+      },
+      {
+        "id": "asset:/app.mjs",
+        "passed": true,
+        "actual": {
+          "status": 200,
+          "contentType": "text/javascript; charset=utf-8"
+        }
+      }
+    ],
+    "failures": [],
+    "round": 1
+  }
+}

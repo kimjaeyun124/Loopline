@@ -1,0 +1,12 @@
+{
+  "method": "visible browser UI with keyboard input; no source edits",
+  "requestedTitleCharacters": 101,
+  "actualTitleCharacters": 100,
+  "titleMaxLength": 100,
+  "subjectMaxLength": 30,
+  "manuallyAddedPreviewTask": "Loopline 개선 검증 정리",
+  "persistedAfterReload": true,
+  "width": 1280,
+  "documentWidth": 1280,
+  "scope": "Post-benchmark diagnosis and preview only; not included in automatic completion or common 50-check score."
+}

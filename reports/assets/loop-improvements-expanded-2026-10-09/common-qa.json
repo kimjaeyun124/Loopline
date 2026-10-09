@@ -1,0 +1,671 @@
+{
+  "entry": "index.html",
+  "checks": [
+    {
+      "id": "empty",
+      "categories": [
+        "empty"
+      ],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "visible",
+          "selector": "#emptyState"
+        },
+        {
+          "action": "count",
+          "selector": "#taskList .task",
+          "value": 0
+        },
+        {
+          "action": "text",
+          "selector": "#totalCount",
+          "value": "0"
+        },
+        {
+          "action": "text",
+          "selector": "#totalMinutes",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "id": "required",
+      "categories": [],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "click",
+          "selector": "#addTask"
+        },
+        {
+          "action": "visible",
+          "selector": "#formError"
+        },
+        {
+          "action": "focused",
+          "selector": "#taskTitle"
+        },
+        {
+          "action": "count",
+          "selector": "#taskList .task",
+          "value": 0
+        }
+      ]
+    },
+    {
+      "id": "add-and-persist",
+      "categories": [
+        "input",
+        "save",
+        "keyboard"
+      ],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "fill",
+          "selector": "#taskTitle",
+          "value": "자료구조 정리"
+        },
+        {
+          "action": "fill",
+          "selector": "#taskSubject",
+          "value": "CS"
+        },
+        {
+          "action": "fill",
+          "selector": "#taskMinutes",
+          "value": "30"
+        },
+        {
+          "action": "press",
+          "key": "Enter"
+        },
+        {
+          "action": "count",
+          "selector": "#taskList .task",
+          "value": 1
+        },
+        {
+          "action": "hidden",
+          "selector": "#emptyState"
+        },
+        {
+          "action": "text",
+          "selector": "#taskList",
+          "value": "자료구조 정리"
+        },
+        {
+          "action": "text",
+          "selector": "#totalMinutes",
+          "value": "30"
+        },
+        {
+          "action": "reload"
+        },
+        {
+          "action": "count",
+          "selector": "#taskList .task",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": "#taskList",
+          "value": "자료구조 정리"
+        }
+      ]
+    },
+    {
+      "id": "invalid-minutes",
+      "categories": [
+        "input",
+        "save"
+      ],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "fill",
+          "selector": "#taskTitle",
+          "value": "자료구조 정리"
+        },
+        {
+          "action": "fill",
+          "selector": "#taskSubject",
+          "value": "CS"
+        },
+        {
+          "action": "fill",
+          "selector": "#taskMinutes",
+          "value": "30"
+        },
+        {
+          "action": "click",
+          "selector": "#addTask"
+        },
+        {
+          "action": "fill",
+          "selector": "#taskTitle",
+          "value": "두 번째"
+        },
+        {
+          "action": "fill",
+          "selector": "#taskSubject",
+          "value": "Math"
+        },
+        {
+          "action": "fill",
+          "selector": "#taskMinutes",
+          "value": "0"
+        },
+        {
+          "action": "click",
+          "selector": "#addTask"
+        },
+        {
+          "action": "visible",
+          "selector": "#formError"
+        },
+        {
+          "action": "count",
+          "selector": "#taskList .task",
+          "value": 1
+        },
+        {
+          "action": "reload"
+        },
+        {
+          "action": "count",
+          "selector": "#taskList .task",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "id": "toggle-and-undo",
+      "categories": [],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "fill",
+          "selector": "#taskTitle",
+          "value": "자료구조 정리"
+        },
+        {
+          "action": "fill",
+          "selector": "#taskSubject",
+          "value": "CS"
+        },
+        {
+          "action": "fill",
+          "selector": "#taskMinutes",
+          "value": "30"
+        },
+        {
+          "action": "click",
+          "selector": "#addTask"
+        },
+        {
+          "action": "click",
+          "selector": "[data-action=\"toggle\"]"
+        },
+        {
+          "action": "text",
+          "selector": "#completedCount",
+          "value": "1"
+        },
+        {
+          "action": "text",
+          "selector": "#activeCount",
+          "value": "0"
+        },
+        {
+          "action": "click",
+          "selector": "[data-action=\"toggle\"]"
+        },
+        {
+          "action": "text",
+          "selector": "#completedCount",
+          "value": "0"
+        },
+        {
+          "action": "text",
+          "selector": "#activeCount",
+          "value": "1"
+        }
+      ]
+    },
+    {
+      "id": "filter",
+      "categories": [],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "fill",
+          "selector": "#taskTitle",
+          "value": "자료구조 정리"
+        },
+        {
+          "action": "fill",
+          "selector": "#taskSubject",
+          "value": "CS"
+        },
+        {
+          "action": "fill",
+          "selector": "#taskMinutes",
+          "value": "30"
+        },
+        {
+          "action": "click",
+          "selector": "#addTask"
+        },
+        {
+          "action": "fill",
+          "selector": "#taskTitle",
+          "value": "미적분"
+        },
+        {
+          "action": "fill",
+          "selector": "#taskSubject",
+          "value": "Math"
+        },
+        {
+          "action": "fill",
+          "selector": "#taskMinutes",
+          "value": "45"
+        },
+        {
+          "action": "click",
+          "selector": "#addTask"
+        },
+        {
+          "action": "click",
+          "selector": "[data-action=\"toggle\"]"
+        },
+        {
+          "action": "click",
+          "selector": "#filterActive"
+        },
+        {
+          "action": "count",
+          "selector": "#taskList .task",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": "#taskList",
+          "value": "미적분"
+        },
+        {
+          "action": "click",
+          "selector": "#filterCompleted"
+        },
+        {
+          "action": "count",
+          "selector": "#taskList .task",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": "#taskList",
+          "value": "자료구조 정리"
+        },
+        {
+          "action": "click",
+          "selector": "#filterAll"
+        },
+        {
+          "action": "count",
+          "selector": "#taskList .task",
+          "value": 2
+        }
+      ]
+    },
+    {
+      "id": "search",
+      "categories": [
+        "input"
+      ],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "fill",
+          "selector": "#taskTitle",
+          "value": "자료구조 정리"
+        },
+        {
+          "action": "fill",
+          "selector": "#taskSubject",
+          "value": "CS"
+        },
+        {
+          "action": "fill",
+          "selector": "#taskMinutes",
+          "value": "30"
+        },
+        {
+          "action": "click",
+          "selector": "#addTask"
+        },
+        {
+          "action": "fill",
+          "selector": "#taskTitle",
+          "value": "미적분"
+        },
+        {
+          "action": "fill",
+          "selector": "#taskSubject",
+          "value": "Math"
+        },
+        {
+          "action": "fill",
+          "selector": "#taskMinutes",
+          "value": "45"
+        },
+        {
+          "action": "click",
+          "selector": "#addTask"
+        },
+        {
+          "action": "fill",
+          "selector": "#searchInput",
+          "value": "자료구조"
+        },
+        {
+          "action": "count",
+          "selector": "#taskList .task",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": "#taskList",
+          "value": "자료구조 정리"
+        },
+        {
+          "action": "fill",
+          "selector": "#searchInput",
+          "value": "math"
+        },
+        {
+          "action": "count",
+          "selector": "#taskList .task",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": "#taskList",
+          "value": "미적분"
+        },
+        {
+          "action": "fill",
+          "selector": "#searchInput",
+          "value": "not-found"
+        },
+        {
+          "action": "count",
+          "selector": "#taskList .task",
+          "value": 0
+        },
+        {
+          "action": "visible",
+          "selector": "#emptyState"
+        }
+      ]
+    },
+    {
+      "id": "delete-last",
+      "categories": [
+        "empty",
+        "save"
+      ],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "fill",
+          "selector": "#taskTitle",
+          "value": "자료구조 정리"
+        },
+        {
+          "action": "fill",
+          "selector": "#taskSubject",
+          "value": "CS"
+        },
+        {
+          "action": "fill",
+          "selector": "#taskMinutes",
+          "value": "30"
+        },
+        {
+          "action": "click",
+          "selector": "#addTask"
+        },
+        {
+          "action": "click",
+          "selector": "[data-action=\"delete\"]"
+        },
+        {
+          "action": "count",
+          "selector": "#taskList .task",
+          "value": 0
+        },
+        {
+          "action": "visible",
+          "selector": "#emptyState"
+        },
+        {
+          "action": "text",
+          "selector": "#totalMinutes",
+          "value": "0"
+        },
+        {
+          "action": "reload"
+        },
+        {
+          "action": "count",
+          "selector": "#taskList .task",
+          "value": 0
+        },
+        {
+          "action": "visible",
+          "selector": "#emptyState"
+        }
+      ]
+    },
+    {
+      "id": "keyboard-focus",
+      "categories": [
+        "keyboard"
+      ],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "click",
+          "selector": "#taskTitle"
+        },
+        {
+          "action": "press",
+          "key": "Tab"
+        },
+        {
+          "action": "focused",
+          "selector": "#taskSubject"
+        },
+        {
+          "action": "focus-visible",
+          "selector": "#taskSubject"
+        }
+      ]
+    },
+    {
+      "id": "literal-text",
+      "categories": [
+        "input"
+      ],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "fill",
+          "selector": "#taskTitle",
+          "value": "<img src=x onerror=alert(1)>"
+        },
+        {
+          "action": "fill",
+          "selector": "#taskSubject",
+          "value": "安全"
+        },
+        {
+          "action": "fill",
+          "selector": "#taskMinutes",
+          "value": "20"
+        },
+        {
+          "action": "click",
+          "selector": "#addTask"
+        },
+        {
+          "action": "count",
+          "selector": "#taskList .task",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": ".task-title",
+          "value": "<img src=x onerror=alert(1)>"
+        },
+        {
+          "action": "count",
+          "selector": "#taskList img",
+          "value": 0
+        }
+      ]
+    },
+    {
+      "id": "long-text",
+      "categories": [
+        "input"
+      ],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "fill",
+          "selector": "#taskTitle",
+          "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+        },
+        {
+          "action": "fill",
+          "selector": "#taskSubject",
+          "value": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+        },
+        {
+          "action": "fill",
+          "selector": "#taskMinutes",
+          "value": "480"
+        },
+        {
+          "action": "click",
+          "selector": "#addTask"
+        },
+        {
+          "action": "count",
+          "selector": "#taskList .task",
+          "value": 1
+        },
+        {
+          "action": "text",
+          "selector": ".task-title",
+          "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+        },
+        {
+          "action": "text",
+          "selector": "#totalMinutes",
+          "value": "480"
+        }
+      ]
+    },
+    {
+      "id": "completed-persist",
+      "categories": [
+        "save"
+      ],
+      "steps": [
+        {
+          "action": "reset"
+        },
+        {
+          "action": "fill",
+          "selector": "#taskTitle",
+          "value": "자료구조 정리"
+        },
+        {
+          "action": "fill",
+          "selector": "#taskSubject",
+          "value": "CS"
+        },
+        {
+          "action": "fill",
+          "selector": "#taskMinutes",
+          "value": "30"
+        },
+        {
+          "action": "click",
+          "selector": "#addTask"
+        },
+        {
+          "action": "click",
+          "selector": "[data-action=\"toggle\"]"
+        },
+        {
+          "action": "reload"
+        },
+        {
+          "action": "text",
+          "selector": "#completedCount",
+          "value": "1"
+        },
+        {
+          "action": "text",
+          "selector": "#activeCount",
+          "value": "0"
+        },
+        {
+          "action": "click",
+          "selector": "[data-action=\"toggle\"]"
+        },
+        {
+          "action": "reload"
+        },
+        {
+          "action": "text",
+          "selector": "#completedCount",
+          "value": "0"
+        },
+        {
+          "action": "text",
+          "selector": "#activeCount",
+          "value": "1"
+        }
+      ]
+    }
+  ]
+}

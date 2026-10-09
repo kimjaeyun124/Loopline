@@ -1,0 +1,39 @@
+{
+  "frozenAt": "2026-10-09T05:55:35.466Z",
+  "task": "Focus Board responsive web application",
+  "promptSha256": "1010fb02fa1d603729d91f13e9bd9e025316a17437c73e531dd7ef2cbc0f0573",
+  "qaSha256": "049272d78695a0dc6775927e1c243cba82be9d5332f4a9798f9d56cfcd84ec82",
+  "sourceCommit": "cc6de66",
+  "iterationsPerConfiguration": 1,
+  "implementationRounds": 6,
+  "commonBrowserChecks": 12,
+  "viewports": [
+    {
+      "id": "desktop",
+      "width": 1440,
+      "height": 900
+    },
+    {
+      "id": "mobile",
+      "width": 390,
+      "height": 844
+    }
+  ],
+  "commonAssertions": "24 behavior checks + 24 per-scenario layout checks + 2 overall layout checks = 50",
+  "externalQaFeedsBackToRun": false,
+  "manualCodeChangesAllowed": false,
+  "manualResumeAllowed": false,
+  "perRunObservationCeilingMs": 2700000,
+  "comparisonOrder": [
+    "automatic-loop"
+  ],
+  "limitation": "동일 Harness에 역할별 모델 구성을 달리한 비교. 순수 단일 채팅과의 비교가 아님. 각 구성 1회로 장기 성공률을 추정하지 않음.",
+  "changedVariables": [
+    "QA schema and targeted review",
+    "milestone integration criteria",
+    "structured output",
+    "automatic effort",
+    "execution budgets",
+    "measurement attribution"
+  ]
+}

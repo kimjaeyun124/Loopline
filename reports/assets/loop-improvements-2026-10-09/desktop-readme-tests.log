@@ -1,0 +1,22 @@
+TAP version 13
+# Subtest: default Harness README smoke keeps the project command inside the offline execution sandbox
+ok 1 - default Harness README smoke keeps the project command inside the offline execution sandbox
+  ---
+  duration_ms: 127.296709
+  type: 'test'
+  ...
+# Subtest: desktop utility process runs README smoke through Node instead of Electron Helper
+ok 2 - desktop utility process runs README smoke through Node instead of Electron Helper
+  ---
+  duration_ms: 814.655583
+  type: 'test'
+  ...
+1..2
+# tests 2
+# suites 0
+# pass 2
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1091.168291

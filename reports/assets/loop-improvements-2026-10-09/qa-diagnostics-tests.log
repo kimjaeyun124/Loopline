@@ -1,0 +1,589 @@
+TAP version 13
+# Subtest: browser QA detects web work while keeping command line JavaScript outside browser scope
+ok 1 - browser QA detects web work while keeping command line JavaScript outside browser scope
+  ---
+  duration_ms: 2.410625
+  type: 'test'
+  ...
+# Subtest: QA repair errors identify the invalid case and reject non-object steps as structured errors
+ok 2 - QA repair errors identify the invalid case and reject non-object steps as structured errors
+  ---
+  duration_ms: 2.694083
+  type: 'test'
+  ...
+# Subtest: initial and patched QA reject contradictory and malformed exemptions identically
+ok 3 - initial and patched QA reject contradictory and malformed exemptions identically
+  ---
+  duration_ms: 1.617083
+  type: 'test'
+  ...
+# Subtest: new executable checks replace their prior exemptions without mutating or weakening existing checks
+ok 4 - new executable checks replace their prior exemptions without mutating or weakening existing checks
+  ---
+  duration_ms: 0.484667
+  type: 'test'
+  ...
+# Subtest: README local Node launch checks the documented root and referenced web assets without opening a port
+ok 5 - README local Node launch checks the documented root and referenced web assets without opening a port
+  ---
+  duration_ms: 96.402916
+  type: 'test'
+  ...
+# Subtest: README Node server files retain a concrete code owner and use the same route smoke check
+ok 6 - README Node server files retain a concrete code owner and use the same route smoke check
+  ---
+  duration_ms: 84.863166
+  type: 'test'
+  ...
+# Subtest: README smoke bounds large HTTP response bodies and reports the size limit
+ok 7 - README smoke bounds large HTTP response bodies and reports the size limit
+  ---
+  duration_ms: 93.505209
+  type: 'test'
+  ...
+# Subtest: README smoke bounds response header count and total bytes
+    # Subtest: header count
+    ok 1 - header count
+      ---
+      duration_ms: 86.787666
+      type: 'test'
+      ...
+    # Subtest: header bytes
+    ok 2 - header bytes
+      ---
+      duration_ms: 91.197875
+      type: 'test'
+      ...
+    1..2
+ok 8 - README smoke bounds response header count and total bytes
+  ---
+  duration_ms: 178.738917
+  type: 'test'
+  ...
+# Subtest: README smoke rejects invalid response header names and values
+    # Subtest: header name
+    ok 1 - header name
+      ---
+      duration_ms: 92.239666
+      type: 'test'
+      ...
+    # Subtest: header value
+    ok 2 - header value
+      ---
+      duration_ms: 108.104542
+      type: 'test'
+      ...
+    1..2
+ok 9 - README smoke rejects invalid response header names and values
+  ---
+  duration_ms: 201.266333
+  type: 'test'
+  ...
+# Subtest: README smoke rejects header changes after the response has started
+    # Subtest: writeHead then setHeader
+    ok 1 - writeHead then setHeader
+      ---
+      duration_ms: 80.905292
+      type: 'test'
+      ...
+    # Subtest: writeHead twice
+    ok 2 - writeHead twice
+      ---
+      duration_ms: 86.76075
+      type: 'test'
+      ...
+    # Subtest: write then setHeader
+    ok 3 - write then setHeader
+      ---
+      duration_ms: 82.227709
+      type: 'test'
+      ...
+    # Subtest: flushHeaders then removeHeader
+    ok 4 - flushHeaders then removeHeader
+      ---
+      duration_ms: 80.185417
+      type: 'test'
+      ...
+    # Subtest: end then setHeader
+    ok 5 - end then setHeader
+      ---
+      duration_ms: 84.181791
+      type: 'test'
+      ...
+    1..5
+ok 10 - README smoke rejects header changes after the response has started
+  ---
+  duration_ms: 415.598708
+  type: 'test'
+  ...
+# Subtest: default Harness README smoke keeps the project command inside the offline execution sandbox
+ok 11 - default Harness README smoke keeps the project command inside the offline execution sandbox
+  ---
+  duration_ms: 107.55175
+  type: 'test'
+  ...
+# Subtest: README root routing failures return concrete evidence for a targeted automatic repair
+ok 12 - README root routing failures return concrete evidence for a targeted automatic repair
+  ---
+  duration_ms: 88.604791
+  type: 'test'
+  ...
+# Subtest: README smoke rejects malformed raw evidence instead of filtering it into a pass
+    # Subtest: invalid failure item
+    ok 1 - invalid failure item
+      ---
+      duration_ms: 0.760708
+      type: 'test'
+      ...
+    # Subtest: invalid check item
+    ok 2 - invalid check item
+      ---
+      duration_ms: 0.847708
+      type: 'test'
+      ...
+    # Subtest: duplicate check ID
+    ok 3 - duplicate check ID
+      ---
+      duration_ms: 0.840458
+      type: 'test'
+      ...
+    # Subtest: excessive check count
+    ok 4 - excessive check count
+      ---
+      duration_ms: 0.4325
+      type: 'test'
+      ...
+    # Subtest: missing failures array
+    ok 5 - missing failures array
+      ---
+      duration_ms: 0.344125
+      type: 'test'
+      ...
+    1..5
+ok 13 - README smoke rejects malformed raw evidence instead of filtering it into a pass
+  ---
+  duration_ms: 6.369708
+  type: 'test'
+  ...
+# Subtest: README smoke rejects ambiguous repeated result markers
+ok 14 - README smoke rejects ambiguous repeated result markers
+  ---
+  duration_ms: 1.520875
+  type: 'test'
+  ...
+# Subtest: README smoke test skips absent or unsupported instructions without executing shell fragments
+ok 15 - README smoke test skips absent or unsupported instructions without executing shell fragments
+  ---
+  duration_ms: 2.62225
+  type: 'test'
+  ...
+# Subtest: Harness records a skipped README smoke check as not applicable rather than passed
+ok 16 - Harness records a skipped README smoke check as not applicable rather than passed
+  ---
+  duration_ms: 2.567291
+  type: 'test'
+  ...
+# Subtest: Harness fails closed when README QA adapters return incomplete or contradictory evidence
+    # Subtest: missing checks
+    ok 1 - missing checks
+      ---
+      duration_ms: 0.6845
+      type: 'test'
+      ...
+    # Subtest: contradictory failure list
+    ok 2 - contradictory failure list
+      ---
+      duration_ms: 0.701083
+      type: 'test'
+      ...
+    # Subtest: missing applicability flag
+    ok 3 - missing applicability flag
+      ---
+      duration_ms: 0.724458
+      type: 'test'
+      ...
+    # Subtest: invalid skipped result
+    ok 4 - invalid skipped result
+      ---
+      duration_ms: 0.615
+      type: 'test'
+      ...
+    # Subtest: invalid result value
+    ok 5 - invalid result value
+      ---
+      duration_ms: 0.65275
+      type: 'test'
+      ...
+    1..5
+ok 17 - Harness fails closed when README QA adapters return incomplete or contradictory evidence
+  ---
+  duration_ms: 3.99
+  type: 'test'
+  ...
+# Subtest: Harness bounds long README QA failure evidence before saving it to run history
+ok 18 - Harness bounds long README QA failure evidence before saving it to run history
+  ---
+  duration_ms: 4.600833
+  type: 'test'
+  ...
+# Subtest: QA key validation reports the exact unsupported key and preserves the executable allowlist
+ok 19 - QA key validation reports the exact unsupported key and preserves the executable allowlist
+  ---
+  duration_ms: 1.220417
+  type: 'test'
+  ...
+# Subtest: QA contract requires actual input, reload, key events and assertions, and rejects scripts
+ok 20 - QA contract requires actual input, reload, key events and assertions, and rejects scripts
+  ---
+  duration_ms: 0.420833
+  type: 'test'
+  ...
+# Subtest: QA assertions must follow input, reload and keyboard actions
+ok 21 - QA assertions must follow input, reload and keyboard actions
+  ---
+  duration_ms: 0.182125
+  type: 'test'
+  ...
+# Subtest: rendered QA assertions reject clear head metadata before freezing the contract
+ok 22 - rendered QA assertions reject clear head metadata before freezing the contract
+  ---
+  duration_ms: 1.687917
+  type: 'test'
+  ...
+# Subtest: QA partial additions cannot introduce metadata text assertions
+ok 23 - QA partial additions cannot introduce metadata text assertions
+  ---
+  duration_ms: 0.161208
+  type: 'test'
+  ...
+# Subtest: QA patches retain every accepted check, order and selector without mutating either input
+ok 24 - QA patches retain every accepted check, order and selector without mutating either input
+  ---
+  duration_ms: 0.220209
+  type: 'test'
+  ...
+# Subtest: only the individually rejected QA check may be replaced, preserving its position and categories
+ok 25 - only the individually rejected QA check may be replaced, preserving its position and categories
+  ---
+  duration_ms: 0.25875
+  type: 'test'
+  ...
+# Subtest: QA patches reject full rewrites, duplicate IDs, empty changes and malformed arrays as repairable errors
+ok 26 - QA patches reject full rewrites, duplicate IDs, empty changes and malformed arrays as repairable errors
+  ---
+  duration_ms: 0.461792
+  type: 'test'
+  ...
+# Subtest: QA patches keep the existing assertion, script, count and step limits
+ok 27 - QA patches keep the existing assertion, script, count and step limits
+  ---
+  duration_ms: 1.173333
+  type: 'test'
+  ...
+# Subtest: a not-applicable rationale can be corrected without losing earlier cases
+ok 28 - a not-applicable rationale can be corrected without losing earlier cases
+  ---
+  duration_ms: 0.678625
+  type: 'test'
+  ...
+# Subtest: full QA plans accept additional observations while retaining every existing step and the sixteen-check limit
+ok 29 - full QA plans accept additional observations while retaining every existing step and the sixteen-check limit
+  ---
+  duration_ms: 1.366208
+  type: 'test'
+  ...
+# Subtest: QA extension rejects rewrites, unknown IDs, duplicated operations and missing appended assertions
+ok 30 - QA extension rejects rewrites, unknown IDs, duplicated operations and missing appended assertions
+  ---
+  duration_ms: 0.451375
+  type: 'test'
+  ...
+# Subtest: QA extension preserves assertion sequencing, script rejection and the twenty-four-step bound
+ok 31 - QA extension preserves assertion sequencing, script rejection and the twenty-four-step bound
+  ---
+  duration_ms: 0.341542
+  type: 'test'
+  ...
+# Subtest: malformed JSON is classified for bounded format repair without accepting prose, arrays or partial objects
+ok 32 - malformed JSON is classified for bounded format repair without accepting prose, arrays or partial objects
+  ---
+  duration_ms: 0.629917
+  type: 'test'
+  ...
+# Subtest: QA category errors identify the check, rejected values and supported contract without weakening assertions
+ok 33 - QA category errors identify the check, rejected values and supported contract without weakening assertions
+  ---
+  duration_ms: 0.329667
+  type: 'test'
+  ...
+# Subtest: QA step limit errors include the exact check and count while keeping the same bound
+ok 34 - QA step limit errors include the exact check and count while keeping the same bound
+  ---
+  duration_ms: 0.173542
+  type: 'test'
+  ...
+# Subtest: native QA inspects CSS rendering even when the hidden attribute is overridden
+ok 35 - native QA inspects CSS rendering even when the hidden attribute is overridden
+  ---
+  duration_ms: 5.586875
+  type: 'test'
+  ...
+# Subtest: native focus QA checks the matching active element when action text also occurs in a task title
+ok 36 - native focus QA checks the matching active element when action text also occurs in a task title
+  ---
+  duration_ms: 1.794375
+  type: 'test'
+  ...
+# Subtest: native multi-match focus QA still rejects outside focus, hidden targets and missing keyboard cues
+ok 37 - native multi-match focus QA still rejects outside focus, hidden targets and missing keyboard cues
+  ---
+  duration_ms: 1.108875
+  type: 'test'
+  ...
+# Subtest: visible focus is a selector assertion following an actual key press, not an arbitrary script
+ok 38 - visible focus is a selector assertion following an actual key press, not an arbitrary script
+  ---
+  duration_ms: 0.315625
+  type: 'test'
+  ...
+# Subtest: native visible focus rejects invisible outlines and permanent shadows while accepting keyboard cues
+ok 39 - native visible focus rejects invisible outlines and permanent shadows while accepting keyboard cues
+  ---
+  duration_ms: 0.982166
+  type: 'test'
+  ...
+# Subtest: native QA accepts an extended automatic round and catches overflow immediately after long input
+ok 40 - native QA accepts an extended automatic round and catches overflow immediately after long input
+  ---
+  duration_ms: 438.815583
+  type: 'test'
+  ...
+# Subtest: packaged desktop fixture preserves QA and milestone contracts across a targeted repair
+ok 41 - packaged desktop fixture preserves QA and milestone contracts across a targeted repair
+  ---
+  duration_ms: 1.189459
+  type: 'test'
+  ...
+# Subtest: desktop fixture preserves structured review after MCP context and requests only the read-only Paper guide
+ok 42 - desktop fixture preserves structured review after MCP context and requests only the read-only Paper guide
+  ---
+  duration_ms: 0.199833
+  type: 'test'
+  ...
+# Subtest: browser IPC cancellation removes pending work and standalone mode never claims success
+ok 43 - browser IPC cancellation removes pending work and standalone mode never claims success
+  ---
+  duration_ms: 0.541125
+  type: 'test'
+  ...
+# Subtest: Harness fails closed when browser QA adapters return incomplete or contradictory evidence
+    # Subtest: missing checks
+    ok 1 - missing checks
+      ---
+      duration_ms: 2.806333
+      type: 'test'
+      ...
+    # Subtest: contradictory failure list
+    ok 2 - contradictory failure list
+      ---
+      duration_ms: 1.283708
+      type: 'test'
+      ...
+    # Subtest: missing check identity
+    ok 3 - missing check identity
+      ---
+      duration_ms: 0.68325
+      type: 'test'
+      ...
+    # Subtest: missing planned check
+    ok 4 - missing planned check
+      ---
+      duration_ms: 0.895541
+      type: 'test'
+      ...
+    # Subtest: duplicate planned check
+    ok 5 - duplicate planned check
+      ---
+      duration_ms: 0.804917
+      type: 'test'
+      ...
+    # Subtest: unexpected check ID
+    ok 6 - unexpected check ID
+      ---
+      duration_ms: 0.734375
+      type: 'test'
+      ...
+    # Subtest: invalid result value
+    ok 7 - invalid result value
+      ---
+      duration_ms: 0.573917
+      type: 'test'
+      ...
+    1..7
+ok 44 - Harness fails closed when browser QA adapters return incomplete or contradictory evidence
+  ---
+  duration_ms: 8.83
+  type: 'test'
+  ...
+# Subtest: Harness bounds long browser QA failure evidence before saving it to run history
+ok 45 - Harness bounds long browser QA failure evidence before saving it to run history
+  ---
+  duration_ms: 0.558542
+  type: 'test'
+  ...
+# Subtest: independent QA vetoes optimistic review, preserves evidence and forwards failure before applying
+ok 46 - independent QA vetoes optimistic review, preserves evidence and forwards failure before applying
+  ---
+  duration_ms: 2122.936084
+  type: 'test'
+  ...
+# Subtest: failed independent QA cannot be overridden by model approval at the round limit
+ok 47 - failed independent QA cannot be overridden by model approval at the round limit
+  ---
+  duration_ms: 1229.154958
+  type: 'test'
+  ...
+# Subtest: failed QA key format reaches the next saved planner without accepting a failed actual browser check
+ok 48 - failed QA key format reaches the next saved planner without accepting a failed actual browser check
+  ---
+  duration_ms: 986.205416
+  type: 'test'
+  ...
+# Subtest: QA recovery routes the last existing attempt only for automatic planners, retaining global coverage and reusing unchanged case judgments
+    # Subtest: automatic planner changes after two rejections
+    ok 1 - automatic planner changes after two rejections
+      ---
+      duration_ms: 1309.728542
+      type: 'test'
+      ...
+    # Subtest: fixed planner is never changed
+    ok 2 - fixed planner is never changed
+      ---
+      duration_ms: 1354.850792
+      type: 'test'
+      ...
+    1..2
+ok 49 - QA recovery routes the last existing attempt only for automatic planners, retaining global coverage and reusing unchanged case judgments
+  ---
+  duration_ms: 2665.43175
+  type: 'test'
+  ...
+# Subtest: QA recovery cannot bypass a failed individual category or start implementation after three rejected plans
+ok 50 - QA recovery cannot bypass a failed individual category or start implementation after three rejected plans
+  ---
+  duration_ms: 846.51975
+  type: 'test'
+  ...
+# Subtest: coverage-only unexplained rejection reuses identical evidence for only the unanswered question before speculative QA edits and cannot override failed runtime QA
+ok 51 - coverage-only unexplained rejection reuses identical evidence for only the unanswered question before speculative QA edits and cannot override failed runtime QA
+  ---
+  duration_ms: 1119.694333
+  type: 'test'
+  ...
+# Subtest: an individual QA rejection retains the first repair opportunity before switching an unexplained judge
+ok 52 - an individual QA rejection retains the first repair opportunity before switching an unexplained judge
+  ---
+  duration_ms: 1099.16675
+  type: 'test'
+  ...
+# Subtest: explanatory judge rejection supplies concrete repair feedback and still blocks implementation after the bounded attempts
+ok 53 - explanatory judge rejection supplies concrete repair feedback and still blocks implementation after the bounded attempts
+  ---
+  duration_ms: 916.903834
+  type: 'test'
+  ...
+# Subtest: QA delta repair blocks changes to accepted cases and recovers with only the missing check
+ok 54 - QA delta repair blocks changes to accepted cases and recovers with only the missing check
+  ---
+  duration_ms: 1268.499417
+  type: 'test'
+  ...
+# Subtest: missing coverage can extend a full accepted QA plan before independent execution and application
+ok 55 - missing coverage can extend a full accepted QA plan before independent execution and application
+  ---
+  duration_ms: 1481.049625
+  type: 'test'
+  ...
+# Subtest: a rejected individual QA case can be repaired without touching accepted cases
+ok 56 - a rejected individual QA case can be repaired without touching accepted cases
+  ---
+  duration_ms: 1210.937875
+  type: 'test'
+  ...
+# Subtest: new actionable feedback after real QA patches gets a fourth review without weakening runtime gates
+    # Subtest: actual browser pass permits application
+    ok 1 - actual browser pass permits application
+      ---
+      duration_ms: 1289.251083
+      type: 'test'
+      ...
+    # Subtest: actual browser failure blocks application
+    ok 2 - actual browser failure blocks application
+      ---
+      duration_ms: 1031.644792
+      type: 'test'
+      ...
+    1..2
+ok 57 - new actionable feedback after real QA patches gets a fourth review without weakening runtime gates
+  ---
+  duration_ms: 2321.58375
+  type: 'test'
+  ...
+# Subtest: continually new QA feedback is bounded at six and cannot begin implementation or application
+ok 58 - continually new QA feedback is bounded at six and cannot begin implementation or application
+  ---
+  duration_ms: 830.149041
+  type: 'test'
+  ...
+# Subtest: a repeated actionable rejection after an extended QA patch does not extend again
+ok 59 - a repeated actionable rejection after an extended QA patch does not extend again
+  ---
+  duration_ms: 811.843042
+  type: 'test'
+  ...
+# Subtest: unchanged QA patches exhaust format repair without repeating review or starting implementation
+ok 60 - unchanged QA patches exhaust format repair without repeating review or starting implementation
+  ---
+  duration_ms: 756.723625
+  type: 'test'
+  ...
+# Subtest: fixed QA format repair receives the precise oversized check and succeeds without changing the contract
+ok 61 - fixed QA format repair receives the precise oversized check and succeeds without changing the contract
+  ---
+  duration_ms: 1311.837167
+  type: 'test'
+  ...
+# Subtest: malformed QA JSON enters format repair for fixed models or the saved fallback for automatic models
+    # Subtest: fixed model repair
+    ok 1 - fixed model repair
+      ---
+      duration_ms: 1276.519125
+      type: 'test'
+      ...
+    # Subtest: saved fallback
+    ok 2 - saved fallback
+      ---
+      duration_ms: 1334.166916
+      type: 'test'
+      ...
+    1..2
+ok 62 - malformed QA JSON enters format repair for fixed models or the saved fallback for automatic models
+  ---
+  duration_ms: 2611.484333
+  type: 'test'
+  ...
+# Subtest: repeated malformed QA JSON exhausts the existing repair bound and never starts implementation
+ok 63 - repeated malformed QA JSON exhausts the existing repair bound and never starts implementation
+  ---
+  duration_ms: 896.311625
+  type: 'test'
+  ...
+1..63
+# tests 95
+# suites 0
+# pass 95
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 26404.532208

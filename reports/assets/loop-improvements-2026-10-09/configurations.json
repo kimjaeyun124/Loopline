@@ -1,0 +1,266 @@
+[
+  {
+    "id": "automatic-loop",
+    "label": "자동 Loop · Jev/Gemini/GPT",
+    "roles": {
+      "planner": {
+        "provider": "api",
+        "model": "models/gemini-3-flash-preview",
+        "label": "models/gemini-3-flash-preview",
+        "supportedReasoningEfforts": [],
+        "connectionId": "f7a0013e-5238-47e3-a222-ad27ee060f6d",
+        "decisionOnly": false,
+        "reasoningEffort": null,
+        "automatic": true,
+        "automaticEffort": true,
+        "nativePlugins": false,
+        "loopMcp": false,
+        "instructions": "",
+        "fallbacks": [
+          {
+            "provider": "openai",
+            "model": "gpt-6-astra",
+            "label": "GPT-6-Astra",
+            "supportedReasoningEfforts": [
+              "low",
+              "medium",
+              "high",
+              "xhigh",
+              "max",
+              "ultra"
+            ],
+            "codexAccountId": "default",
+            "decisionOnly": false,
+            "reasoningEffort": "high",
+            "automatic": false,
+            "automaticEffort": true,
+            "nativePlugins": false,
+            "loopMcp": false,
+            "instructions": "",
+            "fallbacks": []
+          },
+          {
+            "provider": "openai",
+            "model": "gpt-6-sol",
+            "label": "GPT-6-Sol",
+            "supportedReasoningEfforts": [
+              "low",
+              "medium",
+              "high",
+              "xhigh",
+              "max",
+              "ultra"
+            ],
+            "codexAccountId": "default",
+            "decisionOnly": false,
+            "reasoningEffort": "high",
+            "automatic": false,
+            "automaticEffort": true,
+            "nativePlugins": false,
+            "loopMcp": false,
+            "instructions": "",
+            "fallbacks": []
+          },
+          {
+            "provider": "openai",
+            "model": "gpt-6-luna",
+            "label": "GPT-6-Luna",
+            "supportedReasoningEfforts": [
+              "low",
+              "medium",
+              "high",
+              "xhigh",
+              "max"
+            ],
+            "codexAccountId": "default",
+            "decisionOnly": false,
+            "reasoningEffort": "high",
+            "automatic": false,
+            "automaticEffort": true,
+            "nativePlugins": false,
+            "loopMcp": false,
+            "instructions": "",
+            "fallbacks": []
+          }
+        ]
+      },
+      "worker": {
+        "provider": "openai",
+        "model": "gpt-6-sol",
+        "label": "GPT-6-Sol",
+        "supportedReasoningEfforts": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max",
+          "ultra"
+        ],
+        "codexAccountId": "default",
+        "decisionOnly": false,
+        "reasoningEffort": "max",
+        "automatic": true,
+        "automaticEffort": true,
+        "nativePlugins": false,
+        "loopMcp": false,
+        "instructions": "",
+        "fallbacks": [
+          {
+            "provider": "openai",
+            "model": "gpt-6-astra",
+            "label": "GPT-6-Astra",
+            "supportedReasoningEfforts": [
+              "low",
+              "medium",
+              "high",
+              "xhigh",
+              "max",
+              "ultra"
+            ],
+            "codexAccountId": "default",
+            "decisionOnly": false,
+            "reasoningEffort": "max",
+            "automatic": false,
+            "automaticEffort": true,
+            "nativePlugins": false,
+            "loopMcp": false,
+            "instructions": "",
+            "fallbacks": []
+          },
+          {
+            "provider": "openai",
+            "model": "gpt-6-luna",
+            "label": "GPT-6-Luna",
+            "supportedReasoningEfforts": [
+              "low",
+              "medium",
+              "high",
+              "xhigh",
+              "max"
+            ],
+            "codexAccountId": "default",
+            "decisionOnly": false,
+            "reasoningEffort": "max",
+            "automatic": false,
+            "automaticEffort": true,
+            "nativePlugins": false,
+            "loopMcp": false,
+            "instructions": "",
+            "fallbacks": []
+          },
+          {
+            "provider": "api",
+            "model": "models/gemini-3-flash-preview",
+            "label": "models/gemini-3-flash-preview",
+            "supportedReasoningEfforts": [],
+            "connectionId": "f7a0013e-5238-47e3-a222-ad27ee060f6d",
+            "decisionOnly": false,
+            "reasoningEffort": null,
+            "automatic": false,
+            "automaticEffort": true,
+            "nativePlugins": false,
+            "loopMcp": false,
+            "instructions": "",
+            "fallbacks": []
+          }
+        ]
+      },
+      "judge": {
+        "provider": "api",
+        "model": "jev-latest",
+        "label": "jev-latest",
+        "supportedReasoningEfforts": [],
+        "connectionId": "d2af9947-1459-4719-b11b-60d0775a0189",
+        "decisionOnly": true,
+        "reasoningEffort": null,
+        "automatic": true,
+        "automaticEffort": true,
+        "nativePlugins": false,
+        "loopMcp": false,
+        "instructions": "",
+        "fallbacks": [
+          {
+            "provider": "openai",
+            "model": "gpt-6-astra",
+            "label": "GPT-6-Astra",
+            "supportedReasoningEfforts": [
+              "low",
+              "medium",
+              "high",
+              "xhigh",
+              "max",
+              "ultra"
+            ],
+            "codexAccountId": "default",
+            "decisionOnly": false,
+            "reasoningEffort": "high",
+            "automatic": false,
+            "automaticEffort": true,
+            "nativePlugins": false,
+            "loopMcp": false,
+            "instructions": "",
+            "fallbacks": []
+          },
+          {
+            "provider": "openai",
+            "model": "gpt-6-sol",
+            "label": "GPT-6-Sol",
+            "supportedReasoningEfforts": [
+              "low",
+              "medium",
+              "high",
+              "xhigh",
+              "max",
+              "ultra"
+            ],
+            "codexAccountId": "default",
+            "decisionOnly": false,
+            "reasoningEffort": "high",
+            "automatic": false,
+            "automaticEffort": true,
+            "nativePlugins": false,
+            "loopMcp": false,
+            "instructions": "",
+            "fallbacks": []
+          },
+          {
+            "provider": "openai",
+            "model": "gpt-6-luna",
+            "label": "GPT-6-Luna",
+            "supportedReasoningEfforts": [
+              "low",
+              "medium",
+              "high",
+              "xhigh",
+              "max"
+            ],
+            "codexAccountId": "default",
+            "decisionOnly": false,
+            "reasoningEffort": "high",
+            "automatic": false,
+            "automaticEffort": true,
+            "nativePlugins": false,
+            "loopMcp": false,
+            "instructions": "",
+            "fallbacks": []
+          },
+          {
+            "provider": "api",
+            "model": "models/gemini-3-flash-preview",
+            "label": "models/gemini-3-flash-preview",
+            "supportedReasoningEfforts": [],
+            "connectionId": "f7a0013e-5238-47e3-a222-ad27ee060f6d",
+            "decisionOnly": false,
+            "reasoningEffort": null,
+            "automatic": false,
+            "automaticEffort": true,
+            "nativePlugins": false,
+            "loopMcp": false,
+            "instructions": "",
+            "fallbacks": []
+          }
+        ]
+      }
+    }
+  }
+]

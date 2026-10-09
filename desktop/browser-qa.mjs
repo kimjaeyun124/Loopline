@@ -93,6 +93,9 @@ export async function verifyBrowser({ workspace, runId, round, plan }, userData,
             if (signal?.aborted) throw signal.reason;
             if (step.action === 'reset') { await js('() => {localStorage.clear();sessionStorage.clear();}', null); await window.loadURL(origin + '/'); }
             else if (step.action === 'reload') await window.loadURL(origin + '/');
+            // Fixture preparation stays inside this disposable page origin. A
+            // later reload and rendered assertion provide the actual evidence.
+            else if (step.action === 'set-storage') await js('(s) => {localStorage.setItem(s.key,s.value);}', { key: step.key, value: step.value });
             else if (step.action === 'fill') {
               const exists = await js('(s)=>{const el=document.querySelector(s.selector);if(!el)return false;el.focus();if(el.select)el.select();return true;}', step);
               if (!exists) throw new Error(`입력 요소 없음: ${step.selector}`);

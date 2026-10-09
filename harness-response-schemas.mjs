@@ -6,10 +6,11 @@ const object = (properties) => ({ type: 'object', properties, required: Object.k
 const enumeration = (values) => ({ type: 'string', enum: values });
 const step = { anyOf: BROWSER_QA_EXECUTOR.actions.map((action) => object({
   action: enumeration([action]),
-  ...(!['reset', 'reload', 'press'].includes(action) ? { selector: string } : {}),
-  ...(['fill', 'text', 'value'].includes(action) ? { value: string } : {}),
+  ...(!['reset', 'reload', 'press', 'set-storage'].includes(action) ? { selector: string } : {}),
+  ...(['fill', 'text', 'value', 'set-storage'].includes(action) ? { value: string } : {}),
   ...(action === 'count' ? { value: { type: 'integer', minimum: 0, maximum: 1000 } } : {}),
   ...(action === 'press' ? { key: enumeration(BROWSER_QA_EXECUTOR.keys) } : {}),
+  ...(action === 'set-storage' ? { key: string } : {}),
 })) };
 const check = object({ id: string, categories: array(enumeration(QA_CATEGORIES)), steps: array(step) });
 // Each variant has only applicable exemption keys. Strict output does not force

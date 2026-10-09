@@ -49,6 +49,19 @@ function setWebsiteTask(s) {
   s.node('#messageInput').value = 'Build a website dashboard architecture with responsive layouts.';
 }
 
+test('execution budget profile persists and invalid stored profiles return to the default', (t) => {
+  const s = setup(t);
+  s.ui.open();
+  assert.equal(s.node('#harnessBudgetProfile').value, 'standard');
+  s.node('#harnessBudgetProfile').value = 'extended'; s.node('#harnessBudgetProfile').fire('change');
+  assert.equal(s.saved().budgetProfile, 'extended');
+  const reloaded = setup(t, { storage: s.storage }); reloaded.ui.open();
+  assert.equal(reloaded.node('#harnessBudgetProfile').value, 'extended');
+  s.storage.set(KEY, JSON.stringify({ budgetProfile: 'invalid' }));
+  const repaired = setup(t, { storage: s.storage }); repaired.ui.open();
+  assert.equal(repaired.node('#harnessBudgetProfile').value, 'standard');
+});
+
 test('role, effort and options save without the completion button', (t) => {
   const s = setup(t); s.ui.open();
   s.node('#harnessRoles').fire('change', { dataset: { harnessRole: 'worker' }, value: 'jev-test' });

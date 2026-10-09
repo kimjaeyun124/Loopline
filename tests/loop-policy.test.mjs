@@ -1,6 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { automaticLoopStartRounds, classifyEvidenceTaskType, classifyLoopTask, DEFAULT_LOOP_PRIORITIES, extendAutomaticLoopRounds, MAX_AUTO_LOOP_ROUNDS, MAX_LOOP_ROUNDS, normalizeLoopPriorities, rankLoopModelCandidates, recommendLoopEffort, selectAutomaticLoopModel } from '../public/loop-policy.mjs';
+import { automaticLoopStartRounds, classifyEvidenceTaskType, classifyLoopTask, DEFAULT_LOOP_PRIORITIES, extendAutomaticLoopRounds, MAX_AUTO_LOOP_ROUNDS, MAX_LOOP_ROUNDS, normalizeExecutionBudget, normalizeLoopPriorities, rankLoopModelCandidates, recommendLoopEffort, selectAutomaticLoopModel } from '../public/loop-policy.mjs';
+
+test('execution budgets have bounded profiles and cannot allocate more preparation than total', () => {
+  assert.equal(normalizeExecutionBudget().totalTokens, 2_000_000);
+  assert.equal(normalizeExecutionBudget(undefined, 'extended').modelTimeMs, 120 * 60_000);
+  assert.deepEqual(normalizeExecutionBudget(undefined, 'constructor'), normalizeExecutionBudget());
+  for (const value of [[], false, { totalTokens: 0 }, { totalTokens: 1.5 }, { preparationTokens: 3_000_000 }, { preparationTimeMs: 9_000_000 }, { unknown: 1 }, { constructor: 1 }, { toString: 1 }]) assert.throws(() => normalizeExecutionBudget(value));
+});
 
 test('loop complexity keeps small requests light and raises effort for broad engineering changes', () => {
   assert.equal(classifyLoopTask('Export a small constant and test its value.'), 'simple');
@@ -23,13 +30,13 @@ test('automatic loop starts with task-sized rounds and extends in bounded qualit
 
 test('automatic effort puts quality and compute first by default and follows resource priorities when reordered', () => {
   const supported = ['low', 'medium', 'high', 'max'];
-  assert.equal(recommendLoopEffort('planner', supported, 'Fix one label.'), 'max');
-  assert.equal(recommendLoopEffort('worker', supported, 'Fix one label.'), 'max');
-  assert.equal(recommendLoopEffort('judge', supported, 'Fix one label.'), 'max');
+  assert.equal(recommendLoopEffort('planner', supported, 'Fix one label.'), 'medium');
+  assert.equal(recommendLoopEffort('worker', supported, 'Fix one label.'), 'high');
+  assert.equal(recommendLoopEffort('judge', supported, 'Fix one label.'), 'high');
   const complexTask = 'Refactor the architecture and improve concurrency handling.';
-  assert.equal(recommendLoopEffort('planner', supported, complexTask), 'max');
+  assert.equal(recommendLoopEffort('planner', supported, complexTask), 'high');
   assert.equal(recommendLoopEffort('worker', supported, complexTask), 'max');
-  assert.equal(recommendLoopEffort('judge', supported, complexTask), 'max');
+  assert.equal(recommendLoopEffort('judge', supported, complexTask), 'high');
   assert.equal(recommendLoopEffort('planner', ['low', 'high'], complexTask), 'high');
   const resourceFirst = ['tokenEfficiency', 'speed', 'quality', 'reasoning'];
   assert.equal(recommendLoopEffort('worker', supported, 'Fix one label.', resourceFirst), 'medium');

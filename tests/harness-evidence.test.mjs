@@ -12,6 +12,31 @@ const storedEvidence = (id, type, finishedAt, calls = []) => ({ version: 2, id, 
   verificationPassed: true, browserQaRequired: false, browserQaPassed: false, recoveries: 0, finishedAt, calls });
 async function fixture(t) { const directory = await mkdtemp(join(tmpdir(), 'loopline-evidence-')); t.after(() => rm(directory, { recursive: true, force: true })); return new HarnessEvidence(directory); }
 
+test('budget and infrastructure failures retain direct cost but cannot lower model code completion metrics', async (t) => {
+  const store = await fixture(t);
+  await store.record(run({ status: 'limit', applied: false, budgetExceeded: { scope: '전체' } }));
+  await store.record(run({ status: 'failed', applied: false, qaHistory: [{ unavailable: true, passed: false }] }));
+  await store.record(run({ status: 'failed', applied: false, failureContext: { kind: 'workflow', stage: 'prepare' } }));
+  await store.record(run({ status: 'failed', applied: false, modelCalls: [{ role: 'planner', ...model, effort: 'max', tokens: 100, durationMs: 300, status: 'failed', failureKind: 'format' }] }));
+  const summary = await store.summary('web'), worker = summary.models.find(item => item.role === 'worker');
+  assert.equal(worker.completionMeasuredRuns, 0); assert.equal(worker.excludedOutcomeRuns, 3);
+  assert.equal(worker.reportedTokens, 300); assert.equal(worker.sufficientEvidence, false);
+  assert.equal(summary.models.find(item => item.role === 'planner').formatFailures, 1);
+  assert.deepEqual(summary.failureAttributions, { budget: 1, 'qa-infrastructure': 1, workflow: 1, preparation: 1 });
+});
+
+test('detailed measurements preserve unknown values and count observed first responses separately', async (t) => {
+  const store = await fixture(t), input = run();
+  input.modelCalls.push({ ...input.modelCalls[0], inputTokens: 80, outputTokens: 20, cachedInputTokens: 30, firstResponseMs: 42, schemaRequested: true, schemaFallback: true });
+  await store.record(input);
+  const evidence = (await store.records())[0], summary = (await store.summary()).models[0];
+  assert.equal(evidence.version, 3); assert.equal(evidence.calls[0].inputTokens, null);
+  assert.equal(summary.detailedUsageCalls, 1); assert.equal(summary.meanFirstResponseMs, 42);
+  assert.equal(summary.firstResponseCalls, 1); assert.equal(summary.reportedInputTokens, 80);
+  assert.equal(summary.reportedOutputTokens, 20); assert.equal(summary.reportedCachedInputTokens, 30);
+  assert.equal(summary.schemaFallbackCalls, 1);
+});
+
 test('measurements require three distinct runs and replacement never double counts a resumed run', async (t) => {
   const store = await fixture(t), first = run();
   await store.record(first);

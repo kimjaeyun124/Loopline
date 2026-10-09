@@ -53,6 +53,81 @@ function modelScript(judge) {
 const pass = async () => ({ code: 0, output: 'PASS', error: '' });
 const complete = () => ({ decision: 'complete', summary: 'Verified', feedback: '' });
 
+test('stream timing and schema notifications do not persist an unchanged run', () => {
+  const engine = Object.create(HarnessEngine.prototype);
+  engine.persist = () => assert.fail('Diagnostics are persisted once with the completed call sample');
+  for (const type of ['firstResponse', 'schemaFallback', 'unknown']) engine.recordModelSignal({}, {}, { type });
+  engine.recordModelSignal({}, {}, null);
+});
+
+test('repeated cumulative usage counts once and keeps detailed tokens and first response timing', async (t) => {
+  const f = await fixture(t), script = modelScript(complete);
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (...args) => {
+    const report = args[4]; report({ type: 'firstResponse' }); report({ type: 'firstResponse' });
+    report({ type: 'usage', usage: { prompt_tokens: 10, completion_tokens: 2, total_tokens: 12 } });
+    report({ type: 'usage', usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15, prompt_tokens_details: { cached_tokens: 4 } } });
+    return script(...args);
+  } });
+  const run = await settled(engine, (await engine.create(f.input)).id);
+  assert.equal(run.status, 'completed', run.summary);
+  assert.equal(Object.values(run.modelUsage).reduce((sum, usage) => sum + usage.totalTokens, 0), run.modelCalls.length * 15);
+  assert.ok(run.modelCalls.every(call => call.tokens === 15 && call.inputTokens === 10 && call.outputTokens === 5 && call.cachedInputTokens === 4 && call.firstResponseMs >= 0));
+});
+
+test('automatic effort adapts to the current task while explicit max is preserved', async (t) => {
+  for (const automaticEffort of [true, false]) {
+    const f = await fixture(t), calls = [], script = modelScript(complete);
+    const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (selection, ...rest) => {
+      calls.push(selection.reasoningEffort); return script(selection, ...rest);
+    } });
+    const roles = Object.fromEntries(Object.entries(f.input.roles).map(([role, model]) => [role, {
+      ...model, automaticEffort, reasoningEffort: 'max', supportedReasoningEfforts: ['low', 'medium', 'high', 'max'],
+    }]));
+    const run = await settled(engine, (await engine.create({ ...f.input, roles })).id);
+    assert.equal(run.status, 'completed', run.summary);
+    assert.equal(calls[0], automaticEffort ? 'medium' : 'max');
+    assert.ok(calls.slice(1).every(effort => effort === (automaticEffort ? 'high' : 'max')));
+  }
+});
+
+test('preparation token budget stops before another call without applying or automatically restarting', async (t) => {
+  const f = await fixture(t); let calls = 0;
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, verifyBrowser: async () => assert.fail('Budget stops before QA'), invoke: async (_selection, _prompt, _instructions, _signal, report) => {
+    calls++; report({ type: 'usage', usage: { total_tokens: 25 } }); return 'Plan';
+  } });
+  const run = await settled(engine, (await engine.create({ ...f.input, task: '웹사이트 제작',
+    executionBudget: { totalTokens: 100, preparationTokens: 20 },
+  })).id);
+  assert.equal(run.status, 'limit', run.summary); assert.equal(calls, 1);
+  assert.equal(run.budgetExceeded.scope, '준비'); assert.equal(run.applied, undefined);
+  assert.equal(run.canResume, false); assert.ok(engine.runs.get(run.id).run.graphCheckpoint);
+  assert.equal(run.autoResumeAttempts || 0, 0);
+  assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'original\n');
+});
+
+test('total model time budget aborts a silent provider and preserves missing usage', async (t) => {
+  const f = await fixture(t);
+  const engine = new HarnessEngine({ directory: f.data, invoke: (_selection, _prompt, _instructions, signal) => new Promise((_resolve, reject) => {
+    signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+  }) });
+  const run = await settled(engine, (await engine.create({ ...f.input, executionBudget: { modelTimeMs: 30, preparationTimeMs: 30 } })).id);
+  assert.equal(run.status, 'limit', run.summary); assert.equal(run.modelCalls.length, 1);
+  assert.equal(run.modelCalls[0].tokens, null); assert.equal(run.modelCalls[0].failureKind, 'budget');
+  assert.equal(run.humanActions.stopRequests, 0); assert.ok(engine.runs.get(run.id).run.graphCheckpoint);
+});
+
+test('execution tokens stop at the next call and record entry into implementation', async (t) => {
+  const f = await fixture(t), script = modelScript(complete);
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (...args) => {
+    args[4]({ type: 'usage', usage: { total_tokens: 10 } }); return script(...args);
+  } });
+  const run = await settled(engine, (await engine.create({ ...f.input, executionBudget: { totalTokens: 25, preparationTokens: 20 } })).id);
+  assert.equal(run.status, 'limit', run.summary); assert.equal(run.modelCalls.length, 3);
+  assert.ok(run.firstWorkerAt); assert.equal(run.preparationReportedTokens, 10);
+  assert.deepEqual(run.modelCalls.map(call => call.phase), ['preparation', 'execution', 'execution']);
+  assert.equal(run.budgetExceeded.scope, '전체'); assert.notEqual(run.applied, true);
+});
+
 test('managed project setup repairs one malformed folder proposal and review without restarting', async (t) => {
   const f = await fixture(t), script = modelScript(complete);
   let proposals = 0, folderReviews = 0, originalReview;

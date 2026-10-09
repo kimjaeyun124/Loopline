@@ -14,6 +14,12 @@ export const BROWSER_QA_EXECUTOR = Object.freeze({
   focusVisibleEvidence: 'focus-visible asserts keyboard focus plus a visible outline or a box shadow that changed from its unfocused style; focused alone asserts only the active element.',
   textEvidence: 'text asserts rendered, visible text. A document title or head metadata is not visible page text; use a visible heading for page-title UI assertions.',
   inputEvidence: 'fill focuses and selects the input, then inserts text through the real browser. Native maxlength and input-type restrictions apply; it never assigns element.value or bypasses HTML constraints. If the task requires an over-limit error, let that input reach the application validator instead of silently truncating it with maxlength, slicing, or sanitization. Preserve valid boundary inputs and the original error requirement. When input prevention itself is required, assert the retained value and resulting state rather than expecting an error for text the browser never accepted.',
+  categoryEvidence: {
+    input: '해당 check 안에 fill 뒤 assertion이 필요합니다. 빈 입력 제출도 fill(selector,value:"")로 명시하고 제출 후 오류를 확인하세요.',
+    save: '해당 check 안에 reload 뒤 저장된 상태의 assertion이 필요합니다.',
+    empty: '해당 check 안에 빈 상태를 확인하는 visible, hidden 또는 count가 필요합니다.',
+    keyboard: '해당 check 안에 press 뒤 focused, focus-visible 또는 동작 결과 assertion이 필요합니다. click 후 focused만으로는 키보드 검사가 아닙니다.',
+  },
 });
 
 const README_LAUNCH_RESULT = '__LOOPLINE_README_LAUNCH_QA__';
@@ -324,10 +330,14 @@ export function validateBrowserPlan(plan) {
       const index = check.steps.findLastIndex((step) => step.action === action);
       return index >= 0 && check.steps.slice(index + 1).some((step) => assertions.includes(step));
     };
-    if (check.categories.includes('input') && !assertsAfter('fill')) invalid(`${check.id}: 입력 검사에는 실제 입력 이후의 assertion이 필요합니다.`);
-    if (check.categories.includes('save') && !assertsAfter('reload')) invalid(`${check.id}: 저장 검사에는 새로고침 이후의 assertion이 필요합니다.`);
-    if (check.categories.includes('empty') && !check.steps.some((s) => ['visible', 'hidden', 'count'].includes(s.action))) invalid(`${check.id}: 빈 상태의 표시 검사가 필요합니다.`);
-    if (check.categories.includes('keyboard') && !assertsAfter('press')) invalid(`${check.id}: 키보드 검사에는 실제 키 입력 이후의 assertion이 필요합니다.`);
+    // Return every missing category requirement for this check so a correction
+    // does not fix one omission while repeating another on the next model.
+    const missingEvidence = [];
+    if (check.categories.includes('input') && !assertsAfter('fill')) missingEvidence.push(`입력 검사에는 실제 입력 이후의 assertion이 필요합니다. ${BROWSER_QA_EXECUTOR.categoryEvidence.input}`);
+    if (check.categories.includes('save') && !assertsAfter('reload')) missingEvidence.push(`저장 검사에는 새로고침 이후의 assertion이 필요합니다. ${BROWSER_QA_EXECUTOR.categoryEvidence.save}`);
+    if (check.categories.includes('empty') && !check.steps.some((s) => ['visible', 'hidden', 'count'].includes(s.action))) missingEvidence.push(`빈 상태의 표시 검사가 필요합니다. ${BROWSER_QA_EXECUTOR.categoryEvidence.empty}`);
+    if (check.categories.includes('keyboard') && !assertsAfter('press')) missingEvidence.push(`키보드 검사에는 실제 키 입력 이후의 assertion이 필요합니다. ${BROWSER_QA_EXECUTOR.categoryEvidence.keyboard}`);
+    if (missingEvidence.length) invalid(`${check.id}: ${missingEvidence.join(' ')}`);
     for (const step of check.steps) {
       if (!ACTIONS.has(step.action)) invalid(`${check.id}: 허용되지 않은 브라우저 동작입니다.`);
       if (!['reset', 'reload', 'press'].includes(step.action) && (typeof step.selector !== 'string' || !step.selector.trim() || step.selector.length > 300)) invalid(`${check.id}: 검사할 selector가 필요합니다.`);

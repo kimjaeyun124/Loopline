@@ -867,7 +867,7 @@ test('failed QA key format reaches the next saved planner without accepting a fa
   assert.deepEqual(run.qaPlan, qaPlan); await assert.rejects(readFile(join(f.source, 'index.html')));
 });
 
-test('QA recovery routes the last existing attempt only for automatic planners, retaining every review check', async (t) => {
+test('QA recovery routes the last existing attempt only for automatic planners, retaining global coverage and reusing unchanged case judgments', async (t) => {
   for (const automatic of [true, false]) await t.test(automatic ? 'automatic planner changes after two rejections' : 'fixed planner is never changed', async (t) => {
     const f = await fixture(t), planners = []; let reviews = 0;
     const base = f.input.roles.planner;
@@ -876,7 +876,8 @@ test('QA recovery routes the last existing attempt only for automatic planners, 
         if (typeof prompt === 'object') {
           const result = { answers: Object.fromEntries(Object.keys(prompt.questions).map(id => [id, { choice: 'pass', reason: 'Fixture evidence' }])) };
           if (prompt.questions.qaContract) {
-            assert.deepEqual(Object.keys(prompt.questions), ['qaContract', 'qaInput', 'qaSave', 'qaEmpty', 'qaKeyboard', ...prompt.state.qaPlan.checks.map(check => `qaCheck_${check.id}`)]);
+            assert.deepEqual(Object.keys(prompt.questions), ['qaContract', 'qaInput', 'qaSave', 'qaEmpty', 'qaKeyboard', ...(reviews === 0 ? qaPlan.checks.map(check => `qaCheck_${check.id}`) : [`qaCheck_extra-${reviews + 1}`])]);
+            assert.equal(prompt.state.retainedCaseJudgments?.length || 0, reviews === 0 ? 0 : reviews + 1);
             assert.match(prompt.questions.qaContract.instructions, /not whether unbuilt files already exist/);
             assert.deepEqual(prompt.state.executor, BROWSER_QA_EXECUTOR);
             assert.equal(prompt.state.phase, 'pre-implementation planning');
@@ -887,7 +888,7 @@ test('QA recovery routes the last existing attempt only for automatic planners, 
             assert.match(prompt.questions.qaContract.instructions, /Do not omit any requested browser-observable behavior/);
             assert.match(prompt.questions.qaContract.instructions, /executor.fixedChecks and viewports/);
             assert.match(prompt.questions.qaKeyboard.instructions, /focused alone cannot establish/);
-            assert.match(prompt.questions.qaCheck_empty.instructions, /every requirement in state.individualCheckCriteria/);
+            if (reviews === 0) assert.match(prompt.questions.qaCheck_empty.instructions, /every requirement in state.individualCheckCriteria/);
             assert.match(prompt.state.individualCheckCriteria, /Compare exact selector literals.*number of repeated substrings/);
             assert.match(prompt.state.individualCheckCriteria, /alter correct user data to match a typo/);
             reviews++; if (reviews < 3) result.answers.qaInput = { choice: 'revise' };
@@ -941,7 +942,7 @@ test('QA recovery cannot bypass a failed individual category or start implementa
   assert.equal(await readFile(join(f.source, 'file.txt'), 'utf8'), 'original');
 });
 
-test('coverage-only unexplained rejection obtains an identical review before speculative QA edits and cannot override failed runtime QA', async (t) => {
+test('coverage-only unexplained rejection reuses identical evidence for only the unanswered question before speculative QA edits and cannot override failed runtime QA', async (t) => {
   const f = await fixture(t); let plans = 0, browserChecks = 0; const reviews = [];
   const engine = new HarnessEngine({ directory: f.directory, verify: async () => ({ code: 0, output: 'PASS' }),
     verifyBrowser: async ({ plan }) => { browserChecks++; return { passed: false, checks: browserQaChecks(plan, (id) => id !== 'empty'), failures: ['Actual empty state missing'] }; },
@@ -963,7 +964,9 @@ test('coverage-only unexplained rejection obtains an identical review before spe
   } });
   await engine.runs.get(created.id).execution; const run = await engine.get(created.id);
   assert.equal(plans, 1); assert.deepEqual(reviews.map(review => review.model), ['jev', 'reviewer']);
-  assert.deepEqual(reviews[1].prompt, reviews[0].prompt); assert.equal(browserChecks, 1);
+  assert.deepEqual(reviews[1].prompt.state, reviews[0].prompt.state);
+  assert.deepEqual(Object.keys(reviews[1].prompt.questions), ['qaContract']);
+  assert.deepEqual(reviews[1].prompt.questions.qaContract, reviews[0].prompt.questions.qaContract); assert.equal(browserChecks, 1);
   assert.equal(run.status, 'limit', run.summary); assert.notEqual(run.applied, true); assert.equal(run.browserQaPassed, false);
   assert.equal(run.events.filter(event => event.title.startsWith('계획 판정 근거 복구')).length, 1);
   assert.match(run.events.find(event => event.title.startsWith('계획 판정 근거 복구')).detail, /1번 거부/);
@@ -976,8 +979,9 @@ test('an individual QA rejection retains the first repair opportunity before swi
     invoke: async (selection, prompt) => {
       if (typeof prompt === 'object') {
         const answers = Object.fromEntries(Object.keys(prompt.questions).map(id => [id, { choice: 'pass' }]));
-        if (prompt.questions.qaContract) {
+        if (prompt.questions.qaInput) {
           reviews.push({ model: selection.model, plans });
+          if (!selection.decisionOnly) assert.deepEqual(Object.keys(prompt.questions), ['qaInput']);
           if (selection.decisionOnly) answers.qaInput = { choice: 'revise' };
         }
         return { answers };
@@ -1086,17 +1090,25 @@ test('missing coverage can extend a full accepted QA plan before independent exe
 
 test('a rejected individual QA case can be repaired without touching accepted cases', async (t) => {
   const f = await fixture(t); let plans = 0, reviews = 0;
+  const independent = focusCheck('independent'); independent.steps.unshift({ action: 'reset' });
+  const initial = { ...qaPlan, checks: [...qaPlan.checks, independent] };
   const corrected = { ...qaPlan.checks[0], steps: [...qaPlan.checks[0].steps, { action: 'count', selector: '#list .task', value: 0 }] };
   const engine = new HarnessEngine({ directory: f.directory, verify: async () => ({ code: 0, output: 'PASS' }),
     verifyBrowser: async (input) => ({ passed: true, checks: browserQaChecks(input.plan), failures: [] }), invoke: async (_selection, prompt) => {
       if (typeof prompt === 'object') {
         const result = { answers: Object.fromEntries(Object.keys(prompt.questions).map(id => [id, { choice: 'pass', reason: 'Fixture evidence' }])) };
-        if (prompt.questions.qaContract && ++reviews === 1) result.answers.qaCheck_empty = { choice: 'revise', reason: 'Also assert there are zero task rows.' };
+        if (prompt.questions.qaContract) {
+          if (++reviews === 1) result.answers.qaCheck_empty = { choice: 'revise', reason: 'Also assert there are zero task rows.' };
+          else {
+            assert.deepEqual(Object.keys(prompt.questions), ['qaContract', 'qaInput', 'qaSave', 'qaEmpty', 'qaKeyboard', 'qaCheck_empty', 'qaCheck_input-save']);
+            assert.deepEqual(prompt.state.retainedCaseJudgments.map(item => item.id), ['qaCheck_independent']);
+          }
+        }
         return result;
       }
       if (prompt.includes('구현 계획과 검증 기준')) return 'Plan';
       if (prompt.includes('구현 전에 독립 브라우저 QA 계획')) {
-        if (++plans === 1) return qaPlan;
+        if (++plans === 1) return initial;
         assert.match(prompt, /교체 허용 검사 ID: \["empty"\]/);
         return { replaceChecks: [corrected] };
       }
@@ -1105,7 +1117,7 @@ test('a rejected individual QA case can be repaired without touching accepted ca
   const created = await engine.create(f.input); await engine.runs.get(created.id).execution;
   const run = await engine.get(created.id);
   assert.equal(run.status, 'completed', run.summary); assert.equal(plans, 2); assert.equal(reviews, 2);
-  assert.deepEqual(run.qaPlan.checks, [corrected, qaPlan.checks[1]]);
+  assert.deepEqual(run.qaPlan.checks, [corrected, qaPlan.checks[1], independent]);
 });
 
 test('new actionable feedback after real QA patches gets a fourth review without weakening runtime gates', async (t) => {

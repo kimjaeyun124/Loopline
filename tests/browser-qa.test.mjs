@@ -36,6 +36,18 @@ test('browser QA detects web work while keeping command line JavaScript outside 
   assert.equal(needsBrowserQa('버그 수정', 'index.html'), true);
 });
 
+test('QA repair errors identify the invalid case and reject non-object steps as structured errors', () => {
+  for (const category of ['input', 'save', 'keyboard']) {
+    const plan = { entry: 'index.html', checks: [{ id: `broken-${category}`, categories: [category], steps: [{ action: 'visible', selector: '#list' }] }] };
+    assert.throws(() => validateBrowserPlan(plan), (error) => error.invalidStructuredOutput === true && error.message.includes(`broken-${category}:`));
+  }
+  for (const step of [null, false, 3, 'reload', []]) {
+    const plan = structuredClone(qaPlan); plan.checks[1].steps.splice(1, 0, step);
+    assert.throws(() => validateBrowserPlan(plan), (error) => error.invalidStructuredOutput === true && error.message.includes('input-save:'));
+    assert.throws(() => applyBrowserPlanPatch(qaPlan, { extendChecks: [{ id: 'input-save', steps: [step] }] }), (error) => error.invalidStructuredOutput === true && error.message.includes('input-save:'));
+  }
+});
+
 test('initial and patched QA reject contradictory and malformed exemptions identically', () => {
   for (const notApplicable of [null, [], 'none', { 'malformed-storage': 'Use a Node test for malformed stored JSON.' },
     { input: 'The existing input check must remain required.' }]) {

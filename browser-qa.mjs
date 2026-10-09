@@ -293,6 +293,15 @@ export function needsBrowserQa(task, files = '') {
   return /(?:website|web\s*(?:app|page|site)|front[- ]end|dashboard|landing\s*page|\bUI\b|웹\s*(?:사이트|앱|페이지)|프론트엔드|대시보드|랜딩|화면|디자인)/i.test(task)
     || /(?:^|\n).*\.(?:html|jsx|tsx|vue|svelte|astro)(?:\n|$)/i.test(files);
 }
+function validateNotApplicable(value, covered, invalid) {
+  if (value === undefined) return;
+  if (!value || typeof value !== 'object' || Array.isArray(value)
+    || Object.keys(value).some((category) => !QA_CATEGORIES.includes(category))) invalid('notApplicable은 허용 분류에 대한 근거 객체여야 합니다. 허용 분류: input, save, empty, keyboard. 실행기가 지원하지 않는 개별 시나리오는 별도 Node 검증 조건으로 다루세요.');
+  for (const [category, reason] of Object.entries(value)) {
+    if (covered.has(category)) invalid(`${category}: 기존 검사가 있는 기능을 해당 없음으로 바꿀 수 없습니다.`);
+    if (typeof reason !== 'string' || reason.trim().length < 12 || reason.length > 500) invalid(`${category}: 해당 없음의 구체적인 근거가 필요합니다.`);
+  }
+}
 export function validateBrowserPlan(plan) {
   const invalid = (reason) => { throw Object.assign(new Error(`독립 QA 계획 오류: ${reason}`), { invalidStructuredOutput: true }); };
   if (!plan || typeof plan !== 'object' || Array.isArray(plan)) invalid('JSON 객체가 필요합니다.');
@@ -329,6 +338,7 @@ export function validateBrowserPlan(plan) {
       if (step.action === 'count' && (!Number.isSafeInteger(step.value) || step.value < 0 || step.value > 1000)) invalid('검사 개수가 올바르지 않습니다.');
     }
   }
+  validateNotApplicable(plan.notApplicable, covered, invalid);
   for (const category of QA_CATEGORIES) if (!covered.has(category)) {
     const reason = plan.notApplicable?.[category];
     if (typeof reason !== 'string' || reason.trim().length < 12 || reason.length > 500) invalid(`${category} 검사가 없으며 해당 없음의 구체적인 근거도 없습니다.`);
@@ -369,18 +379,16 @@ export function applyBrowserPlanPatch(plan, patch, replaceableCheckIds = []) {
     // performs every retained step before these additional observations.
     replacementMap.set(extension.id, { ...previous, steps: [...previous.steps, ...extension.steps] });
   }
-  if (patch.notApplicable !== undefined && (!patch.notApplicable || typeof patch.notApplicable !== 'object' || Array.isArray(patch.notApplicable)
-    || Object.keys(patch.notApplicable).some((category) => !QA_CATEGORIES.includes(category)))) invalid('notApplicable은 허용 분류에 대한 근거 객체여야 합니다.');
-  for (const [category, reason] of Object.entries(patch.notApplicable || {})) {
-    if (base.checks.some((check) => check.categories.includes(category))) invalid(`${category}: 기존 검사가 있는 기능을 해당 없음으로 바꿀 수 없습니다.`);
-    if (typeof reason !== 'string' || reason.trim().length < 12 || reason.length > 500) invalid(`${category}: 해당 없음의 구체적인 근거가 필요합니다.`);
-  }
   // Keep every earlier case, position and accepted selector. Only an explicit
   // failed-check verdict grants replacement; missing coverage permits new cases
   // or observations appended after all retained assertions.
-  const merged = validateBrowserPlan({ ...base,
-    checks: [...base.checks.map((check) => replacementMap.get(check.id) || check), ...additions],
-    ...(patch.notApplicable && Object.keys(patch.notApplicable).length ? { notApplicable: { ...(base.notApplicable || {}), ...patch.notApplicable } } : {}),
+  const checks = [...base.checks.map((check) => replacementMap.get(check.id) || check), ...additions];
+  validateNotApplicable(patch.notApplicable, new Set(checks.flatMap((check) => check.categories || [])), invalid);
+  const notApplicable = { ...(base.notApplicable || {}), ...(patch.notApplicable || {}) };
+  // An added executable check replaces its earlier exemption, never the reverse.
+  for (const category of checks.flatMap((check) => check.categories || [])) delete notApplicable[category];
+  const merged = validateBrowserPlan({ ...base, checks,
+    ...(base.notApplicable !== undefined || Object.keys(notApplicable).length ? { notApplicable } : {}),
   });
   if (isDeepStrictEqual(merged, base)) invalid('실제 보완 내용이 없습니다. 판정에서 누락된 행동 검사를 추가하거나 허용된 실패 검사만 고치세요.');
   return merged;

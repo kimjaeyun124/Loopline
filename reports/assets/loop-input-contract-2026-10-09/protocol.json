@@ -1,0 +1,42 @@
+{
+  "frozenAt": "2026-10-09T09:28:40.666882+00:00",
+  "task": "Focus Board responsive web application",
+  "promptSha256": "1010fb02fa1d603729d91f13e9bd9e025316a17437c73e531dd7ef2cbc0f0573",
+  "qaSha256": "049272d78695a0dc6775927e1c243cba82be9d5332f4a9798f9d56cfcd84ec82",
+  "sourceCommit": "c21de18",
+  "iterationsPerConfiguration": 1,
+  "implementationRounds": 6,
+  "commonBrowserChecks": 12,
+  "viewports": [
+    {
+      "id": "desktop",
+      "width": 1440,
+      "height": 900
+    },
+    {
+      "id": "mobile",
+      "width": 390,
+      "height": 844
+    }
+  ],
+  "commonAssertions": "24 behavior checks + 24 per-scenario layout checks + 2 overall layout checks = 50",
+  "externalQaFeedsBackToRun": false,
+  "manualCodeChangesAllowed": false,
+  "manualResumeAllowed": false,
+  "perRunObservationCeilingMs": 2700000,
+  "comparisonOrder": [
+    "automatic-loop"
+  ],
+  "limitation": "동일 Harness에 역할별 모델 구성을 달리한 비교. 순수 단일 채팅과의 비교가 아님. 각 구성 1회로 장기 성공률을 추정하지 않음.",
+  "changedVariables": [
+    "브라우저 입력 동작 계약을 계획·구현 모델에 전달",
+    "입력 전달 차이와 HTML 제약을 QA 실패 근거에 포함",
+    "앞선 실측 뒤 수정된 README Node 실행 경로 포함"
+  ],
+  "budgetProfile": "extended",
+  "previousTrial": "b85170cc-edb5-4dc8-8824-89bec6644b5c",
+  "changesFromPreviousTrial": [
+    "동일 프롬프트·공통 QA·확장 예산·6회차·45분 관찰 한도 유지",
+    "연결 상태와 모델 선택용 누적 실측 기록은 실행 시점의 앱 상태 사용"
+  ]
+}

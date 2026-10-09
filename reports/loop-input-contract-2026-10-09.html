@@ -1,0 +1,263 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Loopline · 입력 계약 개선 실측 · 2026-10-09</title><style>:root {
+  color-scheme: dark;
+  --bg: #151718;
+  --surface: #1c1f20;
+  --raised: #232728;
+  --line: #343a3b;
+  --ink: #f1f3ef;
+  --muted: #a4adab;
+  --green: #a8d9bd;
+  --amber: #e9c58b;
+  --red: #e4a49e;
+}
+* { box-sizing: border-box; }
+html { scroll-padding-top: 70px; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.7 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; }
+a { color: inherit; text-underline-offset: 4px; }
+a:hover { color: var(--green); }
+a:focus-visible, summary:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--green); outline-offset: 5px; }
+button, a, summary { -webkit-tap-highlight-color: transparent; }
+h1, h2, h3, p, figure { margin: 0; }
+h1 { font-size: clamp(30px, 3.5vw, 46px); line-height: 1.25; letter-spacing: -1.9px; font-weight: 650; }
+h2 { font-size: 25px; line-height: 1.4; letter-spacing: -.8px; font-weight: 650; }
+h3 { font-size: 17px; line-height: 1.5; letter-spacing: -.25px; }
+p + p { margin-top: 12px; }
+small, .muted { color: var(--muted); }
+small { font-size: 12px; line-height: 1.5; }
+strong { font-weight: 650; }
+code { font: 12px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; color: #c6d9ce; background: #29302d; border-radius: 5px; padding: 3px 6px; overflow-wrap: anywhere; }
+ul { padding-left: 20px; }
+li + li { margin-top: 12px; }
+.shell { max-width: 1264px; margin: 0 auto; padding: 0 40px; }
+.topbar { border-bottom: 1px solid var(--line); }
+.topbar-inner { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 68px; }
+.brand { display: flex; align-items: center; gap: 12px; text-decoration: none; font-size: 19px; font-weight: 700; letter-spacing: -.5px; }
+.brand-mark { display: grid; place-items: center; width: 34px; height: 34px; background: var(--green); border-radius: 10px; color: #18251d; font-size: 25px; line-height: 1; }
+.brand-divider { height: 16px; width: 1px; background: var(--line); margin: 0 6px; }
+.brand small { font-size: 13px; font-weight: 450; letter-spacing: 0; }
+.topbar-meta { display: flex; align-items: center; gap: 18px; font-size: 12px; color: var(--muted); }
+.skip-link { position: fixed; top: 12px; left: 12px; z-index: 10; transform: translateY(-180%); padding: 10px 18px; background: var(--ink); color: var(--bg); border-radius: 8px; }
+.skip-link:focus { transform: translateY(0); }
+.hero { padding-top: 32px; padding-bottom: 22px; }
+.eyebrow { display: flex; gap: 10px; align-items: center; font-size: 12px; font-weight: 600; letter-spacing: 1.6px; color: var(--green); margin-bottom: 12px; }
+.eyebrow::before { content: ""; width: 20px; height: 1px; background: var(--green); }
+.hero-heading { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+.hero-description { color: var(--muted); margin-top: 12px; max-width: 670px; }
+.hero-meta { display: flex; flex-wrap: wrap; gap: 8px 18px; color: var(--muted); font-size: 12px; margin-top: 16px; }
+.button { display: inline-flex; align-items: center; justify-content: center; gap: 16px; padding: 11px 17px; border: 1px solid #4c5552; border-radius: 9px; font-size: 13px; font-weight: 600; text-decoration: none; white-space: nowrap; }
+.button:hover { border-color: var(--green); background: #26312b; }
+.button.primary { background: var(--ink); border-color: var(--ink); color: #1c221e; }
+.button.primary:hover { background: var(--green); border-color: var(--green); }
+.section-nav { position: sticky; top: 0; z-index: 3; background: var(--bg); border-bottom: 1px solid var(--line); }
+.nav-links { display: flex; gap: 30px; overflow-x: auto; scrollbar-width: thin; }
+.nav-links a { padding: 17px 0; font-size: 13px; font-weight: 550; text-decoration: none; color: var(--muted); white-space: nowrap; border-bottom: 2px solid transparent; }
+.nav-links a:hover, .nav-links a:focus-visible { color: var(--ink); border-bottom-color: var(--green); }
+main { padding-bottom: 70px; }
+section { padding-top: 42px; }
+#summary { padding-top: 30px; }
+.section-head { display: flex; justify-content: space-between; align-items: center; gap: 24px; margin-bottom: 22px; }
+.section-label { display: block; margin-bottom: 5px; color: var(--muted); letter-spacing: 1px; font-size: 11px; font-weight: 600; }
+.section-head p { color: var(--muted); font-size: 13px; margin-top: 9px; max-width: 680px; }
+.status-badge { display: inline-flex; align-items: center; gap: 8px; color: var(--amber); background: #302a21; border: 1px solid #504431; border-radius: 99px; padding: 5px 11px; font-size: 12px; white-space: nowrap; }
+.status-badge::before { content: ""; width: 6px; height: 6px; background: currentColor; border-radius: 50%; flex-shrink: 0; }
+.status-badge.success { color: var(--green); border-color: #3b5745; background: #222e26; }
+.result-banner { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; border-left: 3px solid var(--amber); background: #211f1b; padding: 20px 23px; margin-bottom: 22px; border-radius: 0 10px 10px 0; }
+.result-banner h2 { font-size: 20px; }
+.result-banner p { font-size: 13px; margin-top: 5px; color: #c2baac; max-width: 820px; }
+.result-banner.success { border-color: var(--green); background: #1c2620; }
+.result-banner.success p { color: #b6cbbb; }
+.metric-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 13px; }
+.metric { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 21px 22px 18px; }
+.metric-label { display: block; color: #c1c7c4; font-size: 12px; }
+.metric-value { font-size: clamp(23px, 2.3vw, 32px); font-weight: 620; line-height: 1.4; letter-spacing: -1.1px; font-variant-numeric: tabular-nums; margin: 10px 0 13px; }
+.metric-value em { font-style: normal; font-size: 19px; color: var(--muted); margin-left: 3px; font-weight: 450; }
+.metric-note { display: block; color: var(--muted); font-size: 11px; }
+.positive { color: var(--green); }
+.warning { color: var(--amber); }
+.negative { color: var(--red); }
+.milestone-panel { margin-top: 20px; border: 1px solid var(--line); border-radius: 12px; padding: 20px 23px; }
+.panel-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+.panel-heading h3 { font-size: 14px; }
+.panel-heading p { font-size: 12px; color: var(--muted); }
+.milestones { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.milestones li { margin: 0; display: flex; gap: 12px; padding-top: 13px; border-top: 2px solid #51534a; }
+.milestones li.complete { border-color: #6b9c7d; }
+.stage-number { display: grid; place-items: center; flex-shrink: 0; width: 23px; height: 23px; font-size: 11px; border: 1px solid #6d6656; color: var(--amber); border-radius: 50%; }
+.complete .stage-number { background: #26382c; color: var(--green); border-color: #43634e; }
+.milestones h3 { font-size: 12px; font-weight: 550; }
+.milestones p { font-size: 11px; color: var(--muted); margin-top: 4px; }
+.comparison-card { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.table-wrap { overflow-x: auto; scrollbar-width: thin; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { text-align: left; padding: 15px 21px; border-bottom: 1px solid var(--line); vertical-align: top; }
+thead th { background: var(--surface); color: var(--muted); font-size: 11px; font-weight: 500; }
+tbody th { font-weight: 500; color: #c3cac6; width: 36%; }
+tbody td { font-variant-numeric: tabular-nums; }
+tbody tr:last-child > * { border-bottom: 0; }
+.comparison-table thead th:last-child { color: var(--green); background: #202a23; }
+.comparison-table td:last-child { background: #19201b; }
+.comparison-table td, .comparison-table thead th { width: 32%; }
+.comparison-table .important > * { font-weight: 650; color: var(--amber); }
+.comparison-table .important th { color: var(--ink); }
+.table-note, .section-note { font-size: 12px; color: var(--muted); margin-top: 15px; line-height: 1.8; }
+.table-scroll-hint { font-size: 11px; color: var(--muted); padding: 8px 0; }
+.detail-table { min-width: 750px; }
+.usage-table { min-width: 1050px; }
+.usage-table td:first-child { min-width: 275px; }
+.usage-table td { font-size: 12px; }
+.usage-table small { font-size: 10px; }
+.finding-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 24px; }
+.finding { border: 1px solid var(--line); border-radius: 12px; padding: 22px; }
+.finding-header { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; }
+.finding .status-badge { font-size: 10px; padding: 3px 8px; }
+.finding h3 { font-size: 15px; }
+.finding p { font-size: 12px; color: var(--muted); }
+.finding a { color: var(--ink); }
+.screens { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; }
+.screen { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--surface); }
+.screen figcaption { padding: 17px 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.screen figcaption strong { font-size: 13px; }
+.screen figcaption small { font-size: 11px; }
+.screen-image { display: block; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.screen img { width: 100%; height: auto; display: block; }
+.screen-footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 15px 20px; font-size: 12px; }
+.screen-footer a { text-decoration: none; }
+.role-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 15px; }
+.role-card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 21px; min-width: 0; }
+.role-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 13px; }
+.role-head small { font-size: 11px; }
+.role-tokens { font-size: 26px; font-weight: 600; letter-spacing: -.7px; margin-top: 14px; }
+.role-tokens small { font-size: 11px; font-weight: 400; margin-left: 5px; letter-spacing: 0; }
+.usage-track { height: 4px; border-radius: 4px; background: #343d36; overflow: hidden; margin: 13px 0; }
+.usage-track span { height: 100%; display: block; background: var(--green); border-radius: inherit; }
+.model-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.model-tag { font-size: 10px; color: #c8d1cb; background: #2c332e; border: 1px solid #3b443d; padding: 2px 7px; border-radius: 4px; overflow-wrap: anywhere; }
+details { margin-top: 16px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface); }
+summary { cursor: pointer; display: flex; gap: 14px; align-items: center; min-height: 64px; padding: 17px 21px; list-style: none; font-size: 13px; font-weight: 550; }
+summary::-webkit-details-marker { display: none; }
+summary::after { content: "+"; flex-shrink: 0; margin-left: auto; font-size: 21px; font-weight: 350; line-height: 1; color: var(--muted); }
+details[open] > summary::after { content: "−"; }
+summary:hover { background: #242a26; border-radius: 10px; }
+.summary-meta { color: var(--muted); font-size: 11px; font-weight: 400; margin-left: auto; }
+.summary-meta + span { margin-left: 0; }
+.detail-body { padding: 0 21px 21px; color: var(--muted); font-size: 13px; }
+.detail-body h3 { color: var(--ink); margin: 18px 0 10px; }
+.detail-body a { color: var(--ink); }
+.detail-body .table-wrap { border: 1px solid var(--line); border-radius: 8px; }
+.change-list { display: grid; grid-template-columns: 1fr 1fr; align-items: start; gap: 12px; }
+.change-list details { margin: 0; }
+.change-list summary { font-size: 13px; align-items: flex-start; }
+.change-list summary::after { padding-top: 1px; }
+.priority { color: var(--green); background: #26382d; border: 1px solid #3a5243; padding: 1px 6px; border-radius: 4px; font-size: 10px; letter-spacing: .3px; white-space: nowrap; margin-top: 2px; }
+.file-list { display: block; margin-top: 13px; line-height: 2.1; }
+.validation-strip { display: flex; gap: 30px; flex-wrap: wrap; border: 1px solid #3a4d3f; background: #1c2520; border-radius: 12px; padding: 21px 24px; }
+.validation-stat { flex: 1; min-width: 150px; }
+.validation-stat strong { display: block; font-size: 25px; color: var(--green); letter-spacing: -.5px; }
+.validation-stat span { font-size: 12px; color: #b9cbbf; }
+.resource-links { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 20px; }
+.resource-link { display: flex; align-items: center; justify-content: space-between; gap: 14px; font-size: 12px; color: #c7cfca; border-bottom: 1px solid var(--line); padding: 12px 3px; text-decoration: none; }
+.resource-link span { color: var(--muted); }
+.footer { border-top: 1px solid var(--line); margin-top: 48px; padding-top: 20px; display: flex; gap: 15px; justify-content: space-between; font-size: 11px; color: var(--muted); }
+.footer a { white-space: nowrap; }
+@media (max-width: 1000px) {
+  .shell { padding-left: 26px; padding-right: 26px; }
+  .metric { padding: 17px; }
+  .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .metric-value { font-size: 29px; }
+  .change-list { grid-template-columns: 1fr; }
+}
+@media (max-width: 700px) {
+  html { scroll-padding-top: 60px; }
+  .shell { padding-left: 20px; padding-right: 20px; }
+  .topbar-inner { min-height: 65px; }
+  .brand { font-size: 17px; gap: 9px; }
+  .brand small, .brand-divider, .topbar-meta span { display: none; }
+  .topbar-meta { font-size: 11px; }
+  .hero { padding-top: 32px; padding-bottom: 22px; }
+  .hero-heading { align-items: flex-start; flex-direction: column; gap: 18px; }
+  h1 { font-size: 30px; letter-spacing: -1px; }
+  .hero-description { font-size: 13px; margin-top: 12px; }
+  .hero-meta { gap: 5px 12px; font-size: 11px; margin-top: 17px; }
+  .hero .button { padding: 9px 15px; font-size: 12px; }
+  .nav-links { gap: 23px; }
+  .nav-links a { font-size: 12px; padding: 14px 0; }
+  section { padding-top: 30px; }
+  h2 { font-size: 22px; }
+  .section-head { gap: 12px; align-items: flex-start; margin-bottom: 17px; }
+  .section-head .status-badge { margin-top: 22px; font-size: 10px; }
+  .result-banner { padding: 17px; }
+  .result-banner h2 { font-size: 16px; }
+  .result-banner p { font-size: 12px; }
+  .metric-grid { gap: 10px; }
+  .metric { padding: 15px; border-radius: 10px; }
+  .metric-label { font-size: 11px; }
+  .metric-value { font-size: 24px; letter-spacing: -.8px; margin: 8px 0 10px; }
+  .metric-value em { font-size: 16px; }
+  .metric-note { font-size: 10px; }
+  .milestone-panel { padding: 17px; }
+  .milestones { grid-template-columns: 1fr; gap: 12px; }
+  .milestones li { border-top: 0; padding: 0; align-items: flex-start; }
+  .panel-heading { gap: 10px; }
+  .panel-heading p { font-size: 11px; }
+  .comparison-table, .comparison-table tbody { display: block; }
+  .comparison-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .comparison-table tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .comparison-table tbody th { display: block; grid-column: 1 / -1; width: auto; padding: 16px 16px 5px; border: 0; font-size: 12px; }
+  .comparison-table td { display: block; width: auto; padding: 7px 16px 17px; font-size: 12px; border-bottom: 1px solid var(--line); }
+  .comparison-table td::before { display: block; content: attr(data-label); font-size: 10px; font-weight: 400; color: var(--muted); margin-bottom: 4px; }
+  .comparison-table tbody tr:last-child td { border: 0; }
+  .finding-grid, .screens, .role-grid { grid-template-columns: 1fr; }
+  .finding { padding: 18px; }
+  .screen figcaption, .screen-footer { padding: 14px 16px; }
+  .role-card { padding: 18px; }
+  .role-tokens { font-size: 24px; margin-top: 9px; }
+  .summary-meta { display: none; }
+  summary { padding: 16px; gap: 10px; }
+  .detail-body { padding: 0 16px 17px; font-size: 12px; }
+  .validation-strip { padding: 18px; gap: 18px; }
+  .validation-stat { min-width: 120px; }
+  .validation-stat strong { font-size: 23px; }
+  .resource-links { grid-template-columns: 1fr; gap: 1px; }
+  .footer { flex-direction: column; margin-top: 32px; }
+}
+@media (max-width: 360px) {
+  .shell { padding-left: 15px; padding-right: 15px; }
+  .metric-grid { grid-template-columns: 1fr; }
+  .section-head { flex-wrap: wrap; }
+  .section-head .status-badge { margin-top: 0; }
+  .finding-header { flex-wrap: wrap; }
+}
+@media print {
+  .section-nav, .hero .button, .skip-link, .footer > a { display: none; }
+  .shell { max-width: none; padding: 0; }
+  body { font-size: 11px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .hero { padding-top: 24px; }
+  section { padding-top: 25px; }
+  .metric-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .metric-value { font-size: 22px; }
+  .screen, .metric, .finding, details { break-inside: avoid; }
+}
+</style></head>
+<body id="top"><a class="skip-link" href="#summary">본문으로 건너뛰기</a>
+<header class="topbar"><div class="shell topbar-inner"><a class="brand" href="#top"><span class="brand-mark" aria-hidden="true">∞</span>Loopline<span class="brand-divider" aria-hidden="true"></span><small>Continuous improvement</small></a><div class="topbar-meta"><span>실측 · 수정 · 재검증</span><time datetime="2026-10-09">2026. 10. 09</time></div></div></header>
+<div class="shell hero"><div class="eyebrow">LIVE MEASUREMENT</div><div class="hero-heading"><div><h1>입력 계약 개선 후 실제 결과</h1><p class="hero-description">실제 Chromium 입력 제약을 계획·구현 단계에 전달하고, 같은 Focus Board 과제로 다시 측정했습니다.</p></div><a class="button primary" href="#comparison">이전 결과와 비교 ↗</a></div><div class="hero-meta"><span>macOS arm64</span><span>Codex · Gemini · Jev</span><span>6회차 · 확장 예산</span><span>관찰 한도 45분</span></div></div>
+<nav class="section-nav" aria-label="보고서 목차"><div class="shell nav-links"><a href="#summary">결과 요약</a><a href="#comparison">변경 전·후</a><a href="#screens">결과 화면</a><a href="#usage">모델 사용량</a><a href="#changes">개선·검증</a><a href="#next">다음 실측</a></div></nav>
+<main class="shell"><section id="summary"><div class="section-head"><div><span class="section-label">01 / RESULT</span><h2>이번 실행의 결론</h2></div><span class="status-badge ">추가 개선 필요</span></div>
+<div class="result-banner "><div><h2>QA 준비 단계에서 종료. 자동 완료 효과는 아직 확인하지 못했습니다.</h2><p>이번 실측은 17분 33.0초, 보고 토큰 최소 111,189개, 실제 호출 8회로 종료됐습니다. 구현 호출과 자동 반영은 0회입니다. 연결 오류 후 모델 전환은 동작했지만 QA 계획의 응답·증거 검증에서 대체 후보를 소진했습니다.</p></div></div>
+<div class="metric-grid"><article class="metric"><span class="metric-label">자동 완료·반영</span><div class="metric-value warning">0<em>/ 1</em></div><span class="metric-note">부분 작업 · 미진입</span></article><article class="metric"><span class="metric-label">전체 실행 시간</span><div class="metric-value">17분 33.0초</div><span class="metric-note">이전 대비 42.7% 감소</span></article><article class="metric"><span class="metric-label">보고된 토큰</span><div class="metric-value">최소 111,189</div><span class="metric-note">1회 사용량 미보고 · 하한값</span></article><article class="metric"><span class="metric-label">공통 독립 브라우저 QA</span><div class="metric-value warning">미실행</div><span class="metric-note">자동 완료와 별도 지표</span></article></div>
+<div class="milestone-panel"><div class="panel-heading"><h3>실제 부분 작업 진행</h3><p>미진입</p></div><ol class="milestones"></ol><p class="section-note">QA 계획 단계에서 종료되어 구현·통합 검증에 진입하지 못했습니다.</p></div></section>
+<section id="comparison"><div class="section-head"><div><span class="section-label">02 / COMPARISON</span><h2>변경 전·후, 같은 과제로</h2><p>동일 프롬프트·공통 QA·확장 예산·6회차·45분 관찰 한도. 각 버전 1회 실측입니다.</p></div></div>
+<div class="comparison-card"><table class="comparison-table" aria-label="변경 전후 실측 비교"><thead><tr><th scope="col">비교 항목</th><th scope="col">이전 확장 실행</th><th scope="col">입력 계약 개선 후</th></tr></thead><tbody><tr class="important"><th scope="row">자동 완료·반영</th><td data-label="변경 전">회차 한도 · 자동 반영 0/1</td><td data-label="개선 후">실패 · 자동 반영 0/1</td></tr><tr class=""><th scope="row">전체 실행 시간</th><td data-label="변경 전">30분 37.1초</td><td data-label="개선 후">17분 33.0초</td></tr><tr class=""><th scope="row">보고된 토큰</th><td data-label="변경 전">1,546,478</td><td data-label="개선 후">최소 111,189</td></tr><tr class=""><th scope="row">실제 모델 호출 / 사용량 미보고</th><td data-label="변경 전">53회 / 0회</td><td data-label="개선 후">8회 / 1회</td></tr><tr class=""><th scope="row">부분 작업 완료</th><td data-label="변경 전">2/3</td><td data-label="개선 후">미진입</td></tr><tr class=""><th scope="row">자체 브라우저 QA · 마지막 결과</th><td data-label="변경 전">62/66</td><td data-label="개선 후">미실행</td></tr><tr class=""><th scope="row">README 실제 실행 · 마지막 결과</th><td data-label="변경 전">실패 · 0/0</td><td data-label="개선 후">미실행</td></tr><tr class=""><th scope="row">동일 독립 브라우저 QA</th><td data-label="변경 전">50/50</td><td data-label="개선 후">미실행</td></tr><tr class=""><th scope="row">생성 프로젝트 Node 테스트</th><td data-label="변경 전">22/22</td><td data-label="개선 후">미실행</td></tr><tr class=""><th scope="row">첫 구현까지 시간</th><td data-label="변경 전">17분 25.5초</td><td data-label="개선 후">미도달</td></tr><tr class=""><th scope="row">첫 구현 전 준비 토큰</th><td data-label="변경 전">618,054</td><td data-label="개선 후">미확인</td></tr><tr class=""><th scope="row">실행 중 수동 코드 수정 / 수동 재개</th><td data-label="변경 전">0회 / 0회</td><td data-label="개선 후">0회 / 0회</td></tr><tr class=""><th scope="row">45분 관찰 한도에 따른 중지</th><td data-label="변경 전">0회</td><td data-label="개선 후">0회</td></tr></tbody></table></div>
+<p class="table-note">두 버전 모두 연결·잔여 사용량·누적 선택 기록은 실행 시점의 앱 상태를 사용했습니다. 모델 응답 변동, 실제 선택 모델, README 실행 경로 수정도 영향을 줄 수 있으므로 시간·토큰 차이 전체를 입력 계약 변경만의 효과로 단정하지 않습니다. 단일 모델은 이번 회차에서 재실행하지 않았습니다.</p>
+<details><summary>판정 근거와 비교의 한계<span class="summary-meta">종료 원인 · 수동 개입</span></summary><div class="detail-body"><p><strong>엔진 종료 근거</strong><br>기본 모델과 저장된 대체 모델 3개를 모두 시도했지만 응답 형식이 올바르지 않습니다. 독립 QA 계획 오류: required-title-focus: 입력 검사에는 실제 입력 이후의 assertion이 필요합니다.</p><ul><li>Gemini의 프로젝트 준비와 계획은 통과했지만 QA 계획 호출에서 연결 오류가 발생했습니다. 이 호출은 사용량이 보고되지 않아 토큰 합계는 하한값입니다.</li><li>GPT-6-Astra high는 835.696초 후 JSON 응답 형식 오류로 거부됐습니다. 첫 텍스트 응답은 356.874초로 기록됐습니다. 최종 원문이 보존되지 않아 모델 자체의 문제인지 수신 결과 구성의 문제인지는 확정하지 못했습니다.</li><li>GPT-6-Sol high는 required-title-focus 검사에 실제 키 입력 뒤 assertion이 없다는 이유로 거부됐습니다. GPT-6-Luna high는 같은 검사 ID에 실제 입력 뒤 assertion이 없다는 이유로 거부됐습니다. 두 오류는 JSON 문법 오류가 아니라 QA 동작 근거의 유효성 오류입니다.</li><li>실제 대체 모델 전환은 Gemini → Astra → Sol → Luna 순서로 진행됐습니다. 수동 재개나 생성 코드 수정은 하지 않았습니다.</li><li>화면과 테스트 파일이 생성되지 않았으므로 독립 브라우저 QA와 생성 프로젝트 Node 검사는 미실행입니다. 검사 0/50 실패 또는 통과로 해석하지 않습니다.</li><li>이전 실행보다 일찍 종료됐지만 구현을 시작하지 못했으므로 시간·토큰 효율이 개선됐다고 해석할 수 없습니다. 입력 길이 충돌 수정의 전체 자동 완료 효과도 이번 실측으로 확인하지 못했습니다.</li><li>실측 종료 후 분류별 필수 동작 안내와 복수 누락 진단을 추가했습니다. 이 후속 수정은 별도 회귀 검증 결과이며 이번 실측 수치에 소급 반영하지 않았습니다.</li></ul><p>실험 준비와 제품 수정은 이 실행 밖에서 진행했습니다. 실행 중 생성 코드 수동 수정 0회, 수동 이어가기 0회, 관찰 한도 중지 0회입니다. 이 수치에 제품 개발 공수와 보고서 작성 시간은 포함되지 않습니다. 개입 0회가 자동 성공을 의미하지 않으며 미완료 결과는 그대로 기록합니다.</p></div></details></section>
+<section id="screens"><div class="section-head"><div><span class="section-label">03 / OUTPUT</span><h2>실제 산출물을 직접 확인</h2><p>공통 독립 QA의 데스크톱·모바일 화면입니다. 이미지와 링크를 눌러 원본을 볼 수 있습니다.</p></div></div><div class="screens"><figure class="screen"><figcaption><strong>이전 실행 · 부분 산출물</strong><small>독립 QA 50/50</small></figcaption><a class="screen-image" href="assets/loop-improvements-expanded-2026-10-09/qa-user-data/harness/b85170cc-edb5-4dc8-8824-89bec6644b5c/browser-qa/round-1/desktop-filter.png"><img src="assets/loop-improvements-expanded-2026-10-09/qa-user-data/harness/b85170cc-edb5-4dc8-8824-89bec6644b5c/browser-qa/round-1/desktop-filter.png" alt="이전 실행 · 부분 산출물의 실제 데스크톱 QA 화면" width="1440" height="900" loading="lazy"></a><div class="screen-footer"><a href="assets/loop-improvements-expanded-2026-10-09/projects/automatic-loop/index.html">생성 화면 직접 열기 ↗</a><a href="assets/loop-improvements-expanded-2026-10-09/qa-user-data/harness/b85170cc-edb5-4dc8-8824-89bec6644b5c/browser-qa/round-1/mobile-add-and-persist.png">모바일 캡처 ↗</a></div></figure><figure class="screen"><figcaption><strong>이번 실행 · 실제 산출물</strong><small>독립 QA 미실행</small></figcaption><div class="detail-body">화면이 생성되지 않아 브라우저 QA를 실행하지 못했습니다.</div><div class="screen-footer"></div></figure></div></section>
+<section id="usage"><div class="section-head"><div><span class="section-label">04 / MODEL USAGE</span><h2>역할별 모델과 토큰</h2><p>사용량이 보고된 실제 호출만 합산했습니다.</p></div></div><div class="role-grid"><article class="role-card"><div class="role-head"><h3>계획</h3><small>6회 · 91.8%</small></div><div class="role-tokens">102,122<small>보고 토큰</small></div><div class="usage-track" aria-hidden="true"><span style="width:91.8%"></span></div><div class="model-tags"><span class="model-tag">models/gemini-3-flash-preview</span><span class="model-tag">gpt-6-astra</span><span class="model-tag">gpt-6-sol</span><span class="model-tag">gpt-6-luna</span></div></article><article class="role-card"><div class="role-head"><h3>구현</h3><small>0회 · 0.0%</small></div><div class="role-tokens">0<small>보고 토큰</small></div><div class="usage-track" aria-hidden="true"><span style="width:0.0%"></span></div><div class="model-tags"></div></article><article class="role-card"><div class="role-head"><h3>판정</h3><small>2회 · 8.2%</small></div><div class="role-tokens">9,067<small>보고 토큰</small></div><div class="usage-track" aria-hidden="true"><span style="width:8.2%"></span></div><div class="model-tags"><span class="model-tag">jev-latest</span></div></article></div>
+<details><summary>모델·Effort별 상세 사용량<span class="summary-meta">8회 호출 · 5개 조합</span></summary><div class="detail-body"><div class="table-wrap" tabindex="0" role="region" aria-label="모델별 상세 사용량"><table class="usage-table"><thead><tr><th scope="col">역할 · 모델 · Effort</th><th scope="col">호출</th><th scope="col">보고 토큰</th><th scope="col">입력 / 출력</th><th scope="col">캐시 입력</th><th scope="col">호출 시간 합</th></tr></thead><tbody><tr><td>judge · jev-latest · default</td><td>2</td><td>9,067</td><td>8,905 / 162<br><small>2/2회 제공</small></td><td>미제공</td><td>0분 0.9초</td></tr><tr><td>planner · models/gemini-3-flash-preview · default</td><td>3</td><td>6,545<br><small>1회 미보고</small></td><td>2,839 / 2,370<br><small>2/3회 제공</small></td><td>미제공</td><td>1분 16.3초</td></tr><tr><td>planner · gpt-6-astra · high</td><td>1</td><td>34,006</td><td>26,881 / 7,125<br><small>1/1회 제공</small></td><td>26,240<br><small>1/1회 제공</small></td><td>13분 55.7초</td></tr><tr><td>planner · gpt-6-sol · high</td><td>1</td><td>33,176</td><td>25,942 / 7,234<br><small>1/1회 제공</small></td><td>0<br><small>1/1회 제공</small></td><td>1분 51.0초</td></tr><tr><td>planner · gpt-6-luna · high</td><td>1</td><td>28,395</td><td>25,774 / 2,621<br><small>1/1회 제공</small></td><td>0<br><small>1/1회 제공</small></td><td>0분 28.2초</td></tr></tbody></table></div><p class="table-note">캐시 입력은 전체 토큰에 다시 더하지 않습니다. 모델마다 토큰 정의와 보고 범위가 다를 수 있습니다. 실행별 청구 금액 근거가 없어 달러 비용은 추정하지 않았습니다.</p></div></details></section>
+<section id="changes"><div class="section-head"><div><span class="section-label">05 / IMPLEMENTATION</span><h2>확인된 원인을 좁게 수정</h2><p>브라우저 입력과 오류 메시지 요구가 충돌하던 문제를 다뤘습니다.</p></div></div>
+<div class="finding-grid"><article class="finding"><div class="finding-header"><span class="status-badge">원인</span><h3>브라우저에서 입력이 잘림</h3></div><p>이전 생성 화면은 제목·과목을 maxlength로 제한했습니다. QA가 제한을 넘는 문자를 넣어도 실제 입력값은 잘려, 애플리케이션의 초과 오류가 나타날 수 없었습니다.</p></article><article class="finding"><div class="finding-header"><span class="status-badge success">수정</span><h3>계약 전달과 실패 근거 보강</h3></div><p>계획·구현·판정에 실제 입력 동작과 요구사항을 전달합니다. 실패하면 요청 길이·실제 길이·maxlength·입력 유형을 모델에 보여 줍니다. 입력값을 강제로 바꾸거나 검사 기준을 낮추지 않았습니다.</p></article></div>
+<div class="validation-strip" style="margin-top:20px"><div class="validation-stat"><strong>382/382</strong><span>전체 제품 회귀 검사</span></div><div class="validation-stat"><strong>2/2</strong><span>입력 계약 대상 검사</span></div><div class="validation-stat"><strong>3/3</strong><span>패키지 소스 해시 일치</span></div></div>
+<details><summary>수정 파일·책임·검증 범위<span class="summary-meta">로컬 커밋 분리</span></summary><div class="detail-body"><ul><li><code>browser-qa.mjs</code>: 모델에 전달할 실제 브라우저 입력 계약.</li><li><code>harness-engine.mjs</code>: 계획·구현 프롬프트에 입력 계약 연결.</li><li><code>desktop/browser-qa.mjs</code>: 실패 시 입력 전달 차이를 수집해 진단 근거에 추가.</li><li><code>tests/browser-input-qa.test.mjs</code>: 실제 Chromium에서 maxlength 4에 5자 입력 → 진단, 유효 경계 4자 → 통과, fixture 구현 수정 후 동일 검사 10/10 통과.</li><li><code>tests/browser-qa.test.mjs</code>: 계획·구현 모델이 계약을 받는지 검사.</li></ul><p><code>58991ac fix: 브라우저 입력 제약과 QA 오류 계약의 충돌 예방</code><br><code>c21de18 test: 실제 Chromium 입력 경계와 실패 진단 검증</code></p><p>패키징 성공 후 앱을 정상 재시작했습니다. 실제 실행 도중 제품·생성 코드·검사 기준을 변경하지 않았습니다.</p></div></details>
+<div class="finding-grid"><article class="finding"><div class="finding-header"><span class="status-badge success">실측 후 보완</span><h3>QA 분류와 실제 동작 일치</h3></div><p>빈 입력도 fill(value:"")로 명시하고, 키보드 검사는 실제 press 이후 결과를 확인하도록 안내합니다. 같은 검사에서 빠진 분류별 동작을 함께 진단합니다. 다른 검사의 동작으로 현재 검사의 근거를 대신할 수 없습니다.</p></article><article class="finding"><div class="finding-header"><span class="status-badge success">후속 회귀 검증</span><h3>383/383 통과</h3></div><p>분류 진단 대상 검사 2/2 통과. 실제 모델 전체 재실측은 이 후속 수정 후에 다시 진행하지 않았습니다. 위 실측은 수정 전의 실패 기록을 유지합니다.</p><p><code>e42505d</code> 구현 · <code>97a47af</code> 테스트</p></article></div>
+<div class="resource-links"><a class="resource-link" href="assets/loop-input-contract-2026-10-09/automatic-loop-run.json">원본 실행 기록<span>↗</span></a><a class="resource-link" href="assets/loop-input-contract-2026-10-09/results.json">측정 결과 JSON<span>↗</span></a><a class="resource-link" href="assets/loop-input-contract-2026-10-09/automatic-loop-independent-qa.json">공통 독립 QA<span>↗</span></a><a class="resource-link" href="assets/loop-input-contract-2026-10-09/final-regression-tests.log">최종 제품 회귀 로그<span>↗</span></a><a class="resource-link" href="assets/loop-input-contract-2026-10-09/protocol.json">실험 조건과 해시<span>↗</span></a><a class="resource-link" href="assets/loop-input-contract-2026-10-09/package-checks.json">패키지 소스 확인<span>↗</span></a></div></section>
+<section id="next"><div class="section-head"><div><span class="section-label">06 / NEXT CYCLE</span><h2>지속 실측과 다음 우선순위</h2></div><span class="status-badge success">매일 오전 9시 등록</span></div><p class="section-note">이 대화에 연결된 일일 자동화를 활성화했습니다. 기존 실행이 있으면 결과 수집부터 이어가고, 근거가 확인된 문제 한 가지를 수정한 뒤 같은 조건으로 다시 측정합니다. 인증·구조·저장·동시성 등 승인 대상 변경은 구체적인 제안으로 보고합니다.</p><ul><li>후속 수정이 포함된 앱에서 같은 실험을 다시 실행해 QA 준비를 통과하고 첫 구현에 진입하는지 먼저 확인합니다. 해당 재실측은 일일 자동화의 다음 회차로 이어갑니다.</li><li>QA 계획의 한 번에 출력하는 양과 응답 유효성을 측정해, 준비 단계에서 장시간 응답을 기다리는 비용을 줄일 수 있는지 판단합니다. 시간 제한을 단순히 늘려 해결하지 않습니다.</li><li>Astra의 JSON 형식 오류는 원문 근거가 부족합니다. 최종 응답의 완결성·메시지 조합 상태를 비밀값을 남기지 않는 범위에서 진단할 방법을 우선 검토합니다.</li><li>전체 자동 완료가 안정적으로 나온 뒤 동일 버전의 단일 모델 비교를 반복합니다. 작업별 성공률·복구 횟수·준비 시간·토큰을 함께 축적해 모델 선택 근거로 사용합니다.</li></ul><p class="section-note">로컬 앱과 연결 계정을 사용할 수 있어야 실제 측정이 가능합니다. 연결 불가·사용량 한도·검사 미실행도 그대로 남깁니다. 이전 실행 자료는 보존하며 GitHub에는 게시하지 않습니다.</p></section>
+<footer class="footer"><span>Loopline · 측정 코드 c21de18 · 실행 bc99c3f5-da74-4898-a755-14eadd7b78e0</span><a href="loop-improvements-2026-10-09.html">이전 개선 보고서 ↗</a></footer></main></body></html>

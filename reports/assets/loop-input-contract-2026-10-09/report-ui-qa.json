@@ -1,0 +1,20 @@
+{
+  "checkedAt": "2026-10-09T10:04:53.719Z",
+  "desktop": {
+    "width": 1440,
+    "height": 900,
+    "scrollWidth": 1440
+  },
+  "mobile": {
+    "width": 390,
+    "height": 844,
+    "scrollWidth": 390
+  },
+  "metricCards": 4,
+  "comparisonRows": 13,
+  "modelUsageRows": 5,
+  "detailsExpand": true,
+  "allNavigationTargetsExist": true,
+  "comparisonNavigation": true,
+  "viewportReset": true
+}

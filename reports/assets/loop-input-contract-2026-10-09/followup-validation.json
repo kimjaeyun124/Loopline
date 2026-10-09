@@ -1,0 +1,30 @@
+{
+  "fixCommit": "e42505d",
+  "testCommit": "97a47af",
+  "testedAt": "2026-10-09T09:56:29.719Z",
+  "tests": {
+    "tests": 383,
+    "passed": 383,
+    "failed": 0,
+    "skipped": 0,
+    "durationMs": 113604.920708
+  },
+  "targeted": {
+    "tests": 2,
+    "passed": 2
+  },
+  "earlierTestDraft": {
+    "status": "FAIL",
+    "reason": "새 안내의 수신 위치를 worker로 잘못 지정한 테스트 assertion을 planner 위치로 바로잡음",
+    "log": "category-targeted-tests.log"
+  },
+  "wholeLiveBenchmarkRerun": false,
+  "liveResultSourceCommit": "c21de18",
+  "packaging": {
+    "status": "PASS",
+    "command": "npm run desktop:package",
+    "log": "followup-packaging.log"
+  },
+  "appRestarted": true,
+  "backendHttpStatus": 200
+}

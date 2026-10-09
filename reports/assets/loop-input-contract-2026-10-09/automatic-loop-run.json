@@ -1,0 +1,523 @@
+{
+  "id": "bc99c3f5-da74-4898-a755-14eadd7b78e0",
+  "task": "Focus Board라는 완성된 반응형 학습 작업 관리 웹앱을 현재 프로젝트에 제작해 주세요. 외부 라이브러리와 네트워크 호출 없이 Node.js 20+와 브라우저 표준 API만 사용하세요. 사용자에게 추가 선택이나 승인을 요청하지 말고 실제 테스트·브라우저 QA·자동 반영까지 완료하세요.\n\n기능 요구사항:\n1. 작업 제목(필수, 100자까지 허용), 과목(필수, 30자까지 허용), 학습 시간(1~480 사이의 정수)을 입력하여 작업을 추가합니다. 앞뒤 공백은 제거합니다. 잘못된 입력은 #formError에 표시하고 비어 있는 제목은 #taskTitle로 초점을 돌립니다. 자체 검증 오류를 표시할 수 있도록 form에 novalidate를 사용합니다.\n2. 작업 추가·완료·완료 취소·삭제를 localStorage의 focus-board-v1 키로 저장하고 새로고침 후 그대로 복원합니다. 저장 파일이 잘못된 JSON이거나 내용이 올바르지 않으면 화면을 멈추지 않고 #statusMessage에 안내하고 빈 목록으로 안전하게 시작합니다.\n3. 전체·진행 중·완료 필터와 제목/과목 대소문자 무시 검색을 제공합니다. 검색 또는 필터에 해당하는 항목이 없으면 #emptyState가 보입니다. 입력 문자열은 HTML로 실행되지 않고 문자 그대로 표시됩니다.\n4. #totalCount, #activeCount, #completedCount, #totalMinutes는 현재 필터와 관계없이 저장된 전체 작업의 개수/진행/완료/학습 시간 합계를 표시합니다. 추가·삭제·상태 변경 후 즉시 갱신합니다.\n5. 한국어 기반 UI를 제작합니다. 일관된 시각 계층, 여백, 색상, 상태 배지, 빈 상태 안내를 갖추고 1440×900과 390×844 화면에서 가로 넘침이 없어야 합니다. 긴 작업 제목은 줄바꿈합니다. Tab 이동, Enter 제출, 눈에 보이는 keyboard focus, label 연결, aria-live 오류/상태 안내를 구현합니다.\n\n검증 가능한 DOM 계약(이 ID와 class를 그대로 사용):\n- form 내 입력 순서는 #taskTitle → #taskSubject → #taskMinutes → #addTask 입니다. Enter로 추가됩니다.\n- 입력은 일반 text, minutes는 number. form 오류 #formError는 오류가 없으면 숨깁니다. 상태 안내 #statusMessage는 aria-live 입니다.\n- 목록 #taskList에 표시되는 각 항목은 .task, 제목은 .task-title, 과목 .task-subject, 시간 .task-minutes 입니다. 항목마다 button[data-action=\"toggle\"]과 button[data-action=\"delete\"]를 제공합니다.\n- 필터는 button#filterAll, button#filterActive, button#filterCompleted, 검색은 input#searchInput 입니다.\n- 빈 상태 #emptyState와 요약 #totalCount,#activeCount,#completedCount,#totalMinutes를 제공합니다.\n\n산출물: 프로젝트 루트의 index.html, styles.css, app.mjs, model.mjs, model.test.mjs, server.mjs, package.json, README.md. package.json은 type:module, test:node --test, start:node server.mjs로 구성합니다. server.mjs는 기본 http://127.0.0.1:3000/에서 루트 HTML과 올바른 MIME의 CSS/JS를 제공하고 PORT 환경 변수를 지원합니다. README의 실행 안내는 node server.mjs와 위 기본 주소를 정확히 기술하세요. model.mjs에는 UI와 분리된 실제 상태/검증 함수를 두고 model.test.mjs에는 입력 경계, 추가, 완료 취소, 삭제, 검색, 저장 데이터 검증을 검사하는 의미 있는 테스트를 작성하세요. 소스 파일을 text로 읽는 검사만으로 기능 테스트를 대체하지 마세요.\n\n권장 부분 작업은 최대 3개: 상태 모델과 독립 Node 테스트 → 반응형 화면 및 실제 저장·상호작용 연결 → 서버·실행 안내와 전체 통합 검증. 소유 파일을 중복 배정하지 말고 첫 부분 작업은 미래 파일 없이 독립 검증할 수 있게 구성하세요. 최종 실제 검증 명령은 node --test 입니다. 빈 상태, 입력·저장, 필터·검색, 완료·삭제, 모바일 화면과 keyboard focus를 실제 브라우저로 검사하고 실패하면 근거를 사용해 다음 회차에 수정하세요. 성공 판정은 실제 실행 근거를 충족해야 하며 테스트를 약화하여 통과시키지 마세요.\n",
+  "status": "failed",
+  "stage": "planning",
+  "round": 0,
+  "rounds": 6,
+  "createdAt": 1791538382424,
+  "finishedAt": 1791539435418,
+  "summary": "기본 모델과 저장된 대체 모델 3개를 모두 시도했지만 응답 형식이 올바르지 않습니다. 독립 QA 계획 오류: required-title-focus: 입력 검사에는 실제 입력 이후의 assertion이 필요합니다.",
+  "source": "/Users/dgsw59/Library/Application Support/Mosaic Desk/harness/projects/bc99c3f5-da74-4898-a755-14eadd7b78e0/focus-board-app",
+  "workspace": "/Users/dgsw59/Library/Application Support/Mosaic Desk/harness/bc99c3f5-da74-4898-a755-14eadd7b78e0/workspace",
+  "roles": {
+    "planner": {
+      "provider": "api",
+      "model": "models/gemini-3-flash-preview",
+      "label": "models/gemini-3-flash-preview",
+      "supportedReasoningEfforts": [],
+      "connectionId": "f7a0013e-5238-47e3-a222-ad27ee060f6d",
+      "decisionOnly": false,
+      "reasoningEffort": null,
+      "automatic": true,
+      "automaticEffort": true,
+      "nativePlugins": false,
+      "loopMcp": false,
+      "instructions": ""
+    },
+    "worker": {
+      "provider": "openai",
+      "model": "gpt-6-luna",
+      "label": "GPT-6-Luna",
+      "supportedReasoningEfforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "codexAccountId": "default",
+      "decisionOnly": false,
+      "reasoningEffort": "max",
+      "automatic": true,
+      "automaticEffort": true,
+      "nativePlugins": false,
+      "loopMcp": false,
+      "instructions": ""
+    },
+    "judge": {
+      "provider": "api",
+      "model": "jev-latest",
+      "label": "jev-latest",
+      "supportedReasoningEfforts": [],
+      "connectionId": "d2af9947-1459-4719-b11b-60d0775a0189",
+      "decisionOnly": true,
+      "reasoningEffort": null,
+      "automatic": true,
+      "automaticEffort": true,
+      "nativePlugins": false,
+      "loopMcp": false,
+      "instructions": ""
+    }
+  },
+  "events": [
+    {
+      "id": "258333f9-eb58-4dd7-815c-63af9dcb32a4",
+      "title": "LangGraph Loop 시작 / Workflow started",
+      "detail": "StateGraph · 단계 복구 위치: select",
+      "status": "completed",
+      "timestamp": 1791538382425
+    },
+    {
+      "id": "ad388cef-b0ae-4b69-b12f-6139d12cc3f3",
+      "title": "모델 배정 / Model selection",
+      "detail": "0/6 · 추론 강도 / Effort: 자동 · 잔여 한도 미제공 · 누적 사용 7,313 tokens · 잔여 한도 미제공",
+      "status": "completed",
+      "timestamp": 1791538382495,
+      "model": {
+        "role": "judge",
+        "provider": "api",
+        "source": "",
+        "id": "jev-latest",
+        "label": "jev-latest",
+        "effort": ""
+      }
+    },
+    {
+      "id": "e8912d16-9421-4862-8c77-d57d0287d627",
+      "title": "모델 배정 결과 / Model assigned",
+      "detail": "계획 → 기존 기본 모델 유지",
+      "status": "completed",
+      "timestamp": 1791538383041,
+      "model": {
+        "role": "planner",
+        "provider": "api",
+        "source": "",
+        "id": "models/gemini-3-flash-preview",
+        "label": "models/gemini-3-flash-preview",
+        "effort": ""
+      }
+    },
+    {
+      "id": "78a9cc06-34d3-4cbc-9bd0-e94bf6cbcb0b",
+      "title": "모델 배정 결과 / Model assigned",
+      "detail": "구현 → GPT-6-Luna · 대체 3개 순위 저장",
+      "status": "completed",
+      "timestamp": 1791538383042,
+      "model": {
+        "role": "worker",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-luna",
+        "label": "GPT-6-Luna",
+        "effort": "max"
+      }
+    },
+    {
+      "id": "b8232f50-47c9-4607-a341-b6137dbc9c57",
+      "title": "LangGraph 단계 저장 / Workflow checkpoint",
+      "detail": "다음 단계: prepare · 완료 회차 0/6",
+      "status": "completed",
+      "timestamp": 1791538383044
+    },
+    {
+      "id": "797daa0a-9195-44bf-9abb-809471b26dbc",
+      "title": "계획 / Planning",
+      "detail": "0/6 · 추론 강도 / Effort: 자동 · 잔여 한도 미제공 · 누적 사용 1,681 tokens · 잔여 한도 미제공",
+      "status": "completed",
+      "timestamp": 1791538383047,
+      "model": {
+        "role": "planner",
+        "provider": "api",
+        "source": "",
+        "id": "models/gemini-3-flash-preview",
+        "label": "models/gemini-3-flash-preview",
+        "effort": ""
+      }
+    },
+    {
+      "id": "1bd5f56e-f7d8-4f99-aeec-8b68523a117e",
+      "title": "판정 / Review",
+      "detail": "0/6 · 추론 강도 / Effort: 자동 · 잔여 한도 미제공 · 누적 사용 9,067 tokens · 잔여 한도 미제공",
+      "status": "completed",
+      "timestamp": 1791538413335,
+      "model": {
+        "role": "judge",
+        "provider": "api",
+        "source": "",
+        "id": "jev-latest",
+        "label": "jev-latest",
+        "effort": ""
+      }
+    },
+    {
+      "id": "beb2271c-c16f-4294-903b-228f2b06593f",
+      "title": "Jev 실제 판정 / Live Jev decision",
+      "detail": "Jev · jev-1.13.0\n폴더 이름 / Folder name: pass · 신뢰도 / Confidence 94.0%",
+      "status": "completed",
+      "timestamp": 1791538413714,
+      "model": {
+        "role": "judge",
+        "provider": "api",
+        "source": "",
+        "id": "jev-1.13.0",
+        "label": "jev-latest",
+        "effort": ""
+      }
+    },
+    {
+      "id": "6c2061b8-3557-4d96-b794-450e12f295e3",
+      "title": "작업 공간 준비 / Workspace ready",
+      "detail": "원본 변경 사항을 별도 작업 공간으로 복사했습니다. 회차별 승인은 요청하지 않습니다.",
+      "status": "completed",
+      "timestamp": 1791538414446
+    },
+    {
+      "id": "b882b3b8-0d27-4cda-939a-050dbfd1ffc7",
+      "title": "계획 / Planning",
+      "detail": "0/6 · 추론 강도 / Effort: 자동 · 잔여 한도 미제공 · 누적 사용 6,545 tokens · 잔여 한도 미제공",
+      "status": "completed",
+      "timestamp": 1791538414493,
+      "model": {
+        "role": "planner",
+        "provider": "api",
+        "source": "",
+        "id": "models/gemini-3-flash-preview",
+        "label": "models/gemini-3-flash-preview",
+        "effort": ""
+      }
+    },
+    {
+      "id": "425775c9-7d44-4756-8f36-ca5c9fd5734a",
+      "title": "구현 계획 / Implementation plan",
+      "detail": "### 계획 및 검증 기준\n\n**1. 요구사항 및 완료 기준**\n- **기능**: 작업 추가(제목/과목/시간), 유효성 검사, 필터링(전체/진행/완료), 검색, 통계 표시, `localStorage` 연동.\n- **기술**: Node.js 20+, 표준 브라우저 API, `node --test` 기반 단위 테스트.\n- **UI/UX**: 한국어 UI, 반응형(데스크톱/모바일), 웹 접근성(ARIA, Keyboard focus), 시각적 상태 배지.\n- **안정성**: `localStorage` 손상 시 자동 복구 및 알림, XSS 방지(텍스트 처리), 입출력 원자성 확보.\n\n**2. 디자인 브리프**\n- **시각적 방향**: '몰입(Focus)'을 돕는 정갈하고 신뢰감 있는 생산성 대시보드.\n- **색상/타이포그래피**:\n    - **색상**: Indigo(#3f51b5)를 메인으로, 완료 상태는 Emerald, 경고는 Amber 사용. 배경은 연한 그레이(#f8f9fa).\n    - **타이포**: 시스템 산세리프(Pretendard 등) 사용, 가독성 높은 16px 기본 폰트.\n- **레이아웃 및 반응형**:\n    - **상단**: 통계 카드 4종 배치. **중단**: 입력 폼. **하단**: 검색/필터 바와 작업 목록.\n    - **반응형**: 모바일(390px)에서 통계 카드는 2열, 폼 요소는 1열로 세로 적층. 데스크톱은 가로 여백을 충분히 활용.\n- **상호작용**: 버튼 호버/포커스 효과, 입력 오류 시 `#formError` 즉각 표시, `aria-live`를 통한 상태 변경 안내.\n\n**3. 작업 순서**\n1.  **상태 모델 개발**: `model.mjs`에 비즈니스 로직(검증, 상태 변화, 통계, 검색) 구현 및 `model.test.mjs` 작성.\n2.  **UI 및 영속성 구현**: `index.html`, `styles.css` 구축 후 `app.mjs`에서 DOM 제어 및 `localStorage` 연동(안전한 데이터 교체 로직 포함).\n3.  **서버 및 최종 통합**: `server.mjs` 작성, `package.json` 설정, README 작성 및 전체 브라우저 QA/테스트 실행.\n\n**4. 검증 기준**\n- **단위 테스트**: `node --test` 실행 시 모든 케이스(추가/삭제/필터/잘못된 JSON 처리) 통과.\n- **접근성/UX**: Tab 키로 모든 요소 접근 가능, 입력값 HTML 주입 차단 확인.\n- **반응형**: 390px 폭에서 가로 스크롤 발생 여부 확인.\n- **영속성**: 데이터 저장 후 새로고침 시 상태 유지, `localStorage` 강제 변조 시 에러 메시지(`statusMessage`) 출력 및 초기화 확인.\n- **서버**: `node server.mjs`로 3000번 포트에서 정상 접속 및 올바른 MIME 타입 확인.\n\n---\n\n### Phase 1: 모델 및 독립 단위 테스트 개발\n\n#### 1. package.json\n```json\n{\n  \"name\": \"focus-board\",\n  \"version\": \"1.0.0\",\n  \"type\": \"module\",\n  \"scripts\": {\n    \"test\": \"node --test\",\n    \"start\": \"node server.mjs\"\n  }\n}\n```\n\n#### 2. model.mjs (비즈니스 로직)\n```javascript\nexport class FocusBoardModel {\n  constructor(initialData = []) {\n    this.tasks = Array.isArray(initialData) ? initialData : [];\n  }\n\n  validateTask(title, subject, minutes) {\n    const errors = [];\n    const t = title?.trim();\n    const s = subject?.trim();\n    const m = parseInt(minutes, 10);\n\n    if (!t || t.length > 100) errors.push(\"제목은 1~100자 사이여야 합니다.\");\n    if (!s || s.length > 30) errors.push(\"과목은 1~30자 사이여야 합니다.\");\n    if (isNaN(m) || m < 1 || m > 480) errors.push(\"학습 시간은 1~480분 사이여야 합니다.\");\n\n    return { isValid: errors.length === 0, errors, data: { title: t, subject: s, minutes: m } };\n  }\n\n  addTask(title, subject, minutes) {\n    const { isValid, errors, data } = this.validateTask(title, subject, minutes);\n    if (!isValid) throw new Error(errors[0]);\n\n    const newTask = {\n      id: Date.now() + Math.random().toString(36).substr(2, 9),\n      title: data.title,\n      subject: data.subject,\n      minutes: data.minutes,\n      completed: false,\n      createdAt: new Date().toISOString()\n    };\n    this.tasks.push(newTask);\n    return newTask;\n  }\n\n  toggleTask(id) {\n    const task = this.tasks.find(t => t.id === id);\n    if (task) task.completed = !task.completed;\n  }\n\n  deleteTask(id) {\n    this.tasks = this.tasks.filter(t => t.id !== id);\n  }\n\n  getStats() {\n    const totalCount = this.tasks.length;\n    const completedCount = this.tasks.filter(t => t.completed).length;\n    const activeCount = totalCount - completedCount;\n    const totalMinutes = this.tasks.reduce((sum, t) => sum + t.minutes, 0);\n    return { totalCount, activeCount, completedCount, totalMinutes };\n  }\n\n  getFilteredTasks(filter = 'all', search = '') {\n    let filtered = this.tasks;\n    if (filter === 'active') filtered = filtered.filter(t => !t.completed);\n    if (filter === 'completed') filtered = filtered.filter(t => t.completed);\n\n    if (search) {\n      const term = search.toLowerCase();\n      filtered = filtered.filter(t => \n        t.title.toLowerCase().includes(term) || \n        t.subject.toLowerCase().includes(term)\n      );\n    }\n    return filtered;\n  }\n\n  static parseStorage(jsonString) {\n    if (!jsonString) return [];\n    try {\n      const data = JSON.parse(jsonString);\n      if (!Array.isArray(data)) throw new Error(\"Not an array\");\n      return data;\n    } catch (e) {\n      throw new Error(\"저장된 데이터 형식이 올바르지 않습니다.\");\n    }\n  }\n}\n```\n\n#### 3. model.test.mjs (단위 테스트)\n```javascript\nimport test from 'node:test';\nimport assert from 'node:assert';\nimport { FocusBoardModel } from './model.mjs';\n\ntest('FocusBoardModel - Validation & Add', () => {\n  const model = new FocusBoardModel();\n  \n  // 정상 추가\n  model.addTask(\"알고리즘 공부\", \"컴퓨터공학\", 60);\n  assert.strictEqual(model.tasks.length, 1);\n  assert.strictEqual(model.tasks[0].title, \"알고리즘 공부\");\n\n  // 경계값 및 오류 테스트\n  assert.throws(() => model.addTask(\"\", \"과목\", 10), /제목/);\n  assert.throws(() => model.addTask(\"제목\", \"과목\", 0), /시간/);\n  assert.throws(() => model.addTask(\"제목\", \"과목\", 481), /시간/);\n});\n\ntest('FocusBoardModel - Stats & Filter', () => {\n  const model = new FocusBoardModel();\n  model.addTask(\"Task 1\", \"Sub 1\", 30);\n  model.addTask(\"Task 2\", \"Sub 2\", 60);\n  const id1 = model.tasks[0].id;\n  \n  model.toggleTask(id1); // 1개 완료\n  \n  const stats = model.getStats();\n  assert.strictEqual(stats.totalCount, 2);\n  assert.strictEqual(stats.completedCount, 1);\n  assert.strictEqual(stats.totalMinutes, 90);\n\n  const completed = model.getFilteredTasks('completed');\n  assert.strictEqual(completed.length, 1);\n  assert.strictEqual(completed[0].id, id1);\n});\n\ntest('FocusBoardModel - Search', () => {\n  const model = new FocusBoardModel();\n  model.addTask(\"JavaScript Study\", \"Coding\", 40);\n  model.addTask(\"Clean Room\", \"Home\", 20);\n\n  const searchResult = model.getFilteredTasks('all', 'STUDY');\n  assert.strictEqual(searchResult.length, 1);\n  assert.strictEqual(searchResult[0].title, \"JavaScript Study\");\n});\n\ntest('FocusBoardModel - Storage Parsing', () => {\n  assert.deepStrictEqual(FocusBoardModel.parseStorage('[]'), []);\n  assert.throws(() => FocusBoardModel.parseStorage('{invalid}'), /형식/);\n});\n```\n\n### Phase 2: UI 및 실제 상호작용 연결\n\n이 단계에서는 `index.html`, `styles.css`, `app.mjs`를 제작하여 브라우저에서 동작하도록 구성합니다. (다음 실행 단계에서 전체 파일 생성 예정)\n\n### Phase 3: 서버 및 실행 안내\n\n`server.mjs`를 통해 정적 파일을 서빙하고 README를 작성합니다.\n\n---\n**다음 단계 준비 완료.** 실제 파일을 생성하고 ",
+      "status": "completed",
+      "timestamp": 1791538435879
+    },
+    {
+      "id": "fa694709-601b-4336-9698-c9f48c28d895",
+      "title": "독립 QA 계획 / Independent QA plan",
+      "detail": "0/6 · 추론 강도 / Effort: 자동 · 잔여 한도 미제공 · API 서버에 연결하지 못했습니다. 주소와 네트워크 연결을 확인해 주세요.",
+      "status": "failed",
+      "timestamp": 1791538435880,
+      "model": {
+        "role": "planner",
+        "provider": "api",
+        "source": "",
+        "id": "models/gemini-3-flash-preview",
+        "label": "models/gemini-3-flash-preview",
+        "effort": ""
+      }
+    },
+    {
+      "id": "1167c110-11f7-449e-96ff-b54789944992",
+      "title": "모델 일시 오류 / Temporary model error",
+      "detail": "models/gemini-3-flash-preview에서 API 서버에 연결하지 못했습니다. 주소와 네트워크 연결을 확인해 주세요.가 발생해 설정된 다음 우선순위 모델로 전환합니다.",
+      "status": "completed",
+      "timestamp": 1791538460563,
+      "model": {
+        "role": "planner",
+        "provider": "api",
+        "source": "",
+        "id": "models/gemini-3-flash-preview",
+        "label": "models/gemini-3-flash-preview",
+        "effort": ""
+      }
+    },
+    {
+      "id": "c80d2477-72fb-4c33-915b-51625e8e6cb5",
+      "title": "독립 QA 계획 / Independent QA plan",
+      "detail": "0/6 · 추론 강도 / Effort: high · 잔여 한도 미제공 · 모델 응답이 요청한 JSON 형식이 아닙니다.",
+      "status": "failed",
+      "timestamp": 1791538460564,
+      "model": {
+        "role": "planner",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-astra",
+        "label": "GPT-6-Astra",
+        "effort": "high"
+      }
+    },
+    {
+      "id": "b24f960f-1521-4d8e-a640-51ef2481e897",
+      "title": "응답 형식 오류 · 대체 모델 시도 / Invalid output · Trying fallback",
+      "detail": "GPT-6-Astra이 요청된 응답 구조를 따르지 않아 저장된 다음 우선순위 모델을 시도합니다. 모델 응답이 요청한 JSON 형식이 아닙니다.",
+      "status": "completed",
+      "timestamp": 1791539296266,
+      "model": {
+        "role": "planner",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-astra",
+        "label": "GPT-6-Astra",
+        "effort": "high"
+      }
+    },
+    {
+      "id": "ce8cf3f0-80f6-4b93-9d96-ae4c8cbb0d97",
+      "title": "독립 QA 계획 / Independent QA plan",
+      "detail": "0/6 · 추론 강도 / Effort: high · 잔여 한도 미제공 · 독립 QA 계획 오류: required-title-focus: 키보드 검사에는 실제 키 입력 이후의 assertion이 필요합니다.",
+      "status": "failed",
+      "timestamp": 1791539296268,
+      "model": {
+        "role": "planner",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-sol",
+        "label": "GPT-6-Sol",
+        "effort": "high"
+      }
+    },
+    {
+      "id": "b332e93b-9975-49c0-8438-fecef262fabc",
+      "title": "응답 형식 오류 · 대체 모델 시도 / Invalid output · Trying fallback",
+      "detail": "GPT-6-Sol이 요청된 응답 구조를 따르지 않아 저장된 다음 우선순위 모델을 시도합니다. 독립 QA 계획 오류: required-title-focus: 키보드 검사에는 실제 키 입력 이후의 assertion이 필요합니다.",
+      "status": "completed",
+      "timestamp": 1791539407226,
+      "model": {
+        "role": "planner",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-sol",
+        "label": "GPT-6-Sol",
+        "effort": "high"
+      }
+    },
+    {
+      "id": "b556c0aa-417c-4327-a32b-4eb807ec4dba",
+      "title": "독립 QA 계획 / Independent QA plan",
+      "detail": "0/6 · 추론 강도 / Effort: high · 잔여 한도 미제공 · 독립 QA 계획 오류: required-title-focus: 입력 검사에는 실제 입력 이후의 assertion이 필요합니다.",
+      "status": "failed",
+      "timestamp": 1791539407227,
+      "model": {
+        "role": "planner",
+        "provider": "openai",
+        "source": "",
+        "id": "gpt-6-luna",
+        "label": "GPT-6-Luna",
+        "effort": "high"
+      }
+    },
+    {
+      "id": "6dbadb2c-950b-4bce-8d6e-7328cf844f80",
+      "title": "모델 사용량·잔여 한도 / Model usage and remaining quota",
+      "detail": "jev-latest: 9,067 tokens · 2회 호출 · 잔여 한도 미제공\nmodels/gemini-3-flash-preview: 6,545 tokens · 2회 호출 · 잔여 한도 미제공\nGPT-6-Astra: 34,006 tokens · 1회 호출 · 잔여 한도 미제공\nGPT-6-Sol: 33,176 tokens · 1회 호출 · 남은 사용 한도 30%\nGPT-6-Luna: 28,395 tokens · 1회 호출 · 남은 사용 한도 29%",
+      "status": "completed",
+      "timestamp": 1791539435426
+    },
+    {
+      "id": "d12cc721-ac7b-41ff-9c97-4248b10a7fb6",
+      "title": "실행 종료 / Run finished",
+      "detail": "기본 모델과 저장된 대체 모델 3개를 모두 시도했지만 응답 형식이 올바르지 않습니다. 독립 QA 계획 오류: required-title-focus: 입력 검사에는 실제 입력 이후의 assertion이 필요합니다.",
+      "status": "failed",
+      "timestamp": 1791539435430
+    }
+  ],
+  "modelCalls": [
+    {
+      "eventId": "ad388cef-b0ae-4b69-b12f-6139d12cc3f3",
+      "role": "judge",
+      "phase": "preparation",
+      "provider": "api",
+      "model": "jev-latest",
+      "effort": "default",
+      "round": 0,
+      "tokens": 7313,
+      "inputTokens": 7192,
+      "outputTokens": 121,
+      "cachedInputTokens": null,
+      "firstResponseMs": null,
+      "schemaRequested": false,
+      "schemaFallback": false,
+      "status": "success",
+      "durationMs": 530
+    },
+    {
+      "eventId": "797daa0a-9195-44bf-9abb-809471b26dbc",
+      "role": "planner",
+      "phase": "preparation",
+      "provider": "api",
+      "model": "models/gemini-3-flash-preview",
+      "effort": "default",
+      "round": 0,
+      "tokens": 1681,
+      "inputTokens": 1212,
+      "outputTokens": 41,
+      "cachedInputTokens": null,
+      "firstResponseMs": 30281,
+      "schemaRequested": true,
+      "schemaFallback": false,
+      "status": "success",
+      "durationMs": 30284
+    },
+    {
+      "eventId": "1bd5f56e-f7d8-4f99-aeec-8b68523a117e",
+      "role": "judge",
+      "phase": "preparation",
+      "provider": "api",
+      "model": "jev-latest",
+      "effort": "default",
+      "round": 0,
+      "tokens": 1754,
+      "inputTokens": 1713,
+      "outputTokens": 41,
+      "cachedInputTokens": null,
+      "firstResponseMs": null,
+      "schemaRequested": false,
+      "schemaFallback": false,
+      "status": "success",
+      "durationMs": 377
+    },
+    {
+      "eventId": "b882b3b8-0d27-4cda-939a-050dbfd1ffc7",
+      "role": "planner",
+      "phase": "preparation",
+      "provider": "api",
+      "model": "models/gemini-3-flash-preview",
+      "effort": "default",
+      "round": 0,
+      "tokens": 4864,
+      "inputTokens": 1627,
+      "outputTokens": 2329,
+      "cachedInputTokens": null,
+      "firstResponseMs": 6409,
+      "schemaRequested": false,
+      "schemaFallback": false,
+      "status": "success",
+      "durationMs": 21381
+    },
+    {
+      "eventId": "fa694709-601b-4336-9698-c9f48c28d895",
+      "role": "planner",
+      "phase": "preparation",
+      "provider": "api",
+      "model": "models/gemini-3-flash-preview",
+      "effort": "default",
+      "round": 0,
+      "tokens": null,
+      "inputTokens": null,
+      "outputTokens": null,
+      "cachedInputTokens": null,
+      "firstResponseMs": null,
+      "schemaRequested": true,
+      "schemaFallback": false,
+      "status": "failed",
+      "failureKind": "transport",
+      "durationMs": 24679
+    },
+    {
+      "eventId": "c80d2477-72fb-4c33-915b-51625e8e6cb5",
+      "role": "planner",
+      "phase": "preparation",
+      "provider": "openai",
+      "model": "gpt-6-astra",
+      "effort": "high",
+      "round": 0,
+      "tokens": 34006,
+      "inputTokens": 26881,
+      "outputTokens": 7125,
+      "cachedInputTokens": 26240,
+      "firstResponseMs": 356874,
+      "schemaRequested": true,
+      "schemaFallback": false,
+      "status": "failed",
+      "durationMs": 835696,
+      "failureKind": "format"
+    },
+    {
+      "eventId": "ce8cf3f0-80f6-4b93-9d96-ae4c8cbb0d97",
+      "role": "planner",
+      "phase": "preparation",
+      "provider": "openai",
+      "model": "gpt-6-sol",
+      "effort": "high",
+      "round": 0,
+      "tokens": 33176,
+      "inputTokens": 25942,
+      "outputTokens": 7234,
+      "cachedInputTokens": 0,
+      "firstResponseMs": 79760,
+      "schemaRequested": true,
+      "schemaFallback": false,
+      "status": "failed",
+      "durationMs": 110953,
+      "failureKind": "format"
+    },
+    {
+      "eventId": "b556c0aa-417c-4327-a32b-4eb807ec4dba",
+      "role": "planner",
+      "phase": "preparation",
+      "provider": "openai",
+      "model": "gpt-6-luna",
+      "effort": "high",
+      "round": 0,
+      "tokens": 28395,
+      "inputTokens": 25774,
+      "outputTokens": 2621,
+      "cachedInputTokens": 0,
+      "firstResponseMs": 18814,
+      "schemaRequested": true,
+      "schemaFallback": false,
+      "status": "failed",
+      "durationMs": 28166,
+      "failureKind": "format"
+    }
+  ],
+  "modelUsage": {
+    "[\"api\",\"d2af9947-1459-4719-b11b-60d0775a0189\",\"jev-latest\",\"default\"]": {
+      "provider": "api",
+      "model": "jev-latest",
+      "label": "jev-latest",
+      "totalTokens": 9067,
+      "calls": 2
+    },
+    "[\"api\",\"f7a0013e-5238-47e3-a222-ad27ee060f6d\",\"models/gemini-3-flash-preview\",\"default\"]": {
+      "provider": "api",
+      "model": "models/gemini-3-flash-preview",
+      "label": "models/gemini-3-flash-preview",
+      "totalTokens": 6545,
+      "calls": 2
+    },
+    "[\"openai\",\"\",\"gpt-6-astra\",\"default\"]": {
+      "provider": "openai",
+      "model": "gpt-6-astra",
+      "label": "GPT-6-Astra",
+      "totalTokens": 34006,
+      "calls": 1
+    },
+    "[\"openai\",\"\",\"gpt-6-sol\",\"default\"]": {
+      "provider": "openai",
+      "model": "gpt-6-sol",
+      "label": "GPT-6-Sol",
+      "totalTokens": 33176,
+      "calls": 1
+    },
+    "[\"openai\",\"\",\"gpt-6-luna\",\"default\"]": {
+      "provider": "openai",
+      "model": "gpt-6-luna",
+      "label": "GPT-6-Luna",
+      "totalTokens": 28395,
+      "calls": 1
+    }
+  },
+  "humanActions": {
+    "manualResumes": 0,
+    "stopRequests": 0,
+    "completeCoverage": true
+  },
+  "milestones": [],
+  "qaHistory": [],
+  "autoResumeAttempts": 0,
+  "verifyCommand": "",
+  "executionBudget": {
+    "totalTokens": 4000000,
+    "preparationTokens": 1000000,
+    "modelTimeMs": 7200000,
+    "preparationTimeMs": 1800000
+  },
+  "failureContext": {
+    "stage": "planning",
+    "kind": "model-output"
+  }
+}

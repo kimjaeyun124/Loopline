@@ -1,0 +1,19 @@
+{
+  "checkedAt": "2026-10-09T10:03:53.551Z",
+  "sourceCommit": "97a47af",
+  "checks": [
+    {
+      "file": "browser-qa.mjs",
+      "match": true
+    },
+    {
+      "file": "harness-engine.mjs",
+      "match": true
+    },
+    {
+      "file": "desktop/browser-qa.mjs",
+      "match": true
+    }
+  ],
+  "activeRuns": []
+}

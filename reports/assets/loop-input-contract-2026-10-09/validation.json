@@ -1,0 +1,28 @@
+{
+  "sourceCommit": "c21de18",
+  "testedAt": "2026-10-09T09:44:38.345Z",
+  "tests": {
+    "tests": 382,
+    "passed": 382,
+    "failed": 0,
+    "skipped": 0,
+    "durationMs": 105547.930958
+  },
+  "targeted": {
+    "tests": 2,
+    "passed": 2
+  },
+  "protocolChecks": {
+    "promptMatches": true,
+    "qaMatches": true
+  },
+  "packaging": {
+    "status": "PASS",
+    "command": "npm run desktop:package"
+  },
+  "liveRun": {
+    "id": "bc99c3f5-da74-4898-a755-14eadd7b78e0",
+    "appRestarted": true
+  },
+  "manualGeneratedCodeChanges": 0
+}

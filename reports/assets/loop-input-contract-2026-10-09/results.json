@@ -1,0 +1,663 @@
+{
+  "measuredAt": "2026-10-09T09:33:02.417Z",
+  "benchmarkKind": "live connected providers through packaged Loopline Electron backend",
+  "protocol": {
+    "frozenAt": "2026-10-09T09:28:40.666882+00:00",
+    "task": "Focus Board responsive web application",
+    "promptSha256": "1010fb02fa1d603729d91f13e9bd9e025316a17437c73e531dd7ef2cbc0f0573",
+    "qaSha256": "049272d78695a0dc6775927e1c243cba82be9d5332f4a9798f9d56cfcd84ec82",
+    "sourceCommit": "c21de18",
+    "iterationsPerConfiguration": 1,
+    "implementationRounds": 6,
+    "commonBrowserChecks": 12,
+    "viewports": [
+      {
+        "id": "desktop",
+        "width": 1440,
+        "height": 900
+      },
+      {
+        "id": "mobile",
+        "width": 390,
+        "height": 844
+      }
+    ],
+    "commonAssertions": "24 behavior checks + 24 per-scenario layout checks + 2 overall layout checks = 50",
+    "externalQaFeedsBackToRun": false,
+    "manualCodeChangesAllowed": false,
+    "manualResumeAllowed": false,
+    "perRunObservationCeilingMs": 2700000,
+    "comparisonOrder": [
+      "automatic-loop"
+    ],
+    "limitation": "동일 Harness에 역할별 모델 구성을 달리한 비교. 순수 단일 채팅과의 비교가 아님. 각 구성 1회로 장기 성공률을 추정하지 않음.",
+    "changedVariables": [
+      "브라우저 입력 동작 계약을 계획·구현 모델에 전달",
+      "입력 전달 차이와 HTML 제약을 QA 실패 근거에 포함",
+      "앞선 실측 뒤 수정된 README Node 실행 경로 포함"
+    ],
+    "budgetProfile": "extended",
+    "previousTrial": "b85170cc-edb5-4dc8-8824-89bec6644b5c",
+    "changesFromPreviousTrial": [
+      "동일 프롬프트·공통 QA·확장 예산·6회차·45분 관찰 한도 유지",
+      "연결 상태와 모델 선택용 누적 실측 기록은 실행 시점의 앱 상태 사용"
+    ]
+  },
+  "trials": [
+    {
+      "configuration": "automatic-loop",
+      "label": "자동 Loop · Jev/Gemini/GPT",
+      "runId": "bc99c3f5-da74-4898-a755-14eadd7b78e0",
+      "startedAt": 1791538382419,
+      "initialRoles": {
+        "planner": {
+          "provider": "api",
+          "model": "models/gemini-3-flash-preview",
+          "label": "models/gemini-3-flash-preview",
+          "supportedReasoningEfforts": [],
+          "connectionId": "f7a0013e-5238-47e3-a222-ad27ee060f6d",
+          "decisionOnly": false,
+          "reasoningEffort": null,
+          "automatic": true,
+          "automaticEffort": true,
+          "nativePlugins": false,
+          "loopMcp": false,
+          "instructions": "",
+          "fallbacks": [
+            {
+              "provider": "openai",
+              "model": "gpt-6-astra",
+              "label": "GPT-6-Astra",
+              "supportedReasoningEfforts": [
+                "low",
+                "medium",
+                "high",
+                "xhigh",
+                "max",
+                "ultra"
+              ],
+              "codexAccountId": "default",
+              "decisionOnly": false,
+              "reasoningEffort": "high",
+              "automatic": false,
+              "automaticEffort": true,
+              "nativePlugins": false,
+              "loopMcp": false,
+              "instructions": "",
+              "fallbacks": []
+            },
+            {
+              "provider": "openai",
+              "model": "gpt-6-sol",
+              "label": "GPT-6-Sol",
+              "supportedReasoningEfforts": [
+                "low",
+                "medium",
+                "high",
+                "xhigh",
+                "max",
+                "ultra"
+              ],
+              "codexAccountId": "default",
+              "decisionOnly": false,
+              "reasoningEffort": "high",
+              "automatic": false,
+              "automaticEffort": true,
+              "nativePlugins": false,
+              "loopMcp": false,
+              "instructions": "",
+              "fallbacks": []
+            },
+            {
+              "provider": "openai",
+              "model": "gpt-6-luna",
+              "label": "GPT-6-Luna",
+              "supportedReasoningEfforts": [
+                "low",
+                "medium",
+                "high",
+                "xhigh",
+                "max"
+              ],
+              "codexAccountId": "default",
+              "decisionOnly": false,
+              "reasoningEffort": "high",
+              "automatic": false,
+              "automaticEffort": true,
+              "nativePlugins": false,
+              "loopMcp": false,
+              "instructions": "",
+              "fallbacks": []
+            }
+          ]
+        },
+        "worker": {
+          "provider": "openai",
+          "model": "gpt-6-sol",
+          "label": "GPT-6-Sol",
+          "supportedReasoningEfforts": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+            "ultra"
+          ],
+          "codexAccountId": "default",
+          "decisionOnly": false,
+          "reasoningEffort": "max",
+          "automatic": true,
+          "automaticEffort": true,
+          "nativePlugins": false,
+          "loopMcp": false,
+          "instructions": "",
+          "fallbacks": [
+            {
+              "provider": "openai",
+              "model": "gpt-6-astra",
+              "label": "GPT-6-Astra",
+              "supportedReasoningEfforts": [
+                "low",
+                "medium",
+                "high",
+                "xhigh",
+                "max",
+                "ultra"
+              ],
+              "codexAccountId": "default",
+              "decisionOnly": false,
+              "reasoningEffort": "max",
+              "automatic": false,
+              "automaticEffort": true,
+              "nativePlugins": false,
+              "loopMcp": false,
+              "instructions": "",
+              "fallbacks": []
+            },
+            {
+              "provider": "openai",
+              "model": "gpt-6-luna",
+              "label": "GPT-6-Luna",
+              "supportedReasoningEfforts": [
+                "low",
+                "medium",
+                "high",
+                "xhigh",
+                "max"
+              ],
+              "codexAccountId": "default",
+              "decisionOnly": false,
+              "reasoningEffort": "max",
+              "automatic": false,
+              "automaticEffort": true,
+              "nativePlugins": false,
+              "loopMcp": false,
+              "instructions": "",
+              "fallbacks": []
+            },
+            {
+              "provider": "api",
+              "model": "models/gemini-3-flash-preview",
+              "label": "models/gemini-3-flash-preview",
+              "supportedReasoningEfforts": [],
+              "connectionId": "f7a0013e-5238-47e3-a222-ad27ee060f6d",
+              "decisionOnly": false,
+              "reasoningEffort": null,
+              "automatic": false,
+              "automaticEffort": true,
+              "nativePlugins": false,
+              "loopMcp": false,
+              "instructions": "",
+              "fallbacks": []
+            }
+          ]
+        },
+        "judge": {
+          "provider": "api",
+          "model": "jev-latest",
+          "label": "jev-latest",
+          "supportedReasoningEfforts": [],
+          "connectionId": "d2af9947-1459-4719-b11b-60d0775a0189",
+          "decisionOnly": true,
+          "reasoningEffort": null,
+          "automatic": true,
+          "automaticEffort": true,
+          "nativePlugins": false,
+          "loopMcp": false,
+          "instructions": "",
+          "fallbacks": [
+            {
+              "provider": "openai",
+              "model": "gpt-6-astra",
+              "label": "GPT-6-Astra",
+              "supportedReasoningEfforts": [
+                "low",
+                "medium",
+                "high",
+                "xhigh",
+                "max",
+                "ultra"
+              ],
+              "codexAccountId": "default",
+              "decisionOnly": false,
+              "reasoningEffort": "high",
+              "automatic": false,
+              "automaticEffort": true,
+              "nativePlugins": false,
+              "loopMcp": false,
+              "instructions": "",
+              "fallbacks": []
+            },
+            {
+              "provider": "openai",
+              "model": "gpt-6-sol",
+              "label": "GPT-6-Sol",
+              "supportedReasoningEfforts": [
+                "low",
+                "medium",
+                "high",
+                "xhigh",
+                "max",
+                "ultra"
+              ],
+              "codexAccountId": "default",
+              "decisionOnly": false,
+              "reasoningEffort": "high",
+              "automatic": false,
+              "automaticEffort": true,
+              "nativePlugins": false,
+              "loopMcp": false,
+              "instructions": "",
+              "fallbacks": []
+            },
+            {
+              "provider": "openai",
+              "model": "gpt-6-luna",
+              "label": "GPT-6-Luna",
+              "supportedReasoningEfforts": [
+                "low",
+                "medium",
+                "high",
+                "xhigh",
+                "max"
+              ],
+              "codexAccountId": "default",
+              "decisionOnly": false,
+              "reasoningEffort": "high",
+              "automatic": false,
+              "automaticEffort": true,
+              "nativePlugins": false,
+              "loopMcp": false,
+              "instructions": "",
+              "fallbacks": []
+            },
+            {
+              "provider": "api",
+              "model": "models/gemini-3-flash-preview",
+              "label": "models/gemini-3-flash-preview",
+              "supportedReasoningEfforts": [],
+              "connectionId": "f7a0013e-5238-47e3-a222-ad27ee060f6d",
+              "decisionOnly": false,
+              "reasoningEffort": null,
+              "automatic": false,
+              "automaticEffort": true,
+              "nativePlugins": false,
+              "loopMcp": false,
+              "instructions": "",
+              "fallbacks": []
+            }
+          ]
+        }
+      },
+      "observationStop": false,
+      "progress": [
+        {
+          "at": 1791538382489,
+          "elapsedMs": 70,
+          "status": "running",
+          "stage": "prepare",
+          "round": 0,
+          "calls": 0,
+          "tokens": 0
+        },
+        {
+          "at": 1791538387494,
+          "elapsedMs": 5075,
+          "status": "running",
+          "stage": "configuring",
+          "round": 0,
+          "calls": 1,
+          "tokens": 7313
+        },
+        {
+          "at": 1791538417525,
+          "elapsedMs": 35106,
+          "status": "running",
+          "stage": "planning",
+          "round": 0,
+          "calls": 3,
+          "tokens": 10748
+        },
+        {
+          "at": 1791538437547,
+          "elapsedMs": 55128,
+          "status": "running",
+          "stage": "planning",
+          "round": 0,
+          "calls": 4,
+          "tokens": 15612
+        },
+        {
+          "at": 1791538462590,
+          "elapsedMs": 80171,
+          "status": "running",
+          "stage": "planning",
+          "round": 0,
+          "calls": 5,
+          "tokens": 15612
+        },
+        {
+          "at": 1791539298472,
+          "elapsedMs": 916053,
+          "status": "running",
+          "stage": "planning",
+          "round": 0,
+          "calls": 6,
+          "tokens": 49618
+        },
+        {
+          "at": 1791539408612,
+          "elapsedMs": 1026193,
+          "status": "running",
+          "stage": "planning",
+          "round": 0,
+          "calls": 7,
+          "tokens": 82794
+        },
+        {
+          "at": 1791539438651,
+          "elapsedMs": 1056232,
+          "status": "failed",
+          "stage": "planning",
+          "round": 0,
+          "calls": 8,
+          "tokens": 111189
+        }
+      ],
+      "finishedAt": 1791539438653,
+      "elapsedMs": 1052994,
+      "status": "failed",
+      "stage": "planning",
+      "summary": "기본 모델과 저장된 대체 모델 3개를 모두 시도했지만 응답 형식이 올바르지 않습니다. 독립 QA 계획 오류: required-title-focus: 입력 검사에는 실제 입력 이후의 assertion이 필요합니다.",
+      "rounds": 0,
+      "applied": false,
+      "verificationPassed": false,
+      "browserQaPassed": false,
+      "readmeQaPassed": false,
+      "readmeQaRequired": false,
+      "reportedTokens": 111189,
+      "modelUsage": [
+        {
+          "provider": "api",
+          "model": "jev-latest",
+          "label": "jev-latest",
+          "totalTokens": 9067,
+          "calls": 2
+        },
+        {
+          "provider": "api",
+          "model": "models/gemini-3-flash-preview",
+          "label": "models/gemini-3-flash-preview",
+          "totalTokens": 6545,
+          "calls": 2
+        },
+        {
+          "provider": "openai",
+          "model": "gpt-6-astra",
+          "label": "GPT-6-Astra",
+          "totalTokens": 34006,
+          "calls": 1
+        },
+        {
+          "provider": "openai",
+          "model": "gpt-6-sol",
+          "label": "GPT-6-Sol",
+          "totalTokens": 33176,
+          "calls": 1
+        },
+        {
+          "provider": "openai",
+          "model": "gpt-6-luna",
+          "label": "GPT-6-Luna",
+          "totalTokens": 28395,
+          "calls": 1
+        }
+      ],
+      "modelCalls": [
+        {
+          "eventId": "ad388cef-b0ae-4b69-b12f-6139d12cc3f3",
+          "role": "judge",
+          "phase": "preparation",
+          "provider": "api",
+          "model": "jev-latest",
+          "effort": "default",
+          "round": 0,
+          "tokens": 7313,
+          "inputTokens": 7192,
+          "outputTokens": 121,
+          "cachedInputTokens": null,
+          "firstResponseMs": null,
+          "schemaRequested": false,
+          "schemaFallback": false,
+          "status": "success",
+          "durationMs": 530
+        },
+        {
+          "eventId": "797daa0a-9195-44bf-9abb-809471b26dbc",
+          "role": "planner",
+          "phase": "preparation",
+          "provider": "api",
+          "model": "models/gemini-3-flash-preview",
+          "effort": "default",
+          "round": 0,
+          "tokens": 1681,
+          "inputTokens": 1212,
+          "outputTokens": 41,
+          "cachedInputTokens": null,
+          "firstResponseMs": 30281,
+          "schemaRequested": true,
+          "schemaFallback": false,
+          "status": "success",
+          "durationMs": 30284
+        },
+        {
+          "eventId": "1bd5f56e-f7d8-4f99-aeec-8b68523a117e",
+          "role": "judge",
+          "phase": "preparation",
+          "provider": "api",
+          "model": "jev-latest",
+          "effort": "default",
+          "round": 0,
+          "tokens": 1754,
+          "inputTokens": 1713,
+          "outputTokens": 41,
+          "cachedInputTokens": null,
+          "firstResponseMs": null,
+          "schemaRequested": false,
+          "schemaFallback": false,
+          "status": "success",
+          "durationMs": 377
+        },
+        {
+          "eventId": "b882b3b8-0d27-4cda-939a-050dbfd1ffc7",
+          "role": "planner",
+          "phase": "preparation",
+          "provider": "api",
+          "model": "models/gemini-3-flash-preview",
+          "effort": "default",
+          "round": 0,
+          "tokens": 4864,
+          "inputTokens": 1627,
+          "outputTokens": 2329,
+          "cachedInputTokens": null,
+          "firstResponseMs": 6409,
+          "schemaRequested": false,
+          "schemaFallback": false,
+          "status": "success",
+          "durationMs": 21381
+        },
+        {
+          "eventId": "fa694709-601b-4336-9698-c9f48c28d895",
+          "role": "planner",
+          "phase": "preparation",
+          "provider": "api",
+          "model": "models/gemini-3-flash-preview",
+          "effort": "default",
+          "round": 0,
+          "tokens": null,
+          "inputTokens": null,
+          "outputTokens": null,
+          "cachedInputTokens": null,
+          "firstResponseMs": null,
+          "schemaRequested": true,
+          "schemaFallback": false,
+          "status": "failed",
+          "failureKind": "transport",
+          "durationMs": 24679
+        },
+        {
+          "eventId": "c80d2477-72fb-4c33-915b-51625e8e6cb5",
+          "role": "planner",
+          "phase": "preparation",
+          "provider": "openai",
+          "model": "gpt-6-astra",
+          "effort": "high",
+          "round": 0,
+          "tokens": 34006,
+          "inputTokens": 26881,
+          "outputTokens": 7125,
+          "cachedInputTokens": 26240,
+          "firstResponseMs": 356874,
+          "schemaRequested": true,
+          "schemaFallback": false,
+          "status": "failed",
+          "durationMs": 835696,
+          "failureKind": "format"
+        },
+        {
+          "eventId": "ce8cf3f0-80f6-4b93-9d96-ae4c8cbb0d97",
+          "role": "planner",
+          "phase": "preparation",
+          "provider": "openai",
+          "model": "gpt-6-sol",
+          "effort": "high",
+          "round": 0,
+          "tokens": 33176,
+          "inputTokens": 25942,
+          "outputTokens": 7234,
+          "cachedInputTokens": 0,
+          "firstResponseMs": 79760,
+          "schemaRequested": true,
+          "schemaFallback": false,
+          "status": "failed",
+          "durationMs": 110953,
+          "failureKind": "format"
+        },
+        {
+          "eventId": "b556c0aa-417c-4327-a32b-4eb807ec4dba",
+          "role": "planner",
+          "phase": "preparation",
+          "provider": "openai",
+          "model": "gpt-6-luna",
+          "effort": "high",
+          "round": 0,
+          "tokens": 28395,
+          "inputTokens": 25774,
+          "outputTokens": 2621,
+          "cachedInputTokens": 0,
+          "firstResponseMs": 18814,
+          "schemaRequested": true,
+          "schemaFallback": false,
+          "status": "failed",
+          "durationMs": 28166,
+          "failureKind": "format"
+        }
+      ],
+      "missingUsageCalls": 1,
+      "failedCalls": 4,
+      "humanActions": {
+        "manualResumes": 0,
+        "stopRequests": 0,
+        "completeCoverage": true
+      },
+      "manualCodeEdits": 0,
+      "manualResumes": 0,
+      "autoResumeAttempts": 0,
+      "milestones": [],
+      "source": "/Users/dgsw59/Library/Application Support/Mosaic Desk/harness/projects/bc99c3f5-da74-4898-a755-14eadd7b78e0/focus-board-app",
+      "workspace": "/Users/dgsw59/Library/Application Support/Mosaic Desk/harness/bc99c3f5-da74-4898-a755-14eadd7b78e0/workspace",
+      "finalRoles": {
+        "planner": {
+          "provider": "api",
+          "model": "models/gemini-3-flash-preview",
+          "label": "models/gemini-3-flash-preview",
+          "supportedReasoningEfforts": [],
+          "connectionId": "f7a0013e-5238-47e3-a222-ad27ee060f6d",
+          "decisionOnly": false,
+          "reasoningEffort": null,
+          "automatic": true,
+          "automaticEffort": true,
+          "nativePlugins": false,
+          "loopMcp": false,
+          "instructions": ""
+        },
+        "worker": {
+          "provider": "openai",
+          "model": "gpt-6-luna",
+          "label": "GPT-6-Luna",
+          "supportedReasoningEfforts": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "codexAccountId": "default",
+          "decisionOnly": false,
+          "reasoningEffort": "max",
+          "automatic": true,
+          "automaticEffort": true,
+          "nativePlugins": false,
+          "loopMcp": false,
+          "instructions": ""
+        },
+        "judge": {
+          "provider": "api",
+          "model": "jev-latest",
+          "label": "jev-latest",
+          "supportedReasoningEfforts": [],
+          "connectionId": "d2af9947-1459-4719-b11b-60d0775a0189",
+          "decisionOnly": true,
+          "reasoningEffort": null,
+          "automatic": true,
+          "automaticEffort": true,
+          "nativePlugins": false,
+          "loopMcp": false,
+          "instructions": ""
+        }
+      },
+      "exportedFiles": [],
+      "independentQa": {
+        "passed": false,
+        "checks": [],
+        "failures": [
+          "ENOENT: no such file or directory, open '/Users/dgsw59/Library/Application Support/Mosaic Desk/harness/bc99c3f5-da74-4898-a755-14eadd7b78e0/workspace/index.html'"
+        ],
+        "unavailable": true,
+        "expectedCheckCount": 50,
+        "passedCheckCount": 0
+      }
+    }
+  ],
+  "finishedAt": "2026-10-09T09:50:38.657Z"
+}

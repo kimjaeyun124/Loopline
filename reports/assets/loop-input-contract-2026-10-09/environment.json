@@ -1,0 +1,16 @@
+{
+  "recordedAt": "2026-10-09T09:46:14.302Z",
+  "platform": "darwin",
+  "architecture": "arm64",
+  "node": "v26.8.2",
+  "electron": "44.4.5",
+  "osRelease": "25.6.0",
+  "appBaseUrl": "http://127.0.0.1:41743",
+  "sourceCommit": "c21de18",
+  "automation": {
+    "id": "loopline",
+    "status": "ACTIVE",
+    "localSchedule": "매일 오전 9시",
+    "timeZone": "Asia/Seoul"
+  }
+}

@@ -1,0 +1,40 @@
+TAP version 13
+# Subtest: QA category diagnostics report every missing action and preserve blank-input and keyboard evidence
+ok 1 - QA category diagnostics report every missing action and preserve blank-input and keyboard evidence
+  ---
+  duration_ms: 4.352625
+  type: 'test'
+  ...
+# Subtest: independent QA vetoes optimistic review, preserves evidence and forwards failure before applying
+not ok 2 - independent QA vetoes optimistic review, preserves evidence and forwards failure before applying
+  ---
+  duration_ms: 1167.664625
+  type: 'test'
+  location: '/Users/dgsw59/Documents/Codex/2026-09-26/sj/outputs/mosaic-ai/tests/browser-qa.test.mjs:874:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    {"summary":"The expression evaluated to a falsy value:\n\n  assert.ok(prompt.includes(guidance.replaceAll('\"', '\\\\\"')))\n","events":[{"id":"6eabc4a8-9cf4-4662-ad0c-00b9bc172b04","title":"판정 / Review","detail":"0/2 · 추론 강도 / Effort: 자동 · 잔여 한도 미제공 · 누적 사용 확인 불가 tokens · 잔여 한도 미제공","status":"completed","timestamp":1791539632027,"model":{"role":"judge","provider":"api","source":"","id":"qa","label":"qa","effort":""}},{"id":"5f42ffb9-6a7c-4597-880d-d7e9910ddb23","title":"모델 판정 / Live model decision","detail":"qa · qa\n독립 QA 기준: pass · Actual evidence\nQA 입력 행동: pass · Actual evidence\nQA 저장 복원: pass · Actual evidence\nQA 빈 상태: pass · Actual evidence\nQA 키보드 행동: pass · Actual evidence\nQA 검사 empty: pass · Actual evidence\nQA 검사 input-save: pass · Actual evidence","status":"completed","timestamp":1791539632029,"model":{"role":"judge","provider":"api","source":"","id":"qa","label":"qa","effort":""}},{"id":"0630a871-c238-4a8b-bde1-784489e7fe19","title":"독립 QA 기준 확정 / QA contract fixed","detail":"2개 기능 검사 · 데스크톱/모바일 · 작업 중 검사 기준을 변경하지 않습니다.","status":"completed","timestamp":1791539632029},{"id":"9050c36f-5682-4541-a28d-9c50656ecfc8","title":"LangGraph 단계 저장 / Workflow checkpoint","detail":"다음 단계: round · 완료 회차 0/2","status":"completed","timestamp":1791539632030},{"id":"c78c14bf-6fae-4548-97c1-08349ce40362","title":"구현 / Implementation","detail":"1/2 · 추론 강도 / Effort: 자동 · 잔여 한도 미제공 · The expression evaluated to a falsy value:\n\n  assert.ok(prompt.includes(guidance.replaceAll('\"', '\\\\\"')))\n","status":"failed","timestamp":1791539632084,"model":{"role":"worker","provider":"api","source":"","id":"qa","label":"qa","effort":""}},{"id":"dfa664d0-a10d-4ec6-b2b8-3a40c7e490c1","title":"실행 종료 / Run finished","detail":"The expression evaluated to a falsy value:\n\n  assert.ok(prompt.includes(guidance.replaceAll('\"', '\\\\\"')))\n","status":"failed","timestamp":1791539632100}]}
+    + actual - expected
+
+    + 'failed'
+    - 'completed'
+
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'completed'
+  actual: 'failed'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/dgsw59/Documents/Codex/2026-09-26/sj/outputs/mosaic-ai/tests/browser-qa.test.mjs:900:10)
+    async Test.run (node:internal/test_runner/test:1409:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+  ...
+1..2
+# tests 2
+# suites 0
+# pass 1
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1320.223542

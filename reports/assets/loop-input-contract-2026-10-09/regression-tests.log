@@ -1,0 +1,2321 @@
+TAP version 13
+# Subtest: each role dispatches only its own native Plugin and Jev receives no tools
+ok 1 - each role dispatches only its own native Plugin and Jev receives no tools
+  ---
+  duration_ms: 32.584958
+  type: 'test'
+  ...
+# Subtest: disabled shared MCP connections are never started, but enabled fallback roles retain them
+ok 2 - disabled shared MCP connections are never started, but enabled fallback roles retain them
+  ---
+  duration_ms: 13.000375
+  type: 'test'
+  ...
+# Subtest: native Plugin catalog is lazy, uses an ephemeral thread and preserves account ownership
+ok 3 - native Plugin catalog is lazy, uses an ephemeral thread and preserves account ownership
+  ---
+  duration_ms: 9.85325
+  type: 'test'
+  ...
+# Subtest: unregistered Plugin tools, malformed inputs and aborted dispatch are rejected
+ok 4 - unregistered Plugin tools, malformed inputs and aborted dispatch are rejected
+  ---
+  duration_ms: 0.651667
+  type: 'test'
+  ...
+# Subtest: disabled native tools and API models do not open a provider connection
+ok 5 - disabled native tools and API models do not open a provider connection
+  ---
+  duration_ms: 0.586458
+  type: 'test'
+  ...
+# Subtest: large Plugin schemas preserve searchable tool names and valid bounded JSON
+ok 6 - large Plugin schemas preserve searchable tool names and valid bounded JSON
+  ---
+  duration_ms: 4.342166
+  type: 'test'
+  ...
+# Subtest: Claude configured MCP inherits scoped environment without returning credentials
+ok 7 - Claude configured MCP inherits scoped environment without returning credentials
+  ---
+  duration_ms: 10.716334
+  type: 'test'
+  ...
+# Subtest: a provider without MCP servers creates no temporary chat
+ok 8 - a provider without MCP servers creates no temporary chat
+  ---
+  duration_ms: 0.684208
+  type: 'test'
+  ...
+# Subtest: Claude project settings survive worktree isolation and discover default and declared Plugin components
+ok 9 - Claude project settings survive worktree isolation and discover default and declared Plugin components
+  ---
+  duration_ms: 25.108958
+  type: 'test'
+  ...
+# Subtest: real Chromium reports native input truncation without approving the failed error contract
+ok 10 - real Chromium reports native input truncation without approving the failed error contract
+  ---
+  duration_ms: 8415.709167
+  type: 'test'
+  ...
+# Subtest: browser QA detects web work while keeping command line JavaScript outside browser scope
+ok 11 - browser QA detects web work while keeping command line JavaScript outside browser scope
+  ---
+  duration_ms: 1.716209
+  type: 'test'
+  ...
+# Subtest: QA repair errors identify the invalid case and reject non-object steps as structured errors
+ok 12 - QA repair errors identify the invalid case and reject non-object steps as structured errors
+  ---
+  duration_ms: 2.045708
+  type: 'test'
+  ...
+# Subtest: initial and patched QA reject contradictory and malformed exemptions identically
+ok 13 - initial and patched QA reject contradictory and malformed exemptions identically
+  ---
+  duration_ms: 1.671875
+  type: 'test'
+  ...
+# Subtest: new executable checks replace their prior exemptions without mutating or weakening existing checks
+ok 14 - new executable checks replace their prior exemptions without mutating or weakening existing checks
+  ---
+  duration_ms: 0.557375
+  type: 'test'
+  ...
+# Subtest: README local Node launch checks the documented root and referenced web assets without opening a port
+ok 15 - README local Node launch checks the documented root and referenced web assets without opening a port
+  ---
+  duration_ms: 102.52025
+  type: 'test'
+  ...
+# Subtest: README Node server files retain a concrete code owner and use the same route smoke check
+ok 16 - README Node server files retain a concrete code owner and use the same route smoke check
+  ---
+  duration_ms: 88.803291
+  type: 'test'
+  ...
+# Subtest: README smoke bounds large HTTP response bodies and reports the size limit
+ok 17 - README smoke bounds large HTTP response bodies and reports the size limit
+  ---
+  duration_ms: 86.099333
+  type: 'test'
+  ...
+# Subtest: README smoke bounds response header count and total bytes
+    # Subtest: header count
+    ok 1 - header count
+      ---
+      duration_ms: 88.313084
+      type: 'test'
+      ...
+    # Subtest: header bytes
+    ok 2 - header bytes
+      ---
+      duration_ms: 91.162417
+      type: 'test'
+      ...
+    1..2
+ok 18 - README smoke bounds response header count and total bytes
+  ---
+  duration_ms: 180.325542
+  type: 'test'
+  ...
+# Subtest: README smoke rejects invalid response header names and values
+    # Subtest: header name
+    ok 1 - header name
+      ---
+      duration_ms: 104.164083
+      type: 'test'
+      ...
+    # Subtest: header value
+    ok 2 - header value
+      ---
+      duration_ms: 121.758708
+      type: 'test'
+      ...
+    1..2
+ok 19 - README smoke rejects invalid response header names and values
+  ---
+  duration_ms: 226.60425
+  type: 'test'
+  ...
+# Subtest: README smoke rejects header changes after the response has started
+    # Subtest: writeHead then setHeader
+    ok 1 - writeHead then setHeader
+      ---
+      duration_ms: 105.569375
+      type: 'test'
+      ...
+    # Subtest: writeHead twice
+    ok 2 - writeHead twice
+      ---
+      duration_ms: 151.9695
+      type: 'test'
+      ...
+    # Subtest: write then setHeader
+    ok 3 - write then setHeader
+      ---
+      duration_ms: 121.091833
+      type: 'test'
+      ...
+    # Subtest: flushHeaders then removeHeader
+    ok 4 - flushHeaders then removeHeader
+      ---
+      duration_ms: 89.550333
+      type: 'test'
+      ...
+    # Subtest: end then setHeader
+    ok 5 - end then setHeader
+      ---
+      duration_ms: 92.39675
+      type: 'test'
+      ...
+    1..5
+ok 20 - README smoke rejects header changes after the response has started
+  ---
+  duration_ms: 561.568458
+  type: 'test'
+  ...
+# Subtest: default Harness README smoke keeps the project command inside the offline execution sandbox
+ok 21 - default Harness README smoke keeps the project command inside the offline execution sandbox
+  ---
+  duration_ms: 152.144292
+  type: 'test'
+  ...
+# Subtest: desktop utility process runs README smoke through Node instead of Electron Helper
+ok 22 - desktop utility process runs README smoke through Node instead of Electron Helper
+  ---
+  duration_ms: 507.240375
+  type: 'test'
+  ...
+# Subtest: README root routing failures return concrete evidence for a targeted automatic repair
+ok 23 - README root routing failures return concrete evidence for a targeted automatic repair
+  ---
+  duration_ms: 82.669959
+  type: 'test'
+  ...
+# Subtest: README smoke rejects malformed raw evidence instead of filtering it into a pass
+    # Subtest: invalid failure item
+    ok 1 - invalid failure item
+      ---
+      duration_ms: 0.3925
+      type: 'test'
+      ...
+    # Subtest: invalid check item
+    ok 2 - invalid check item
+      ---
+      duration_ms: 0.386375
+      type: 'test'
+      ...
+    # Subtest: duplicate check ID
+    ok 3 - duplicate check ID
+      ---
+      duration_ms: 0.339958
+      type: 'test'
+      ...
+    # Subtest: excessive check count
+    ok 4 - excessive check count
+      ---
+      duration_ms: 0.31475
+      type: 'test'
+      ...
+    # Subtest: missing failures array
+    ok 5 - missing failures array
+      ---
+      duration_ms: 0.462209
+      type: 'test'
+      ...
+    1..5
+ok 24 - README smoke rejects malformed raw evidence instead of filtering it into a pass
+  ---
+  duration_ms: 4.252167
+  type: 'test'
+  ...
+# Subtest: README smoke rejects ambiguous repeated result markers
+ok 25 - README smoke rejects ambiguous repeated result markers
+  ---
+  duration_ms: 1.59775
+  type: 'test'
+  ...
+# Subtest: README smoke test skips absent or unsupported instructions without executing shell fragments
+ok 26 - README smoke test skips absent or unsupported instructions without executing shell fragments
+  ---
+  duration_ms: 3.081834
+  type: 'test'
+  ...
+# Subtest: Harness records a skipped README smoke check as not applicable rather than passed
+ok 27 - Harness records a skipped README smoke check as not applicable rather than passed
+  ---
+  duration_ms: 1.363375
+  type: 'test'
+  ...
+# Subtest: Harness fails closed when README QA adapters return incomplete or contradictory evidence
+    # Subtest: missing checks
+    ok 1 - missing checks
+      ---
+      duration_ms: 1.930209
+      type: 'test'
+      ...
+    # Subtest: contradictory failure list
+    ok 2 - contradictory failure list
+      ---
+      duration_ms: 0.66975
+      type: 'test'
+      ...
+    # Subtest: missing applicability flag
+    ok 3 - missing applicability flag
+      ---
+      duration_ms: 0.540041
+      type: 'test'
+      ...
+    # Subtest: invalid skipped result
+    ok 4 - invalid skipped result
+      ---
+      duration_ms: 0.554417
+      type: 'test'
+      ...
+    # Subtest: invalid result value
+    ok 5 - invalid result value
+      ---
+      duration_ms: 0.585167
+      type: 'test'
+      ...
+    1..5
+ok 28 - Harness fails closed when README QA adapters return incomplete or contradictory evidence
+  ---
+  duration_ms: 4.943792
+  type: 'test'
+  ...
+# Subtest: Harness bounds long README QA failure evidence before saving it to run history
+ok 29 - Harness bounds long README QA failure evidence before saving it to run history
+  ---
+  duration_ms: 0.862292
+  type: 'test'
+  ...
+# Subtest: QA key validation reports the exact unsupported key and preserves the executable allowlist
+ok 30 - QA key validation reports the exact unsupported key and preserves the executable allowlist
+  ---
+  duration_ms: 0.734125
+  type: 'test'
+  ...
+# Subtest: QA contract requires actual input, reload, key events and assertions, and rejects scripts
+ok 31 - QA contract requires actual input, reload, key events and assertions, and rejects scripts
+  ---
+  duration_ms: 0.321541
+  type: 'test'
+  ...
+# Subtest: QA assertions must follow input, reload and keyboard actions
+ok 32 - QA assertions must follow input, reload and keyboard actions
+  ---
+  duration_ms: 0.17
+  type: 'test'
+  ...
+# Subtest: rendered QA assertions reject clear head metadata before freezing the contract
+ok 33 - rendered QA assertions reject clear head metadata before freezing the contract
+  ---
+  duration_ms: 2.116458
+  type: 'test'
+  ...
+# Subtest: QA partial additions cannot introduce metadata text assertions
+ok 34 - QA partial additions cannot introduce metadata text assertions
+  ---
+  duration_ms: 0.174417
+  type: 'test'
+  ...
+# Subtest: QA patches retain every accepted check, order and selector without mutating either input
+ok 35 - QA patches retain every accepted check, order and selector without mutating either input
+  ---
+  duration_ms: 0.242166
+  type: 'test'
+  ...
+# Subtest: only the individually rejected QA check may be replaced, preserving its position and categories
+ok 36 - only the individually rejected QA check may be replaced, preserving its position and categories
+  ---
+  duration_ms: 0.262916
+  type: 'test'
+  ...
+# Subtest: QA patches reject full rewrites, duplicate IDs, empty changes and malformed arrays as repairable errors
+ok 37 - QA patches reject full rewrites, duplicate IDs, empty changes and malformed arrays as repairable errors
+  ---
+  duration_ms: 0.4535
+  type: 'test'
+  ...
+# Subtest: QA patches keep the existing assertion, script, count and step limits
+ok 38 - QA patches keep the existing assertion, script, count and step limits
+  ---
+  duration_ms: 0.30825
+  type: 'test'
+  ...
+# Subtest: a not-applicable rationale can be corrected without losing earlier cases
+ok 39 - a not-applicable rationale can be corrected without losing earlier cases
+  ---
+  duration_ms: 0.392083
+  type: 'test'
+  ...
+# Subtest: full QA plans accept additional observations while retaining every existing step and the sixteen-check limit
+ok 40 - full QA plans accept additional observations while retaining every existing step and the sixteen-check limit
+  ---
+  duration_ms: 0.681458
+  type: 'test'
+  ...
+# Subtest: QA extension rejects rewrites, unknown IDs, duplicated operations and missing appended assertions
+ok 41 - QA extension rejects rewrites, unknown IDs, duplicated operations and missing appended assertions
+  ---
+  duration_ms: 0.577417
+  type: 'test'
+  ...
+# Subtest: QA extension preserves assertion sequencing, script rejection and the twenty-four-step bound
+ok 42 - QA extension preserves assertion sequencing, script rejection and the twenty-four-step bound
+  ---
+  duration_ms: 0.504
+  type: 'test'
+  ...
+# Subtest: malformed JSON is classified for bounded format repair without accepting prose, arrays or partial objects
+ok 43 - malformed JSON is classified for bounded format repair without accepting prose, arrays or partial objects
+  ---
+  duration_ms: 0.517833
+  type: 'test'
+  ...
+# Subtest: QA category errors identify the check, rejected values and supported contract without weakening assertions
+ok 44 - QA category errors identify the check, rejected values and supported contract without weakening assertions
+  ---
+  duration_ms: 0.572834
+  type: 'test'
+  ...
+# Subtest: QA step limit errors include the exact check and count while keeping the same bound
+ok 45 - QA step limit errors include the exact check and count while keeping the same bound
+  ---
+  duration_ms: 0.326458
+  type: 'test'
+  ...
+# Subtest: native QA inspects CSS rendering even when the hidden attribute is overridden
+ok 46 - native QA inspects CSS rendering even when the hidden attribute is overridden
+  ---
+  duration_ms: 3.893041
+  type: 'test'
+  ...
+# Subtest: native focus QA checks the matching active element when action text also occurs in a task title
+ok 47 - native focus QA checks the matching active element when action text also occurs in a task title
+  ---
+  duration_ms: 3.21125
+  type: 'test'
+  ...
+# Subtest: native multi-match focus QA still rejects outside focus, hidden targets and missing keyboard cues
+ok 48 - native multi-match focus QA still rejects outside focus, hidden targets and missing keyboard cues
+  ---
+  duration_ms: 1.529458
+  type: 'test'
+  ...
+# Subtest: visible focus is a selector assertion following an actual key press, not an arbitrary script
+ok 49 - visible focus is a selector assertion following an actual key press, not an arbitrary script
+  ---
+  duration_ms: 0.6355
+  type: 'test'
+  ...
+# Subtest: native visible focus rejects invisible outlines and permanent shadows while accepting keyboard cues
+ok 50 - native visible focus rejects invisible outlines and permanent shadows while accepting keyboard cues
+  ---
+  duration_ms: 1.814459
+  type: 'test'
+  ...
+# Subtest: native QA accepts an extended automatic round and catches overflow immediately after long input
+ok 51 - native QA accepts an extended automatic round and catches overflow immediately after long input
+  ---
+  duration_ms: 432.985125
+  type: 'test'
+  ...
+# Subtest: packaged desktop fixture preserves QA and milestone contracts across a targeted repair
+ok 52 - packaged desktop fixture preserves QA and milestone contracts across a targeted repair
+  ---
+  duration_ms: 1.552334
+  type: 'test'
+  ...
+# Subtest: desktop fixture preserves structured review after MCP context and requests only the read-only Paper guide
+ok 53 - desktop fixture preserves structured review after MCP context and requests only the read-only Paper guide
+  ---
+  duration_ms: 0.253875
+  type: 'test'
+  ...
+# Subtest: browser IPC cancellation removes pending work and standalone mode never claims success
+ok 54 - browser IPC cancellation removes pending work and standalone mode never claims success
+  ---
+  duration_ms: 0.711583
+  type: 'test'
+  ...
+# Subtest: Harness fails closed when browser QA adapters return incomplete or contradictory evidence
+    # Subtest: missing checks
+    ok 1 - missing checks
+      ---
+      duration_ms: 2.027958
+      type: 'test'
+      ...
+    # Subtest: contradictory failure list
+    ok 2 - contradictory failure list
+      ---
+      duration_ms: 0.609042
+      type: 'test'
+      ...
+    # Subtest: missing check identity
+    ok 3 - missing check identity
+      ---
+      duration_ms: 0.658667
+      type: 'test'
+      ...
+    # Subtest: missing planned check
+    ok 4 - missing planned check
+      ---
+      duration_ms: 0.61175
+      type: 'test'
+      ...
+    # Subtest: duplicate planned check
+    ok 5 - duplicate planned check
+      ---
+      duration_ms: 0.651
+      type: 'test'
+      ...
+    # Subtest: unexpected check ID
+    ok 6 - unexpected check ID
+      ---
+      duration_ms: 0.66525
+      type: 'test'
+      ...
+    # Subtest: invalid result value
+    ok 7 - invalid result value
+      ---
+      duration_ms: 0.633375
+      type: 'test'
+      ...
+    1..7
+ok 55 - Harness fails closed when browser QA adapters return incomplete or contradictory evidence
+  ---
+  duration_ms: 6.827042
+  type: 'test'
+  ...
+# Subtest: Harness bounds long browser QA failure evidence before saving it to run history
+ok 56 - Harness bounds long browser QA failure evidence before saving it to run history
+  ---
+  duration_ms: 0.889625
+  type: 'test'
+  ...
+# Subtest: independent QA vetoes optimistic review, preserves evidence and forwards failure before applying
+ok 57 - independent QA vetoes optimistic review, preserves evidence and forwards failure before applying
+  ---
+  duration_ms: 1820.754458
+  type: 'test'
+  ...
+# Subtest: failed independent QA cannot be overridden by model approval at the round limit
+ok 58 - failed independent QA cannot be overridden by model approval at the round limit
+  ---
+  duration_ms: 904.090375
+  type: 'test'
+  ...
+# Subtest: failed QA key format reaches the next saved planner without accepting a failed actual browser check
+ok 59 - failed QA key format reaches the next saved planner without accepting a failed actual browser check
+  ---
+  duration_ms: 857.338375
+  type: 'test'
+  ...
+# Subtest: QA recovery routes the last existing attempt only for automatic planners, retaining global coverage and reusing unchanged case judgments
+    # Subtest: automatic planner changes after two rejections
+    ok 1 - automatic planner changes after two rejections
+      ---
+      duration_ms: 1129.348625
+      type: 'test'
+      ...
+    # Subtest: fixed planner is never changed
+    ok 2 - fixed planner is never changed
+      ---
+      duration_ms: 1198.793167
+      type: 'test'
+      ...
+    1..2
+ok 60 - QA recovery routes the last existing attempt only for automatic planners, retaining global coverage and reusing unchanged case judgments
+  ---
+  duration_ms: 2328.697958
+  type: 'test'
+  ...
+# Subtest: QA recovery cannot bypass a failed individual category or start implementation after three rejected plans
+ok 61 - QA recovery cannot bypass a failed individual category or start implementation after three rejected plans
+  ---
+  duration_ms: 816.378791
+  type: 'test'
+  ...
+# Subtest: coverage-only unexplained rejection reuses identical evidence for only the unanswered question before speculative QA edits and cannot override failed runtime QA
+ok 62 - coverage-only unexplained rejection reuses identical evidence for only the unanswered question before speculative QA edits and cannot override failed runtime QA
+  ---
+  duration_ms: 1084.999458
+  type: 'test'
+  ...
+# Subtest: an individual QA rejection retains the first repair opportunity before switching an unexplained judge
+ok 63 - an individual QA rejection retains the first repair opportunity before switching an unexplained judge
+  ---
+  duration_ms: 922.377958
+  type: 'test'
+  ...
+# Subtest: explanatory judge rejection supplies concrete repair feedback and still blocks implementation after the bounded attempts
+ok 64 - explanatory judge rejection supplies concrete repair feedback and still blocks implementation after the bounded attempts
+  ---
+  duration_ms: 635.508708
+  type: 'test'
+  ...
+# Subtest: QA delta repair blocks changes to accepted cases and recovers with only the missing check
+ok 65 - QA delta repair blocks changes to accepted cases and recovers with only the missing check
+  ---
+  duration_ms: 1019.045042
+  type: 'test'
+  ...
+# Subtest: missing coverage can extend a full accepted QA plan before independent execution and application
+ok 66 - missing coverage can extend a full accepted QA plan before independent execution and application
+  ---
+  duration_ms: 1020.319541
+  type: 'test'
+  ...
+# Subtest: a rejected individual QA case can be repaired without touching accepted cases
+ok 67 - a rejected individual QA case can be repaired without touching accepted cases
+  ---
+  duration_ms: 1062.304959
+  type: 'test'
+  ...
+# Subtest: new actionable feedback after real QA patches gets a fourth review without weakening runtime gates
+    # Subtest: actual browser pass permits application
+    ok 1 - actual browser pass permits application
+      ---
+      duration_ms: 1009.204417
+      type: 'test'
+      ...
+    # Subtest: actual browser failure blocks application
+    ok 2 - actual browser failure blocks application
+      ---
+      duration_ms: 774.076042
+      type: 'test'
+      ...
+    1..2
+ok 68 - new actionable feedback after real QA patches gets a fourth review without weakening runtime gates
+  ---
+  duration_ms: 1783.906042
+  type: 'test'
+  ...
+# Subtest: continually new QA feedback is bounded at six and cannot begin implementation or application
+ok 69 - continually new QA feedback is bounded at six and cannot begin implementation or application
+  ---
+  duration_ms: 624.069083
+  type: 'test'
+  ...
+# Subtest: a repeated actionable rejection after an extended QA patch does not extend again
+ok 70 - a repeated actionable rejection after an extended QA patch does not extend again
+  ---
+  duration_ms: 621.3075
+  type: 'test'
+  ...
+# Subtest: unchanged QA patches exhaust format repair without repeating review or starting implementation
+ok 71 - unchanged QA patches exhaust format repair without repeating review or starting implementation
+  ---
+  duration_ms: 688.324042
+  type: 'test'
+  ...
+# Subtest: fixed QA format repair receives the precise oversized check and succeeds without changing the contract
+ok 72 - fixed QA format repair receives the precise oversized check and succeeds without changing the contract
+  ---
+  duration_ms: 1034.153542
+  type: 'test'
+  ...
+# Subtest: malformed QA JSON enters format repair for fixed models or the saved fallback for automatic models
+    # Subtest: fixed model repair
+    ok 1 - fixed model repair
+      ---
+      duration_ms: 985.093291
+      type: 'test'
+      ...
+    # Subtest: saved fallback
+    ok 2 - saved fallback
+      ---
+      duration_ms: 1038.780916
+      type: 'test'
+      ...
+    1..2
+ok 73 - malformed QA JSON enters format repair for fixed models or the saved fallback for automatic models
+  ---
+  duration_ms: 2024.332
+  type: 'test'
+  ...
+# Subtest: repeated malformed QA JSON exhausts the existing repair bound and never starts implementation
+ok 74 - repeated malformed QA JSON exhausts the existing repair bound and never starts implementation
+  ---
+  duration_ms: 598.952916
+  type: 'test'
+  ...
+# Subtest: stream timing and schema notifications do not persist an unchanged run
+ok 75 - stream timing and schema notifications do not persist an unchanged run
+  ---
+  duration_ms: 1.738792
+  type: 'test'
+  ...
+# Subtest: repeated cumulative usage counts once and keeps detailed tokens and first response timing
+ok 76 - repeated cumulative usage counts once and keeps detailed tokens and first response timing
+  ---
+  duration_ms: 2161.61425
+  type: 'test'
+  ...
+# Subtest: automatic effort adapts to the current task while explicit max is preserved
+ok 77 - automatic effort adapts to the current task while explicit max is preserved
+  ---
+  duration_ms: 2489.202709
+  type: 'test'
+  ...
+# Subtest: preparation token budget stops before another call without applying or automatically restarting
+ok 78 - preparation token budget stops before another call without applying or automatically restarting
+  ---
+  duration_ms: 684.193
+  type: 'test'
+  ...
+# Subtest: total model time budget aborts a silent provider and preserves missing usage
+ok 79 - total model time budget aborts a silent provider and preserves missing usage
+  ---
+  duration_ms: 690.149792
+  type: 'test'
+  ...
+# Subtest: execution tokens stop at the next call and record entry into implementation
+ok 80 - execution tokens stop at the next call and record entry into implementation
+  ---
+  duration_ms: 736.195
+  type: 'test'
+  ...
+# Subtest: managed project setup repairs one malformed folder proposal and review without restarting
+ok 81 - managed project setup repairs one malformed folder proposal and review without restarting
+  ---
+  duration_ms: 1326.982209
+  type: 'test'
+  ...
+# Subtest: final review repairs one invalid JSON response while reusing the verified patch
+ok 82 - final review repairs one invalid JSON response while reusing the verified patch
+  ---
+  duration_ms: 1238.247459
+  type: 'test'
+  ...
+# Subtest: persistent invalid initial and final reviews are bounded and never apply changes
+    # Subtest: initial review
+    ok 1 - initial review
+      ---
+      duration_ms: 258.486917
+      type: 'test'
+      ...
+    # Subtest: final review
+    ok 2 - final review
+      ---
+      duration_ms: 911.391167
+      type: 'test'
+      ...
+    1..2
+ok 83 - persistent invalid initial and final reviews are bounded and never apply changes
+  ---
+  duration_ms: 1170.688708
+  type: 'test'
+  ...
+# Subtest: single worker retries one temporary provider failure, preserves progress and records reported usage
+ok 84 - single worker retries one temporary provider failure, preserves progress and records reported usage
+  ---
+  duration_ms: 1054.63275
+  type: 'test'
+  ...
+# Subtest: repeated temporary worker failures continue in the next round before verification and application
+ok 85 - repeated temporary worker failures continue in the next round before verification and application
+  ---
+  duration_ms: 1190.010209
+  type: 'test'
+  ...
+# Subtest: worker step exhaustion preserves files and completes automatically in the next round
+ok 86 - worker step exhaustion preserves files and completes automatically in the next round
+  ---
+  duration_ms: 1238.11925
+  type: 'test'
+  ...
+# Subtest: unfinished implementation extends automatic rounds and finishes after the initial limit
+ok 87 - unfinished implementation extends automatic rounds and finishes after the initial limit
+  ---
+  duration_ms: 1910.190292
+  type: 'test'
+  ...
+# Subtest: unfinished implementation respects the configured round limit without verification or application
+ok 88 - unfinished implementation respects the configured round limit without verification or application
+  ---
+  duration_ms: 799.203625
+  type: 'test'
+  ...
+# Subtest: authentication and exhausted quota do not enter temporary worker recovery
+    # Subtest: HTTP 401
+    ok 1 - HTTP 401
+      ---
+      duration_ms: 656.074833
+      type: 'test'
+      ...
+    # Subtest: HTTP 429
+    ok 2 - HTTP 429
+      ---
+      duration_ms: 657.749917
+      type: 'test'
+      ...
+    1..2
+ok 89 - authentication and exhausted quota do not enter temporary worker recovery
+  ---
+  duration_ms: 1314.256708
+  type: 'test'
+  ...
+# Subtest: a single worker never retries malformed output or timeout after dispatching an MCP tool
+    # Subtest: invalid response after tool
+    ok 1 - invalid response after tool
+      ---
+      duration_ms: 728.491833
+      type: 'test'
+      ...
+    # Subtest: timeout after tool
+    ok 2 - timeout after tool
+      ---
+      duration_ms: 680.790666
+      type: 'test'
+      ...
+    1..2
+ok 90 - a single worker never retries malformed output or timeout after dispatching an MCP tool
+  ---
+  duration_ms: 1409.725375
+  type: 'test'
+  ...
+# Subtest: stop during corrected project review prevents project creation and implementation
+ok 91 - stop during corrected project review prevents project creation and implementation
+  ---
+  duration_ms: 108.450125
+  type: 'test'
+  ...
+# Subtest: stop during a recovered worker call prevents later verification and application
+ok 92 - stop during a recovered worker call prevents later verification and application
+  ---
+  duration_ms: 659.078667
+  type: 'test'
+  ...
+# Subtest: implementation recovery never replays an earlier completed MCP side effect
+    # Subtest: later timeout
+    ok 1 - later timeout
+      ---
+      duration_ms: 672.873042
+      type: 'test'
+      ...
+    # Subtest: step exhaustion
+    ok 2 - step exhaustion
+      ---
+      duration_ms: 741.884667
+      type: 'test'
+      ...
+    1..2
+ok 93 - implementation recovery never replays an earlier completed MCP side effect
+  ---
+  duration_ms: 1415.249958
+  type: 'test'
+  ...
+# Subtest: format repair after prior MCP work is allowed only for a decision-only judge
+    # Subtest: review with tools
+    ok 1 - review with tools
+      ---
+      duration_ms: 757.821584
+      type: 'test'
+      ...
+    # Subtest: pure decision review
+    ok 2 - pure decision review
+      ---
+      duration_ms: 934.167292
+      type: 'test'
+      ...
+    1..2
+ok 94 - format repair after prior MCP work is allowed only for a decision-only judge
+  ---
+  duration_ms: 1692.422625
+  type: 'test'
+  ...
+# Subtest: exhausted invalid judge fallbacks do not restart the entire saved priority list
+ok 95 - exhausted invalid judge fallbacks do not restart the entire saved priority list
+  ---
+  duration_ms: 756.362209
+  type: 'test'
+  ...
+# Subtest: a reported zero-token budget skips to the next saved planner and judge priorities
+ok 96 - a reported zero-token budget skips to the next saved planner and judge priorities
+  ---
+  duration_ms: 975.244
+  type: 'test'
+  ...
+# Subtest: a temporary provider failure switches to the next configured model and completes the task
+ok 97 - a temporary provider failure switches to the next configured model and completes the task
+  ---
+  duration_ms: 866.5145
+  type: 'test'
+  ...
+# Subtest: a localized API connection failure continues through the saved worker models
+ok 98 - a localized API connection failure continues through the saved worker models
+  ---
+  duration_ms: 906.40425
+  type: 'test'
+  ...
+# Subtest: an API authentication failure wrapped by the local relay does not switch models
+ok 99 - an API authentication failure wrapped by the local relay does not switch models
+  ---
+  duration_ms: 524.04825
+  type: 'test'
+  ...
+# Subtest: a Korean Codex request timeout switches to the next saved worker model
+ok 100 - a Korean Codex request timeout switches to the next saved worker model
+  ---
+  duration_ms: 918.042208
+  type: 'test'
+  ...
+# Subtest: HTTP 429 fails over in the saved order but authentication errors do not
+ok 101 - HTTP 429 fails over in the saved order but authentication errors do not
+  ---
+  duration_ms: 1482.171083
+  type: 'test'
+  ...
+# Subtest: Jev quota exhaustion routes every subsequent judgement to the saved general model
+ok 102 - Jev quota exhaustion routes every subsequent judgement to the saved general model
+  ---
+  duration_ms: 895.958084
+  type: 'test'
+  ...
+# Subtest: an invalid verification plan falls back to the next saved planner and completes
+ok 103 - an invalid verification plan falls back to the next saved planner and completes
+  ---
+  duration_ms: 982.194791
+  type: 'test'
+  ...
+# Subtest: an invalid judge decision falls back without requiring a task restart
+ok 104 - an invalid judge decision falls back without requiring a task restart
+  ---
+  duration_ms: 840.851917
+  type: 'test'
+  ...
+# Subtest: a valid negative judge verdict never invokes a fallback to chase approval
+    # Subtest: revise
+    ok 1 - revise
+      ---
+      duration_ms: 699.138583
+      type: 'test'
+      ...
+    # Subtest: uncertain
+    ok 2 - uncertain
+      ---
+      duration_ms: 691.989583
+      type: 'test'
+      ...
+    1..2
+ok 105 - a valid negative judge verdict never invokes a fallback to chase approval
+  ---
+  duration_ms: 1391.601375
+  type: 'test'
+  ...
+# Subtest: a malformed worker action uses the next saved implementation model
+ok 106 - a malformed worker action uses the next saved implementation model
+  ---
+  duration_ms: 860.999417
+  type: 'test'
+  ...
+# Subtest: an invalid automatic model ranking falls back to the saved review model
+ok 107 - an invalid automatic model ranking falls back to the saved review model
+  ---
+  duration_ms: 843.098
+  type: 'test'
+  ...
+# Subtest: a malformed reply after an MCP side effect never repeats the tool on a fallback model
+ok 108 - a malformed reply after an MCP side effect never repeats the tool on a fallback model
+  ---
+  duration_ms: 565.805875
+  type: 'test'
+  ...
+# Subtest: round feedback reaches worker, dirty user files survive and accepted patch applies automatically
+ok 109 - round feedback reaches worker, dirty user files survive and accepted patch applies automatically
+  ---
+  duration_ms: 1057.454125
+  type: 'test'
+  ...
+# Subtest: automatic Harness starts from task complexity and extends only when the judge asks for revisions
+ok 110 - automatic Harness starts from task complexity and extends only when the judge asks for revisions
+  ---
+  duration_ms: 1541.645958
+  type: 'test'
+  ...
+# Subtest: two unchanged judged revisions replan and move implementation to the next saved model
+ok 111 - two unchanged judged revisions replan and move implementation to the next saved model
+  ---
+  duration_ms: 1441.434667
+  type: 'test'
+  ...
+# Subtest: automatic Harness stops repeated unchanged work after replan instead of spending all ten rounds
+ok 112 - automatic Harness stops repeated unchanged work after replan instead of spending all ten rounds
+  ---
+  duration_ms: 1370.088
+  type: 'test'
+  ...
+# Subtest: worker combines the final file operation and completion to reduce model calls
+ok 113 - worker combines the final file operation and completion to reduce model calls
+  ---
+  duration_ms: 1804.810166
+  type: 'test'
+  ...
+# Subtest: visual interface tasks receive design guidance while CLI tasks keep their existing prompts
+ok 114 - visual interface tasks receive design guidance while CLI tasks keep their existing prompts
+  ---
+  duration_ms: 1807.848875
+  type: 'test'
+  ...
+# Subtest: HTTP website work tells planners, workers and judges to avoid network listeners in sandbox tests
+ok 115 - HTTP website work tells planners, workers and judges to avoid network listeners in sandbox tests
+  ---
+  duration_ms: 1004.009583
+  type: 'test'
+  ...
+# Subtest: worker context replaces an edited file with its latest contents
+ok 116 - worker context replaces an edited file with its latest contents
+  ---
+  duration_ms: 1017.410375
+  type: 'test'
+  ...
+# Subtest: worker context sends one current copy when a file is read repeatedly
+ok 117 - worker context sends one current copy when a file is read repeatedly
+  ---
+  duration_ms: 797.43325
+  type: 'test'
+  ...
+# Subtest: a failed batched final operation does not count as worker completion
+ok 118 - a failed batched final operation does not count as worker completion
+  ---
+  duration_ms: 921.490708
+  type: 'test'
+  ...
+# Subtest: failed verification cannot be overridden by a complete verdict
+ok 119 - failed verification cannot be overridden by a complete verdict
+  ---
+  duration_ms: 730.669709
+  type: 'test'
+  ...
+# Subtest: malformed judge reply fails closed and retains patch
+ok 120 - malformed judge reply fails closed and retains patch
+  ---
+  duration_ms: 729.591208
+  type: 'test'
+  ...
+# Subtest: source changes during the run are preserved without automatic overwrite
+ok 121 - source changes during the run are preserved without automatic overwrite
+  ---
+  duration_ms: 860.192959
+  type: 'test'
+  ...
+# Subtest: stop cancels current model call and never starts worker or verification
+ok 122 - stop cancels current model call and never starts worker or verification
+  ---
+  duration_ms: 586.616833
+  type: 'test'
+  ...
+# Subtest: workspace tools reject traversal, git metadata and symlinks
+ok 123 - workspace tools reject traversal, git metadata and symlinks
+  ---
+  duration_ms: 82.800667
+  type: 'test'
+  ...
+# Subtest: only one run per source can run at a time
+ok 124 - only one run per source can run at a time
+  ---
+  duration_ms: 627.369667
+  type: 'test'
+  ...
+# Subtest: macOS verification allows workspace writes and blocks writes outside the workspace
+ok 125 - macOS verification allows workspace writes and blocks writes outside the workspace
+  ---
+  duration_ms: 113.093084
+  type: 'test'
+  ...
+# Subtest: review-only mode preserves original and passes root instructions to every role
+ok 126 - review-only mode preserves original and passes root instructions to every role
+  ---
+  duration_ms: 718.594459
+  type: 'test'
+  ...
+# Subtest: identical AGENTS.md and CLAUDE.md instructions are delivered once per model call
+ok 127 - identical AGENTS.md and CLAUDE.md instructions are delivered once per model call
+  ---
+  duration_ms: 962.433542
+  type: 'test'
+  ...
+# Subtest: automatic verification command is reused after a passing check requests another implementation round
+ok 128 - automatic verification command is reused after a passing check requests another implementation round
+  ---
+  duration_ms: 1194.350542
+  type: 'test'
+  ...
+# Subtest: an insufficient judge verification verdict replans the command for the next round
+ok 129 - an insufficient judge verification verdict replans the command for the next round
+  ---
+  duration_ms: 1299.754875
+  type: 'test'
+  ...
+# Subtest: automatic verification keeps the same command after a test assertion fails
+ok 130 - automatic verification keeps the same command after a test assertion fails
+  ---
+  duration_ms: 1171.036042
+  type: 'test'
+  ...
+# Subtest: automatic verification can choose another command when the selected command is unavailable
+ok 131 - automatic verification can choose another command when the selected command is unavailable
+  ---
+  duration_ms: 1266.57625
+  type: 'test'
+  ...
+# Subtest: verification-plan rejection uses the next saved planner and then applies only after approval
+ok 132 - verification-plan rejection uses the next saved planner and then applies only after approval
+  ---
+  duration_ms: 1103.018333
+  type: 'test'
+  ...
+# Subtest: restored unfinished runs are marked interrupted without restarting model calls
+ok 133 - restored unfinished runs are marked interrupted without restarting model calls
+  ---
+  duration_ms: 70.445584
+  type: 'test'
+  ...
+# Subtest: LangGraph automatically resumes the saved stage after engine restart
+ok 134 - LangGraph automatically resumes the saved stage after engine restart
+  ---
+  duration_ms: 976.436833
+  type: 'test'
+  ...
+# Subtest: transient model failures retry automatically from the active workflow checkpoint
+ok 135 - transient model failures retry automatically from the active workflow checkpoint
+  ---
+  duration_ms: 2393.134416
+  type: 'test'
+  ...
+# Subtest: startup recovery automatically retries a saved transient failure
+ok 136 - startup recovery automatically retries a saved transient failure
+  ---
+  duration_ms: 978.026125
+  type: 'test'
+  ...
+# Subtest: startup recovery preserves an explicit user stop
+ok 137 - startup recovery preserves an explicit user stop
+  ---
+  duration_ms: 610.233084
+  type: 'test'
+  ...
+# Subtest: a failed transient model call can resume from its safe checkpoint with a bounded retry count
+ok 138 - a failed transient model call can resume from its safe checkpoint with a bounded retry count
+  ---
+  duration_ms: 963.743667
+  type: 'test'
+  ...
+# Subtest: startup recovery reconnects saved MCP tools and respects safety and restart limits
+ok 139 - startup recovery reconnects saved MCP tools and respects safety and restart limits
+  ---
+  duration_ms: 949.352
+  type: 'test'
+  ...
+# Subtest: snapshot and auto-apply do not invoke repository-configured external filters
+ok 140 - snapshot and auto-apply do not invoke repository-configured external filters
+  ---
+  duration_ms: 969.073208
+  type: 'test'
+  ...
+# Subtest: macOS verification blocks outside reads and local networking
+ok 141 - macOS verification blocks outside reads and local networking
+  ---
+  duration_ms: 149.904917
+  type: 'test'
+  ...
+# Subtest: cancellation terminates a running verification command
+ok 142 - cancellation terminates a running verification command
+  ---
+  duration_ms: 102.543875
+  type: 'test'
+  ...
+# Subtest: repeated identical reads give one recovery hint before stopping a stubborn model
+ok 143 - repeated identical reads give one recovery hint before stopping a stubborn model
+  ---
+  duration_ms: 612.388417
+  type: 'test'
+  ...
+# Subtest: the worker continues with an edit after repeated-read feedback includes current file contents
+ok 144 - the worker continues with an edit after repeated-read feedback includes current file contents
+  ---
+  duration_ms: 993.253
+  type: 'test'
+  ...
+# Subtest: reordered and subset reads recover through the saved worker while retaining the verification veto
+    # Subtest: verified recovery applies
+    ok 1 - verified recovery applies
+      ---
+      duration_ms: 921.150875
+      type: 'test'
+      ...
+    # Subtest: failed verification never applies
+    ok 2 - failed verification never applies
+      ---
+      duration_ms: 838.920709
+      type: 'test'
+      ...
+    1..2
+ok 145 - reordered and subset reads recover through the saved worker while retaining the verification veto
+  ---
+  duration_ms: 1760.722875
+  type: 'test'
+  ...
+# Subtest: failed reads of an uncreated file give creation guidance and do not evade progress recovery
+ok 146 - failed reads of an uncreated file give creation guidance and do not evade progress recovery
+  ---
+  duration_ms: 963.757083
+  type: 'test'
+  ...
+# Subtest: fresh file inspections and inspections following mutations are legitimate progress
+ok 147 - fresh file inspections and inspections following mutations are legitimate progress
+  ---
+  duration_ms: 976.682792
+  type: 'test'
+  ...
+# Subtest: large current files cannot hide inventory and the latest operation metadata
+ok 148 - large current files cannot hide inventory and the latest operation metadata
+  ---
+  duration_ms: 969.851375
+  type: 'test'
+  ...
+# Subtest: the latest read retains its complete middle when older file context exceeds the budget
+ok 149 - the latest read retains its complete middle when older file context exceeds the budget
+  ---
+  duration_ms: 1011.679375
+  type: 'test'
+  ...
+# Subtest: read stagnation after an external MCP side effect never changes or replays the worker
+ok 150 - read stagnation after an external MCP side effect never changes or replays the worker
+  ---
+  duration_ms: 614.304667
+  type: 'test'
+  ...
+# Subtest: judge creates a managed project and configures verification from implemented files
+ok 151 - judge creates a managed project and configures verification from implemented files
+  ---
+  duration_ms: 2104.730333
+  type: 'test'
+  ...
+# Subtest: automatic verification planning and judgement receive the actual test source
+ok 152 - automatic verification planning and judgement receive the actual test source
+  ---
+  duration_ms: 1120.201959
+  type: 'test'
+  ...
+# Subtest: automatic verification limits repeated file inspection and still selects a judged command
+ok 153 - automatic verification limits repeated file inspection and still selects a judged command
+  ---
+  duration_ms: 1049.676458
+  type: 'test'
+  ...
+# Subtest: automatic verification retries malformed and incomplete judge responses
+ok 154 - automatic verification retries malformed and incomplete judge responses
+  ---
+  duration_ms: 1103.30375
+  type: 'test'
+  ...
+# Subtest: automatic verification retries one invalid judge review without replanning the command
+ok 155 - automatic verification retries one invalid judge review without replanning the command
+  ---
+  duration_ms: 1081.566417
+  type: 'test'
+  ...
+# Subtest: automatic verification does not retry judge transport failures as malformed decisions
+ok 156 - automatic verification does not retry judge transport failures as malformed decisions
+  ---
+  duration_ms: 699.950834
+  type: 'test'
+  ...
+# Subtest: automatic verification bounds repeated malformed plans without wasting eight requests
+ok 157 - automatic verification bounds repeated malformed plans without wasting eight requests
+  ---
+  duration_ms: 931.707458
+  type: 'test'
+  ...
+# Subtest: rejected verification plans return their evidence gaps to the worker and run real assertions before applying
+ok 158 - rejected verification plans return their evidence gaps to the worker and run real assertions before applying
+  ---
+  duration_ms: 1476.768084
+  type: 'test'
+  ...
+# Subtest: missing verification commands recover in the next implementation round within the configured limit
+ok 159 - missing verification commands recover in the next implementation round within the configured limit
+  ---
+  duration_ms: 1319.275125
+  type: 'test'
+  ...
+# Subtest: verification preparation recovery exhausts the round limit without executing or applying unchecked changes
+ok 160 - verification preparation recovery exhausts the round limit without executing or applying unchecked changes
+  ---
+  duration_ms: 1116.810291
+  type: 'test'
+  ...
+# Subtest: automatic rounds extend after verification preparation failures and complete when evidence becomes available
+ok 161 - automatic rounds extend after verification preparation failures and complete when evidence becomes available
+  ---
+  duration_ms: 2110.805333
+  type: 'test'
+  ...
+# Subtest: stop during verification preparation recovery prevents the next round from verifying or applying
+ok 162 - stop during verification preparation recovery prevents the next round from verifying or applying
+  ---
+  duration_ms: 921.285042
+  type: 'test'
+  ...
+# Subtest: authentication errors during verification planning do not enter implementation recovery
+ok 163 - authentication errors during verification planning do not enter implementation recovery
+  ---
+  duration_ms: 723.476459
+  type: 'test'
+  ...
+# Subtest: verification preparation recovery clears a previously passing command and result before reaching the round limit
+ok 164 - verification preparation recovery clears a previously passing command and result before reaching the round limit
+  ---
+  duration_ms: 1272.462542
+  type: 'test'
+  ...
+# Subtest: stagnation replanning handles unexecuted verification while recovering missing plans
+ok 165 - stagnation replanning handles unexecuted verification while recovering missing plans
+  ---
+  duration_ms: 1777.525625
+  type: 'test'
+  ...
+# Subtest: failed edit feedback includes current file contents so the worker can rebase its edit
+ok 166 - failed edit feedback includes current file contents so the worker can rebase its edit
+  ---
+  duration_ms: 896.163541
+  type: 'test'
+  ...
+# Subtest: failed edit in a batch leaves earlier edits unapplied and provides the original content
+ok 167 - failed edit in a batch leaves earlier edits unapplied and provides the original content
+  ---
+  duration_ms: 918.856041
+  type: 'test'
+  ...
+# Subtest: repeated identical malformed worker output stops safely after one correction attempt
+ok 168 - repeated identical malformed worker output stops safely after one correction attempt
+  ---
+  duration_ms: 603.884167
+  type: 'test'
+  ...
+# Subtest: repeated edit failures switch to the next saved worker before further attempts
+ok 169 - repeated edit failures switch to the next saved worker before further attempts
+  ---
+  duration_ms: 884.879291
+  type: 'test'
+  ...
+# Subtest: malformed operations response returns tool feedback instead of throwing in the error handler
+ok 170 - malformed operations response returns tool feedback instead of throwing in the error handler
+  ---
+  duration_ms: 894.30675
+  type: 'test'
+  ...
+# Subtest: judge folder names cannot escape the managed project directory
+ok 171 - judge folder names cannot escape the managed project directory
+  ---
+  duration_ms: 84.082459
+  type: 'test'
+  ...
+# Subtest: verification setup cannot mutate files and never applies on configuration failure
+ok 172 - verification setup cannot mutate files and never applies on configuration failure
+  ---
+  duration_ms: 724.658
+  type: 'test'
+  ...
+# Subtest: stop during automatic project setup cancels the judge before creating a source
+ok 173 - stop during automatic project setup cancels the judge before creating a source
+  ---
+  duration_ms: 83.658875
+  type: 'test'
+  ...
+# Subtest: native Jev judges Luna proposals and uncertain verdicts continue to a second round
+ok 174 - native Jev judges Luna proposals and uncertain verdicts continue to a second round
+  ---
+  duration_ms: 1402.475417
+  type: 'test'
+  ...
+# Subtest: native Jev cannot generate plans and missing decisions fail closed
+ok 175 - native Jev cannot generate plans and missing decisions fail closed
+  ---
+  duration_ms: 698.633
+  type: 'test'
+  ...
+# Subtest: Jev selects automatic roles once, applies ranking, accounts routing tokens, and preserves priority fallbacks
+ok 176 - Jev selects automatic roles once, applies ranking, accounts routing tokens, and preserves priority fallbacks
+  ---
+  duration_ms: 877.057208
+  type: 'test'
+  ...
+# Subtest: a regular judge ranks the primary and all automatic-role fallbacks by the saved priorities
+ok 177 - a regular judge ranks the primary and all automatic-role fallbacks by the saved priorities
+  ---
+  duration_ms: 966.596791
+  type: 'test'
+  ...
+# Subtest: invalid Jev routing keeps all default roles and excludes exhausted candidates
+ok 178 - invalid Jev routing keeps all default roles and excludes exhausted candidates
+  ---
+  duration_ms: 1008.946125
+  type: 'test'
+  ...
+# Subtest: stop during Jev routing prevents planning and implementation
+ok 179 - stop during Jev routing prevents planning and implementation
+  ---
+  duration_ms: 142.016667
+  type: 'test'
+  ...
+# Subtest: budget and infrastructure failures retain direct cost but cannot lower model code completion metrics
+ok 180 - budget and infrastructure failures retain direct cost but cannot lower model code completion metrics
+  ---
+  duration_ms: 51.888417
+  type: 'test'
+  ...
+# Subtest: detailed measurements preserve unknown values and count observed first responses separately
+ok 181 - detailed measurements preserve unknown values and count observed first responses separately
+  ---
+  duration_ms: 4.81675
+  type: 'test'
+  ...
+# Subtest: measurements require three distinct runs and replacement never double counts a resumed run
+ok 182 - measurements require three distinct runs and replacement never double counts a resumed run
+  ---
+  duration_ms: 7.389375
+  type: 'test'
+  ...
+# Subtest: completion evidence exposes a 95% Wilson lower bound that reflects sample size
+ok 183 - completion evidence exposes a 95% Wilson lower bound that reflects sample size
+  ---
+  duration_ms: 13.830042
+  type: 'test'
+  ...
+# Subtest: role-level outcomes exclude fallback runs while retaining direct per-model call measurements
+ok 184 - role-level outcomes exclude fallback runs while retaining direct per-model call measurements
+  ---
+  duration_ms: 7.269791
+  type: 'test'
+  ...
+# Subtest: model effort, task type and role stay separate and missing token usage is never treated as zero
+ok 185 - model effort, task type and role stay separate and missing token usage is never treated as zero
+  ---
+  duration_ms: 5.851209
+  type: 'test'
+  ...
+# Subtest: stored evidence contains no task text, file paths or model prompt and does not invent person time
+ok 186 - stored evidence contains no task text, file paths or model prompt and does not invent person time
+  ---
+  duration_ms: 3.2905
+  type: 'test'
+  ...
+# Subtest: user stop and shutdown interruption do not enter final completion performance statistics
+ok 187 - user stop and shutdown interruption do not enter final completion performance statistics
+  ---
+  duration_ms: 4.279708
+  type: 'test'
+  ...
+# Subtest: legacy evidence remains readable and is excluded from intervention coverage
+ok 188 - legacy evidence remains readable and is excluded from intervention coverage
+  ---
+  duration_ms: 3.061583
+  type: 'test'
+  ...
+# Subtest: observed interaction rate is available only after three fully measured runs
+ok 189 - observed interaction rate is available only after three fully measured runs
+  ---
+  duration_ms: 11.213708
+  type: 'test'
+  ...
+# Subtest: browser QA and milestone failures count as recovery work without double counting the same saved run
+ok 190 - browser QA and milestone failures count as recovery work without double counting the same saved run
+  ---
+  duration_ms: 5.204958
+  type: 'test'
+  ...
+# Subtest: evidence over the retention limit selects the most recently written records and sorts by completion time
+ok 191 - evidence over the retention limit selects the most recently written records and sorts by completion time
+  ---
+  duration_ms: 1397.790375
+  type: 'test'
+  ...
+# Subtest: task-type summaries retain matching evidence beyond newer records of other types while global summaries stay bounded
+ok 192 - task-type summaries retain matching evidence beyond newer records of other types while global summaries stay bounded
+  ---
+  duration_ms: 1095.314459
+  type: 'test'
+  ...
+# Subtest: malformed evidence records are diagnosed and skipped without breaking valid model metrics
+ok 193 - malformed evidence records are diagnosed and skipped without breaking valid model metrics
+  ---
+  duration_ms: 7.063875
+  type: 'test'
+  ...
+# Subtest: the browser can load the provider-neutral automatic loop routing policy
+ok 194 - the browser can load the provider-neutral automatic loop routing policy
+  ---
+  duration_ms: 320.61
+  type: 'test'
+  ...
+# Subtest: the browser can load every module imported by its app entry point
+ok 195 - the browser can load every module imported by its app entry point
+  ---
+  duration_ms: 387.291708
+  type: 'test'
+  ...
+# Subtest: HTTP relay preserves an upstream 503 so Harness uses the next planner model
+ok 196 - HTTP relay preserves an upstream 503 so Harness uses the next planner model
+  ---
+  duration_ms: 2291.244125
+  type: 'test'
+  ...
+# Subtest: HTTP harness relays roles and supported effort, records usage and completes two verified rounds
+ok 197 - HTTP harness relays roles and supported effort, records usage and completes two verified rounds
+  ---
+  duration_ms: 2049.4605
+  type: 'test'
+  ...
+# Subtest: HTTP stop aborts streaming request and releases the source for a new run
+ok 198 - HTTP stop aborts streaming request and releases the source for a new run
+  ---
+  duration_ms: 2544.742708
+  type: 'test'
+  ...
+# Subtest: server restart automatically continues an in-flight Harness run from persisted state
+ok 199 - server restart automatically continues an in-flight Harness run from persisted state
+  ---
+  duration_ms: 4293.734917
+  type: 'test'
+  ...
+# Subtest: HTTP automatic setup creates a project and has the judge approve the planned verification command
+ok 200 - HTTP automatic setup creates a project and has the judge approve the planned verification command
+  ---
+  duration_ms: 1933.601083
+  type: 'test'
+  ...
+# Subtest: Harness removes temporary Codex threads after transient delete failures
+ok 201 - Harness removes temporary Codex threads after transient delete failures
+  ---
+  duration_ms: 4592.3455
+  type: 'test'
+  ...
+# Subtest: Harness treats a non-persisted temporary Codex thread as already cleaned up
+ok 202 - Harness treats a non-persisted temporary Codex thread as already cleaned up
+  ---
+  duration_ms: 2234.129583
+  type: 'test'
+  ...
+# Subtest: Harness Codex calls use machine response instructions without changing ordinary chat guidance
+ok 203 - Harness Codex calls use machine response instructions without changing ordinary chat guidance
+  ---
+  duration_ms: 2254.378583
+  type: 'test'
+  ...
+# Subtest: Harness removes its temporary Codex thread after stopping a model call
+ok 204 - Harness removes its temporary Codex thread after stopping a model call
+  ---
+  duration_ms: 1722.400208
+  type: 'test'
+  ...
+# Subtest: Codex conversation deletion unsubscribes before deleting the thread
+ok 205 - Codex conversation deletion unsubscribes before deleting the thread
+  ---
+  duration_ms: 525.634375
+  type: 'test'
+  ...
+# Subtest: milestone judgement receives the fixed browser contract and future planning phase without granting execution success
+ok 206 - milestone judgement receives the fixed browser contract and future planning phase without granting execution success
+  ---
+  duration_ms: 11.729208
+  type: 'test'
+  ...
+# Subtest: non-web milestone planning does not fabricate a browser executor or execution evidence
+ok 207 - non-web milestone planning does not fabricate a browser executor or execution evidence
+  ---
+  duration_ms: 1.999417
+  type: 'test'
+  ...
+# Subtest: malformed milestone plans get one bounded repair prompt before the plan review
+ok 208 - malformed milestone plans get one bounded repair prompt before the plan review
+  ---
+  duration_ms: 4.455
+  type: 'test'
+  ...
+# Subtest: repeated malformed milestone plans stop after the single repair attempt without granting a plan
+ok 209 - repeated malformed milestone plans stop after the single repair attempt without granting a plan
+  ---
+  duration_ms: 1.892667
+  type: 'test'
+  ...
+# Subtest: explicit milestone rejection retains the three-attempt bound and never grants a milestone contract
+ok 210 - explicit milestone rejection retains the three-attempt bound and never grants a milestone contract
+  ---
+  duration_ms: 1.19225
+  type: 'test'
+  ...
+# Subtest: unexplained planning rejection uses the first available saved explanatory judge without granting approval
+ok 211 - unexplained planning rejection uses the first available saved explanatory judge without granting approval
+  ---
+  duration_ms: 1.587541
+  type: 'test'
+  ...
+# Subtest: planning review keeps fixed explanatory judges, concrete critiques and unavailable fallback configurations
+ok 212 - planning review keeps fixed explanatory judges, concrete critiques and unavailable fallback configurations
+  ---
+  duration_ms: 1.313666
+  type: 'test'
+  ...
+# Subtest: milestone review changes judge after two unexplained rejections and rechecks the identical pending plan
+ok 213 - milestone review changes judge after two unexplained rejections and rechecks the identical pending plan
+  ---
+  duration_ms: 1.546416
+  type: 'test'
+  ...
+# Subtest: milestone plans reject cycles, unbounded ownership, empty criteria and fake checks
+ok 214 - milestone plans reject cycles, unbounded ownership, empty criteria and fake checks
+  ---
+  duration_ms: 0.8015
+  type: 'test'
+  ...
+# Subtest: deferred integration criteria are validated and retained in the immutable milestone contract
+ok 215 - deferred integration criteria are validated and retained in the immutable milestone contract
+  ---
+  duration_ms: 0.423375
+  type: 'test'
+  ...
+# Subtest: completion criteria hash excludes execution state and completed evidence is invalidated by changed dependencies
+ok 216 - completion criteria hash excludes execution state and completed evidence is invalidated by changed dependencies
+  ---
+  duration_ms: 14.321
+  type: 'test'
+  ...
+# Subtest: shared configuration revalidation includes other milestone file presence without treating it as completed evidence
+ok 217 - shared configuration revalidation includes other milestone file presence without treating it as completed evidence
+  ---
+  duration_ms: 551.838417
+  type: 'test'
+  ...
+# Subtest: complete shared-file inventory and an optimistic judge cannot override a failed actual partial test
+ok 218 - complete shared-file inventory and an optimistic judge cannot override a failed actual partial test
+  ---
+  duration_ms: 668.502584
+  type: 'test'
+  ...
+# Subtest: milestone review explicitly marks bounded inventory and scoped file previews as incomplete
+ok 219 - milestone review explicitly marks bounded inventory and scoped file previews as incomplete
+  ---
+  duration_ms: 727.061041
+  type: 'test'
+  ...
+# Subtest: multi-task execution preserves verified parts and applies only after integration verification
+ok 220 - multi-task execution preserves verified parts and applies only after integration verification
+  ---
+  duration_ms: 2144.031958
+  type: 'test'
+  ...
+# Subtest: matching final CLI milestone verification is reused only when the reviewed workspace stays unchanged
+ok 221 - matching final CLI milestone verification is reused only when the reviewed workspace stays unchanged
+  ---
+  duration_ms: 2314.821541
+  type: 'test'
+  ...
+# Subtest: automatic CLI verification reuses the final milestone result after selecting the matching full command
+ok 222 - automatic CLI verification reuses the final milestone result after selecting the matching full command
+  ---
+  duration_ms: 2018.548834
+  type: 'test'
+  ...
+# Subtest: automatic CLI verification runs the selected full command when it differs from the final milestone check
+ok 223 - automatic CLI verification runs the selected full command when it differs from the final milestone check
+  ---
+  duration_ms: 2128.945708
+  type: 'test'
+  ...
+# Subtest: automatic CLI verification reruns the full check when verification setup changes the workspace
+ok 224 - automatic CLI verification reruns the full check when verification setup changes the workspace
+  ---
+  duration_ms: 1771.237375
+  type: 'test'
+  ...
+# Subtest: UI partial work advances to server integration and every deferred runtime criterion is reviewed before application
+ok 225 - UI partial work advances to server integration and every deferred runtime criterion is reviewed before application
+  ---
+  duration_ms: 1940.758833
+  type: 'test'
+  ...
+# Subtest: passing browser checks cannot bypass a rejected immutable integration criterion
+ok 226 - passing browser checks cannot bypass a rejected immutable integration criterion
+  ---
+  duration_ms: 1600.758709
+  type: 'test'
+  ...
+# Subtest: last web milestone receives full test and browser evidence before approval without an extra worker round
+ok 227 - last web milestone receives full test and browser evidence before approval without an extra worker round
+  ---
+  duration_ms: 1618.526792
+  type: 'test'
+  ...
+# Subtest: final web milestone chooses the full verification command before browser QA when configuration is automatic
+ok 228 - final web milestone chooses the full verification command before browser QA when configuration is automatic
+  ---
+  duration_ms: 1682.895583
+  type: 'test'
+  ...
+# Subtest: failed full tests or partial browser QA preserve the verified core and feed the next UI round
+    # Subtest: fullFailure
+    ok 1 - fullFailure
+      ---
+      duration_ms: 1929.069417
+      type: 'test'
+      ...
+    # Subtest: browserFailure
+    ok 2 - browserFailure
+      ---
+      duration_ms: 1839.484
+      type: 'test'
+      ...
+    1..2
+ok 229 - failed full tests or partial browser QA preserve the verified core and feed the next UI round
+  ---
+  duration_ms: 3769.078833
+  type: 'test'
+  ...
+# Subtest: final integration verification and browser evidence are reused instead of rerun
+ok 230 - final integration verification and browser evidence are reused instead of rerun
+  ---
+  duration_ms: 1491.153458
+  type: 'test'
+  ...
+# Subtest: failed README launch smoke automatically returns work to its owning milestone and completes after repair
+ok 231 - failed README launch smoke automatically returns work to its owning milestone and completes after repair
+  ---
+  duration_ms: 2168.540166
+  type: 'test'
+  ...
+# Subtest: actual partial integration failure reopens the shared-file owner and rechecks dependents before automatic application
+ok 232 - actual partial integration failure reopens the shared-file owner and rechecks dependents before automatic application
+  ---
+  duration_ms: 2810.285833
+  type: 'test'
+  ...
+# Subtest: invalid dependency repair ownership preserves the failing gate and original scope without reopening another task
+ok 233 - invalid dependency repair ownership preserves the failing gate and original scope without reopening another task
+  ---
+  duration_ms: 1664.667625
+  type: 'test'
+  ...
+# Subtest: a valid negative review with successful actual execution never reassigns another milestone
+ok 234 - a valid negative review with successful actual execution never reassigns another milestone
+  ---
+  duration_ms: 2113.617542
+  type: 'test'
+  ...
+# Subtest: unchanged milestone diff triggers bounded recovery despite unrelated workspace changes
+ok 235 - unchanged milestone diff triggers bounded recovery despite unrelated workspace changes
+  ---
+  duration_ms: 3393.87275
+  type: 'test'
+  ...
+# Subtest: implementation routing receives the actual plan before work and records model choice and usage
+ok 236 - implementation routing receives the actual plan before work and records model choice and usage
+  ---
+  duration_ms: 2180.066375
+  type: 'test'
+  ...
+# Subtest: automatic routing consumes measured completion and interaction evidence while preserving completion priority
+ok 237 - automatic routing consumes measured completion and interaction evidence while preserving completion priority
+  ---
+  duration_ms: 1175.201459
+  type: 'test'
+  ...
+# Subtest: automatic routing trusts a larger-sample completion bound over a higher raw rate
+ok 238 - automatic routing trusts a larger-sample completion bound over a higher raw rate
+  ---
+  duration_ms: 1338.959375
+  type: 'test'
+  ...
+# Subtest: fallback order uses confidence bound before raw completion rate
+ok 239 - fallback order uses confidence bound before raw completion rate
+  ---
+  duration_ms: 1135.31325
+  type: 'test'
+  ...
+# Subtest: tied highest completion selects the first candidate and sorts fallback evidence by completion
+ok 240 - tied highest completion selects the first candidate and sorts fallback evidence by completion
+  ---
+  duration_ms: 1096.649208
+  type: 'test'
+  ...
+# Subtest: routing hides token and browser QA metrics until each has enough complete samples
+ok 241 - routing hides token and browser QA metrics until each has enough complete samples
+  ---
+  duration_ms: 1207.936083
+  type: 'test'
+  ...
+# Subtest: routing does not use completed runs that switched models within the same role
+ok 242 - routing does not use completed runs that switched models within the same role
+  ---
+  duration_ms: 1386.768166
+  type: 'test'
+  ...
+# Subtest: completion evidence does not replace the default when samples are tied or the default is unmeasured
+    # Subtest: equal measured rates
+    ok 1 - equal measured rates
+      ---
+      duration_ms: 1132.864375
+      type: 'test'
+      ...
+    # Subtest: unmeasured default
+    ok 2 - unmeasured default
+      ---
+      duration_ms: 1063.76525
+      type: 'test'
+      ...
+    # Subtest: insufficient samples
+    ok 3 - insufficient samples
+      ---
+      duration_ms: 1012.143541
+      type: 'test'
+      ...
+    1..3
+ok 243 - completion evidence does not replace the default when samples are tied or the default is unmeasured
+  ---
+  duration_ms: 3209.644459
+  type: 'test'
+  ...
+# Subtest: fixed manual worker choices never perform plan-based reassignment
+ok 244 - fixed manual worker choices never perform plan-based reassignment
+  ---
+  duration_ms: 1011.371542
+  type: 'test'
+  ...
+# Subtest: unchanged plan decisions survive reload without another call, while new failure evidence is considered
+ok 245 - unchanged plan decisions survive reload without another call, while new failure evidence is considered
+  ---
+  duration_ms: 1054.10825
+  type: 'test'
+  ...
+# Subtest: each milestone is routed against its immutable ownership, criteria and dependencies
+ok 246 - each milestone is routed against its immutable ownership, criteria and dependencies
+  ---
+  duration_ms: 1519.214625
+  type: 'test'
+  ...
+# Subtest: actual failed verification reaches the next routing decision before repair
+ok 247 - actual failed verification reaches the next routing decision before repair
+  ---
+  duration_ms: 1134.858792
+  type: 'test'
+  ...
+# Subtest: invalid plan routing retains the saved assignment and is not repeated for the same context
+ok 248 - invalid plan routing retains the saved assignment and is not repeated for the same context
+  ---
+  duration_ms: 994.729959
+  type: 'test'
+  ...
+# Subtest: routing reads current reported quota and passes immutable browser checks unchanged
+ok 249 - routing reads current reported quota and passes immutable browser checks unchanged
+  ---
+  duration_ms: 1067.93775
+  type: 'test'
+  ...
+# Subtest: quota fallback retains automatic mode and is not duplicated in later plan routing
+ok 250 - quota fallback retains automatic mode and is not duplicated in later plan routing
+  ---
+  duration_ms: 990.8335
+  type: 'test'
+  ...
+# Subtest: repeated plan rejection changes only automatic planners and preserves the final review gate
+    # Subtest: automatic planner skips exhausted alternatives
+    ok 1 - automatic planner skips exhausted alternatives
+      ---
+      duration_ms: 1514.678792
+      type: 'test'
+      ...
+    # Subtest: fixed planner stays selected
+    ok 2 - fixed planner stays selected
+      ---
+      duration_ms: 1403.690708
+      type: 'test'
+      ...
+    1..2
+ok 251 - repeated plan rejection changes only automatic planners and preserves the final review gate
+  ---
+  duration_ms: 2918.863208
+  type: 'test'
+  ...
+# Subtest: planning recovery remains bounded and cannot bypass three rejected reviews
+ok 252 - planning recovery remains bounded and cannot bypass three rejected reviews
+  ---
+  duration_ms: 584.020208
+  type: 'test'
+  ...
+# Subtest: automatic round selector states the same ceiling as the engine policy
+ok 253 - automatic round selector states the same ceiling as the engine policy
+  ---
+  duration_ms: 4.812166
+  type: 'test'
+  ...
+# Subtest: execution budget profile persists and invalid stored profiles return to the default
+ok 254 - execution budget profile persists and invalid stored profiles return to the default
+  ---
+  duration_ms: 41.400333
+  type: 'test'
+  ...
+# Subtest: role, effort and options save without the completion button
+ok 255 - role, effort and options save without the completion button
+  ---
+  duration_ms: 1.785833
+  type: 'test'
+  ...
+# Subtest: model settings survive a fresh UI instance without workspace inputs
+ok 256 - model settings survive a fresh UI instance without workspace inputs
+  ---
+  duration_ms: 1.967542
+  type: 'test'
+  ...
+# Subtest: Loop role model choices show and search by model strengths
+ok 257 - Loop role model choices show and search by model strengths
+  ---
+  duration_ms: 5.12525
+  type: 'test'
+  ...
+# Subtest: model settings show observed manual resumes and stop requests beside measured performance
+ok 258 - model settings show observed manual resumes and stop requests beside measured performance
+  ---
+  duration_ms: 6.768833
+  type: 'test'
+  ...
+# Subtest: malformed evidence exclusions are visible only when records are skipped
+ok 259 - malformed evidence exclusions are visible only when records are skipped
+  ---
+  duration_ms: 1.87925
+  type: 'test'
+  ...
+# Subtest: evidence refresh updates diagnostics and model statistics and recovers after request failure
+ok 260 - evidence refresh updates diagnostics and model statistics and recovers after request failure
+  ---
+  duration_ms: 767.153
+  type: 'test'
+  ...
+# Subtest: transient evidence failures retry automatically and keep the refresh control locked
+ok 261 - transient evidence failures retry automatically and keep the refresh control locked
+  ---
+  duration_ms: 759.777209
+  type: 'test'
+  ...
+# Subtest: non-retryable evidence HTTP errors fail immediately and keep the last confirmed time
+ok 262 - non-retryable evidence HTTP errors fail immediately and keep the last confirmed time
+  ---
+  duration_ms: 1.612291
+  type: 'test'
+  ...
+# Subtest: excluded evidence ID copy confirms success and reports clipboard failures
+ok 263 - excluded evidence ID copy confirms success and reports clipboard failures
+  ---
+  duration_ms: 2.108709
+  type: 'test'
+  ...
+# Subtest: loop compute priorities are reorderable, persisted, and keep completion locked at the top
+ok 264 - loop compute priorities are reorderable, persisted, and keep completion locked at the top
+  ---
+  duration_ms: 1.680875
+  type: 'test'
+  ...
+# Subtest: storage failure stays visible and completion retries before closing
+ok 265 - storage failure stays visible and completion retries before closing
+  ---
+  duration_ms: 1.336791
+  type: 'test'
+  ...
+# Subtest: opening settings preserves saved effort when the model is temporarily unavailable
+ok 266 - opening settings preserves saved effort when the model is temporarily unavailable
+  ---
+  duration_ms: 1.092167
+  type: 'test'
+  ...
+# Subtest: native Jev is offered only for the review role
+ok 267 - native Jev is offered only for the review role
+  ---
+  duration_ms: 0.90725
+  type: 'test'
+  ...
+# Subtest: saved fallback model order is visible and changes persist immediately
+ok 268 - saved fallback model order is visible and changes persist immediately
+  ---
+  duration_ms: 2.980708
+  type: 'test'
+  ...
+# Subtest: fallback candidate change does not redraw the select before Add
+ok 269 - fallback candidate change does not redraw the select before Add
+  ---
+  duration_ms: 1.293666
+  type: 'test'
+  ...
+# Subtest: fallback edits use model identity when the primary is hidden from the list
+ok 270 - fallback edits use model identity when the primary is hidden from the list
+  ---
+  duration_ms: 1.237125
+  type: 'test'
+  ...
+# Subtest: search keeps the selected model and automatic reset preserves fallback priority
+ok 271 - search keeps the selected model and automatic reset preserves fallback priority
+  ---
+  duration_ms: 1.256583
+  type: 'test'
+  ...
+# Subtest: all role selectors use the concise automatic label with or without Jev
+ok 272 - all role selectors use the concise automatic label with or without Jev
+  ---
+  duration_ms: 1.887666
+  type: 'test'
+  ...
+# Subtest: Agent Plugin and Loopline MCP role switches persist independently
+ok 273 - Agent Plugin and Loopline MCP role switches persist independently
+  ---
+  duration_ms: 1.256917
+  type: 'test'
+  ...
+# Subtest: README QA summary omits records that do not contain a result
+ok 274 - README QA summary omits records that do not contain a result
+  ---
+  duration_ms: 0.924
+  type: 'test'
+  ...
+# Subtest: README QA summary marks an inapplicable smoke check without counting it as a pass
+ok 275 - README QA summary marks an inapplicable smoke check without counting it as a pass
+  ---
+  duration_ms: 0.347375
+  type: 'test'
+  ...
+# Subtest: README QA summary reports a passed check count
+ok 276 - README QA summary reports a passed check count
+  ---
+  duration_ms: 0.131834
+  type: 'test'
+  ...
+# Subtest: README QA summary distinguishes failures from applicable checks that were skipped
+ok 277 - README QA summary distinguishes failures from applicable checks that were skipped
+  ---
+  duration_ms: 0.283167
+  type: 'test'
+  ...
+# Subtest: browser QA summary describes the latest round after an earlier failure
+ok 278 - browser QA summary describes the latest round after an earlier failure
+  ---
+  duration_ms: 0.17875
+  type: 'test'
+  ...
+# Subtest: browser QA summary reports failed check count and omits absent legacy metadata
+ok 279 - browser QA summary reports failed check count and omits absent legacy metadata
+  ---
+  duration_ms: 0.188083
+  type: 'test'
+  ...
+# Subtest: browser and README QA distinguish overall failures from individual check failures
+ok 280 - browser and README QA distinguish overall failures from individual check failures
+  ---
+  duration_ms: 0.129542
+  type: 'test'
+  ...
+# Subtest: structured response schemas require every property and keep action-specific values
+ok 281 - structured response schemas require every property and keep action-specific values
+  ---
+  duration_ms: 1.8885
+  type: 'test'
+  ...
+# Subtest: API forwards strict schemas and falls back once only for explicit unsupported format
+ok 282 - API forwards strict schemas and falls back once only for explicit unsupported format
+  ---
+  duration_ms: 29.299416
+  type: 'test'
+  ...
+# Subtest: invalid schemas and authentication never downgrade structured output
+ok 283 - invalid schemas and authentication never downgrade structured output
+  ---
+  duration_ms: 4.005291
+  type: 'test'
+  ...
+# Subtest: Jev native protocol preserves typed answers, accounts usage and never saves the session key
+ok 284 - Jev native protocol preserves typed answers, accounts usage and never saves the session key
+  ---
+  duration_ms: 3.5685
+  type: 'test'
+  ...
+# Subtest: missing or invalid Jev answers never count as successful decisions
+ok 285 - missing or invalid Jev answers never count as successful decisions
+  ---
+  duration_ms: 4.593084
+  type: 'test'
+  ...
+# Subtest: malformed Jev JSON is a format failure while HTTP outages remain transport failures
+ok 286 - malformed Jev JSON is a format failure while HTTP outages remain transport failures
+  ---
+  duration_ms: 3.29275
+  type: 'test'
+  ...
+# Subtest: Harness repairs native Jev format once with feedback in the actual systemone request
+ok 287 - Harness repairs native Jev format once with feedback in the actual systemone request
+  ---
+  duration_ms: 29.208583
+  type: 'test'
+  ...
+# Subtest: Jev authentication failures redact upstream bodies and redirects are refused
+ok 288 - Jev authentication failures redact upstream bodies and redirects are refused
+  ---
+  duration_ms: 2.900541
+  type: 'test'
+  ...
+# Subtest: Jev cancellation propagates and releases connection for removal
+ok 289 - Jev cancellation propagates and releases connection for removal
+  ---
+  duration_ms: 6.778708
+  type: 'test'
+  ...
+# Subtest: Jev supports a longer Harness timeout while retaining cancellation
+ok 290 - Jev supports a longer Harness timeout while retaining cancellation
+  ---
+  duration_ms: 30.120625
+  type: 'test'
+  ...
+# Subtest: OpenAI-compatible model calls enforce the supplied Harness timeout
+ok 291 - OpenAI-compatible model calls enforce the supplied Harness timeout
+  ---
+  duration_ms: 30.512916
+  type: 'test'
+  ...
+# Subtest: execution budgets have bounded profiles and cannot allocate more preparation than total
+ok 292 - execution budgets have bounded profiles and cannot allocate more preparation than total
+  ---
+  duration_ms: 2.436334
+  type: 'test'
+  ...
+# Subtest: loop complexity keeps small requests light and raises effort for broad engineering changes
+ok 293 - loop complexity keeps small requests light and raises effort for broad engineering changes
+  ---
+  duration_ms: 0.940916
+  type: 'test'
+  ...
+# Subtest: automatic loop starts with task-sized rounds and extends in bounded quality-first steps
+ok 294 - automatic loop starts with task-sized rounds and extends in bounded quality-first steps
+  ---
+  duration_ms: 0.244083
+  type: 'test'
+  ...
+# Subtest: automatic effort puts quality and compute first by default and follows resource priorities when reordered
+ok 295 - automatic effort puts quality and compute first by default and follows resource priorities when reordered
+  ---
+  duration_ms: 0.519375
+  type: 'test'
+  ...
+# Subtest: completion stays fixed and invalid saved priority values normalize to the full supported order
+ok 296 - completion stays fixed and invalid saved priority values normalize to the full supported order
+  ---
+  duration_ms: 0.166
+  type: 'test'
+  ...
+# Subtest: automatic roles share the implementation model, prefer Jev for review, and otherwise use another connection
+ok 297 - automatic roles share the implementation model, prefer Jev for review, and otherwise use another connection
+  ---
+  duration_ms: 0.387292
+  type: 'test'
+  ...
+# Subtest: automatic roles prefer the measured mix and skip known exhausted accounts
+ok 298 - automatic roles prefer the measured mix and skip known exhausted accounts
+  ---
+  duration_ms: 0.359208
+  type: 'test'
+  ...
+# Subtest: evidence task classification shares the task categories used for measured model comparisons
+ok 299 - evidence task classification shares the task categories used for measured model comparisons
+  ---
+  duration_ms: 0.333083
+  type: 'test'
+  ...
+# Subtest: model comparison always prioritizes completion reliability before user-selected dimensions
+ok 300 - model comparison always prioritizes completion reliability before user-selected dimensions
+  ---
+  duration_ms: 0.518709
+  type: 'test'
+  ...
+# Subtest: measured comparison follows configured priorities only when each metric has enough samples
+ok 301 - measured comparison follows configured priorities only when each metric has enough samples
+  ---
+  duration_ms: 0.563292
+  type: 'test'
+  ...
+# Subtest: insufficient or missing evidence is not converted to zero or ranked as a measured winner
+ok 302 - insufficient or missing evidence is not converted to zero or ranked as a measured winner
+  ---
+  duration_ms: 0.158292
+  type: 'test'
+  ...
+# Subtest: remote Streamable HTTP MCP uses the saved Bearer token without exposing it in connection metadata
+ok 303 - remote Streamable HTTP MCP uses the saved Bearer token without exposing it in connection metadata
+  ---
+  duration_ms: 314.265083
+  type: 'test'
+  ...
+# Subtest: local stdio MCP connects, lists tools, runs an allowlisted tool, and keeps environment secrets out of metadata
+ok 304 - local stdio MCP connects, lists tools, runs an allowlisted tool, and keeps environment secrets out of metadata
+  ---
+  duration_ms: 2388.468709
+  type: 'test'
+  ...
+# Subtest: automatic MCP connection is attached to Loop runs without a manual tool selection
+ok 305 - automatic MCP connection is attached to Loop runs without a manual tool selection
+  ---
+  duration_ms: 2163.650208
+  type: 'test'
+  ...
+# Subtest: Loop automatically handles a Paper-sized catalog with more than 24 tools and 32KB of definitions
+ok 306 - Loop automatically handles a Paper-sized catalog with more than 24 tools and 32KB of definitions
+  ---
+  duration_ms: 2016.879583
+  type: 'test'
+  ...
+# Subtest: Figma quick-connect API saves an automatic local connector and reports when Desktop MCP is unavailable
+ok 307 - Figma quick-connect API saves an automatic local connector and reports when Desktop MCP is unavailable
+  ---
+  duration_ms: 321.806375
+  type: 'test'
+  ...
+# Subtest: turning on automatic use connects the MCP provider before the next loop run
+ok 308 - turning on automatic use connects the MCP provider before the next loop run
+  ---
+  duration_ms: 409.464209
+  type: 'test'
+  ...
+# Subtest: an MCP tool omitted from the run selection is rejected before any server call
+ok 309 - an MCP tool omitted from the run selection is rejected before any server call
+  ---
+  duration_ms: 1678.629958
+  type: 'test'
+  ...
+# Subtest: stopping an in-flight MCP call marks the run as unsafe to resume
+ok 310 - stopping an in-flight MCP call marks the run as unsafe to resume
+  ---
+  duration_ms: 1372.48125
+  type: 'test'
+  ...
+# Subtest: 이벤트 선택은 실제 화면 상세에 대응하는 항목을 반환한다
+ok 311 - 이벤트 선택은 실제 화면 상세에 대응하는 항목을 반환한다
+  ---
+  duration_ms: 1.490583
+  type: 'test'
+  ...
+# Subtest: 이벤트 필터는 완료와 확인 필요 기록을 구분한다
+ok 312 - 이벤트 필터는 완료와 확인 필요 기록을 구분한다
+  ---
+  duration_ms: 0.17625
+  type: 'test'
+  ...
+# Subtest: MCP 연결 입력은 이름, 전송 방식, 주소 또는 명령을 검증한다
+ok 313 - MCP 연결 입력은 이름, 전송 방식, 주소 또는 명령을 검증한다
+  ---
+  duration_ms: 0.765042
+  type: 'test'
+  ...
+# Subtest: 연결 추가는 외부 연결 대신 데모 목록 항목만 만든다
+ok 314 - 연결 추가는 외부 연결 대신 데모 목록 항목만 만든다
+  ---
+  duration_ms: 0.54525
+  type: 'test'
+  ...
+# Subtest: JSON 내보내기는 데모 출처와 이벤트 요청·응답만 포함한다
+ok 315 - JSON 내보내기는 데모 출처와 이벤트 요청·응답만 포함한다
+  ---
+  duration_ms: 0.147625
+  type: 'test'
+  ...
+# Subtest: Codex model descriptions become concise Korean selection guidance
+ok 316 - Codex model descriptions become concise Korean selection guidance
+  ---
+  duration_ms: 0.7585
+  type: 'test'
+  ...
+# Subtest: unknown provider descriptions remain available and effort metadata is the fallback
+ok 317 - unknown provider descriptions remain available and effort metadata is the fallback
+  ---
+  duration_ms: 0.148458
+  type: 'test'
+  ...
+# Subtest: 프롬프트 비교는 유니코드와 공백 차이를 정리한다
+ok 318 - 프롬프트 비교는 유니코드와 공백 차이를 정리한다
+  ---
+  duration_ms: 1.845042
+  type: 'test'
+  ...
+# Subtest: 세 번째로 사용한 긴 프롬프트를 자동 등록하고 큐 항목은 횟수에서 제외한다
+ok 319 - 세 번째로 사용한 긴 프롬프트를 자동 등록하고 큐 항목은 횟수에서 제외한다
+  ---
+  duration_ms: 0.722041
+  type: 'test'
+  ...
+# Subtest: 자동 등록에는 과거 사용 횟수를 반영하고 이후 사용은 같은 스킬의 횟수만 늘린다
+ok 320 - 자동 등록에는 과거 사용 횟수를 반영하고 이후 사용은 같은 스킬의 횟수만 늘린다
+  ---
+  duration_ms: 0.377958
+  type: 'test'
+  ...
+# Subtest: 짧은 메시지는 자동 저장하지 않고 사용자가 직접 저장·수정·삭제할 수 있다
+ok 321 - 짧은 메시지는 자동 저장하지 않고 사용자가 직접 저장·수정·삭제할 수 있다
+  ---
+  duration_ms: 0.297375
+  type: 'test'
+  ...
+# Subtest: 저장 데이터 손상과 저장 공간 오류를 예외 없이 처리한다
+ok 322 - 저장 데이터 손상과 저장 공간 오류를 예외 없이 처리한다
+  ---
+  duration_ms: 0.812375
+  type: 'test'
+  ...
+# Subtest: 보관함에서 저장한 스킬을 현재 입력 뒤에 추가하고 검색·편집·삭제한다
+ok 323 - 보관함에서 저장한 스킬을 현재 입력 뒤에 추가하고 검색·편집·삭제한다
+  ---
+  duration_ms: 16.361833
+  type: 'test'
+  ...
+# Subtest: 스킬 텍스트는 화면 렌더링 시 HTML로 실행되지 않는다
+ok 324 - 스킬 텍스트는 화면 렌더링 시 HTML로 실행되지 않는다
+  ---
+  duration_ms: 0.369375
+  type: 'test'
+  ...
+# Subtest: remote browser writes remain limited to the exact Tailscale Serve origin
+ok 325 - remote browser writes remain limited to the exact Tailscale Serve origin
+  ---
+  duration_ms: 0.921708
+  type: 'test'
+  ...
+# Subtest: iOS native writes may omit Origin only with the native client marker
+ok 326 - iOS native writes may omit Origin only with the native client marker
+  ---
+  duration_ms: 0.131667
+  type: 'test'
+  ...
+# Subtest: a native marker never bypasses an explicitly cross-site request
+ok 327 - a native marker never bypasses an explicitly cross-site request
+  ---
+  duration_ms: 0.091208
+  type: 'test'
+  ...
+# Subtest: null Origin is accepted only from the marked native client
+ok 328 - null Origin is accepted only from the marked native client
+  ---
+  duration_ms: 0.757334
+  type: 'test'
+  ...
+# Subtest: originless status reads stay available while unmarked originless writes are denied
+ok 329 - originless status reads stay available while unmarked originless writes are denied
+  ---
+  duration_ms: 0.14425
+  type: 'test'
+  ...
+1..329
+# tests 382
+# suites 0
+# pass 382
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 105547.930958

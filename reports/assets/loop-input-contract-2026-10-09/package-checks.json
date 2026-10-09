@@ -1,0 +1,20 @@
+{
+  "checkedAt": "2026-10-09T09:32:50.009Z",
+  "checks": [
+    {
+      "file": "browser-qa.mjs",
+      "match": true,
+      "sha256": "6fa9b2dbe9217b64107a6c4e4fb6e1d72e2d2c01cb7addd12b46dc8a35c4c9e0"
+    },
+    {
+      "file": "harness-engine.mjs",
+      "match": true,
+      "sha256": "83a8919fb91d402ae430a645d1b98fdbfb73b6cc4fa783c4f43933161169a7ef"
+    },
+    {
+      "file": "desktop/browser-qa.mjs",
+      "match": true,
+      "sha256": "987e96e624d2b8577211cc92e30d43cfb3b6c9921c6103d913486211d69849ab"
+    }
+  ]
+}

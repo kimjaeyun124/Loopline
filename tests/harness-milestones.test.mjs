@@ -20,6 +20,13 @@ const planningRecord = (qaPlan) => ({ run: {
   ...(qaPlan ? { qaPlan } : {}),
 } });
 
+function completeBrowserEvidence(plan, passed = true) {
+  return BROWSER_QA_EXECUTOR.viewports.flatMap(({ id: viewport }) => [
+    ...plan.checks.flatMap(({ id }) => [{ id, viewport, passed }, { id: `${id}-layout`, viewport, passed }]),
+    { id: 'layout', viewport, passed },
+  ]);
+}
+
 test('milestone judgement receives the fixed browser contract and future planning phase without granting execution success', async (t) => {
   const root = await directory(t), engine = new HarnessEngine({ directory: root, invoke: async () => assert.fail('Use the captured planning fixture') });
   const qaPlan = validateBrowserPlan({ entry: 'index.html', checks: [{ id: 'task-flow', categories: ['input', 'save', 'empty', 'keyboard'], steps: [
@@ -498,7 +505,7 @@ async function webMilestoneFixture(t, { browserFailure = false, fullFailure = fa
     assert.deepEqual(input.plan, qaPlan); assert.equal(live.milestones[0].status, 'completed');
     assert.ok(fullCalls > 0, 'Full verification must run before browser QA');
     const failed = browserFailure && browserCalls === 1;
-    return { passed: !failed, checks: [{ id: 'task-flow', passed: !failed }], failures: failed ? ['mobile/task-flow: actual keyboard failure'] : [] };
+    return { passed: !failed, checks: completeBrowserEvidence(qaPlan, !failed), failures: failed ? ['mobile/task-flow: actual keyboard failure'] : [] };
   }, invoke: async (_selection, prompt) => {
     if (typeof prompt === 'object') {
       if (prompt.state.milestone) {
@@ -625,7 +632,7 @@ assert.equal(child.status,0);assert.match(child.stdout,/core behavior/);assert.m
     browserCalls++; assert.deepEqual(input.plan, qa);
     assert.ok(verifyResults.some(v => v.command === 'node verify-all.mjs' && v.code === 0));
     await assert.rejects(readFile(join(source, 'index.html')));
-    return { passed: true, checks: [{ id: 'flow', passed: true }], failures: [] };
+    return { passed: true, checks: completeBrowserEvidence(qa), failures: [] };
   }, invoke: async (_model, prompt) => {
     if (typeof prompt === 'object') {
       if (prompt.questions.repairTask) {

@@ -8,10 +8,10 @@ export const LOOP_BUDGET_PROFILES = Object.freeze({
 });
 
 export function normalizeExecutionBudget(value, profile = 'standard') {
-  const budget = { ...LOOP_BUDGET_PROFILES[profile in LOOP_BUDGET_PROFILES ? profile : 'standard'], ...(value || {}) };
+  const budget = { ...LOOP_BUDGET_PROFILES[Object.hasOwn(LOOP_BUDGET_PROFILES, profile) ? profile : 'standard'], ...(value || {}) };
   if (value != null && (typeof value !== 'object' || Array.isArray(value))) throw new Error('실행 예산 형식이 올바르지 않습니다.');
   for (const [key, amount] of Object.entries(budget)) {
-    if (!(key in LOOP_BUDGET_PROFILES.standard) || !Number.isSafeInteger(amount) || amount < 1 || amount > (key.endsWith('Ms') ? 12 * 60 * 60_000 : 20_000_000)) throw new Error('실행 예산은 허용 범위의 양의 정수여야 합니다.');
+    if (!Object.hasOwn(LOOP_BUDGET_PROFILES.standard, key) || !Number.isSafeInteger(amount) || amount < 1 || amount > (key.endsWith('Ms') ? 12 * 60 * 60_000 : 20_000_000)) throw new Error('실행 예산은 허용 범위의 양의 정수여야 합니다.');
   }
   if (budget.preparationTokens > budget.totalTokens || budget.preparationTimeMs > budget.modelTimeMs) throw new Error('준비 예산은 전체 예산을 넘을 수 없습니다.');
   return budget;

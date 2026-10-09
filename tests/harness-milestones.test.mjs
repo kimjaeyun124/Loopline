@@ -42,6 +42,8 @@ test('milestone judgement receives the fixed browser contract and future plannin
     assert.match(questions.workPlan.question, /not whether unbuilt files exist or tests already pass/);
     assert.match(questions.workPlan.question, /first task must be testable without later-task files/);
     assert.match(questions.workPlan.question, /browser QA cannot replace meaningful per-task Node tests/);
+    assert.match(questions.workPlan.question, /integrationCriteria/);
+    assert.match(state.verificationSchedule.integration, /last task/);
     assert.match(questions.workPlan.pass, /execution evidence is still required/);
     return { decision: 'complete' };
   };
@@ -170,6 +172,20 @@ test('milestone plans reject cycles, unbounded ownership, empty criteria and fak
   const fake = structuredClone(plan); fake.tasks[0].verifyCommand = 'echo PASS'; assert.throws(() => validateMilestones(fake), /실제 부분/);
   assert.equal(matchesMilestone('src/module/file.js', { paths: ['src/**'] }), true);
   assert.equal(matchesMilestone('src-other/file.js', { paths: ['src/**'] }), false);
+});
+
+test('deferred integration criteria are validated and retained in the immutable milestone contract', () => {
+  const value = structuredClone(plan);
+  value.tasks[0].integrationCriteria = ['실제 브라우저 두 화면에서 최종 동작이 통과한다'];
+  const tasks = validateMilestones(value), contract = milestoneContract(tasks);
+  assert.deepEqual(tasks[0].integrationCriteria, value.tasks[0].integrationCriteria);
+  tasks[0].integrationCriteria[0] = '변경된 최종 통합 완료 기준입니다';
+  assert.notEqual(milestoneContract(tasks), contract);
+  for (const criteria of [null, 'browser', ['short'], [false], Array(9).fill('최종 브라우저 기준입니다')]) {
+    value.tasks[0].integrationCriteria = criteria;
+    assert.throws(() => validateMilestones(value), /최종 통합 기준/);
+  }
+  assert.equal(Object.hasOwn(validateMilestones(plan)[0], 'integrationCriteria'), false, 'older frozen contracts retain their original shape');
 });
 
 test('completion criteria hash excludes execution state and completed evidence is invalidated by changed dependencies', async (t) => {
@@ -471,7 +487,7 @@ test('automatic CLI verification reruns the full check when verification setup c
   assert.equal(await readFile(join(source, 'second.txt'), 'utf8'), 'second');
 });
 
-async function webMilestoneFixture(t, { browserFailure = false, fullFailure = false, automaticVerification = false, readmeFailure = false } = {}) {
+async function webMilestoneFixture(t, { browserFailure = false, fullFailure = false, automaticVerification = false, readmeFailure = false, deferredIntegration = false, rejectDeferredCriteria = false } = {}) {
   const root = await directory(t), source = join(root, 'source'); await mkdir(source);
   const git = async (...args) => {
     const result = await runCommand('git', ['-c', 'core.hooksPath=/dev/null', '-c', 'user.name=QA', '-c', 'user.email=qa@localhost', '-c', 'commit.gpgsign=false', ...args], { cwd: source });
@@ -489,6 +505,11 @@ async function webMilestoneFixture(t, { browserFailure = false, fullFailure = fa
     { id: 'ui', title: '화면 통합', dependsOn: ['store'], paths: ['index.html'], criteria: ['화면 통합 테스트, 전체 테스트와 실제 독립 브라우저 QA가 통과한다'], verifyCommand: 'node --test tests/ui.test.mjs' },
   ] };
   if (readmeFailure) milestones.tasks.splice(1, 0, { id: 'docs', title: 'README 실행 안내', dependsOn: ['store'], paths: ['README.md'], criteria: ['README 기본 주소가 HTTP 200 HTML을 반환한다'], verifyCommand: 'node --test tests/docs.test.mjs' });
+  if (deferredIntegration) {
+    milestones.tasks[1].criteria = ['UI 입력과 상태 연결을 실제 Node 테스트로 검증한다'];
+    milestones.tasks[1].integrationCriteria = ['실제 브라우저의 두 화면에서 입력·저장·키보드 동작이 통과한다'];
+    milestones.tasks.push({ id: 'server', title: '서버와 전체 연결', dependsOn: ['ui'], paths: ['server.txt'], criteria: ['서버 동작과 전체 통합을 검증한다'], verifyCommand: 'node --test tests/server.test.mjs' });
+  }
   const actions = [], workerPrompts = [], reviewEvidence = []; let browserCalls = 0, readmeCalls = 0, fullCalls = 0, configured = 0;
   const engine = new HarnessEngine({ directory: root, ...(readmeFailure ? { verifyReadme: async ({ workspace }) => {
     actions.push('readme'); await readFile(join(workspace, 'README.md'), 'utf8'); const broken = readmeCalls++ === 0;
@@ -519,10 +540,22 @@ async function webMilestoneFixture(t, { browserFailure = false, fullFailure = fa
           else assert.equal(Object.hasOwn(prompt.state, 'integrationVerification'), false);
         }
         actions.push('review-' + current.id);
+        if (deferredIntegration) {
+          assert.deepEqual(prompt.state.integrationCriteria[0].criteria, milestones.tasks[1].integrationCriteria);
+          if (current.id === 'ui') {
+            assert.equal(prompt.state.verificationPhase, 'partial task');
+            assert.equal(Object.hasOwn(prompt.questions, 'integrationCriteria'), false);
+            assert.equal(actions.includes('browser'), false);
+          } else if (current.id === 'server') {
+            assert.equal(prompt.state.verificationPhase, 'final integration');
+            assert.ok(prompt.questions.integrationCriteria);
+            assert.equal(prompt.state.independentBrowserQa.passed, true);
+          }
+        }
       }
       if (readmeFailure && prompt.questions.repairTask) assert.fail('README file ownership should route the failure without another model call.');
       // Deliberately optimistic model: real failed execution must still veto it.
-      return { answers: Object.fromEntries(Object.keys(prompt.questions).map(id => [id, { choice: 'pass', reason: 'Optimistic fixture model' }])) };
+      return { answers: Object.fromEntries(Object.keys(prompt.questions).map(id => [id, { choice: rejectDeferredCriteria && id === 'integrationCriteria' ? 'revise' : 'pass', reason: 'Fixture checks the declared execution phase and evidence' }])) };
     }
     if (prompt.includes('구현 계획과 검증 기준')) return 'Implement the store, then the UI; actual QA precedes final milestone approval.';
     if (prompt.includes('구현 전에 독립 브라우저 QA 계획')) return qaPlan;
@@ -530,7 +563,8 @@ async function webMilestoneFixture(t, { browserFailure = false, fullFailure = fa
     workerPrompts.push(prompt);
     const core = /이번 회차는 아래 부분 작업만 구현합니다[^\n]*\n\{"id":"store"/.test(prompt);
     const docs = /이번 회차는 아래 부분 작업만 구현합니다[^\n]*\n\{"id":"docs"/.test(prompt);
-    return JSON.stringify({ done: true, summary: core ? 'store implemented' : docs ? 'README route corrected' : 'UI implemented', operations: [{ type: 'write', path: core ? 'store.txt' : docs ? 'README.md' : 'index.html', content: core ? 'store' : docs ? 'documented root route returns 200' : '<html>fixture UI</html>' }] });
+    const server = /이번 회차는 아래 부분 작업만 구현합니다[^\n]*\n\{"id":"server"/.test(prompt);
+    return JSON.stringify({ done: true, summary: core ? 'store implemented' : docs ? 'README route corrected' : server ? 'server implemented' : 'UI implemented', operations: [{ type: 'write', path: core ? 'store.txt' : docs ? 'README.md' : server ? 'server.txt' : 'index.html', content: core ? 'store' : docs ? 'documented root route returns 200' : server ? 'server' : '<html>fixture UI</html>' }] });
   } });
   if (automaticVerification) engine.configureVerification = async (record, implementationPlan) => {
     configured++; assert.match(implementationPlan, /actual QA/); record.run.verifyCommand = 'node --test';
@@ -541,6 +575,22 @@ async function webMilestoneFixture(t, { browserFailure = false, fullFailure = fa
   await engine.runs.get(created.id).execution;
   return { source, engine, run: await engine.get(created.id), actions, workerPrompts, reviewEvidence, browserCalls, configured, qaPlan };
 }
+
+test('UI partial work advances to server integration and every deferred runtime criterion is reviewed before application', async (t) => {
+  const f = await webMilestoneFixture(t, { deferredIntegration: true });
+  assert.equal(f.run.status, 'completed', f.run.summary); assert.equal(f.run.applied, true);
+  assert.equal(f.run.round, 3); assert.equal(f.run.milestones[1].attempts, 1); assert.equal(f.browserCalls, 1);
+  assert.ok(f.actions.indexOf('review-ui') < f.actions.indexOf('browser'));
+  assert.ok(f.actions.indexOf('browser') < f.actions.indexOf('review-server'));
+  assert.equal(f.run.milestones[1].integrationCriteria.length, 1);
+});
+
+test('passing browser checks cannot bypass a rejected immutable integration criterion', async (t) => {
+  const f = await webMilestoneFixture(t, { deferredIntegration: true, rejectDeferredCriteria: true });
+  assert.equal(f.run.status, 'limit', f.run.summary); assert.notEqual(f.run.applied, true);
+  assert.equal(f.run.milestones[1].status, 'completed'); assert.notEqual(f.run.milestones[2].status, 'completed');
+  assert.equal(f.browserCalls, 1); await assert.rejects(readFile(join(f.source, 'index.html')));
+});
 
 test('last web milestone receives full test and browser evidence before approval without an extra worker round', async (t) => {
   const f = await webMilestoneFixture(t);

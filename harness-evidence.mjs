@@ -184,7 +184,7 @@ export class HarnessEvidence {
         const group = groups.get(key);
         const outcomeAttributed = isolatedRoleKeys.has(key) && run.failureAttribution?.outcomeEligible !== false;
         const intervention = run.humanIntervention?.measurement === 'observed-actions' ? run.humanIntervention : null;
-        if (intervention && outcomeAttributed) {
+        if (intervention && isolatedRoleKeys.has(key)) {
           const hasObservedActions = intervention.manualResumes > 0 || intervention.stopRequests > 0;
           group.humanInterventionMeasuredRuns++;
           group.partiallyMeasuredInterventionRuns += Number(intervention.coverage !== 'full-run');

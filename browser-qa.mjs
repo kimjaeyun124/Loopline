@@ -316,26 +316,27 @@ export function validateBrowserPlan(plan) {
     if (unsupportedCategories.length) invalid(`${check.id}: 지원하지 않는 검사 분류 ${JSON.stringify(unsupportedCategories).slice(0, 180)}입니다. 허용 분류: ${QA_CATEGORIES.join(', ')}. 추가 동작 검사는 기존 분류 또는 빈 배열을 사용하고 assertion을 유지하세요.`);
     check.categories.forEach((category) => covered.add(category));
     if (!Array.isArray(check.steps) || check.steps.length < 1 || check.steps.length > 24) invalid(`${check.id}: 검사 단계는 1~24개여야 합니다. 실제 단계 수: ${Array.isArray(check.steps) ? check.steps.length : '배열 아님'}. 긴 시나리오는 필요한 초기 입력과 assertion을 유지해 독립 검사로 나누세요.`);
+    if (check.steps.some((step) => !step || typeof step !== 'object' || Array.isArray(step))) invalid(`${check.id}: 각 검사 단계는 브라우저 동작 객체여야 합니다.`);
     const assertions = check.steps.filter((step) => ['visible', 'hidden', 'text', 'value', 'count', 'focused', 'focus-visible'].includes(step?.action));
-    if (!assertions.length) invalid('각 검사에 실제 assertion이 필요합니다.');
+    if (!assertions.length) invalid(`${check.id}: 각 검사에 실제 assertion이 필요합니다.`);
     const assertsAfter = (action) => {
       const index = check.steps.findLastIndex((step) => step.action === action);
       return index >= 0 && check.steps.slice(index + 1).some((step) => assertions.includes(step));
     };
-    if (check.categories.includes('input') && !assertsAfter('fill')) invalid('입력 검사에는 실제 입력 이후의 assertion이 필요합니다.');
-    if (check.categories.includes('save') && !assertsAfter('reload')) invalid('저장 검사에는 새로고침 이후의 assertion이 필요합니다.');
-    if (check.categories.includes('empty') && !check.steps.some((s) => ['visible', 'hidden', 'count'].includes(s.action))) invalid('빈 상태의 표시 검사가 필요합니다.');
-    if (check.categories.includes('keyboard') && !assertsAfter('press')) invalid('키보드 검사에는 실제 키 입력 이후의 assertion이 필요합니다.');
+    if (check.categories.includes('input') && !assertsAfter('fill')) invalid(`${check.id}: 입력 검사에는 실제 입력 이후의 assertion이 필요합니다.`);
+    if (check.categories.includes('save') && !assertsAfter('reload')) invalid(`${check.id}: 저장 검사에는 새로고침 이후의 assertion이 필요합니다.`);
+    if (check.categories.includes('empty') && !check.steps.some((s) => ['visible', 'hidden', 'count'].includes(s.action))) invalid(`${check.id}: 빈 상태의 표시 검사가 필요합니다.`);
+    if (check.categories.includes('keyboard') && !assertsAfter('press')) invalid(`${check.id}: 키보드 검사에는 실제 키 입력 이후의 assertion이 필요합니다.`);
     for (const step of check.steps) {
-      if (!step || !ACTIONS.has(step.action)) invalid('허용되지 않은 브라우저 동작입니다.');
-      if (!['reset', 'reload', 'press'].includes(step.action) && (typeof step.selector !== 'string' || !step.selector.trim() || step.selector.length > 300)) invalid('검사할 selector가 필요합니다.');
+      if (!ACTIONS.has(step.action)) invalid(`${check.id}: 허용되지 않은 브라우저 동작입니다.`);
+      if (!['reset', 'reload', 'press'].includes(step.action) && (typeof step.selector !== 'string' || !step.selector.trim() || step.selector.length > 300)) invalid(`${check.id}: 검사할 selector가 필요합니다.`);
       // Head metadata cannot satisfy a rendered-text assertion. Reject these
       // clear cases before freezing a contract the implementation cannot meet.
       if (['text', 'visible', 'fill', 'click', 'focused', 'focus-visible'].includes(step.action)
         && /^(?:html\s*(?:>\s*)?)?(?:head\s*(?:>\s*)?)?(?:head|title|meta|link|script|style)$/i.test(step.selector.trim())) invalid(`${check.id}: ${step.action} ${step.selector}는 표시되는 화면 요소를 검사할 수 없습니다. text는 가시성도 확인하므로 문서 메타데이터 대신 화면의 heading 등 실제 표시 요소를 검사하세요.`);
       if (step.action === 'press' && !KEYS.has(step.key)) invalid(`${check.id}: 허용되지 않은 키 입력 ${JSON.stringify(step.key)?.slice(0, 180)}입니다. 허용 키: ${[...KEYS].join(', ')}. 지원하는 실제 키 입력과 후속 assertion으로 보완하세요.`);
-      if (['fill', 'text', 'value'].includes(step.action) && (typeof step.value !== 'string' || step.value.length > 2000)) invalid('검사 값이 올바르지 않습니다.');
-      if (step.action === 'count' && (!Number.isSafeInteger(step.value) || step.value < 0 || step.value > 1000)) invalid('검사 개수가 올바르지 않습니다.');
+      if (['fill', 'text', 'value'].includes(step.action) && (typeof step.value !== 'string' || step.value.length > 2000)) invalid(`${check.id}: 검사 값이 올바르지 않습니다.`);
+      if (step.action === 'count' && (!Number.isSafeInteger(step.value) || step.value < 0 || step.value > 1000)) invalid(`${check.id}: 검사 개수가 올바르지 않습니다.`);
     }
   }
   validateNotApplicable(plan.notApplicable, covered, invalid);

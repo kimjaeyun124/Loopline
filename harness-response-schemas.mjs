@@ -4,6 +4,7 @@ const string = { type: 'string' };
 const array = (items, bounds = {}) => ({ type: 'array', items, ...bounds });
 const object = (properties) => ({ type: 'object', properties, required: Object.keys(properties), additionalProperties: false });
 const enumeration = (values) => ({ type: 'string', enum: values });
+const milestoneCriterion = { type: 'string', minLength: 8, maxLength: 600 };
 const step = { anyOf: BROWSER_QA_EXECUTOR.actions.map((action) => object({
   action: enumeration([action]),
   ...(!['reset', 'reload', 'press', 'set-storage'].includes(action) ? { selector: string } : {}),
@@ -23,11 +24,31 @@ const notApplicable = { anyOf: Array.from({ length: 2 ** QA_CATEGORIES.length },
 export const RESPONSE_SCHEMAS = {
   project: object({ folderName: string, reason: string }),
   verification: object({ verifyCommand: string, reason: string }),
+  verificationProposal: {
+    type: 'object',
+    properties: {
+      operations: array({ anyOf: [
+      object({ type: enumeration(['list']), path: string }),
+      object({ type: enumeration(['read']), path: string }),
+      ] }, { maxItems: 12 }),
+      verifyCommand: { type: 'string', maxLength: 1000 },
+      reason: string,
+    },
+    required: ['operations', 'verifyCommand', 'reason'],
+    anyOf: [
+      { properties: { operations: { minItems: 1 } } },
+      { properties: { verifyCommand: { minLength: 1 }, reason: { minLength: 1 } } },
+    ],
+    additionalProperties: false,
+  },
   browserPlan: object({ entry: string, checks: array(check, { minItems: 1, maxItems: 16 }), notApplicable }),
   // The executor still validates the combined patch size and the remaining
   // capacity of each existing case; these are per-array generation ceilings.
   browserPatch: object({ addChecks: array(check, { maxItems: 16 }), replaceChecks: array(check, { maxItems: 16 }), extendChecks: array(object({ id: string, steps: array(step, { minItems: 1, maxItems: 24 }) }), { maxItems: 16 }), notApplicable }),
-  milestones: object({ tasks: array(object({ id: string, title: string, dependsOn: array(string), paths: array(string), criteria: array(string), integrationCriteria: array(string), verifyCommand: string })) }),
+  milestones: object({ tasks: array(object({ id: { type: 'string', pattern: '^[a-z0-9-]{1,48}$' }, title: { type: 'string', minLength: 1, maxLength: 160 },
+    dependsOn: array(string, { maxItems: 8 }), paths: array(string, { minItems: 1, maxItems: 16 }),
+    criteria: array(milestoneCriterion, { minItems: 1, maxItems: 8 }), integrationCriteria: array(milestoneCriterion, { maxItems: 8 }),
+    verifyCommand: { type: 'string', minLength: 5, maxLength: 1600 } }), { minItems: 2, maxItems: 8 }) }),
   worker: object({ done: { type: 'boolean' }, summary: string, operations: array({ anyOf: [
     object({ type: enumeration(['list']) }),
     object({ type: enumeration(['read', 'delete']), path: string }),

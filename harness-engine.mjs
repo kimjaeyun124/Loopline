@@ -92,8 +92,9 @@ function humanActionLedger(run) {
 }
 
 function quotaExhausted(error) {
+  if ([401, 403].includes(error?.remoteStatus ?? error?.status ?? error?.httpStatusCode)) return false;
   if (error?.quotaExhausted === true || error?.remoteStatus === 429 || error?.status === 429) return true;
-  return /(?:http\s*429|quota.{0,40}(?:exhaust|limit|reach)|(?:usage|rate)\s*limit|사용\s*한도|요청\s*제한|토큰.{0,12}소진)/i.test(String(error?.message || ''));
+  return /(?:http\s*429|quota.{0,40}(?:exhaust|limit|reach)|(?:usage|rate)\s*limit|(?:session|daily|weekly|monthly)\s*(?:usage\s*)?limit|hit\s+your\s+(?:current\s+)?(?:session|usage|request|token)\s+limit|사용\s*한도|요청\s*제한|토큰.{0,12}소진)/i.test(String(error?.message || ''));
 }
 
 function recoverableModelFailure(error) {
@@ -930,7 +931,8 @@ export class HarnessEngine {
       && prompt.startsWith('새 프로젝트의 작업 폴더 이름을 제안하세요.')) validate = validateProjectSetup;
     if (typeof validate !== 'function' && role === 'worker') validate = validateWorkerAction;
     responseSchema ||= validate === validateProjectSetup ? RESPONSE_SCHEMAS.project
-      : validate === validateWorkerAction ? RESPONSE_SCHEMAS.worker : undefined;
+      : validate === validateWorkerAction ? RESPONSE_SCHEMAS.worker
+        : validate === validateVerificationPlan ? RESPONSE_SCHEMAS.verificationProposal : undefined;
     const seen = new Set();
     let lastFallbackError = null;
     let validationFeedback = '';
@@ -1618,11 +1620,11 @@ export class HarnessEngine {
     let feedback = '';
     let schemaRepairAttempts = 0;
     const triedPlannerModels = new Set([selectionKey(run.roles.planner)]);
-    const verificationContract = `${offlineServerVerificationGuidance(run.task, files)}${filePersistenceSafetyGuidance(run.task, plan)}\n부분 검증 명령은 그 부분의 담당 파일과 기능을 실제로 검사해야 합니다. 화면 부분의 검증에 앞선 저장 모듈 테스트만 반복하지 마세요. UI 계약이나 통합 동작을 검사하는 테스트 파일과 명령을 해당 부분 paths에 포함하세요. 뒤 단계 파일이 아직 없는 시점에도 앞 부분 검사가 실행되어야 합니다. README 등 문서는 관련 구현 부분에 포함하고 별도의 문서 작업으로 최종 기능 QA를 대체하지 마세요.\n각 작업에 integrationCriteria 배열을 함께 작성하세요. criteria에는 해당 단계의 파일·실제 부분 검증 명령으로 확인할 기준을, integrationCriteria에는 후속 연결 이후 확인할 실제 브라우저·키보드 포커스·화면 크기·README 실행·전체 통합 기준을 넣으세요. 해당 기준이 없으면 []입니다. 실제 Chromium과 README QA는 마지막 작업에서 실행되므로 앞 작업의 criteria에서 그 실행 결과를 요구하면 계획이 실행 불가능합니다. 예: UI criteria=["UI 입력과 상태 연결을 Node 동작 테스트로 검증한다"], integrationCriteria=["실제 브라우저의 두 화면 크기에서 입력·저장·키보드 조작이 통과한다"]. 원래 요구사항은 두 기준을 합쳐 모두 보존하며, integrationCriteria도 계획 확정 후 변경할 수 없습니다.`;
+    const verificationContract = `${offlineServerVerificationGuidance(run.task, files)}${filePersistenceSafetyGuidance(run.task, plan)}\n부분 검증 명령은 그 부분의 담당 파일과 기능을 실제로 검사해야 합니다. 화면 부분의 검증에 앞선 저장 모듈 테스트만 반복하지 마세요. UI 계약이나 통합 동작을 검사하는 테스트 파일과 명령을 해당 부분 paths에 포함하세요. 뒤 단계 파일이 아직 없는 시점에도 앞 부분 검사가 실행되어야 합니다. README 등 문서는 관련 구현 부분에 포함하고 별도의 문서 작업으로 최종 기능 QA를 대체하지 마세요.\n각 criteria와 integrationCriteria는 공백을 제외하고 8자 이상인 구체적인 관찰 문장으로 작성하세요. "완료", "pass", "구현 완료"처럼 확인 방법과 기대 결과가 없는 문구는 금지합니다. criteria는 해당 verifyCommand를 실행했을 때 확인할 입력·기대 결과를 적고, integrationCriteria는 후속 통합에서 확인할 실제 동작을 적습니다. 각 작업에 integrationCriteria 배열을 함께 작성하세요. 해당 기준이 없으면 []입니다. 실제 Chromium과 README QA는 마지막 작업에서 실행되므로 앞 작업의 criteria에서 그 실행 결과를 요구하면 계획이 실행 불가능합니다. 예: criteria=["node --test tests/core.test.mjs에서 빈 제목 거부와 작업 추가가 통과한다"], integrationCriteria=["1440x900과 390x844 실제 브라우저에서 입력·저장 흐름이 통과한다"]. 원래 요구사항은 두 기준을 합쳐 모두 보존하며, integrationCriteria도 계획 확정 후 변경할 수 없습니다.`;
     for (let attempt = 0; attempt < 3; attempt++) {
       let tasks;
       try {
-        const answer = await this.callValidated(record, 'planner', `큰 프로젝트를 검증 가능한 작은 부분 작업 2~8개로 나누세요. 목표: ${run.task}\n기존 계획: ${plan}\n파일 목록: ${files}\n독립 QA 계약: ${JSON.stringify(run.qaPlan)}\n각 부분 작업은 실제 파일과 동작을 만들고 오프라인에서 단독 검증할 수 있어야 합니다. 뒤 작업에 의존하는 전체 테스트를 앞 단계 검증에 쓰지 말고 해당 부분 테스트를 계획하세요. 파일당 책임과 의존 순서를 명확히 하고 모든 원래 요구사항을 포함하세요. 각 작업의 변경은 판정이 전체 내용을 읽을 수 있도록 60,000자 이내를 목표로 나누세요. paths는 담당 파일 이름 또는 폴더/** 패턴입니다. 임의 전체 경로 **는 금지입니다. 부분 완료로 최종 완료를 대체하지 않으며 마지막에 전체 통합 검증과 브라우저 QA를 수행합니다. JSON만 반환하세요: {"tasks":[{"id":"core","title":"핵심 동작","dependsOn":[],"paths":["src/core.js","tests/core.test.mjs"],"criteria":["핵심 동작을 입력과 출력으로 확인"],"verifyCommand":"node --test tests/core.test.mjs"},{"id":"integration","title":"전체 연결","dependsOn":["core"],"paths":["index.html","tests/integration.test.mjs"],"criteria":["핵심 동작을 화면과 연결해 검사"],"verifyCommand":"node --test tests/integration.test.mjs"}]}\n직전 계획 판정 피드백: ${feedback}${verificationContract}`, '부분 작업 계획 / Milestone plan', { retryInvalid: false, responseSchema: RESPONSE_SCHEMAS.milestones, validate: (value) => validateMilestones(typeof value === 'string' ? parseHarnessJson(value) : value) });
+        const answer = await this.callValidated(record, 'planner', `큰 프로젝트를 검증 가능한 작은 부분 작업 2~8개로 나누세요. 목표: ${run.task}\n기존 계획: ${plan}\n파일 목록: ${files}\n독립 QA 계약: ${JSON.stringify(run.qaPlan)}\n각 부분 작업은 실제 파일과 동작을 만들고 오프라인에서 단독 검증할 수 있어야 합니다. 뒤 작업에 의존하는 전체 테스트를 앞 단계 검증에 쓰지 말고 해당 부분 테스트를 계획하세요. 파일당 책임과 의존 순서를 명확히 하고 모든 원래 요구사항을 포함하세요. 각 작업의 변경은 판정이 전체 내용을 읽을 수 있도록 60,000자 이내를 목표로 나누세요. paths는 담당 파일 이름 또는 폴더/** 패턴입니다. 임의 전체 경로 **는 금지입니다. 부분 완료로 최종 완료를 대체하지 않으며 마지막에 전체 통합 검증과 브라우저 QA를 수행합니다. JSON만 반환하세요: {"tasks":[{"id":"core","title":"핵심 동작","dependsOn":[],"paths":["src/core.js","tests/core.test.mjs"],"criteria":["node --test tests/core.test.mjs에서 빈 제목 거부와 작업 추가가 통과한다"],"integrationCriteria":[],"verifyCommand":"node --test tests/core.test.mjs"},{"id":"integration","title":"전체 연결","dependsOn":["core"],"paths":["index.html","tests/integration.test.mjs"],"criteria":["node --test tests/integration.test.mjs에서 화면 동작이 통과한다"],"integrationCriteria":["1440x900과 390x844 실제 브라우저에서 입력·저장 흐름이 통과한다"],"verifyCommand":"node --test tests/integration.test.mjs"}]}\n직전 계획 판정 피드백: ${feedback}${verificationContract}`, '부분 작업 계획 / Milestone plan', { retryInvalid: false, responseSchema: RESPONSE_SCHEMAS.milestones, validate: (value) => validateMilestones(typeof value === 'string' ? parseHarnessJson(value) : value) });
         tasks = validateMilestones(typeof answer === 'string' ? parseHarnessJson(answer) : answer);
       } catch (error) {
         if (!error.invalidStructuredOutput || schemaRepairAttempts >= 1 || attempt >= 2) throw error;

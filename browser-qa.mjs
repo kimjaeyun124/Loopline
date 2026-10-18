@@ -298,7 +298,12 @@ export async function verifyReadmeLaunch(workspace, { execute, signal } = {}) {
 }
 
 export function needsBrowserQa(task, files = '') {
-  return /(?:website|web\s*(?:app|page|site)|front[- ]end|dashboard|landing\s*page|\bUI\b|웹\s*(?:사이트|앱|페이지)|프론트엔드|대시보드|랜딩|화면|디자인)/i.test(task)
+  const description = String(task || '');
+  const explicitBrowserQa = /(?:\bbrowser\s*(?:qa|test(?:ing)?)\b|브라우저\s*(?:qa|테스트|검증))/i.test(description);
+  const webStack = /\bhtml\b/i.test(description) && /\bcss\b/i.test(description)
+    && /\b(?:javascript|js)\b/i.test(description);
+  return explicitBrowserQa || webStack
+    || /(?:website|web\s*(?:app|page|site)|front[- ]end|dashboard|landing\s*page|\bUI\b|웹\s*(?:사이트|앱|페이지)|프론트엔드|대시보드|랜딩|화면|디자인)/i.test(description)
     || /(?:^|\n).*\.(?:html|jsx|tsx|vue|svelte|astro)(?:\n|$)/i.test(files);
 }
 function validateNotApplicable(value, covered, invalid) {

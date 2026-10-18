@@ -1,0 +1,10 @@
+version: 1
+id: e19d7709-9053-4b21-8163-9a676171ccea
+name: Loopline Primary Provider Failure
+slug: loopline-primary-provider-failure
+protocol: http
+port: 46101
+scenarios:
+  - name: default
+    path: ./default.js
+    default: true

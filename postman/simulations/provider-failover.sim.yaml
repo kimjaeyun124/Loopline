@@ -1,0 +1,16 @@
+# Simulation scaffold. Add fault-injection scenarios under each mock, e.g.:
+#   scenarios:
+#     - overrides:
+#         conditions:
+#           latency: { delay_ms: 500 }
+# Then serve it with: postman simulation run <this file>
+
+simulation: Loopline Provider Failover QA
+routing: path
+mocks:
+  - name: Loopline Primary Provider Failure
+    routeKey: primary
+    path: ../mocks/provider-primary/config.yaml
+  - name: Loopline Fallback Provider Success
+    routeKey: fallback
+    path: ../mocks/provider-fallback/config.yaml

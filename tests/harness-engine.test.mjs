@@ -572,6 +572,38 @@ test('HTTP 429 fails over in the saved order but authentication errors do not', 
   assert.deepEqual(attempted, ['fixture-model']);
 });
 
+test('Claude session-limit responses use the saved fallback while authentication status remains fatal', async (t) => {
+  const f = await fixture(t), workerCalls = [], script = modelScript(complete);
+  const worker = { provider: 'anthropic', model: 'claude-sonnet-5', label: 'Claude Sonnet 5', fallbacks: [
+    { provider: 'openai', model: 'gpt-6.1-sol', label: 'GPT-6.1 Sol' },
+  ] };
+  const engine = new HarnessEngine({ directory: f.data, verify: pass, invoke: async (selection, prompt, ...rest) => {
+    if (!isJudgementPrompt(prompt) && !hasText(prompt, '구현 계획과 검증 기준')) {
+      workerCalls.push(selection.model);
+      if (selection.model === 'claude-sonnet-5') throw new Error("You've hit your session limit · resets 12:50am (Asia/Seoul)");
+    }
+    return script(selection, prompt, ...rest);
+  } });
+  const run = await settled(engine, (await engine.create({ ...f.input, roles: { ...f.input.roles, worker } })).id);
+
+  assert.equal(run.status, 'completed', run.summary);
+  assert.deepEqual(workerCalls.slice(0, 2), ['claude-sonnet-5', 'gpt-6.1-sol']);
+  assert.equal(run.stageModels.worker.id, 'gpt-6.1-sol');
+  assert.ok(run.events.some((event) => event.title.includes('한도 초과') && event.model?.id === 'claude-sonnet-5'));
+
+  const g = await fixture(t), authCalls = [];
+  const authEngine = new HarnessEngine({ directory: g.data, verify: pass, invoke: async (selection, prompt, ...rest) => {
+    if (!isJudgementPrompt(prompt) && !hasText(prompt, '구현 계획과 검증 기준')) {
+      authCalls.push(selection.model);
+      if (selection.model === 'claude-sonnet-5') throw Object.assign(new Error("You've hit your session limit"), { remoteStatus: 401 });
+    }
+    return script(selection, prompt, ...rest);
+  } });
+  const failed = await settled(authEngine, (await authEngine.create({ ...g.input, roles: { ...g.input.roles, worker } })).id);
+  assert.equal(failed.status, 'failed');
+  assert.deepEqual(authCalls, ['claude-sonnet-5']);
+});
+
 test('Jev quota exhaustion routes every subsequent judgement to the saved general model', async (t) => {
   const f = await fixture(t), calls = [];
   const script = modelScript(complete);

@@ -1,0 +1,63 @@
+openapi: 3.1.0
+info:
+  title: Loopline OpenAI-Compatible Provider Subset
+  version: 1.0.0
+  description: Local test contract derived from api-connections.mjs paths and fields. The Postman simulation supplies the route-key host prefix.
+servers:
+  - url: http://localhost/v1
+paths:
+  /models:
+    get:
+      responses:
+        '200':
+          description: Available text models
+          content:
+            application/json:
+              example:
+                data:
+                  - id: qa-model
+                    name: QA model
+                    output_modalities: [text]
+                    supported_reasoning_efforts: [low, medium, high]
+  /chat/completions:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                model: { type: string }
+                messages:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      role: { type: string }
+                      content: { type: string }
+                    required: [role, content]
+              required: [model, messages]
+      responses:
+        '200':
+          description: A completed JSON-schema chat response
+          content:
+            application/json:
+              example:
+                choices:
+                  - index: 0
+                    message:
+                      role: assistant
+                      content: '{"done":true,"summary":"mock provider response","operations":[]}'
+                    finish_reason: stop
+                usage:
+                  prompt_tokens: 12
+                  completion_tokens: 9
+                  total_tokens: 21
+        '503':
+          description: Simulated upstream provider outage for the primary route
+          content:
+            application/json:
+              example:
+                error:
+                  message: simulated provider outage

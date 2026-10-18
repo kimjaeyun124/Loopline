@@ -34,6 +34,9 @@ test('browser QA detects web work while keeping command line JavaScript outside 
   assert.equal(needsBrowserQa('Task ledger CLI', 'cli.mjs\ncli.js'), false);
   assert.equal(needsBrowserQa('웹사이트 제작', ''), true);
   assert.equal(needsBrowserQa('버그 수정', 'index.html'), true);
+  assert.equal(needsBrowserQa('Build a responsive task tracker with HTML, CSS, and JavaScript. Run browser QA.'), true);
+  assert.equal(needsBrowserQa('Run browser testing for the single-page interface.'), true);
+  assert.equal(needsBrowserQa('브라우저 QA로 입력과 저장을 확인해 주세요.'), true);
 });
 
 test('QA repair errors identify the invalid case and reject non-object steps as structured errors', () => {

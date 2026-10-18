@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { HarnessEngine, runCommand } from '../harness-engine.mjs';
 import { validateMilestones, milestoneContract, milestoneFiles, refreshMilestones, matchesMilestone, nextMilestone, milestoneCoverage } from '../harness-milestones.mjs';
 import { validateBrowserPlan, BROWSER_QA_EXECUTOR } from '../browser-qa.mjs';
+import { RESPONSE_SCHEMAS } from '../harness-response-schemas.mjs';
 
 const plan = { tasks: [
   { id: 'first', title: '첫 기능', dependsOn: [], paths: ['first.txt'], criteria: ['첫 기능 결과가 저장됩니다'], verifyCommand: 'test -f first.txt' },
@@ -73,6 +74,10 @@ test('malformed milestone plans get one bounded repair prompt before the plan re
   engine.callValidated = async (_record, role, prompt, title, options) => {
     assert.equal(role, 'planner'); assert.equal(title, '부분 작업 계획 / Milestone plan'); assert.equal(options.retryInvalid, false);
     assert.equal(options.validate(plan).length, 2);
+    const taskSchema = options.responseSchema.properties.tasks;
+    assert.equal(taskSchema.minItems, 2); assert.equal(taskSchema.maxItems, 8);
+    assert.equal(taskSchema.items.properties.criteria.items.minLength, 8);
+    assert.equal(taskSchema.items.properties.integrationCriteria.items.minLength, 8);
     prompts.push(prompt); calls++;
     if (calls === 1) throw Object.assign(new Error('부분 작업 계획 오류: 관찰 가능한 완료 기준이 필요합니다.'), { invalidStructuredOutput: true });
     return plan;
@@ -165,6 +170,8 @@ test('milestone review changes judge after two unexplained rejections and rechec
 
 test('milestone plans reject cycles, unbounded ownership, empty criteria and fake checks', () => {
   assert.equal(validateMilestones(plan).length, 2);
+  const shortCriteria = structuredClone(plan); shortCriteria.tasks[0].criteria = ['pass'];
+  assert.throws(() => validateMilestones(shortCriteria), /관찰 가능한 완료 기준/);
   const forward = structuredClone(plan); forward.tasks[0].dependsOn = ['second']; assert.throws(() => validateMilestones(forward), /의존 작업/);
   for (const path of ['**', '../outside', '.git/config', '/private/key', 'src/*']) {
     const invalid = structuredClone(plan); invalid.tasks[0].paths = [path]; assert.throws(() => validateMilestones(invalid), /담당 파일/);

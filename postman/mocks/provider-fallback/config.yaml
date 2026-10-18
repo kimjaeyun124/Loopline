@@ -1,0 +1,10 @@
+version: 1
+id: 4f3e2d2f-9c4b-450f-ac14-f36e943e4d43
+name: Loopline Fallback Provider Success
+slug: loopline-fallback-provider-success
+protocol: http
+port: 46102
+scenarios:
+  - name: default
+    path: ./default.js
+    default: true
